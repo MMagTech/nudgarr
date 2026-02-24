@@ -13,7 +13,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +30,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # IMPORTANT: GHCR repo names must be lowercase.
       - name: Set image name (lowercase)
         id: img
         run: echo "IMAGE=ghcr.io/mmagtech/nudgarr" >> $GITHUB_OUTPUT
@@ -41,28 +39,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           IMAGE="${{ steps.img.outputs.IMAGE }}"
           REF="${GITHUB_REF}"
           REF_NAME="${GITHUB_REF_NAME}"
-
           TAGS=""
-
-          # Branch build -> latest + edge
           if [[ "${REF}" == refs/heads/main ]]; then
             TAGS="${IMAGE}:latest,${IMAGE}:edge"
           fi
-
-          # Tag build -> v1.0.0 + 1.0.0 + 1.0
           if [[ "${REF}" == refs/tags/v* ]]; then
-            V="${REF_NAME#v}"          # strip leading 'v'
+            V="${REF_NAME#v}"
             MAJOR="${V%%.*}"
             REST="${V#*.}"
             MINOR="${REST%%.*}"
-
             TAGS="${IMAGE}:${REF_NAME},${IMAGE}:${V},${IMAGE}:${MAJOR}.${MINOR}"
           fi
-
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - name: Build and push

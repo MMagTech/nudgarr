@@ -1,16 +1,29 @@
 # Nudgarr
 ### Because RSS sometimes needs a nudge.
 
-A polite upgrade sweeper for Radarr & Sonarr.
+Nudgarr is a polite upgrade sweeper for Radarr & Sonarr.
 
-## What It Does
-- Radarr: Triggers CutOffUnmetMoviesSearch
-- Sonarr: Searches limited cutoff-unmet episodes per run
+## v1.1.0 adds
+- Caps per run for **Radarr movies** and **Sonarr episodes**
+- Persistent JSON state DB under `/config` to avoid re-searching too often (cooldown)
+- Minimal web UI to edit config and test connections
 
-## Quick Start
-1. Copy `.env.example` to `.env`
-2. Fill in API keys
-3. Run `docker compose up`
+## Web UI
+Open: `http://<your-host>:8085`
 
-## Philosophy
-Just a nudge. Nothing more.
+- Config: `/config/nudgarr-config.json`
+- State:  `/config/nudgarr-state.json`
+
+## Unraid persistence
+Map:
+- Host: `/mnt/user/appdata/nudgarr`
+- Container: `/config`
+
+## Quick start (Unraid)
+1. Install: `ghcr.io/mmagtech/nudgarr:latest`
+2. Map `/config` and publish port `8085`
+3. Start container
+4. Use UI to add instances + set caps/cooldown
+5. Toggle DRY_RUN off when ready
+
+Security: keep UI behind LAN or your reverse proxy + Auth (API keys are stored in config).

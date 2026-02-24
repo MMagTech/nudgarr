@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  nudgarr:
+    image: ghcr.io/mmagtech/nudgarr:latest
+    container_name: nudgarr
+    restart: unless-stopped
+    volumes:
+      - /mnt/user/appdata/nudgarr:/config
+    env_file:
+      - .env

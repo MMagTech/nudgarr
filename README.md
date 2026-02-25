@@ -3,11 +3,11 @@
 
 Nudgarr is a polite upgrade sweeper for Radarr & Sonarr.
 
-## v1.2.0 highlights
+## v1.2.2 highlights
 - Clean minimal control panel UI (Instances / Settings / State / Advanced)
 - Multiple Radarr/Sonarr instances with add/edit/delete + connection test
 - Per-setting descriptions + safe defaults
-- State viewer + raw JSON view, Run Now button, and pruning controls
+- State viewer (friendly), Run Now button, and pruning controls
 - State size controls:
   - **Retention days** (default 180)
   - **Compact state** by default

@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.2.0"
+VERSION = "1.2.2"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -428,6 +428,11 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
 app = Flask(__name__)
 
+# Silence default Flask request logging (werkzeug)
+import logging
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+
 STATUS: Dict[str, Any] = {
     "version": VERSION,
     "last_run_utc": None,
@@ -639,8 +644,8 @@ UI_HTML = r"""<!doctype html>
         <div class="kpi" id="kpis"></div>
         <div class="row" style="margin-top:10px">
           <button class="btn" onclick="refreshState()">Refresh</button>
-          <button class="btn" onclick="pruneState()">Prune expired now</button>
-          <button class="btn danger" onclick="clearState()">Clear ALL state</button>
+          <button class="btn" onclick="pruneState()">Prune expired</button>
+          <button class="btn danger" onclick="clearState()">Clear state</button>
           <div class="right"></div>
           <input id="stateSearch" placeholder="Filter (e.g. movie:123 or episode:456)"/>
         </div>
@@ -665,14 +670,9 @@ UI_HTML = r"""<!doctype html>
             </select>
           </div>
           <div class="right"></div>
-          <button class="btn" onclick="toggleRaw()">Toggle raw JSON</button>
         </div>
 
         <div id="stateTableWrap" style="margin-top:10px"></div>
-        <div id="rawWrap" class="hide" style="margin-top:10px">
-          <textarea id="rawState" readonly></textarea>
-        </div>
-
         <div class="row" style="margin-top:10px">
           <button class="btn" onclick="prevPage()">Prev</button>
           <button class="btn" onclick="nextPage()">Next</button>
@@ -719,12 +719,19 @@ UI_HTML = r"""<!doctype html>
         <p class="help">These actions are irreversible.</p>
         <div class="row">
           <button class="btn danger" onclick="resetConfig()">Reset config to defaults</button>
-          <button class="btn danger" onclick="clearState()">Clear ALL state</button>
+          <button class="btn danger" onclick="clearState()">Clear state</button>
         </div>
         <div class="hr"></div>
         <h3 style="margin:0 0 8px">Diagnostics</h3>
         <div class="row">
           <button class="btn" onclick="refreshStatus()">Refresh status</button>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" onclick="toggleRawState()">View raw state</button>
+        </div>
+        <div id="rawStateWrap" class="hide" style="margin-top:10px">
+          <textarea id="rawState" readonly></textarea>
         </div>
         <pre id="diag" class="mono" style="white-space:pre-wrap; margin:12px 0 0; background:rgba(0,0,0,.25); border-radius:14px; padding:12px; border:1px solid var(--line);">—</pre>
       </div>
@@ -736,7 +743,6 @@ UI_HTML = r"""<!doctype html>
 <script>
 let CFG = null;
 let PAGE = 0;
-let RAW = false;
 
 function showTab(name){
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
@@ -949,8 +955,7 @@ async function refreshStatus(){
 
 function toggleRaw(){
   RAW = !RAW;
-  el('rawWrap').classList.toggle('hide', !RAW);
-  refreshState();
+    refreshState();
 }
 
 async function refreshState(){
@@ -993,11 +998,6 @@ async function refreshState(){
       </table>
     `;
 
-    if(RAW){
-      const raw = await api('/api/state/raw');
-      el('rawState').value = JSON.stringify(raw, null, 2);
-    }
-
   }catch(e){
     el('stateTableWrap').innerHTML = `<p class="help">Failed to load state: ${escapeHtml(e.message)}</p>`;
   }
@@ -1016,7 +1016,7 @@ async function pruneState(){
 }
 
 async function clearState(){
-  if(!confirm('Clear ALL state? This removes cooldown history.')) return;
+  if(!confirm('Clear state? This removes cooldown history.')) return;
   const out = await api('/api/state/clear', {method:'POST'});
   alert('State cleared.');
   PAGE=0; refreshState();
@@ -1036,6 +1036,21 @@ async function downloadFile(which){
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+
+async function toggleRawState(){
+  const wrap = el('rawStateWrap');
+  const opening = wrap.classList.contains('hide');
+  wrap.classList.toggle('hide');
+  if(opening){
+    try{
+      const raw = await api('/api/state/raw');
+      el('rawState').value = JSON.stringify(raw, null, 2);
+    }catch(e){
+      el('rawState').value = 'Failed to load raw state: ' + e.message;
+    }
+  }
 }
 
 loadAll();

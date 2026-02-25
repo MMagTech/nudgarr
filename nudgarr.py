@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -128,37 +128,50 @@ def req(session: requests.Session, method: str, url: str, key: str, json_body: O
     return None
 
 def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    errs: List[str] = []    if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
+    errs: List[str] = []
+
+    # scheduler_enabled must be boolean
+    if not isinstance(cfg.get("scheduler_enabled"), bool):
+        errs.append("scheduler_enabled must be boolean")
+
+    # run interval must be an int >= 1
+    if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
+
+    # sample mode must be valid
     if cfg.get("sample_mode") not in ("random", "first"):
         errs.append("sample_mode must be 'random' or 'first'")
-    for k in ("radarr_max_movies_per_run", "sonarr_max_episodes_per_run", "cooldown_hours", "batch_size", "state_retention_days", "radarr_missing_max", "radarr_missing_added_days"):
-        if not isinstance(cfg.get(k), int) or cfg[k] < 0:
+
+    # numeric bounds checks
+    for k in (
+        "radarr_max_movies_per_run",
+        "sonarr_max_episodes_per_run",
+        "cooldown_hours",
+        "batch_size",
+        "state_retention_days",
+        "radarr_missing_max",
+        "radarr_missing_added_days",
+        "sleep_seconds",
+        "jitter_seconds",
+    ):
+        v = cfg.get(k)
+        if not isinstance(v, int) or v < 0:
             errs.append(f"{k} must be an int >= 0")
-    if not isinstance(cfg.get("state_pretty"), bool):
-        errs.append("state_pretty must be boolean")
-    for k in ("sleep_seconds", "jitter_seconds"):
-        try:
-            float(cfg.get(k, 0))
-        except Exception:
-            errs.append(f"{k} must be a number")
-    inst = cfg.get("instances", {})
+
+    # Special: batch_size must be >= 1
+    if isinstance(cfg.get("batch_size"), int) and cfg["batch_size"] < 1:
+        errs.append("batch_size must be an int >= 1")
+
+    # instances shape
+    inst = cfg.get("instances")
     if not isinstance(inst, dict):
-        errs.append("instances must be an object with keys radarr/sonarr")
+        errs.append("instances must be an object with keys: radarr, sonarr")
     else:
         for app in ("radarr", "sonarr"):
-            lst = inst.get(app, [])
-            if not isinstance(lst, list):
+            if app not in inst or not isinstance(inst.get(app), list):
                 errs.append(f"instances.{app} must be a list")
-            else:
-                for i, item in enumerate(lst):
-                    if not isinstance(item, dict):
-                        errs.append(f"instances.{app}[{i}] must be an object")
-                        continue
-                    for f in ("name", "url", "key"):
-                        if not item.get(f):
-                            errs.append(f"instances.{app}[{i}].{f} is required")
-    return (len(errs) == 0), errs
+
+    return len(errs) == 0, errs
 
 def deep_copy(obj: Any) -> Any:
     return json.loads(json.dumps(obj))

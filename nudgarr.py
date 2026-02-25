@@ -31,14 +31,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.2.2"
+VERSION = "1.3.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
 PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "run_mode": "loop",                # loop | once
+    "scheduler_enabled": True,        # automatic sweeps on/off (container stays running)
     "run_interval_minutes": 360,
     "dry_run": True,
 
@@ -47,6 +47,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     "radarr_max_movies_per_run": 25,
     "sonarr_max_episodes_per_run": 25,
+
+    # Optional Radarr backlog missing nudges (OFF by default)
+    "radarr_missing_max": 0,
+    "radarr_missing_added_days": 14,
 
     "batch_size": 20,
     "sleep_seconds": 3,
@@ -124,14 +128,11 @@ def req(session: requests.Session, method: str, url: str, key: str, json_body: O
     return None
 
 def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    errs: List[str] = []
-    if cfg.get("run_mode") not in ("once", "loop"):
-        errs.append("run_mode must be 'once' or 'loop'")
-    if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
+    errs: List[str] = []    if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
     if cfg.get("sample_mode") not in ("random", "first"):
         errs.append("sample_mode must be 'random' or 'first'")
-    for k in ("radarr_max_movies_per_run", "sonarr_max_episodes_per_run", "cooldown_hours", "batch_size", "state_retention_days"):
+    for k in ("radarr_max_movies_per_run", "sonarr_max_episodes_per_run", "cooldown_hours", "batch_size", "state_retention_days", "radarr_missing_max", "radarr_missing_added_days"):
         if not isinstance(cfg.get(k), int) or cfg[k] < 0:
             errs.append(f"{k} must be an int >= 0")
     if not isinstance(cfg.get("state_pretty"), bool):
@@ -286,6 +287,25 @@ def radarr_get_cutoff_unmet_movie_ids(session: requests.Session, url: str, key: 
                 movie_ids.append(mid)
     return movie_ids
 
+def radarr_get_missing_movie_ids(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
+    """Returns list of dicts: {movieId:int, added:str|None} from Wanted->Missing."""
+    out: List[Dict[str, Any]] = []
+    for page in range(1, max_pages + 1):
+        endpoint = f"{url.rstrip('/')}/api/v3/wanted/missing?page={page}&pageSize={page_size}"
+        data = req(session, "GET", endpoint, key)
+        if not isinstance(data, dict):
+            break
+        records = data.get("records") or []
+        if not records:
+            break
+        for rec in records:
+            mid = rec.get("movieId")
+            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")  # best effort across versions
+            if isinstance(mid, int):
+                out.append({"movieId": mid, "added": added})
+    return out
+
+
 def radarr_search_movies(session: requests.Session, url: str, key: str, movie_ids: List[int], dry_run: bool) -> None:
     if not movie_ids:
         return
@@ -381,7 +401,53 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 "will_search": len(chosen), "searched": searched,
                 "limit": radarr_max
             })
-        except Exception as e:
+        
+            # Optional: Missing backlog nudges (Radarr only)
+            missing_max = int(cfg.get("radarr_missing_max", 0))
+            missing_added_days = int(cfg.get("radarr_missing_added_days", 14))
+            if missing_max > 0:
+                missing_records = radarr_get_missing_movie_ids(session, url, key)
+                # Filter: only items added more than N days ago (best-effort if added timestamp missing)
+                min_added_dt = utcnow() - timedelta(days=missing_added_days)
+                missing_ids: List[int] = []
+                for rec in missing_records:
+                    mid = rec.get("movieId")
+                    added_s = rec.get("added")
+                    ok_old = True
+                    if isinstance(added_s, str):
+                        dt = parse_iso(added_s)
+                        if dt is not None:
+                            ok_old = dt < min_added_dt
+                    # if we can't parse added, treat as old (so it can still be nudged if desired)
+                    if ok_old and isinstance(mid, int):
+                        missing_ids.append(mid)
+
+                chosen_m, eligible_m, skipped_m = pick_ids_with_cooldown(
+                    missing_ids, st_bucket, "missing_movie", cooldown_hours, missing_max, sample_mode
+                )
+                print(f"[Radarr:{name}] missing_total={len(missing_records)} eligible_missing={eligible_m} skipped_missing_cooldown={skipped_m} will_search_missing={len(chosen_m)} limit_missing={missing_max} older_than_days={missing_added_days}")
+
+                searched_m = 0
+                for i in range(0, len(chosen_m), batch_size):
+                    batch = chosen_m[i:i+batch_size]
+                    radarr_search_movies(session, url, key, batch, dry_run)
+                    if not dry_run:
+                        mark_ids_searched(st_bucket, "missing_movie", batch)
+                    searched_m += len(batch)
+                    if i + batch_size < len(chosen_m):
+                        jitter_sleep(sleep_seconds, jitter_seconds)
+
+                # record in summary
+                summary["radarr"][-1].update({
+                    "missing_total": len(missing_records),
+                    "eligible_missing": eligible_m,
+                    "skipped_missing_cooldown": skipped_m,
+                    "will_search_missing": len(chosen_m),
+                    "searched_missing": searched_m,
+                    "limit_missing": missing_max,
+                    "missing_added_days": missing_added_days,
+                })
+except Exception as e:
             print(f"[Radarr:{name}] ERROR: {e}")
             summary["radarr"].append({"name": name, "url": mask_url(url), "error": str(e)})
 
@@ -555,17 +621,17 @@ UI_HTML = r"""<!doctype html>
         <h3 style="margin:0 0 8px">Run</h3>
         <div class="row">
           <div class="field">
-            <label>Run mode</label>
-            <select id="run_mode">
-              <option value="loop">loop</option>
-              <option value="once">once</option>
+            <label>Automatic sweeps</label>
+            <select id="scheduler_enabled" onchange="syncSchedulerUi()">
+              <option value="true">enabled</option>
+              <option value="false">manual only</option>
             </select>
-            <div class="help">Loop runs continuously and sleeps between cycles. Once runs a single sweep and exits.</div>
+            <div class="help">When set to <b>manual only</b>, Nudgarr stays running for the UI but will only sweep when you click <b>Run now</b>.</div>
           </div>
           <div class="field">
             <label>Run interval (minutes)</label>
             <input id="run_interval_minutes" type="number" min="1"/>
-            <div class="help">How often Nudgarr runs a sweep in loop mode.</div>
+            <div class="help">How often Nudgarr runs a sweep when automatic sweeps are enabled.</div>
           </div>
         </div>
 
@@ -595,12 +661,28 @@ UI_HTML = r"""<!doctype html>
           <div class="field">
             <label>Radarr max movies per run</label>
             <input id="radarr_max_movies_per_run" type="number" min="0"/>
-            <div class="help">Total Radarr searches Nudgarr may trigger per sweep. (0 disables Radarr searching.)</div>
+            <div class="help">Total Radarr upgrade searches per sweep <b>per instance</b>. If you have multiple Radarr instances, each can search up to this limit. (0 disables Radarr upgrades.)</div>
           </div>
           <div class="field">
             <label>Sonarr max episodes per run</label>
             <input id="sonarr_max_episodes_per_run" type="number" min="0"/>
-            <div class="help">Total Sonarr searches per sweep. (0 disables Sonarr searching.)</div>
+            <div class="help">Total Sonarr upgrade searches per sweep <b>per instance</b>. If you have multiple Sonarr instances, each can search up to this limit. (0 disables Sonarr upgrades.)</div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <h3 style="margin:0 0 8px">Backlog nudges (optional)</h3>
+        <div class="row">
+          <div class="field">
+            <label>Radarr missing max</label>
+            <input id="radarr_missing_max" type="number" min="0"/>
+            <div class="help">Optional: nudge <b>missing</b> movies for Radarr. Applies <b>per instance</b>. Set to 0 to disable (recommended default).</div>
+          </div>
+          <div class="field">
+            <label>Radarr missing added days</label>
+            <input id="radarr_missing_added_days" type="number" min="0"/>
+            <div class="help">Only nudge missing movies that were added more than this many days ago (helps avoid interfering with normal RSS behavior).</div>
           </div>
         </div>
 
@@ -789,7 +871,7 @@ async function loadAll(){
   const st = await api('/api/status');
   el('ver').textContent = st.version;
   el('lastRun').textContent = fmtTime(st.last_run_utc);
-  el('nextRun').textContent = fmtTime(st.next_run_utc);
+  el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual mode';
   setLivePill(CFG.dry_run);
 
   renderInstances('radarr');
@@ -856,9 +938,16 @@ function deleteInstance(kind, idx){
   el('saveMsg').textContent = 'Deleted. Click Save changes.';
 }
 
+
+function syncSchedulerUi(){
+  const enabled = (el('scheduler_enabled').value === 'true');
+  el('run_interval_minutes').disabled = !enabled;
+  el('run_interval_minutes').style.opacity = enabled ? '1' : '0.6';
+}
+
 function fillSettings(){
   const set = (id, v) => { el(id).value = v; };
-  set('run_mode', CFG.run_mode);
+  set('scheduler_enabled', String(!!CFG.scheduler_enabled));
   set('run_interval_minutes', CFG.run_interval_minutes);
   set('cooldown_hours', CFG.cooldown_hours);
   set('sample_mode', CFG.sample_mode);
@@ -867,6 +956,7 @@ function fillSettings(){
   set('batch_size', CFG.batch_size);
   set('sleep_seconds', CFG.sleep_seconds);
   set('jitter_seconds', CFG.jitter_seconds);
+  syncSchedulerUi();
 }
 
 async function saveAll(){
@@ -882,12 +972,14 @@ async function saveAll(){
 async function saveSettings(){
   try{
     // pull values from inputs into CFG
-    CFG.run_mode = el('run_mode').value;
+    CFG.scheduler_enabled = (el('scheduler_enabled').value === 'true');
     CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '360', 10);
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
     CFG.sample_mode = el('sample_mode').value;
     CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
     CFG.sonarr_max_episodes_per_run = parseInt(el('sonarr_max_episodes_per_run').value || '25', 10);
+    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
+    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
@@ -949,7 +1041,7 @@ async function refreshStatus(){
   const st = await api('/api/status');
   el('ver').textContent = st.version;
   el('lastRun').textContent = fmtTime(st.last_run_utc);
-  el('nextRun').textContent = fmtTime(st.next_run_utc);
+  el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual mode';
   el('diag').textContent = JSON.stringify(st, null, 2);
 }
 
@@ -1257,7 +1349,7 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     print(f"State:  {STATE_FILE}")
     print(f"UI:     http://<host>:{PORT}/")
     print("")
-    print(f"Mode: {cfg.get('run_mode')}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
+    print(f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
     print("")
 
 def start_ui_server() -> None:
@@ -1276,11 +1368,15 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
 
         now = utcnow()
         interval_min = int(cfg.get("run_interval_minutes", 360))
+        scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
         next_run = now + timedelta(minutes=interval_min)
-        STATUS["next_run_utc"] = iso_z(next_run)
+        STATUS["next_run_utc"] = iso_z(next_run) if scheduler_enabled else None
 
-        run_mode = str(cfg.get("run_mode", "loop")).lower()
-        should_run = True if cycle == 0 else False  # first cycle always runs
+        scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
+        # If scheduler is enabled: run on startup and then on interval.
+        # If disabled: only run when explicitly requested (Run now).
+        should_run = (scheduler_enabled and cycle == 0)
+
 
         with RUN_LOCK:
             if STATUS.get("run_requested"):
@@ -1305,11 +1401,9 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         if stop_flag["stop"]:
             break
 
-        if run_mode == "once":
-            break
-
-        # sleep until next run, but check stop/request once a second
-        sleep_seconds = interval_min * 60
+        # sleep until next run (when scheduler enabled), but check stop/request once a second.
+        # In manual mode (scheduler disabled), we just wait for a run request.
+        sleep_seconds = interval_min * 60 if scheduler_enabled else 365 * 24 * 60 * 60
         for _ in range(sleep_seconds):
             if stop_flag["stop"]:
                 break

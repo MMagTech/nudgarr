@@ -3,7 +3,7 @@
 
 Nudgarr is a polite upgrade sweeper for Radarr & Sonarr.
 
-## v1.2.2 highlights
+## v1.3.0 highlights
 - Clean minimal control panel UI (Instances / Settings / State / Advanced)
 - Multiple Radarr/Sonarr instances with add/edit/delete + connection test
 - Per-setting descriptions + safe defaults
@@ -26,3 +26,6 @@ Map:
 ## Notes
 - Keep the UI behind LAN or your reverse proxy + Auth (API keys are stored in the config file).
 - Nudgarr targets **Wanted → Cutoff Unmet** for both apps.
+
+
+> Note: README will be expanded in a follow-up to better explain cooldown + caps.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Nudgarr v1.3.0 — Because RSS sometimes needs a nudge.
+Nudgarr v1.3.1 — Because RSS sometimes needs a nudge.
 
 Core:
 - Caps per run for Radarr (movies) and Sonarr (episodes)
@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -1365,7 +1365,7 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     print(f"State:  {STATE_FILE}")
     print(f"UI:     http://<host>:{PORT}/")
     print("")
-    print(f"Mode: {cfg.get('run_mode')}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
+    print(f"Mode: {'loop' if cfg.get('scheduler_enabled', True) else 'manual'}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
     print("")
 
 def start_ui_server() -> None:
@@ -1383,12 +1383,14 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         save_state(st, cfg)
 
         now = utcnow()
+        scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
+
         interval_min = int(cfg.get("run_interval_minutes", 360))
         next_run = now + timedelta(minutes=interval_min)
         STATUS["next_run_utc"] = iso_z(next_run) if scheduler_enabled else None
 
-        scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
-        should_run = (scheduler_enabled and cycle == 0)  # run on startup only if scheduler enabled
+        # Run one sweep on startup when scheduler is enabled. Otherwise wait for Run Now.
+        should_run = (scheduler_enabled and cycle == 0)
 
         with RUN_LOCK:
             if STATUS.get("run_requested"):

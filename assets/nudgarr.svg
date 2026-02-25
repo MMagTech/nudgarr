@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Nudgarr logo">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#2dd4bf"/>
@@ -10,4 +10,5 @@
   <circle cx="325" cy="252" r="34" fill="url(#g)"/>
   <path d="M150 310 C 190 210, 260 185, 330 210" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round"/>
   <path d="M330 210 L 300 195 M330 210 L 310 240" fill="none" stroke="url(#g)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M165 345 C 210 290, 255 270, 305 285" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="10" stroke-linecap="round"/>
 </svg>

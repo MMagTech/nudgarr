@@ -3,10 +3,14 @@
 
 Nudgarr is a polite upgrade sweeper for Radarr & Sonarr.
 
-## v1.1.0 adds
-- Caps per run for **Radarr movies** and **Sonarr episodes**
-- Persistent JSON state DB under `/config` to avoid re-searching too often (cooldown)
-- Minimal web UI to edit config and test connections
+## v1.2.0 highlights
+- Clean minimal control panel UI (Instances / Settings / State / Advanced)
+- Multiple Radarr/Sonarr instances with add/edit/delete + connection test
+- Per-setting descriptions + safe defaults
+- State viewer + raw JSON view, Run Now button, and pruning controls
+- State size controls:
+  - **Retention days** (default 180)
+  - **Compact state** by default
 
 ## Web UI
 Open: `http://<your-host>:8085`
@@ -19,11 +23,6 @@ Map:
 - Host: `/mnt/user/appdata/nudgarr`
 - Container: `/config`
 
-## Quick start (Unraid)
-1. Install: `ghcr.io/mmagtech/nudgarr:latest`
-2. Map `/config` and publish port `8085`
-3. Start container
-4. Use UI to add instances + set caps/cooldown
-5. Toggle DRY_RUN off when ready
-
-Security: keep UI behind LAN or your reverse proxy + Auth (API keys are stored in config).
+## Notes
+- Keep the UI behind LAN or your reverse proxy + Auth (API keys are stored in the config file).
+- Nudgarr targets **Wanted → Cutoff Unmet** for both apps.

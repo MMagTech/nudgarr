@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Nudgarr v1.2.0 — Because RSS sometimes needs a nudge.
+Nudgarr v1.3.0 — Because RSS sometimes needs a nudge.
 
 Core:
 - Caps per run for Radarr (movies) and Sonarr (episodes)
@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.3.1"
+VERSION = "1.3.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -130,48 +130,51 @@ def req(session: requests.Session, method: str, url: str, key: str, json_body: O
 def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     errs: List[str] = []
 
-    # scheduler_enabled must be boolean
     if not isinstance(cfg.get("scheduler_enabled"), bool):
         errs.append("scheduler_enabled must be boolean")
 
-    # run interval must be an int >= 1
     if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
 
-    # sample mode must be valid
     if cfg.get("sample_mode") not in ("random", "first"):
         errs.append("sample_mode must be 'random' or 'first'")
 
-    # numeric bounds checks
     for k in (
         "radarr_max_movies_per_run",
         "sonarr_max_episodes_per_run",
         "cooldown_hours",
-        "batch_size",
+        "sleep_seconds",
+        "jitter_seconds",
         "state_retention_days",
         "radarr_missing_max",
         "radarr_missing_added_days",
-        "sleep_seconds",
-        "jitter_seconds",
     ):
         v = cfg.get(k)
         if not isinstance(v, int) or v < 0:
             errs.append(f"{k} must be an int >= 0")
 
-    # Special: batch_size must be >= 1
-    if isinstance(cfg.get("batch_size"), int) and cfg["batch_size"] < 1:
+    v = cfg.get("batch_size")
+    if not isinstance(v, int) or v < 1:
         errs.append("batch_size must be an int >= 1")
 
-    # instances shape
     inst = cfg.get("instances")
     if not isinstance(inst, dict):
         errs.append("instances must be an object with keys: radarr, sonarr")
     else:
         for app in ("radarr", "sonarr"):
-            if app not in inst or not isinstance(inst.get(app), list):
+            items = inst.get(app)
+            if not isinstance(items, list):
                 errs.append(f"instances.{app} must be a list")
+            else:
+                for i, item in enumerate(items):
+                    if not isinstance(item, dict):
+                        errs.append(f"instances.{app}[{i}] must be an object")
+                        continue
+                    for f in ("name", "url", "key"):
+                        if not item.get(f):
+                            errs.append(f"instances.{app}[{i}].{f} is required")
 
-    return len(errs) == 0, errs
+    return (len(errs) == 0), errs
 
 def deep_copy(obj: Any) -> Any:
     return json.loads(json.dumps(obj))
@@ -313,7 +316,7 @@ def radarr_get_missing_movie_ids(session: requests.Session, url: str, key: str, 
             break
         for rec in records:
             mid = rec.get("movieId")
-            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")  # best effort across versions
+            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")
             if isinstance(mid, int):
                 out.append({"movieId": mid, "added": added})
     return out
@@ -407,21 +410,20 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 if i + batch_size < len(chosen):
                     jitter_sleep(sleep_seconds, jitter_seconds)
 
-            summary["radarr"].append({
-                "name": name, "url": mask_url(url),
-                "cutoff_unmet_total": len(all_ids),
-                "eligible": eligible, "skipped_cooldown": skipped,
-                "will_search": len(chosen), "searched": searched,
-                "limit": radarr_max
-            })
-        
             # Optional: Missing backlog nudges (Radarr only)
             missing_max = int(cfg.get("radarr_missing_max", 0))
             missing_added_days = int(cfg.get("radarr_missing_added_days", 14))
+            missing_total = 0
+            eligible_missing = 0
+            skipped_missing = 0
+            searched_missing = 0
+            chosen_missing: List[int] = []
+
             if missing_max > 0:
                 missing_records = radarr_get_missing_movie_ids(session, url, key)
-                # Filter: only items added more than N days ago (best-effort if added timestamp missing)
+                missing_total = len(missing_records)
                 min_added_dt = utcnow() - timedelta(days=missing_added_days)
+
                 missing_ids: List[int] = []
                 for rec in missing_records:
                     mid = rec.get("movieId")
@@ -431,36 +433,38 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                         dt = parse_iso(added_s)
                         if dt is not None:
                             ok_old = dt < min_added_dt
-                    # if we can't parse added, treat as old (so it can still be nudged if desired)
                     if ok_old and isinstance(mid, int):
                         missing_ids.append(mid)
 
-                chosen_m, eligible_m, skipped_m = pick_ids_with_cooldown(
+                chosen_missing, eligible_missing, skipped_missing = pick_ids_with_cooldown(
                     missing_ids, st_bucket, "missing_movie", cooldown_hours, missing_max, sample_mode
                 )
-                print(f"[Radarr:{name}] missing_total={len(missing_records)} eligible_missing={eligible_m} skipped_missing_cooldown={skipped_m} will_search_missing={len(chosen_m)} limit_missing={missing_max} older_than_days={missing_added_days}")
+                print(f"[Radarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} limit_missing={missing_max} older_than_days={missing_added_days}")
 
-                searched_m = 0
-                for i in range(0, len(chosen_m), batch_size):
-                    batch = chosen_m[i:i+batch_size]
+                for i in range(0, len(chosen_missing), batch_size):
+                    batch = chosen_missing[i:i+batch_size]
                     radarr_search_movies(session, url, key, batch, dry_run)
                     if not dry_run:
                         mark_ids_searched(st_bucket, "missing_movie", batch)
-                    searched_m += len(batch)
-                    if i + batch_size < len(chosen_m):
+                    searched_missing += len(batch)
+                    if i + batch_size < len(chosen_missing):
                         jitter_sleep(sleep_seconds, jitter_seconds)
 
-                # record in summary
-                summary["radarr"][-1].update({
-                    "missing_total": len(missing_records),
-                    "eligible_missing": eligible_m,
-                    "skipped_missing_cooldown": skipped_m,
-                    "will_search_missing": len(chosen_m),
-                    "searched_missing": searched_m,
-                    "limit_missing": missing_max,
-                    "missing_added_days": missing_added_days,
-                })
-except Exception as e:
+            summary["radarr"].append({
+                "name": name, "url": mask_url(url),
+                "cutoff_unmet_total": len(all_ids),
+                "eligible": eligible, "skipped_cooldown": skipped,
+                "will_search": len(chosen), "searched": searched,
+                "limit": radarr_max,
+            "missing_total": missing_total,
+            "eligible_missing": eligible_missing,
+            "skipped_missing_cooldown": skipped_missing,
+            "will_search_missing": len(chosen_missing),
+            "searched_missing": searched_missing,
+            "limit_missing": missing_max,
+            "missing_added_days": missing_added_days
+            })
+        except Exception as e:
             print(f"[Radarr:{name}] ERROR: {e}")
             summary["radarr"].append({"name": name, "url": mask_url(url), "error": str(e)})
 
@@ -644,7 +648,7 @@ UI_HTML = r"""<!doctype html>
           <div class="field">
             <label>Run interval (minutes)</label>
             <input id="run_interval_minutes" type="number" min="1"/>
-            <div class="help">How often Nudgarr runs a sweep when automatic sweeps are enabled.</div>
+            <div class="help">How often Nudgarr runs a sweep in loop mode.</div>
           </div>
         </div>
 
@@ -685,23 +689,23 @@ UI_HTML = r"""<!doctype html>
 
         <div class="hr"></div>
 
-        <h3 style="margin:0 0 8px">Backlog nudges (optional)</h3>
-        <div class="row">
-          <div class="field">
-            <label>Radarr missing max</label>
-            <input id="radarr_missing_max" type="number" min="0"/>
-            <div class="help">Optional: nudge <b>missing</b> movies for Radarr. Applies <b>per instance</b>. Set to 0 to disable (recommended default).</div>
-          </div>
-          <div class="field">
-            <label>Radarr missing added days</label>
-            <input id="radarr_missing_added_days" type="number" min="0"/>
-            <div class="help">Only nudge missing movies that were added more than this many days ago (helps avoid interfering with normal RSS behavior).</div>
-          </div>
-        </div>
-
         <div class="hr"></div>
 
-        <h3 style="margin:0 0 8px">Throttling</h3>
+<h3 style="margin:0 0 8px">Backlog nudges (optional)</h3>
+<div class="row">
+  <div class="field">
+    <label>Radarr missing max</label>
+    <input id="radarr_missing_max" type="number" min="0"/>
+    <div class="help">Optional: nudge <b>missing</b> movies for Radarr. Applies <b>per instance</b>. Set to 0 to disable (recommended default).</div>
+  </div>
+  <div class="field">
+    <label>Radarr missing added days</label>
+    <input id="radarr_missing_added_days" type="number" min="0"/>
+    <div class="help">Only nudge missing movies that were added more than this many days ago (helps avoid interfering with normal RSS behavior).</div>
+  </div>
+</div>
+
+<h3 style="margin:0 0 8px">Throttling</h3>
         <div class="row">
           <div class="field">
             <label>Batch size</label>
@@ -951,7 +955,6 @@ function deleteInstance(kind, idx){
   el('saveMsg').textContent = 'Deleted. Click Save changes.';
 }
 
-
 function syncSchedulerUi(){
   const enabled = (el('scheduler_enabled').value === 'true');
   el('run_interval_minutes').disabled = !enabled;
@@ -966,6 +969,8 @@ function fillSettings(){
   set('sample_mode', CFG.sample_mode);
   set('radarr_max_movies_per_run', CFG.radarr_max_movies_per_run);
   set('sonarr_max_episodes_per_run', CFG.sonarr_max_episodes_per_run);
+  set('radarr_missing_max', CFG.radarr_missing_max);
+  set('radarr_missing_added_days', CFG.radarr_missing_added_days);
   set('batch_size', CFG.batch_size);
   set('sleep_seconds', CFG.sleep_seconds);
   set('jitter_seconds', CFG.jitter_seconds);
@@ -991,8 +996,6 @@ async function saveSettings(){
     CFG.sample_mode = el('sample_mode').value;
     CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
     CFG.sonarr_max_episodes_per_run = parseInt(el('sonarr_max_episodes_per_run').value || '25', 10);
-    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
-    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
@@ -1362,7 +1365,7 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     print(f"State:  {STATE_FILE}")
     print(f"UI:     http://<host>:{PORT}/")
     print("")
-    print(f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
+    print(f"Mode: {cfg.get('run_mode')}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
     print("")
 
 def start_ui_server() -> None:
@@ -1381,15 +1384,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
 
         now = utcnow()
         interval_min = int(cfg.get("run_interval_minutes", 360))
-        scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
         next_run = now + timedelta(minutes=interval_min)
         STATUS["next_run_utc"] = iso_z(next_run) if scheduler_enabled else None
 
         scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
-        # If scheduler is enabled: run on startup and then on interval.
-        # If disabled: only run when explicitly requested (Run now).
-        should_run = (scheduler_enabled and cycle == 0)
-
+        should_run = (scheduler_enabled and cycle == 0)  # run on startup only if scheduler enabled
 
         with RUN_LOCK:
             if STATUS.get("run_requested"):
@@ -1414,8 +1413,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         if stop_flag["stop"]:
             break
 
-        # sleep until next run (when scheduler enabled), but check stop/request once a second.
-        # In manual mode (scheduler disabled), we just wait for a run request.
+        # sleep until next run, but check stop/request once a second
         sleep_seconds = interval_min * 60 if scheduler_enabled else 365 * 24 * 60 * 60
         for _ in range(sleep_seconds):
             if stop_flag["stop"]:

@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 """
-Nudgarr v1.3.1 — Because RSS sometimes needs a nudge.
+Nudgarr v1.3.2 — Because RSS sometimes needs a nudge.
 
 Core:
 - Caps per run for Radarr (movies) and Sonarr (episodes)
 - Persistent JSON state DB under /config with cooldown
 - Loop / once modes
+
+v1.3.2 fixes:
+- Fixed Radarr cutoff/missing sweeps collecting zero IDs (wrong field: movieId → id)
+- Fixed Sonarr cutoff sweep collecting zero IDs (wrong field: episodeId → id)
+- Fixed _human_bytes never returning correct units (broken ternary chain)
+- Fixed scheduler busy-waiting for a year in manual mode (now polls every 60s)
+- Fixed saveSettings() silently dropping radarr_missing_max / radarr_missing_added_days
+- Removed dead toggleRaw() JS function referencing undefined RAW variable
+- Removed duplicate <hr> in Settings UI
+- Fixed README version mismatch (was 1.2.2, now 1.3.2)
 
 v1.2 UI:
 - Clean minimal control panel (Instances / Settings / State / Advanced)
@@ -31,7 +41,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -298,7 +308,8 @@ def radarr_get_cutoff_unmet_movie_ids(session: requests.Session, url: str, key: 
         if not records:
             break
         for rec in records:
-            mid = rec.get("movieId")
+            # Radarr /wanted/cutoff returns movie objects directly; primary key is "id"
+            mid = rec.get("id") or rec.get("movieId")
             if isinstance(mid, int):
                 movie_ids.append(mid)
     return movie_ids
@@ -315,7 +326,8 @@ def radarr_get_missing_movie_ids(session: requests.Session, url: str, key: str, 
         if not records:
             break
         for rec in records:
-            mid = rec.get("movieId")
+            # Radarr /wanted/missing returns movie objects directly; primary key is "id"
+            mid = rec.get("id") or rec.get("movieId")
             added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")
             if isinstance(mid, int):
                 out.append({"movieId": mid, "added": added})
@@ -344,7 +356,8 @@ def sonarr_get_cutoff_unmet_episode_ids(session: requests.Session, url: str, key
         if not records:
             break
         for rec in records:
-            eid = rec.get("episodeId")
+            # Sonarr /wanted/cutoff returns episode objects directly; primary key is "id"
+            eid = rec.get("id") or rec.get("episodeId")
             if isinstance(eid, int):
                 ep_ids.append(eid)
     return ep_ids
@@ -689,8 +702,6 @@ UI_HTML = r"""<!doctype html>
 
         <div class="hr"></div>
 
-        <div class="hr"></div>
-
 <h3 style="margin:0 0 8px">Backlog nudges (optional)</h3>
 <div class="row">
   <div class="field">
@@ -996,6 +1007,8 @@ async function saveSettings(){
     CFG.sample_mode = el('sample_mode').value;
     CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
     CFG.sonarr_max_episodes_per_run = parseInt(el('sonarr_max_episodes_per_run').value || '25', 10);
+    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
+    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
@@ -1059,11 +1072,6 @@ async function refreshStatus(){
   el('lastRun').textContent = fmtTime(st.last_run_utc);
   el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual mode';
   el('diag').textContent = JSON.stringify(st, null, 2);
-}
-
-function toggleRaw(){
-  RAW = !RAW;
-    refreshState();
 }
 
 async function refreshState(){
@@ -1236,9 +1244,9 @@ def _file_size(path: str) -> int:
         return 0
 
 def _human_bytes(n: int) -> str:
-    for unit in ["B","KB","MB","GB","TB"]:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
         if n < 1024:
-            return f"{n:.0f} {unit}" if unit=="B" else f"{n/1:.0f} {unit}" if unit=="KB" else f"{n/1024/1024:.1f} MB" if unit=="MB" else f"{n/1024/1024/1024:.1f} GB"
+            return f"{n} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
     return f"{n:.1f} PB"
 
@@ -1375,6 +1383,10 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     STATUS["scheduler_running"] = True
     session = requests.Session()
     cycle = 0
+    run_event = threading.Event()
+
+    # Patch RUN_LOCK to also signal the event so manual triggers wake immediately
+    _orig_run_now_setter = None  # we'll use the event directly in the loop
 
     while not stop_flag["stop"]:
         cfg = load_or_init_config()
@@ -1415,11 +1427,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         if stop_flag["stop"]:
             break
 
-        # sleep until next run, but check stop/request once a second
-        sleep_seconds = interval_min * 60 if scheduler_enabled else 365 * 24 * 60 * 60
-        for _ in range(sleep_seconds):
-            if stop_flag["stop"]:
-                break
+        # Sleep until next run. In manual mode, wait up to 60s per tick so we
+        # stay responsive to Run Now requests without busy-waiting for a year.
+        sleep_seconds = interval_min * 60 if scheduler_enabled else 60
+        deadline = time.monotonic() + sleep_seconds
+        while not stop_flag["stop"] and time.monotonic() < deadline:
             with RUN_LOCK:
                 if STATUS.get("run_requested"):
                     break

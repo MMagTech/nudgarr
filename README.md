@@ -3,7 +3,7 @@
 
 Nudgarr is a polite upgrade sweeper for Radarr & Sonarr.
 
-## v1.3.1 highlights
+## v1.4.0 highlights
 - Clean minimal control panel UI (Instances / Settings / State / Advanced)
 - Multiple Radarr/Sonarr instances with add/edit/delete + connection test
 - Per-setting descriptions + safe defaults

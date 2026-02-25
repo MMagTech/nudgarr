@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -61,6 +61,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # Optional Radarr backlog missing nudges (OFF by default)
     "radarr_missing_max": 0,
     "radarr_missing_added_days": 14,
+
+    # Optional Sonarr backlog missing nudges (OFF by default)
+    "sonarr_missing_max": 0,
+    "sonarr_missing_added_days": 14,
 
     "batch_size": 20,
     "sleep_seconds": 3,
@@ -399,7 +403,34 @@ def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: s
                 episodes.append({"id": eid, "title": title})
     return episodes
 
-def sonarr_search_episodes(session: requests.Session, url: str, key: str, episode_ids: List[int], dry_run: bool) -> None:
+def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
+    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Missing."""
+    episodes: List[Dict[str, Any]] = []
+    for page in range(1, max_pages + 1):
+        endpoint = f"{url.rstrip('/')}/api/v3/wanted/missing?page={page}&pageSize={page_size}"
+        data = req(session, "GET", endpoint, key)
+        if not isinstance(data, dict):
+            break
+        records = data.get("records") or []
+        if not records:
+            break
+        for rec in records:
+            eid = rec.get("id") or rec.get("episodeId")
+            if isinstance(eid, int):
+                series = rec.get("series", {})
+                series_title = series.get("title") if isinstance(series, dict) else None
+                season = rec.get("seasonNumber")
+                ep_num = rec.get("episodeNumber")
+                ep_title = rec.get("title")
+                added = rec.get("airDateUtc") or rec.get("added")
+                if series_title and season is not None and ep_num is not None:
+                    title = f"{series_title} S{season:02d}E{ep_num:02d}"
+                    if ep_title:
+                        title += f" - {ep_title}"
+                else:
+                    title = ep_title or f"Episode {eid}"
+                episodes.append({"id": eid, "title": title, "added": added})
+    return episodes
     if not episode_ids:
         return
     cmd = f"{url.rstrip('/')}/api/v3/command"
@@ -544,12 +575,59 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 if i + batch_size < len(chosen_items):
                     jitter_sleep(sleep_seconds, jitter_seconds)
 
+            # Optional: Missing backlog nudges (Sonarr)
+            sonarr_missing_max = int(cfg.get("sonarr_missing_max", 0))
+            sonarr_missing_added_days = int(cfg.get("sonarr_missing_added_days", 14))
+            missing_total = 0
+            eligible_missing = 0
+            skipped_missing = 0
+            searched_missing = 0
+            chosen_missing: List[Dict[str, Any]] = []
+
+            if sonarr_missing_max > 0:
+                missing_records = sonarr_get_missing_episodes(session, url, key)
+                missing_total = len(missing_records)
+                min_added_dt = utcnow() - timedelta(days=sonarr_missing_added_days)
+
+                missing_filtered: List[Dict[str, Any]] = []
+                for rec in missing_records:
+                    added_s = rec.get("added")
+                    ok_old = True
+                    if isinstance(added_s, str):
+                        dt = parse_iso(added_s)
+                        if dt is not None:
+                            ok_old = dt < min_added_dt
+                    if ok_old:
+                        missing_filtered.append(rec)
+
+                chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
+                    missing_filtered, st_bucket, "missing_episode", cooldown_hours, sonarr_missing_max, sample_mode
+                )
+                print(f"[Sonarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} limit_missing={sonarr_missing_max} older_than_days={sonarr_missing_added_days}")
+
+                for i in range(0, len(chosen_missing), batch_size):
+                    batch_items = chosen_missing[i:i+batch_size]
+                    batch_ids = [e["id"] for e in batch_items]
+                    sonarr_search_episodes(session, url, key, batch_ids, dry_run)
+                    if not dry_run:
+                        mark_items_searched(st_bucket, "missing_episode", batch_items)
+                    searched_missing += len(batch_items)
+                    if i + batch_size < len(chosen_missing):
+                        jitter_sleep(sleep_seconds, jitter_seconds)
+
             summary["sonarr"].append({
                 "name": name, "url": mask_url(url),
                 "cutoff_unmet_total": len(all_ids),
                 "eligible": eligible, "skipped_cooldown": skipped,
                 "will_search": len(chosen), "searched": searched,
-                "limit": sonarr_max
+                "limit": sonarr_max,
+                "missing_total": missing_total,
+                "eligible_missing": eligible_missing,
+                "skipped_missing_cooldown": skipped_missing,
+                "will_search_missing": len(chosen_missing),
+                "searched_missing": searched_missing,
+                "limit_missing": sonarr_missing_max,
+                "missing_added_days": sonarr_missing_added_days,
             })
         except Exception as e:
             print(f"[Sonarr:{name}] ERROR: {e}")
@@ -649,11 +727,42 @@ UI_HTML = r"""
       white-space: nowrap;
     }
     .btn:hover { background: var(--card-hover); border-color: rgba(255,255,255,.15); }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn.primary:hover { background: #7088ff; border-color: #7088ff; }
+    .btn.primary {
+      background: rgba(99,120,255,.2); border-color: var(--accent-border);
+      color: #a8b4ff;
+    }
+    .btn.primary:hover { background: rgba(99,120,255,.32); border-color: var(--accent); color: #c0caff; }
     .btn.danger { background: var(--bad-dim); border-color: var(--bad-border); color: #fca5a5; }
     .btn.danger:hover { background: rgba(239,68,68,.25); }
     .btn.sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
+    .btn.run-now {
+      background: rgba(99,120,255,.25); border-color: var(--accent);
+      color: #c0caff; font-weight: 600; padding: 8px 18px;
+    }
+    .btn.run-now:hover { background: rgba(99,120,255,.4); color: #fff; }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; backdrop-filter: blur(4px);
+    }
+    .modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px; padding: 24px; width: 100%; max-width: 440px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    }
+    .modal h2 { font-size: 16px; font-weight: 700; margin: 0 0 18px; }
+    .modal .field { margin-bottom: 14px; }
+    .modal .row { margin-top: 20px; justify-content: flex-end; }
+    .key-wrap { position: relative; }
+    .key-wrap input { padding-right: 70px; }
+    .key-toggle {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; color: var(--muted); cursor: pointer;
+      background: none; border: none; padding: 2px 6px;
+    }
+    .key-toggle:hover { color: var(--text); }
 
     /* ── Tabs ── */
     .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -791,9 +900,9 @@ UI_HTML = r"""
     </div>
     <div class="header-right">
       <div class="pill clickable" id="pill-dryrun" onclick="toggleDryRun()" title="Click to toggle DRY RUN"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
-      <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>Last: <span id="lastRun">—</span></span></div>
-      <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>Next: <span id="nextRun">—</span></span></div>
-      <button class="btn primary" onclick="runNow()">Run Now</button>
+      <div class="pill"><span>Last: <span id="lastRun">—</span></span></div>
+      <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
+      <button class="btn run-now" onclick="runNow()">Run Now</button>
     </div>
   </div>
 
@@ -857,7 +966,7 @@ UI_HTML = r"""
               </label>
               <span class="help" id="scheduler_label">Enabled</span>
             </div>
-            <div class="help">When disabled, Nudgarr stays running for the UI but only sweeps when you click <b>Run Now</b>.</div>
+            <div class="help">When disabled, only sweeps when you click <b>Run Now</b>.</div>
           </div>
           <div class="field" style="max-width:160px">
             <label>Run Interval (minutes)</label>
@@ -964,7 +1073,8 @@ UI_HTML = r"""
       <div class="grid cols2">
         <div class="card">
           <p class="section-label">Backlog Nudges</p>
-          <div class="help" style="margin-bottom:12px">Nudges movies identified as missing in Radarr. Off by default.</div>
+          <div class="help" style="margin-bottom:12px">Nudges movies and episodes identified as missing. Off by default.</div>
+          <p class="help" style="margin:0 0 8px; font-weight:600; color:var(--text-dim)">Radarr</p>
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Radarr Missing Max</label>
@@ -976,6 +1086,21 @@ UI_HTML = r"""
               <input id="radarr_missing_added_days" type="number" min="0"/>
               <div class="help">Only nudge movies that have been missing for more than this many days.</div>
             </div>
+          </div>
+          <div style="margin-top:14px">
+          <p class="help" style="margin:0 0 8px; font-weight:600; color:var(--text-dim)">Sonarr</p>
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <label>Sonarr Missing Max</label>
+              <input id="sonarr_missing_max" type="number" min="0"/>
+              <div class="help">Maximum missing episode searches per instance run. 0 disables.</div>
+            </div>
+            <div class="field">
+              <label>Sonarr Missing Added Days</label>
+              <input id="sonarr_missing_added_days" type="number" min="0"/>
+              <div class="help">Only nudge episodes that have been missing for more than this many days.</div>
+            </div>
+          </div>
           </div>
         </div>
 
@@ -1022,6 +1147,32 @@ UI_HTML = r"""
   </div>
 
 </div>
+
+  <!-- ══ Instance Modal ══ -->
+  <div class="modal-backdrop" id="instModal" style="display:none" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h2 id="modalTitle">Add Instance</h2>
+      <div class="field">
+        <label>Name</label>
+        <input id="modalName" type="text" placeholder="e.g. radarr-4k"/>
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <input id="modalUrl" type="text" placeholder="http://192.168.1.10:7878"/>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <div class="key-wrap">
+          <input id="modalKey" type="password" placeholder="Your API key"/>
+          <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
+        <button class="btn sm primary" onclick="saveModal()">Save</button>
+      </div>
+    </div>
+  </div>
 
 <script>
 let CFG = null;
@@ -1104,26 +1255,62 @@ function renderInstances(kind) {
   `).join('');
 }
 
-function addInstance(kind) {
+let MODAL_KIND = '';
+let MODAL_IDX = -1;
+
+function openModal(kind, idx) {
+  MODAL_KIND = kind;
+  MODAL_IDX = idx;
+  const isEdit = idx >= 0;
+  el('modalTitle').textContent = (isEdit ? 'Edit ' : 'Add ') + (kind === 'radarr' ? 'Radarr' : 'Sonarr') + ' Instance';
+  const it = isEdit ? CFG.instances[kind][idx] : {name:'', url:'http://', key:''};
+  el('modalName').value = it.name || '';
+  el('modalUrl').value = it.url || '';
+  el('modalKey').value = it.key || '';
+  el('modalKey').type = 'password';
+  el('keyToggleBtn').textContent = 'Show';
+  el('instModal').style.display = 'flex';
+  setTimeout(() => el('modalName').focus(), 50);
+}
+
+function closeModal(e) {
+  if (e.target === el('instModal')) closeModalDirect();
+}
+
+function closeModalDirect() {
+  el('instModal').style.display = 'none';
+}
+
+function toggleKeyVis() {
+  const inp = el('modalKey');
+  const btn = el('keyToggleBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function saveModal() {
+  const name = el('modalName').value.trim();
+  const url = el('modalUrl').value.trim();
+  const key = el('modalKey').value.trim();
+  if (!name || !url || !key) { alert('All fields are required.'); return; }
   CFG.instances = CFG.instances || {radarr:[], sonarr:[]};
-  CFG.instances[kind].push({name: kind, url:'http://', key:''});
-  renderInstances(kind);
-  el('saveMsg').textContent = 'Added — click Save Changes when ready.';
+  if (MODAL_IDX >= 0) {
+    CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key};
+  } else {
+    CFG.instances[MODAL_KIND].push({name, url, key});
+  }
+  closeModalDirect();
+  renderInstances(MODAL_KIND);
+  el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Edited — click Save Changes.' : 'Added — click Save Changes.';
   el('saveMsg').className = 'msg';
 }
 
+function addInstance(kind) {
+  openModal(kind, -1);
+}
+
 function editInstance(kind, idx) {
-  const it = CFG.instances[kind][idx];
-  const name = prompt('Instance name', it.name || '');
-  if (name === null) return;
-  const url = prompt('URL (e.g. http://192.168.1.10:7878)', it.url || '');
-  if (url === null) return;
-  const key = prompt('API key', it.key || '');
-  if (key === null) return;
-  it.name = name.trim(); it.url = url.trim(); it.key = key.trim();
-  renderInstances(kind);
-  el('saveMsg').textContent = 'Edited — click Save Changes.';
-  el('saveMsg').className = 'msg';
+  openModal(kind, idx);
 }
 
 function deleteInstance(kind, idx) {
@@ -1315,17 +1502,21 @@ async function clearState() {
 // ── Advanced tab ──
 function fillAdvanced() {
   if (!CFG) return;
-  el('radarr_missing_max').value = CFG.radarr_missing_max;
-  el('radarr_missing_added_days').value = CFG.radarr_missing_added_days;
-  el('state_retention_days').value = CFG.state_retention_days;
+  el('radarr_missing_max').value = CFG.radarr_missing_max || 0;
+  el('radarr_missing_added_days').value = CFG.radarr_missing_added_days || 14;
+  el('sonarr_missing_max').value = CFG.sonarr_missing_max || 0;
+  el('sonarr_missing_added_days').value = CFG.sonarr_missing_added_days || 14;
+  el('state_retention_days').value = CFG.state_retention_days || 180;
 }
 
 async function saveAdvanced() {
   try {
     CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
     CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
+    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '0', 10);
+    CFG.sonarr_missing_added_days = parseInt(el('sonarr_missing_added_days').value || '14', 10);
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
-    CFG.state_pretty = false; // always compact
+    CFG.state_pretty = false;
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok';
     await loadAll();

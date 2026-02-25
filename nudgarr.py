@@ -592,11 +592,11 @@ UI_HTML = r"""
   <title>Nudgarr</title>
   <style>
     :root {
-      --bg: #0d0d0f;
-      --surface: #141417;
-      --card: #1a1a1f;
-      --card-hover: #1e1e24;
-      --border: rgba(255,255,255,.09);
+      --bg: #11131f;
+      --surface: #181a28;
+      --card: #1e2030;
+      --card-hover: #22253a;
+      --border: rgba(255,255,255,.10);
       --border-focus: rgba(99,120,255,.6);
       --muted: #7c8494;
       --text: #e8eaf0;
@@ -790,7 +790,7 @@ UI_HTML = r"""
       <p>Sweeping your library, one nudge at a time.</p>
     </div>
     <div class="header-right">
-      <div class="pill" id="pill-dryrun"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
+      <div class="pill clickable" id="pill-dryrun" onclick="toggleDryRun()" title="Click to toggle DRY RUN"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
       <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn primary" onclick="runNow()">Run Now</button>
@@ -813,7 +813,7 @@ UI_HTML = r"""
           <span class="card-title" style="margin:0">Radarr Instances</span>
           <button class="btn sm" style="margin-left:auto" onclick="addInstance('radarr')">+ Add</button>
         </div>
-        <p class="help" style="margin:0 0 8px">Add one or more Radarr instances. Nudgarr will only search up to your per-run cap.</p>
+        <p class="help" style="margin:0 0 8px">Add one or more Radarr instances.</p>
         <div id="radarrList"></div>
       </div>
 
@@ -822,7 +822,7 @@ UI_HTML = r"""
           <span class="card-title" style="margin:0">Sonarr Instances</span>
           <button class="btn sm" style="margin-left:auto" onclick="addInstance('sonarr')">+ Add</button>
         </div>
-        <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances. Nudgarr targets <span class="mono" style="font-size:11px">Wanted → Cutoff Unmet</span> and respects cooldown.</p>
+        <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances.</p>
         <div id="sonarrList"></div>
       </div>
 
@@ -842,27 +842,28 @@ UI_HTML = r"""
 
   <!-- ══════════════════════════════ SETTINGS ══════════════════════════════ -->
   <div class="section" id="tab-settings">
-    <div class="grid" style="max-width:560px">
+    <div class="grid" style="max-width:600px">
 
       <div class="card">
         <p class="section-label">Scheduler</p>
-        <div class="field">
-          <label>Automatic Sweeps</label>
-          <div class="toggle-wrap">
-            <label class="toggle">
-              <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi()"/>
-              <span class="toggle-track"></span>
-              <span class="toggle-thumb"></span>
-            </label>
-            <span class="help" id="scheduler_label">Enabled</span>
+        <div class="row" style="gap:16px; flex-wrap:nowrap; align-items:flex-start">
+          <div class="field" style="flex:1">
+            <label>Automatic Sweeps</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi()"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="scheduler_label">Enabled</span>
+            </div>
+            <div class="help">When disabled, Nudgarr stays running for the UI but only sweeps when you click <b>Run Now</b>.</div>
           </div>
-          <div class="help">When disabled, Nudgarr stays running for the UI but only sweeps when you click <b>Run Now</b>.</div>
-        </div>
-        <div class="hr"></div>
-        <div class="field">
-          <label>Run Interval (minutes)</label>
-          <input id="run_interval_minutes" type="number" min="1" style="max-width:160px"/>
-          <div class="help">How often Nudgarr runs a sweep in automatic mode.</div>
+          <div class="field" style="max-width:160px">
+            <label>Run Interval (minutes)</label>
+            <input id="run_interval_minutes" type="number" min="1"/>
+            <div class="help">How often Nudgarr runs a sweep.</div>
+          </div>
         </div>
       </div>
 
@@ -872,7 +873,7 @@ UI_HTML = r"""
           <div class="field">
             <label>Cooldown Hours</label>
             <input id="cooldown_hours" type="number" min="0"/>
-            <div class="help">How long before the same item can be searched again. (0 disables.)</div>
+            <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
           </div>
           <div class="field">
             <label>Sample Mode</label>
@@ -880,17 +881,19 @@ UI_HTML = r"""
               <option value="random">Random</option>
               <option value="first">First</option>
             </select>
-            <div class="help"><b>Random</b> spreads searches across your library. <b>First</b> is predictable.</div>
+            <div class="help">Random picks different items each run for even library coverage. First always prioritises the same items until they're upgraded.</div>
           </div>
+        </div>
+        <div style="margin-top:16px" class="grid cols2" style="gap:12px">
           <div class="field">
-            <label>Radarr Max Movies / Run</label>
+            <label>Max Movies Per Run</label>
             <input id="radarr_max_movies_per_run" type="number" min="0"/>
-            <div class="help">Per instance. (0 disables Radarr upgrades.)</div>
+            <div class="help">Maximum Cutoff Unmet movie searches per instance run. 0 disables.</div>
           </div>
           <div class="field">
-            <label>Sonarr Max Episodes / Run</label>
+            <label>Max Episodes Per Run</label>
             <input id="sonarr_max_episodes_per_run" type="number" min="0"/>
-            <div class="help">Per instance. (0 disables Sonarr upgrades.)</div>
+            <div class="help">Maximum Cutoff Unmet episode searches per instance run. 0 disables.</div>
           </div>
         </div>
       </div>
@@ -901,34 +904,23 @@ UI_HTML = r"""
           <div class="field">
             <label>Batch Size</label>
             <input id="batch_size" type="number" min="1"/>
-            <div class="help">IDs sent per command. Reduces bursts.</div>
+            <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
           </div>
           <div class="field">
             <label>Sleep Seconds</label>
             <input id="sleep_seconds" type="number" min="0" step="0.1"/>
-            <div class="help">Pause between batches.</div>
+            <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
           </div>
           <div class="field">
             <label>Jitter Seconds</label>
             <input id="jitter_seconds" type="number" min="0" step="0.1"/>
-            <div class="help">Random extra delay to avoid spikes.</div>
+            <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting.</div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <p class="section-label">Dry Run</p>
-        <div class="field">
-          <div class="toggle-wrap">
-            <label class="toggle">
-              <input type="checkbox" id="dry_run" class="warn"/>
-              <span class="toggle-track"></span>
-              <span class="toggle-thumb"></span>
-            </label>
-            <span class="help" id="dryrun_label">Safe mode — no searches will be triggered</span>
-          </div>
-          <div class="help" style="margin-top:4px">Leave enabled until your connections test cleanly.</div>
-        </div>
+      <div class="card" style="border-color: rgba(99,120,255,.2);">
+        <p class="help" style="margin:0; line-height:1.6">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be respectful of your indexers' limits and know their caps — searching too aggressively can get you banned from your indexer.</p>
       </div>
 
       <div class="row">
@@ -958,7 +950,7 @@ UI_HTML = r"""
         </div>
       </div>
       <div id="historyTableWrap"></div>
-      <div class="row" style="margin-top:12px">
+      <div class="row" style="margin-top:12px" id="historyPagination">
         <button class="btn sm" onclick="prevPage()">Prev</button>
         <button class="btn sm" onclick="nextPage()">Next</button>
         <span class="msg" id="pageInfo"></span>
@@ -968,60 +960,47 @@ UI_HTML = r"""
 
   <!-- ══════════════════════════════ ADVANCED ══════════════════════════════ -->
   <div class="section" id="tab-advanced">
-    <div class="grid cols2">
-
-      <div class="card">
-        <p class="section-label">Backlog Nudges</p>
-        <div class="help" style="margin-bottom:12px">Optionally nudge <b>missing</b> movies in Radarr. Off by default — most users won't need this.</div>
-        <div class="grid cols2" style="gap:12px">
-          <div class="field">
-            <label>Radarr Missing Max</label>
-            <input id="radarr_missing_max" type="number" min="0"/>
-            <div class="help">Per instance. Set to 0 to disable.</div>
-          </div>
-          <div class="field">
-            <label>Radarr Missing Added Days</label>
-            <input id="radarr_missing_added_days" type="number" min="0"/>
-            <div class="help">Only nudge movies added more than this many days ago.</div>
+    <div class="grid">
+      <div class="grid cols2">
+        <div class="card">
+          <p class="section-label">Backlog Nudges</p>
+          <div class="help" style="margin-bottom:12px">Nudges movies identified as missing in Radarr. Off by default.</div>
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <label>Radarr Missing Max</label>
+              <input id="radarr_missing_max" type="number" min="0"/>
+              <div class="help">Maximum missing movie searches per instance run. 0 disables.</div>
+            </div>
+            <div class="field">
+              <label>Radarr Missing Added Days</label>
+              <input id="radarr_missing_added_days" type="number" min="0"/>
+              <div class="help">Only nudge movies that have been missing for more than this many days.</div>
+            </div>
           </div>
         </div>
 
-        <div class="hr"></div>
-
-        <p class="section-label">State Size</p>
-        <div class="grid cols2" style="gap:12px">
+        <div class="card">
+          <p class="section-label">History Size</p>
           <div class="field">
             <label>Retention Days</label>
             <input id="state_retention_days" type="number" min="0"/>
-            <div class="help">Delete history entries older than this. (0 disables.)</div>
+            <div class="help">Delete history entries older than this. 0 disables.</div>
           </div>
-          <div class="field">
-            <label>State Format</label>
-            <select id="state_pretty">
-              <option value="false">Compact (recommended)</option>
-              <option value="true">Pretty</option>
-            </select>
-            <div class="help">Compact is smaller; pretty is human-readable.</div>
+          <div class="hr"></div>
+          <p class="section-label">Files</p>
+          <div class="row">
+            <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
+            <button class="btn sm" onclick="downloadFile('state')">Download History</button>
           </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <p class="section-label">Files</p>
-        <p class="help" style="margin:0 0 10px">Config and state are stored under <span class="mono" style="font-size:12px">/config</span> — map this to a persistent volume in your Docker setup.</p>
-        <div class="row">
-          <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
-          <button class="btn sm" onclick="downloadFile('state')">Download State</button>
-        </div>
-
-        <div class="hr"></div>
-        <div class="row">
-          <button class="btn primary sm" onclick="saveAdvanced()">Save</button>
-          <span class="msg" id="advMsg"></span>
         </div>
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="row" style="margin-top:4px">
+        <button class="btn primary sm" onclick="saveAdvanced()">Save</button>
+        <span class="msg" id="advMsg"></span>
+      </div>
+
+      <div class="grid cols2">
         <div class="card danger-section">
           <p class="section-label" style="color:#fca5a5">Danger Zone</p>
           <p class="help" style="margin:0 0 12px; color:#fca5a5">These actions are irreversible.</p>
@@ -1039,7 +1018,6 @@ UI_HTML = r"""
           <div id="diagBox" class="diag-box" style="display:none"></div>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -1168,16 +1146,15 @@ async function saveAll() {
 
 async function testConnections() {
   el('testResults').style.display = 'block';
+  el('testResults').style.opacity = '1';
   el('testResultsInner').innerHTML = '<p class="help">Testing…</p>';
 
-  // Set all dots to checking
   document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
 
   try {
     const out = await api('/api/test', {method:'POST'});
     const allResults = [...(out.results.radarr||[]), ...(out.results.sonarr||[])];
 
-    // Update inline dots
     ['radarr','sonarr'].forEach(kind => {
       (out.results[kind]||[]).forEach((r, idx) => {
         const dot = el(`sdot-${kind}-${idx}`);
@@ -1185,7 +1162,6 @@ async function testConnections() {
       });
     });
 
-    // Render result cards
     el('testResultsInner').innerHTML = allResults.map(r => `
       <div class="test-card ${r.ok ? 'ok' : 'bad'}">
         <span class="test-icon">${r.ok ? '✓' : '✗'}</span>
@@ -1195,6 +1171,18 @@ async function testConnections() {
         </div>
       </div>
     `).join('');
+
+    // Fade out result cards after 3 seconds, dots persist
+    setTimeout(() => {
+      el('testResults').style.transition = 'opacity 0.8s ease';
+      el('testResults').style.opacity = '0';
+      setTimeout(() => {
+        el('testResults').style.display = 'none';
+        el('testResults').style.transition = '';
+        el('testResults').style.opacity = '1';
+      }, 800);
+    }, 3000);
+
   } catch(e) {
     el('testResultsInner').innerHTML = `<p class="help" style="color:var(--bad)">Test failed: ${escapeHtml(e.message)}</p>`;
     document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot'; });
@@ -1208,11 +1196,6 @@ function syncSchedulerUi() {
   el('run_interval_minutes').disabled = !enabled;
 }
 
-function syncDryRunUi() {
-  const dry = el('dry_run').checked;
-  el('dryrun_label').textContent = dry ? 'Safe mode — no searches will be triggered' : 'Live mode — searches are active';
-}
-
 function fillSettings() {
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
   el('run_interval_minutes').value = CFG.run_interval_minutes;
@@ -1223,12 +1206,23 @@ function fillSettings() {
   el('batch_size').value = CFG.batch_size;
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
-  el('dry_run').checked = !!CFG.dry_run;
   syncSchedulerUi();
-  syncDryRunUi();
 }
 
-el('dry_run').addEventListener('change', syncDryRunUi);
+async function toggleDryRun() {
+  const currentlyDry = CFG?.dry_run;
+  if (currentlyDry) {
+    // Switching to LIVE — confirm first
+    if (!confirm('Switch to Live mode? Nudgarr will start triggering real searches.')) return;
+  }
+  try {
+    const out = await api('/api/toggle-dry-run', {method:'POST'});
+    CFG.dry_run = out.dry_run;
+    updateDryRunPill(out.dry_run);
+  } catch(e) {
+    alert('Failed to toggle DRY RUN: ' + e.message);
+  }
+}
 
 async function saveSettings() {
   try {
@@ -1241,7 +1235,6 @@ async function saveSettings() {
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
-    CFG.dry_run = el('dry_run').checked;
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('setMsg').textContent = 'Saved.'; el('setMsg').className = 'msg ok';
     await loadAll();
@@ -1263,28 +1256,25 @@ async function refreshHistory() {
       <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>Retention: ${sum.retention_days} days</span></div>
     `;
 
-    // Build instance dropdown from all configured instances (with entry counts)
+    // Build instance dropdown from ALL_INSTANCES (has correct app info)
+    // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
     const sel = el('historyInstance');
-    const prevVal = sel.value;
-    const allInsts = [...(sum.instances.radarr||[]), ...(sum.instances.sonarr||[])];
-    sel.innerHTML = allInsts.map(i =>
-      `<option value="${escapeHtml(i.key)}|${escapeHtml(i.key.split('|')[0]?.includes('radarr') || i.name?.toLowerCase().includes('sonarr') ? 'sonarr' : 'radarr')}">${escapeHtml(i.name)}</option>`
+    const prevIdx = sel.value;
+    sel.innerHTML = ALL_INSTANCES.map((inst, idx) =>
+      `<option value="${idx}">${escapeHtml(inst.name)}</option>`
     ).join('');
+    if (prevIdx && parseInt(prevIdx) < ALL_INSTANCES.length) sel.value = prevIdx;
 
-    // Better approach: build from ALL_INSTANCES which has app info
-    sel.innerHTML = ALL_INSTANCES.map(i =>
-      `<option value="${escapeHtml(i.key)}|${escapeHtml(i.app)}">${escapeHtml(i.name)}</option>`
-    ).join('');
-
-    if (ALL_INSTANCES.some(i => (i.key+'|'+i.app) === prevVal)) sel.value = prevVal;
-
-    const selected = sel.value || '';
-    const [instKey, appName] = selected.split('|');
+    const selIdx = parseInt(sel.value || '0');
+    const selected = ALL_INSTANCES[selIdx];
+    const instKey = selected ? selected.key : '';
+    const appName = selected ? selected.app : 'radarr';
 
     const limit = parseInt(el('historyLimit').value || '250', 10);
-    const items = await api(`/api/state/items?app=${encodeURIComponent(appName||'radarr')}&instance=${encodeURIComponent(instKey||'')}&offset=${PAGE*limit}&limit=${limit}`);
+    const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${PAGE*limit}&limit=${limit}`);
 
     el('pageInfo').textContent = `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
+    el('historyPagination').style.display = items.total > 0 ? 'flex' : 'none';
 
     const rows = items.items.map(it => `
       <tr>
@@ -1328,7 +1318,6 @@ function fillAdvanced() {
   el('radarr_missing_max').value = CFG.radarr_missing_max;
   el('radarr_missing_added_days').value = CFG.radarr_missing_added_days;
   el('state_retention_days').value = CFG.state_retention_days;
-  el('state_pretty').value = String(!!CFG.state_pretty);
 }
 
 async function saveAdvanced() {
@@ -1336,7 +1325,7 @@ async function saveAdvanced() {
     CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
     CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
-    CFG.state_pretty = (el('state_pretty').value === 'true');
+    CFG.state_pretty = false; // always compact
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok';
     await loadAll();

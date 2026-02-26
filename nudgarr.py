@@ -1,37 +1,20 @@
 #!/usr/bin/env python3
 """
-Nudgarr v1.3.2 — Because RSS sometimes needs a nudge.
+Nudgarr v2.0.0 — Because RSS sometimes needs a nudge.
 
-Core:
-- Caps per run for Radarr (movies) and Sonarr (episodes)
-- Persistent JSON state DB under /config with cooldown
-- Loop / once modes
-
-v1.3.2 fixes:
-- Fixed Radarr cutoff/missing sweeps collecting zero IDs (wrong field: movieId → id)
-- Fixed Sonarr cutoff sweep collecting zero IDs (wrong field: episodeId → id)
-- Fixed _human_bytes never returning correct units (broken ternary chain)
-- Fixed scheduler busy-waiting for a year in manual mode (now polls every 60s)
-- Fixed saveSettings() silently dropping radarr_missing_max / radarr_missing_added_days
-- Removed dead toggleRaw() JS function referencing undefined RAW variable
-- Removed duplicate <hr> in Settings UI
-- Fixed README version mismatch (was 1.2.2, now 1.3.2)
-
-v1.2 UI:
-- Clean minimal control panel (Instances / Settings / State / Advanced)
-- Per-setting descriptions + safe defaults
-- Add/edit/delete multiple Radarr/Sonarr instances
-- State viewer (friendly list + raw JSON) + clear/prune
-- Run Now button + status (last/next run)
-
-State size control:
-- state_retention_days (default 180): prune old entries
-- state_pretty (default false): compact JSON by default
+v2.0.0:
+- Authentication — first run setup screen, hashed password, 30 min inactivity session
+- Require Login toggle in Advanced (default on)
+- Login page styled to match UI
+- Lockout recovery: delete config and restart
 """
 
+import hashlib
+import hmac
 import json
 import os
 import random
+import secrets
 import signal
 import threading
 import time
@@ -39,9 +22,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from flask import Flask, jsonify, request, Response
+from flask import Flask, jsonify, request, Response, session, redirect
 
-VERSION = "1.4.2"
+VERSION = "2.0.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -75,6 +58,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "state_pretty": False,             # compact JSON by default
 
     "instances": {"radarr": [], "sonarr": []},
+
+    # Authentication (v2.0)
+    "auth_enabled": True,
+    "auth_username": "",
+    "auth_password_hash": "",   # SHA-256 hex of password
+    "auth_session_minutes": 30, # inactivity timeout
 }
 
 # -------------------------
@@ -630,11 +619,173 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 # -------------------------
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+# Note: secret_key is regenerated on restart if not set via env var.
+# Sessions will be invalidated on container restart — expected behaviour for local tool.
 
 # Silence default Flask request logging (werkzeug)
 import logging
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
+# -------------------------
+# Auth helpers
+# -------------------------
+
+SESSION_TIMEOUT_MINUTES = 30  # default, overridden by config
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password: str, hashed: str) -> bool:
+    return hmac.compare_digest(hash_password(password), hashed)
+
+def auth_required() -> bool:
+    """Returns True if auth is enabled and credentials are configured."""
+    cfg = load_or_init_config()
+    return bool(cfg.get("auth_enabled", True)) and bool(cfg.get("auth_password_hash", ""))
+
+def is_setup_needed() -> bool:
+    """Returns True if auth is enabled but no credentials have been set up yet."""
+    cfg = load_or_init_config()
+    return bool(cfg.get("auth_enabled", True)) and not bool(cfg.get("auth_password_hash", ""))
+
+def is_authenticated() -> bool:
+    """Check if current session is valid and not timed out."""
+    if not auth_required():
+        return True
+    last_active = session.get("last_active")
+    if not last_active:
+        return False
+    cfg = load_or_init_config()
+    timeout = int(cfg.get("auth_session_minutes", SESSION_TIMEOUT_MINUTES))
+    elapsed = (datetime.now().timestamp() - last_active) / 60
+    if elapsed > timeout:
+        session.clear()
+        return False
+    session["last_active"] = datetime.now().timestamp()
+    return True
+
+def requires_auth(f):
+    """Decorator for routes that need authentication."""
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if is_setup_needed():
+            if request.path != "/setup" and not request.path.startswith("/api/setup"):
+                return redirect("/setup")
+        elif auth_required() and not is_authenticated():
+            if request.path != "/login" and not request.path.startswith("/api/auth"):
+                if request.path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "Unauthorized"}), 401
+                return redirect("/login")
+        return f(*args, **kwargs)
+    return decorated
+
+
+LOGIN_HTML = r"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nudgarr — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #11131f; color: #e8eaf0; font-size: 14px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #1e2030; border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 32px; width: 100%; max-width: 360px; }
+    h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .sub { color: #7c8494; font-size: 13px; margin: 0 0 24px; }
+    label { font-size: 12px; color: #7c8494; font-weight: 500; display: block; margin-bottom: 5px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.10);
+      background: #181a28; color: #e8eaf0; font-size: 13px; outline: none; margin-bottom: 14px; }
+    input:focus { border-color: rgba(99,120,255,.6); }
+    button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(99,120,255,.35);
+      background: rgba(99,120,255,.2); color: #a8b4ff; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:hover { background: rgba(99,120,255,.32); color: #c0caff; }
+    .err { color: #fca5a5; font-size: 12px; margin-bottom: 14px; display: none; }
+    .err.show { display: block; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Nudgarr</h1>
+  <p class="sub">Sign in to continue</p>
+  <div class="err" id="err">Invalid username or password.</div>
+  <label>Username</label>
+  <input type="text" id="usr" autocomplete="username" autofocus/>
+  <label>Password</label>
+  <input type="password" id="pwd" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
+  <button onclick="login()">Sign In</button>
+</div>
+<script>
+async function login() {
+  const r = await fetch('/api/auth/login', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username: document.getElementById('usr').value, password: document.getElementById('pwd').value})
+  });
+  if (r.ok) { window.location.href = '/'; }
+  else { document.getElementById('err').classList.add('show'); }
+}
+</script>
+</body>
+</html>"""
+
+SETUP_HTML = r"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nudgarr — Setup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #11131f; color: #e8eaf0; font-size: 14px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #1e2030; border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 32px; width: 100%; max-width: 400px; }
+    h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .sub { color: #7c8494; font-size: 13px; margin: 0 0 24px; line-height: 1.5; }
+    label { font-size: 12px; color: #7c8494; font-weight: 500; display: block; margin-bottom: 5px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.10);
+      background: #181a28; color: #e8eaf0; font-size: 13px; outline: none; margin-bottom: 14px; }
+    input:focus { border-color: rgba(99,120,255,.6); }
+    button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(99,120,255,.35);
+      background: rgba(99,120,255,.2); color: #a8b4ff; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:hover { background: rgba(99,120,255,.32); color: #c0caff; }
+    .err { color: #fca5a5; font-size: 12px; margin-bottom: 14px; display: none; }
+    .err.show { display: block; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Welcome to Nudgarr</h1>
+  <p class="sub">Create your login credentials to get started. These will be required to access the UI.<br><br>To disable login later, go to Advanced → Require Login.</p>
+  <div class="err" id="err"></div>
+  <label>Username</label>
+  <input type="text" id="usr" autocomplete="username" autofocus/>
+  <label>Password</label>
+  <input type="password" id="pwd" autocomplete="new-password"/>
+  <label>Confirm Password</label>
+  <input type="password" id="pwd2" autocomplete="new-password" onkeydown="if(event.key==='Enter')setup()"/>
+  <button onclick="setup()">Create Account</button>
+</div>
+<script>
+async function setup() {
+  const usr = document.getElementById('usr').value.trim();
+  const pwd = document.getElementById('pwd').value;
+  const pwd2 = document.getElementById('pwd2').value;
+  const err = document.getElementById('err');
+  if (!usr) { err.textContent = 'Username is required.'; err.classList.add('show'); return; }
+  if (pwd.length < 6) { err.textContent = 'Password must be at least 6 characters.'; err.classList.add('show'); return; }
+  if (pwd !== pwd2) { err.textContent = 'Passwords do not match.'; err.classList.add('show'); return; }
+  const r = await fetch('/api/setup', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username: usr, password: pwd})
+  });
+  if (r.ok) { window.location.href = '/'; }
+  else { const d = await r.json(); err.textContent = d.error || 'Setup failed.'; err.classList.add('show'); }
+}
+</script>
+</body>
+</html>"""
 
 STATUS: Dict[str, Any] = {
     "version": VERSION,
@@ -889,6 +1040,7 @@ UI_HTML = r"""
       <div class="pill"><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
+      <button class="btn sm" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
     </div>
   </div>
 
@@ -1093,6 +1245,20 @@ UI_HTML = r"""
             <div class="help">Delete history entries older than this. 0 disables.</div>
           </div>
           <div class="hr"></div>
+          <p class="section-label">Security</p>
+          <div class="field">
+            <label>Require Login</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="auth_enabled" onchange="syncAuthUi()"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="auth_label">Enabled</span>
+            </div>
+            <div class="help">When disabled anyone on your network can access the UI. If locked out delete the config file and restart.</div>
+          </div>
+          <div class="hr"></div>
           <p class="section-label">Files</p>
           <div class="row">
             <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
@@ -1203,6 +1369,10 @@ async function loadAll() {
   el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
   updateDryRunPill(CFG.dry_run);
 
+  // Show logout button when auth is enabled
+  const lb = el('logoutBtn');
+  if (lb) lb.style.display = CFG.auth_enabled !== false ? 'inline-flex' : 'none';
+
   // Build instance list
   ALL_INSTANCES = [];
   (CFG.instances?.radarr || []).forEach(i => ALL_INSTANCES.push({key: i.name+'|'+i.url.replace(/\/$/,''), name: i.name, app:'radarr'}));
@@ -1211,6 +1381,7 @@ async function loadAll() {
   renderInstances('radarr');
   renderInstances('sonarr');
   fillSettings();
+  fillAdvanced();
 }
 
 // ── Instances tab ──
@@ -1489,6 +1660,13 @@ function fillAdvanced() {
   el('radarr_missing_added_days').value = CFG.radarr_missing_added_days || 14;
   el('sonarr_missing_max').value = CFG.sonarr_missing_max || 0;
   el('state_retention_days').value = CFG.state_retention_days || 180;
+  el('auth_enabled').checked = CFG.auth_enabled !== false;
+  syncAuthUi();
+}
+
+function syncAuthUi() {
+  const enabled = el('auth_enabled').checked;
+  el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled — anyone on your network can access the UI';
 }
 
 async function saveAdvanced() {
@@ -1498,12 +1676,18 @@ async function saveAdvanced() {
     CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '0', 10);
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
     CFG.state_pretty = false;
+    CFG.auth_enabled = el('auth_enabled').checked;
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok';
     await loadAll();
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', {method:'POST'});
+  window.location.href = '/login';
 }
 
 async function resetConfig() {
@@ -1568,18 +1752,71 @@ setInterval(refreshStatus, 5000);
 """
 
 @app.get("/")
+@requires_auth
 def index():
     return Response(UI_HTML, mimetype="text/html")
 
+@app.get("/login")
+def login_page():
+    if is_authenticated():
+        return redirect("/")
+    return Response(LOGIN_HTML, mimetype="text/html")
+
+@app.get("/setup")
+def setup_page():
+    if not is_setup_needed():
+        return redirect("/")
+    return Response(SETUP_HTML, mimetype="text/html")
+
+@app.post("/api/setup")
+def api_setup():
+    if not is_setup_needed():
+        return jsonify({"ok": False, "error": "Setup already complete"}), 400
+    data = request.get_json(force=True, silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+    if not username:
+        return jsonify({"ok": False, "error": "Username is required"}), 400
+    if len(password) < 6:
+        return jsonify({"ok": False, "error": "Password must be at least 6 characters"}), 400
+    cfg = load_or_init_config()
+    cfg["auth_username"] = username
+    cfg["auth_password_hash"] = hash_password(password)
+    cfg["auth_enabled"] = True
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    session["authenticated"] = True
+    session["last_active"] = datetime.now().timestamp()
+    return jsonify({"ok": True})
+
+@app.post("/api/auth/login")
+def api_login():
+    data = request.get_json(force=True, silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+    cfg = load_or_init_config()
+    if not verify_password(password, cfg.get("auth_password_hash", "")) or username != cfg.get("auth_username", ""):
+        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+    session["authenticated"] = True
+    session["last_active"] = datetime.now().timestamp()
+    return jsonify({"ok": True})
+
+@app.post("/api/auth/logout")
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
 @app.get("/api/status")
+@requires_auth
 def api_status():
     return jsonify(STATUS)
 
 @app.get("/api/config")
+@requires_auth
 def api_get_config():
     return jsonify(load_or_init_config())
 
 @app.post("/api/config")
+@requires_auth
 def api_set_config():
     cfg = request.get_json(force=True, silent=True)
     if not isinstance(cfg, dict):
@@ -1591,12 +1828,14 @@ def api_set_config():
     return jsonify({"ok": True, "message": "Config saved", "config_file": CONFIG_FILE})
 
 @app.post("/api/config/reset")
+@requires_auth
 def api_reset_config():
     cfg = deep_copy(DEFAULT_CONFIG)
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True})
 
 @app.post("/api/toggle-dry-run")
+@requires_auth
 def api_toggle_dryrun():
     cfg = load_or_init_config()
     cfg["dry_run"] = not bool(cfg.get("dry_run", True))
@@ -1604,6 +1843,7 @@ def api_toggle_dryrun():
     return jsonify({"ok": True, "dry_run": cfg["dry_run"]})
 
 @app.post("/api/test")
+@requires_auth
 def api_test():
     cfg = load_or_init_config()
     session = requests.Session()
@@ -1642,6 +1882,7 @@ def _human_bytes(n: int) -> str:
     return f"{n:.1f} PB"
 
 @app.get("/api/state/summary")
+@requires_auth
 def api_state_summary():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
@@ -1685,12 +1926,14 @@ def api_state_summary():
     })
 
 @app.get("/api/state/raw")
+@requires_auth
 def api_state_raw():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
     return jsonify(st)
 
 @app.get("/api/state/items")
+@requires_auth
 def api_state_items():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
@@ -1731,6 +1974,7 @@ def api_state_items():
     return jsonify({"total": total, "items": items})
 
 @app.post("/api/state/prune")
+@requires_auth
 def api_state_prune():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
@@ -1739,6 +1983,7 @@ def api_state_prune():
     return jsonify({"ok": True, "removed": removed})
 
 @app.post("/api/state/clear")
+@requires_auth
 def api_state_clear():
     cfg = load_or_init_config()
     st = {"radarr": {}, "sonarr": {}}
@@ -1748,11 +1993,13 @@ def api_state_clear():
 
 # File download endpoints
 @app.get("/api/file/config")
+@requires_auth
 def api_file_config():
     cfg = load_or_init_config()
     return Response(json.dumps(cfg, indent=2), mimetype="application/json")
 
 @app.get("/api/file/state")
+@requires_auth
 def api_file_state():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
@@ -1763,12 +2010,14 @@ def api_file_state():
 RUN_LOCK = threading.Lock()
 
 @app.post("/api/run-now")
+@requires_auth
 def api_run_now():
     with RUN_LOCK:
         STATUS["run_requested"] = True
     return jsonify({"ok": True})
 
 @app.get("/api/diagnostic")
+@requires_auth
 def api_diagnostic():
     cfg = load_or_init_config()
     radarr_instances = cfg.get("instances", {}).get("radarr", [])

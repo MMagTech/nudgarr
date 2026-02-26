@@ -2015,6 +2015,11 @@ def api_logout():
     session.clear()
     return jsonify({"ok": True})
 
+@app.get("/api/status")
+@requires_auth
+def api_status():
+    return jsonify(STATUS)
+
 @app.get("/api/stats")
 @requires_auth
 def api_get_stats():

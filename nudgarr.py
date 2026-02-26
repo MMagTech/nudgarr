@@ -56,7 +56,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # State size controls
     "state_retention_days": 180,       # prune entries older than this (0 disables)
-    "state_pretty": False,             # compact JSON by default
 
     "instances": {"radarr": [], "sonarr": []},
 
@@ -232,8 +231,7 @@ def ensure_state_structure(state: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[s
     return state
 
 def save_state(state: Dict[str, Any], cfg: Dict[str, Any]) -> None:
-    pretty = bool(cfg.get("state_pretty", False))
-    save_json_atomic(STATE_FILE, state, pretty=pretty)
+    save_json_atomic(STATE_FILE, state, pretty=True)
 
 # -------------------------
 # Stats file helpers
@@ -478,7 +476,18 @@ def sonarr_search_episodes(session: requests.Session, url: str, key: str, episod
         print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
 def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str} from Wanted->Cutoff Unmet."""
+    """Returns list of dicts: {id:int, series_id:int, title:str} from Wanted->Cutoff Unmet."""
+    # First fetch all series to build id→title map
+    series_map: Dict[int, str] = {}
+    try:
+        series_data = req(session, "GET", f"{url.rstrip('/')}/api/v3/series", key)
+        if isinstance(series_data, list):
+            for s in series_data:
+                if isinstance(s.get("id"), int) and isinstance(s.get("title"), str):
+                    series_map[s["id"]] = s["title"]
+    except Exception:
+        pass
+
     episodes: List[Dict[str, Any]] = []
     for page in range(1, max_pages + 1):
         endpoint = f"{url.rstrip('/')}/api/v3/wanted/cutoff?page={page}&pageSize={page_size}"
@@ -489,13 +498,10 @@ def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: s
         if not records:
             break
         for rec in records:
-            # Sonarr /wanted/cutoff returns episode objects directly; primary key is "id"
             eid = rec.get("id") or rec.get("episodeId")
             if isinstance(eid, int):
-                # Build a friendly title: "Series S01E02 - Episode Title"
-                series = rec.get("series", {})
-                series_title = series.get("title") if isinstance(series, dict) else None
-                series_id = series.get("id") if isinstance(series, dict) else None
+                series_id = rec.get("seriesId")
+                series_title = series_map.get(series_id) if series_id else None
                 season = rec.get("seasonNumber")
                 ep_num = rec.get("episodeNumber")
                 ep_title = rec.get("title")
@@ -509,7 +515,18 @@ def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: s
     return episodes
 
 def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Missing."""
+    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Missing."""
+    # Reuse series map
+    series_map: Dict[int, str] = {}
+    try:
+        series_data = req(session, "GET", f"{url.rstrip('/')}/api/v3/series", key)
+        if isinstance(series_data, list):
+            for s in series_data:
+                if isinstance(s.get("id"), int) and isinstance(s.get("title"), str):
+                    series_map[s["id"]] = s["title"]
+    except Exception:
+        pass
+
     episodes: List[Dict[str, Any]] = []
     for page in range(1, max_pages + 1):
         endpoint = f"{url.rstrip('/')}/api/v3/wanted/missing?page={page}&pageSize={page_size}"
@@ -522,9 +539,8 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
         for rec in records:
             eid = rec.get("id") or rec.get("episodeId")
             if isinstance(eid, int):
-                series = rec.get("series", {})
-                series_title = series.get("title") if isinstance(series, dict) else None
-                series_id = series.get("id") if isinstance(series, dict) else None
+                series_id = rec.get("seriesId")
+                series_title = series_map.get(series_id) if series_id else None
                 season = rec.get("seasonNumber")
                 ep_num = rec.get("episodeNumber")
                 ep_title = rec.get("title")
@@ -735,7 +751,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
     # Persist state (even on dry run, so pruning/structure changes persist)
     save_state(state, cfg)
-    print(f"State saved: {STATE_FILE} (pretty={bool(cfg.get('state_pretty', False))}) pruned={pruned}")
+    print(f"State saved: {STATE_FILE} pruned={pruned}")
 
     return summary
 
@@ -1897,7 +1913,6 @@ async function saveAdvanced() {
     CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
     CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '0', 10);
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
-    CFG.state_pretty = false;
     CFG.auth_enabled = el('auth_enabled').checked;
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value || '30', 10);
     CFG.import_check_hours = parseInt(el('import_check_hours').value || '2', 10);

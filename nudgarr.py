@@ -28,6 +28,7 @@ VERSION = "2.0.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
+STATS_FILE = os.getenv("STATS_FILE", "/config/nudgarr-stats.json")
 PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -62,8 +63,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # Authentication (v2.0)
     "auth_enabled": True,
     "auth_username": "",
-    "auth_password_hash": "",   # SHA-256 hex of password
-    "auth_session_minutes": 30, # inactivity timeout
+    "auth_password_hash": "",
+    "auth_session_minutes": 30,
+
+    # Stats (v2.0)
+    "import_check_hours": 2,
 }
 
 # -------------------------
@@ -231,6 +235,106 @@ def save_state(state: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     pretty = bool(cfg.get("state_pretty", False))
     save_json_atomic(STATE_FILE, state, pretty=pretty)
 
+# -------------------------
+# Stats file helpers
+# -------------------------
+
+def load_stats() -> Dict[str, Any]:
+    st = load_json(STATS_FILE, {"entries": []})
+    return st if isinstance(st, dict) else {"entries": []}
+
+def save_stats(stats: Dict[str, Any]) -> None:
+    save_json_atomic(STATS_FILE, stats, pretty=True)
+
+def record_stat_entry(app: str, instance_name: str, item_id: str, title: str, entry_type: str, searched_ts: str) -> None:
+    """Record a searched item for later import checking. entry_type: 'Upgraded' or 'Acquired'"""
+    stats = load_stats()
+    entries = stats.get("entries", [])
+    entries.append({
+        "app": app,
+        "instance": instance_name,
+        "item_id": str(item_id),
+        "title": title,
+        "type": entry_type,
+        "searched_ts": searched_ts,
+        "imported": False,
+        "imported_ts": None,
+    })
+    stats["entries"] = entries
+    save_stats(stats)
+
+def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
+    """Poll Radarr/Sonarr history for import events on recently searched items."""
+    stats = load_stats()
+    entries = stats.get("entries", [])
+    check_hours = int(cfg.get("import_check_hours", 2))
+    now = utcnow()
+    updated = False
+
+    # Build instance lookup
+    instance_map: Dict[str, Dict[str, str]] = {}
+    for inst in cfg.get("instances", {}).get("radarr", []):
+        instance_map[("radarr", inst["name"])] = inst
+    for inst in cfg.get("instances", {}).get("sonarr", []):
+        instance_map[("sonarr", inst["name"])] = inst
+
+    for entry in entries:
+        if entry.get("imported"):
+            continue
+        searched_ts = entry.get("searched_ts")
+        if not searched_ts:
+            continue
+        dt = parse_iso(searched_ts)
+        if dt is None:
+            continue
+        # Only check after the delay has elapsed
+        if (now - dt).total_seconds() / 3600 < check_hours:
+            continue
+
+        app = entry.get("app", "radarr")
+        instance_name = entry.get("instance", "")
+        inst = instance_map.get((app, instance_name))
+        if not inst:
+            continue
+
+        url = inst["url"].rstrip("/")
+        key = inst["api_key"]
+        item_id = entry.get("item_id", "")
+
+        try:
+            if app == "radarr":
+                r = session_obj.get(f"{url}/api/v3/history/movie", params={"movieId": item_id}, headers={"X-Api-Key": key}, timeout=15)
+                if r.ok:
+                    events = r.json() if isinstance(r.json(), list) else []
+                    for ev in events:
+                        if ev.get("eventType") == "downloadFolderImported":
+                            ev_dt = parse_iso(ev.get("date", ""))
+                            if ev_dt and ev_dt > dt:
+                                entry["imported"] = True
+                                entry["imported_ts"] = iso_z(ev_dt)
+                                updated = True
+                                break
+            else:
+                r = session_obj.get(f"{url}/api/v3/history/series", params={"seriesId": item_id}, headers={"X-Api-Key": key}, timeout=15)
+                if r.ok:
+                    data = r.json()
+                    events = data.get("records", []) if isinstance(data, dict) else []
+                    for ev in events:
+                        if ev.get("eventType") == "downloadFolderImported":
+                            ev_dt = parse_iso(ev.get("date", ""))
+                            if ev_dt and ev_dt > dt:
+                                entry["imported"] = True
+                                entry["imported_ts"] = iso_z(ev_dt)
+                                updated = True
+                                break
+        except Exception as e:
+            print(f"[Stats] Import check failed for {instance_name}/{item_id}: {e}")
+
+    if updated:
+        stats["entries"] = entries
+        save_stats(stats)
+        print(f"[Stats] Import check complete — updated confirmed imports")
+
 def is_allowed_by_cooldown(last_entry: Any, cooldown_hours: int) -> bool:
     if cooldown_hours <= 0:
         return True
@@ -268,10 +372,10 @@ def pick_ids_with_cooldown(ids: List[int], st_bucket: Dict[str, Any], prefix: st
     chosen_items, eligible, skipped = pick_items_with_cooldown(items, st_bucket, prefix, cooldown_hours, max_per_run, sample_mode)
     return [it["id"] for it in chosen_items], eligible, skipped
 
-def mark_items_searched(st_bucket: Dict[str, Any], prefix: str, items: List[Dict[str, Any]]) -> None:
+def mark_items_searched(st_bucket: Dict[str, Any], prefix: str, items: List[Dict[str, Any]], sweep_type: str = "") -> None:
     now_s = iso_z(utcnow())
     for item in items:
-        st_bucket[f"{prefix}:{item['id']}"] = {"ts": now_s, "title": item.get("title") or ""}
+        st_bucket[f"{prefix}:{item['id']}"] = {"ts": now_s, "title": item.get("title") or "", "sweep_type": sweep_type}
 
 def mark_ids_searched(st_bucket: Dict[str, Any], prefix: str, ids: List[int]) -> None:
     """Legacy helper for plain ID lists (kept for compatibility)."""
@@ -361,6 +465,17 @@ def radarr_search_movies(session: requests.Session, url: str, key: str, movie_id
     else:
         req(session, "POST", cmd, key, payload)
         print(f"[Radarr] Started MoviesSearch for {len(movie_ids)} movie(s)")
+
+def sonarr_search_episodes(session: requests.Session, url: str, key: str, episode_ids: List[int], dry_run: bool) -> None:
+    if not episode_ids:
+        return
+    cmd = f"{url.rstrip('/')}/api/v3/command"
+    payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
+    if dry_run:
+        print(f"[Sonarr] DRY_RUN would search {len(episode_ids)} episode(s)")
+    else:
+        req(session, "POST", cmd, key, payload)
+        print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
 def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, title:str} from Wanted->Cutoff Unmet."""
@@ -478,7 +593,9 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 batch_ids = [m["id"] for m in batch_items]
                 radarr_search_movies(session, url, key, batch_ids, dry_run)
                 if not dry_run:
-                    mark_items_searched(st_bucket, "movie", batch_items)
+                    mark_items_searched(st_bucket, "movie", batch_items, "Cutoff Unmet")
+                    for m in batch_items:
+                        record_stat_entry("radarr", name, str(m["id"]), m.get("title",""), "Upgraded", iso_z(utcnow()))
                 searched += len(batch_items)
                 if i + batch_size < len(chosen_items):
                     jitter_sleep(sleep_seconds, jitter_seconds)
@@ -518,7 +635,9 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                     batch_ids = [m["id"] for m in batch_items]
                     radarr_search_movies(session, url, key, batch_ids, dry_run)
                     if not dry_run:
-                        mark_items_searched(st_bucket, "missing_movie", batch_items)
+                        mark_items_searched(st_bucket, "missing_movie", batch_items, "Backlog Nudge")
+                        for m in batch_items:
+                            record_stat_entry("radarr", name, str(m["id"]), m.get("title",""), "Acquired", iso_z(utcnow()))
                     searched_missing += len(batch_items)
                     if i + batch_size < len(chosen_missing):
                         jitter_sleep(sleep_seconds, jitter_seconds)
@@ -559,7 +678,9 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 batch_ids = [e["id"] for e in batch_items]
                 sonarr_search_episodes(session, url, key, batch_ids, dry_run)
                 if not dry_run:
-                    mark_items_searched(st_bucket, "episode", batch_items)
+                    mark_items_searched(st_bucket, "episode", batch_items, "Cutoff Unmet")
+                    for e in batch_items:
+                        record_stat_entry("sonarr", name, str(e.get("seriesId", e["id"])), e.get("series", {}).get("title", e.get("title","")), "Upgraded", iso_z(utcnow()))
                 searched += len(batch_items)
                 if i + batch_size < len(chosen_items):
                     jitter_sleep(sleep_seconds, jitter_seconds)
@@ -586,7 +707,9 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                     batch_ids = [e["id"] for e in batch_items]
                     sonarr_search_episodes(session, url, key, batch_ids, dry_run)
                     if not dry_run:
-                        mark_items_searched(st_bucket, "missing_episode", batch_items)
+                        mark_items_searched(st_bucket, "missing_episode", batch_items, "Backlog Nudge")
+                        for e in batch_items:
+                            record_stat_entry("sonarr", name, str(e.get("seriesId", e["id"])), e.get("series", {}).get("title", e.get("title","")), "Acquired", iso_z(utcnow()))
                     searched_missing += len(batch_items)
                     if i + batch_size < len(chosen_missing):
                         jitter_sleep(sleep_seconds, jitter_seconds)
@@ -874,9 +997,13 @@ UI_HTML = r"""
     .btn.sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
     .btn.run-now {
       background: rgba(99,120,255,.25); border-color: var(--accent);
-      color: #c0caff; font-weight: 600; padding: 8px 18px;
+      color: #c0caff; font-weight: 600;
+      padding: 6px 12px; font-size: 12px; border-radius: 999px;
     }
     .btn.run-now:hover { background: rgba(99,120,255,.4); color: #fff; }
+    .btn.sign-out {
+      padding: 6px 12px; font-size: 12px; border-radius: 999px;
+    }
 
     /* ── Modal ── */
     .modal-backdrop {
@@ -947,7 +1074,7 @@ UI_HTML = r"""
     /* ── Toggle switch ── */
     .toggle-wrap { display: flex; align-items: center; gap: 10px; }
     .toggle {
-      position: relative; width: 44px; height: 24px;
+      position: relative; width: 36px; height: 20px;
       flex-shrink: 0; cursor: pointer;
     }
     .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
@@ -959,11 +1086,12 @@ UI_HTML = r"""
     .toggle input:checked ~ .toggle-track { background: var(--accent); border-color: var(--accent); }
     .toggle input.warn:checked ~ .toggle-track { background: var(--warn); border-color: var(--warn); }
     .toggle-thumb {
-      position: absolute; top: 3px; left: 3px;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: var(--muted); transition: transform .2s, background .2s;
+      position: absolute; top: 50%; left: 3px;
+      transform: translateY(-50%);
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--muted); transition: left .2s, background .2s;
     }
-    .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); background: #fff; }
+    .toggle input:checked ~ .toggle-thumb { left: 19px; background: #fff; transform: translateY(-50%); }
 
     /* ── Instance cards ── */
     .inst-card {
@@ -1040,7 +1168,7 @@ UI_HTML = r"""
       <div class="pill"><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
-      <button class="btn sm" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
+      <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
     </div>
   </div>
 
@@ -1049,6 +1177,7 @@ UI_HTML = r"""
     <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
+    <div class="tab" data-tab="stats" onclick="showTab('stats'); refreshStats()">Stats</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
   </div>
 
@@ -1205,6 +1334,25 @@ UI_HTML = r"""
     </div>
   </div>
 
+  <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
+  <div class="section" id="tab-stats">
+    <div class="card">
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="refreshStats()">Refresh</button>
+        <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
+        <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="statsInstance" onchange="refreshStats()">
+              <option value="">All Instances</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="statsTableWrap"></div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════ ADVANCED ══════════════════════════════ -->
   <div class="section" id="tab-advanced">
     <div class="grid">
@@ -1258,6 +1406,18 @@ UI_HTML = r"""
             </div>
             <div class="help">When disabled anyone on your network can access the UI. If locked out delete the config file and restart.</div>
           </div>
+          <div class="field">
+            <label>Session Timeout (Minutes)</label>
+            <input id="auth_session_minutes" type="number" min="1"/>
+            <div class="help">Minutes of inactivity before requiring re-login.</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Stats</p>
+          <div class="field">
+            <label>Import Check Delay (Hours)</label>
+            <input id="import_check_hours" type="number" min="1"/>
+            <div class="help">How long after a search before checking for a confirmed import.</div>
+          </div>
           <div class="hr"></div>
           <p class="section-label">Files</p>
           <div class="row">
@@ -1285,7 +1445,7 @@ UI_HTML = r"""
         <div class="card">
           <p class="section-label">Diagnostics</p>
           <p class="help" style="margin:0 0 12px">Copy diagnostic info to share when opening a GitHub issue.</p>
-          <button class="btn sm" onclick="copyDiagnostic()">Copy Diagnostic Info</button>
+          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
           <span class="msg" id="diagMsg" style="margin-left:8px"></span>
           <div id="diagBox" class="diag-box" style="display:none"></div>
         </div>
@@ -1620,6 +1780,7 @@ async function refreshHistory() {
     const rows = items.items.map(it => `
       <tr>
         <td>${escapeHtml(it.title || it.key)}</td>
+        <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${escapeHtml(fmtTime(it.last_searched))}</td>
         <td>${escapeHtml(fmtTime(it.eligible_again))}</td>
       </tr>
@@ -1627,8 +1788,8 @@ async function refreshHistory() {
 
     el('historyTableWrap').innerHTML = `
       <table>
-        <thead><tr><th>Title</th><th>Last Searched</th><th>Eligible Again</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="3" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
+        <thead><tr><th>Title</th><th>Type</th><th>Last Searched</th><th>Eligible Again</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
       </table>
     `;
   } catch(e) {
@@ -1653,6 +1814,63 @@ async function clearState() {
   PAGE = 0; refreshHistory();
 }
 
+// ── Stats tab ──
+async function refreshStats() {
+  try {
+    const inst = el('statsInstance') ? el('statsInstance').value : '';
+    const data = await api(`/api/stats${inst ? '?instance=' + encodeURIComponent(inst) : ''}`);
+
+    // Populate instance dropdown
+    const sel = el('statsInstance');
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">All Instances</option>' +
+        data.instances.map(i => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
+      if (prev) sel.value = prev;
+    }
+
+    if (!data.entries.length) {
+      el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_hours || 2) + ' hours after each search.</p>';
+      return;
+    }
+
+    const rows = data.entries.map(e => `
+      <tr>
+        <td>${escapeHtml(e.title || e.item_id)}</td>
+        <td>${escapeHtml(e.instance)}</td>
+        <td><span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(e.type)}</span></td>
+        <td>${escapeHtml(fmtTime(e.searched_ts))}</td>
+        <td>${escapeHtml(fmtTime(e.imported_ts))}</td>
+      </tr>
+    `).join('');
+
+    el('statsTableWrap').innerHTML = `
+      <p class="help" style="margin-bottom:12px">${data.total} confirmed import${data.total !== 1 ? 's' : ''}</p>
+      <table>
+        <thead><tr><th>Title</th><th>Instance</th><th>Type</th><th>Searched</th><th>Imported</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  } catch(e) {
+    el('statsTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load stats: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function checkImportsNow() {
+  try {
+    await api('/api/stats/check-imports', {method:'POST'});
+    await refreshStats();
+  } catch(e) {
+    console.error('Import check failed:', e);
+  }
+}
+
+async function clearStats() {
+  if (!confirm('Clear all confirmed import stats? This cannot be undone.')) return;
+  await api('/api/stats/clear', {method:'POST'});
+  refreshStats();
+}
+
 // ── Advanced tab ──
 function fillAdvanced() {
   if (!CFG) return;
@@ -1661,6 +1879,8 @@ function fillAdvanced() {
   el('sonarr_missing_max').value = CFG.sonarr_missing_max || 0;
   el('state_retention_days').value = CFG.state_retention_days || 180;
   el('auth_enabled').checked = CFG.auth_enabled !== false;
+  el('auth_session_minutes').value = CFG.auth_session_minutes || 30;
+  el('import_check_hours').value = CFG.import_check_hours || 2;
   syncAuthUi();
 }
 
@@ -1677,6 +1897,8 @@ async function saveAdvanced() {
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
     CFG.state_pretty = false;
     CFG.auth_enabled = el('auth_enabled').checked;
+    CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value || '30', 10);
+    CFG.import_check_hours = parseInt(el('import_check_hours').value || '2', 10);
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok';
     await loadAll();
@@ -1704,23 +1926,11 @@ function downloadFile(which) {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-async function copyDiagnostic() {
-  try {
-    const data = await api('/api/diagnostic');
-    el('diagBox').textContent = data.text;
-    el('diagBox').style.display = 'block';
-    // Use execCommand for local HTTP compatibility
-    const ta = document.createElement('textarea');
-    ta.value = data.text;
-    ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    el('diagMsg').textContent = 'Copied to clipboard.'; el('diagMsg').className = 'msg ok';
-  } catch(e) {
-    el('diagMsg').textContent = 'Failed: ' + e.message; el('diagMsg').className = 'msg err';
-  }
+function downloadDiagnostic() {
+  const a = document.createElement('a');
+  a.href = '/api/diagnostic';
+  a.download = 'nudgarr-diagnostic.txt';
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 // ── Run Now ──
@@ -1805,9 +2015,40 @@ def api_logout():
     session.clear()
     return jsonify({"ok": True})
 
-@app.get("/api/status")
+@app.get("/api/stats")
 @requires_auth
-def api_status():
+def api_get_stats():
+    cfg = load_or_init_config()
+    stats = load_stats()
+    entries = stats.get("entries", [])
+    instance_filter = request.args.get("instance", "")
+    if instance_filter:
+        entries = [e for e in entries if e.get("instance") == instance_filter]
+    confirmed = [e for e in entries if e.get("imported")]
+    confirmed.sort(key=lambda x: x.get("imported_ts", ""), reverse=True)
+    # Build instance list for dropdown
+    all_instances = []
+    for inst in cfg.get("instances", {}).get("radarr", []):
+        all_instances.append({"name": inst["name"], "app": "radarr"})
+    for inst in cfg.get("instances", {}).get("sonarr", []):
+        all_instances.append({"name": inst["name"], "app": "sonarr"})
+    return jsonify({"entries": confirmed, "instances": all_instances, "total": len(confirmed)})
+
+@app.post("/api/stats/check-imports")
+@requires_auth
+def api_check_imports_now():
+    cfg = load_or_init_config()
+    session = requests.Session()
+    # Temporarily override check delay to 0 for manual check
+    cfg_override = dict(cfg)
+    cfg_override["import_check_hours"] = 0
+    try:
+        check_imports(session, cfg_override)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+    return jsonify({"ok": True})
+    save_stats({"entries": []})
+    return jsonify({"ok": True})
     return jsonify(STATUS)
 
 @app.get("/api/config")
@@ -1943,31 +2184,40 @@ def api_state_items():
     limit = int(request.args.get("limit", "250"))
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
 
+    # Build valid instance keys to filter orphaned entries from display
+    valid_keys = set()
+    for i in cfg.get("instances", {}).get(app_name, []):
+        valid_keys.add(state_key(i["name"], i["url"]))
+
     app_obj = st.get(app_name, {})
-    bucket = app_obj.get(inst, {}) if isinstance(app_obj, dict) else {}
-    if not isinstance(bucket, dict):
-        bucket = {}
+    # Only show items for valid (non-orphaned) instances
+    if inst:
+        buckets = {inst: app_obj.get(inst, {})} if inst in valid_keys else {}
+    else:
+        buckets = {k: v for k, v in (app_obj.items() if isinstance(app_obj, dict) else []) if k in valid_keys}
 
     items = []
-    for k, entry in bucket.items():
-        if not isinstance(k, str):
+    for bucket_key, bucket in buckets.items():
+        if not isinstance(bucket, dict):
             continue
-        # Support both old string format and new dict format
-        if isinstance(entry, dict):
-            ts = entry.get("ts", "")
-            title = entry.get("title", "")
-        else:
-            ts = entry if isinstance(entry, str) else ""
-            title = ""
-        # eligible again time
-        dt = parse_iso(ts)
-        eligible = ""
-        if dt is not None:
-            eligible_dt = dt + timedelta(hours=cooldown_hours)
-            eligible = iso_z(eligible_dt)
-        items.append({"key": k, "title": title, "last_searched": ts, "eligible_again": eligible})
+        for k, entry in bucket.items():
+            if not isinstance(k, str):
+                continue
+            if isinstance(entry, dict):
+                ts = entry.get("ts", "")
+                title = entry.get("title", "")
+                sweep_type = entry.get("sweep_type", "")
+            else:
+                ts = entry if isinstance(entry, str) else ""
+                title = ""
+                sweep_type = ""
+            dt = parse_iso(ts)
+            eligible = ""
+            if dt is not None:
+                eligible_dt = dt + timedelta(hours=cooldown_hours)
+                eligible = iso_z(eligible_dt)
+            items.append({"key": k, "title": title, "last_searched": ts, "eligible_again": eligible, "sweep_type": sweep_type})
 
-    # newest first
     items.sort(key=lambda x: x.get("last_searched", ""), reverse=True)
     total = len(items)
     items = items[offset: offset+limit]
@@ -1979,6 +2229,14 @@ def api_state_prune():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
     removed = prune_state_by_retention(st, int(cfg.get("state_retention_days", 180)))
+    # Also silently remove orphaned instance keys
+    for app_name in ("radarr", "sonarr"):
+        valid_keys = {state_key(i["name"], i["url"]) for i in cfg.get("instances", {}).get(app_name, [])}
+        app_obj = st.get(app_name, {})
+        if isinstance(app_obj, dict):
+            for sk in list(app_obj.keys()):
+                if sk not in valid_keys:
+                    del app_obj[sk]
     save_state(st, cfg)
     return jsonify({"ok": True, "removed": removed})
 
@@ -2025,24 +2283,48 @@ def api_diagnostic():
     radarr_names = [i.get("name") for i in radarr_instances]
     sonarr_names = [i.get("name") for i in sonarr_instances]
 
-    # Per-instance state counts
+    # Build valid key → friendly name map
+    name_map: Dict[str, str] = {}
+    valid_keys: set = set()
+    for inst in radarr_instances:
+        sk = state_key(inst["name"], inst["url"])
+        name_map[("radarr", sk)] = inst["name"]
+        valid_keys.add(("radarr", sk))
+    for inst in sonarr_instances:
+        sk = state_key(inst["name"], inst["url"])
+        name_map[("sonarr", sk)] = inst["name"]
+        valid_keys.add(("sonarr", sk))
+
+    # Per-instance state counts with orphan detection
     st = load_state()
     instance_counts = []
-    for app in ("radarr", "sonarr"):
-        app_obj = st.get(app, {})
+    for app_name in ("radarr", "sonarr"):
+        app_obj = st.get(app_name, {})
         if isinstance(app_obj, dict):
             for sk, bucket in app_obj.items():
                 count = len(bucket) if isinstance(bucket, dict) else 0
-                instance_counts.append(f"  {app}/{sk}: {count} entries")
+                key_tuple = (app_name, sk)
+                if key_tuple in valid_keys:
+                    friendly = name_map[key_tuple]
+                    instance_counts.append(f"  {app_name}/{friendly}: {count} entries")
+                else:
+                    instance_counts.append(f"  {app_name}/{sk}: {count} entries (orphaned — no matching instance)")
 
+    # Last run summary with cutoff/backlog breakdown
     last_summary = STATUS.get("last_summary") or {}
     summary_lines = []
-    for app in ("radarr", "sonarr"):
-        for s in last_summary.get(app, []):
+    for app_name in ("radarr", "sonarr"):
+        for s in last_summary.get(app_name, []):
             if "error" in s:
                 summary_lines.append(f"  {s.get('name','?')}: ERROR — {s.get('error')}")
             else:
-                summary_lines.append(f"  {s.get('name','?')}: searched={s.get('searched',0)} skipped_cooldown={s.get('skipped_cooldown',0)} missing_searched={s.get('searched_missing',0)}")
+                cutoff = s.get('searched', 0)
+                backlog = s.get('searched_missing', 0)
+                skipped = s.get('skipped_cooldown', 0)
+                summary_lines.append(
+                    f"  {s.get('name','?')}: searched={cutoff + backlog} "
+                    f"(cutoff={cutoff} backlog={backlog}) skipped_cooldown={skipped}"
+                )
 
     lines = [
         f"Nudgarr v{VERSION}",
@@ -2055,10 +2337,11 @@ def api_diagnostic():
         f"Cooldown: {cfg.get('cooldown_hours')}h",
         f"Radarr instances ({len(radarr_names)}): {', '.join(radarr_names) or 'none'}",
         f"Sonarr instances ({len(sonarr_names)}): {', '.join(sonarr_names) or 'none'}",
-        f"Radarr cap: {cfg.get('radarr_max_movies_per_run')}/run | Missing cap: {cfg.get('radarr_missing_max', 0)}/run",
-        f"Sonarr cap: {cfg.get('sonarr_max_episodes_per_run')}/run | Missing cap: {cfg.get('sonarr_missing_max', 0)}/run",
+        f"Radarr cap: {cfg.get('radarr_max_movies_per_run')}/run | Backlog cap: {cfg.get('radarr_missing_max', 0)}/run",
+        f"Sonarr cap: {cfg.get('sonarr_max_episodes_per_run')}/run | Backlog cap: {cfg.get('sonarr_missing_max', 0)}/run",
         f"History file: {STATE_FILE}",
         f"Config file: {CONFIG_FILE}",
+        f"Stats file: {STATS_FILE}",
         "",
         "Last run summary:",
     ] + (summary_lines or ["  No runs yet."]) + [
@@ -2066,7 +2349,12 @@ def api_diagnostic():
         "History entry counts:",
     ] + (instance_counts or ["  No entries."])
 
-    return jsonify({"text": "\n".join(lines)})
+    text = "\n".join(lines)
+    return Response(
+        text,
+        mimetype="text/plain",
+        headers={"Content-Disposition": "attachment; filename=nudgarr-diagnostic.txt"}
+    )
 
 # -------------------------
 # Scheduler / Service runner
@@ -2127,6 +2415,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 STATUS["last_summary"] = summary
                 STATUS["last_run_utc"] = iso_z(utcnow())
                 STATUS["last_error"] = None
+                # Check for confirmed imports from previous searches
+                try:
+                    check_imports(session, cfg)
+                except Exception as ce:
+                    print(f"[Stats] Import check error: {ce}")
             except Exception as e:
                 STATUS["last_error"] = str(e)
                 print(f"ERROR (sweep): {e}")

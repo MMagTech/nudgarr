@@ -495,16 +495,17 @@ def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: s
                 # Build a friendly title: "Series S01E02 - Episode Title"
                 series = rec.get("series", {})
                 series_title = series.get("title") if isinstance(series, dict) else None
+                series_id = series.get("id") if isinstance(series, dict) else None
                 season = rec.get("seasonNumber")
                 ep_num = rec.get("episodeNumber")
                 ep_title = rec.get("title")
                 if series_title and season is not None and ep_num is not None:
                     title = f"{series_title} S{season:02d}E{ep_num:02d}"
                     if ep_title:
-                        title += f" - {ep_title}"
+                        title += f" · {ep_title}"
                 else:
                     title = ep_title or f"Episode {eid}"
-                episodes.append({"id": eid, "title": title})
+                episodes.append({"id": eid, "series_id": series_id, "title": title})
     return episodes
 
 def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
@@ -523,6 +524,7 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
             if isinstance(eid, int):
                 series = rec.get("series", {})
                 series_title = series.get("title") if isinstance(series, dict) else None
+                series_id = series.get("id") if isinstance(series, dict) else None
                 season = rec.get("seasonNumber")
                 ep_num = rec.get("episodeNumber")
                 ep_title = rec.get("title")
@@ -530,10 +532,10 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
                 if series_title and season is not None and ep_num is not None:
                     title = f"{series_title} S{season:02d}E{ep_num:02d}"
                     if ep_title:
-                        title += f" - {ep_title}"
+                        title += f" · {ep_title}"
                 else:
                     title = ep_title or f"Episode {eid}"
-                episodes.append({"id": eid, "title": title, "added": added})
+                episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
     if not episode_ids:
         return
@@ -680,7 +682,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 if not dry_run:
                     mark_items_searched(st_bucket, "episode", batch_items, "Cutoff Unmet")
                     for e in batch_items:
-                        record_stat_entry("sonarr", name, str(e.get("seriesId", e["id"])), e.get("series", {}).get("title", e.get("title","")), "Upgraded", iso_z(utcnow()))
+                        record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title",""), "Upgraded", iso_z(utcnow()))
                 searched += len(batch_items)
                 if i + batch_size < len(chosen_items):
                     jitter_sleep(sleep_seconds, jitter_seconds)
@@ -709,7 +711,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                     if not dry_run:
                         mark_items_searched(st_bucket, "missing_episode", batch_items, "Backlog Nudge")
                         for e in batch_items:
-                            record_stat_entry("sonarr", name, str(e.get("seriesId", e["id"])), e.get("series", {}).get("title", e.get("title","")), "Acquired", iso_z(utcnow()))
+                            record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title",""), "Acquired", iso_z(utcnow()))
                     searched_missing += len(batch_items)
                     if i + batch_size < len(chosen_missing):
                         jitter_sleep(sleep_seconds, jitter_seconds)

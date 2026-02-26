@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -577,7 +577,6 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
             # Optional: Missing backlog nudges (Sonarr)
             sonarr_missing_max = int(cfg.get("sonarr_missing_max", 0))
-            sonarr_missing_added_days = int(cfg.get("sonarr_missing_added_days", 14))
             missing_total = 0
             eligible_missing = 0
             skipped_missing = 0
@@ -587,23 +586,11 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             if sonarr_missing_max > 0:
                 missing_records = sonarr_get_missing_episodes(session, url, key)
                 missing_total = len(missing_records)
-                min_added_dt = utcnow() - timedelta(days=sonarr_missing_added_days)
-
-                missing_filtered: List[Dict[str, Any]] = []
-                for rec in missing_records:
-                    added_s = rec.get("added")
-                    ok_old = True
-                    if isinstance(added_s, str):
-                        dt = parse_iso(added_s)
-                        if dt is not None:
-                            ok_old = dt < min_added_dt
-                    if ok_old:
-                        missing_filtered.append(rec)
-
+                # No added days filter for Sonarr — if it's in Wanted, search it
                 chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
-                    missing_filtered, st_bucket, "missing_episode", cooldown_hours, sonarr_missing_max, sample_mode
+                    missing_records, st_bucket, "missing_episode", cooldown_hours, sonarr_missing_max, sample_mode
                 )
-                print(f"[Sonarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} limit_missing={sonarr_missing_max} older_than_days={sonarr_missing_added_days}")
+                print(f"[Sonarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} limit_missing={sonarr_missing_max}")
 
                 for i in range(0, len(chosen_missing), batch_size):
                     batch_items = chosen_missing[i:i+batch_size]
@@ -627,7 +614,6 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 "will_search_missing": len(chosen_missing),
                 "searched_missing": searched_missing,
                 "limit_missing": sonarr_missing_max,
-                "missing_added_days": sonarr_missing_added_days,
             })
         except Exception as e:
             print(f"[Sonarr:{name}] ERROR: {e}")
@@ -1028,8 +1014,8 @@ UI_HTML = r"""
         </div>
       </div>
 
-      <div class="card" style="border-color: rgba(99,120,255,.2);">
-        <p class="help" style="margin:0; line-height:1.6">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be respectful of your indexers' limits and know their caps — searching too aggressively can get you banned from your indexer.</p>
+      <div class="card" style="border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.06);">
+        <p class="help" style="margin:0; line-height:1.6; color: rgba(245,158,11,.9)">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be respectful of your indexers' limits and know their caps — searching too aggressively can get you banned from your indexer.</p>
       </div>
 
       <div class="row">
@@ -1046,7 +1032,7 @@ UI_HTML = r"""
       <div class="row" style="margin-bottom:14px">
         <button class="btn sm" onclick="refreshHistory()">Refresh</button>
         <button class="btn sm" onclick="pruneState()">Prune Expired</button>
-        <button class="btn sm danger" onclick="clearState()">Clear State</button>
+        <button class="btn sm danger" onclick="clearState()">Clear History</button>
         <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
           <div class="field" style="min-width:200px">
             <select id="historyInstance" onchange="PAGE=0; refreshHistory()"></select>
@@ -1073,7 +1059,7 @@ UI_HTML = r"""
       <div class="grid cols2">
         <div class="card">
           <p class="section-label">Backlog Nudges</p>
-          <div class="help" style="margin-bottom:12px">Nudges movies and episodes identified as missing. Off by default.</div>
+          <div class="help" style="margin-bottom:12px">Nudges movies and episodes identified as missing. These searches are on top of your Max Per Run caps. Off by default.</div>
           <p class="help" style="margin:0 0 8px; font-weight:600; color:var(--text-dim)">Radarr</p>
           <div class="grid cols2" style="gap:12px">
             <div class="field">
@@ -1093,12 +1079,7 @@ UI_HTML = r"""
             <div class="field">
               <label>Sonarr Missing Max</label>
               <input id="sonarr_missing_max" type="number" min="0"/>
-              <div class="help">Maximum missing episode searches per instance run. 0 disables.</div>
-            </div>
-            <div class="field">
-              <label>Sonarr Missing Added Days</label>
-              <input id="sonarr_missing_added_days" type="number" min="0"/>
-              <div class="help">Only nudge episodes that have been missing for more than this many days.</div>
+              <div class="help">Nudges monitored episodes in your Wanted list. 0 disables.</div>
             </div>
           </div>
           </div>
@@ -1131,7 +1112,7 @@ UI_HTML = r"""
           <p class="help" style="margin:0 0 12px; color:#fca5a5">These actions are irreversible.</p>
           <div class="row">
             <button class="btn sm danger" onclick="resetConfig()">Reset Config to Defaults</button>
-            <button class="btn sm danger" onclick="clearState()">Clear State</button>
+            <button class="btn sm danger" onclick="clearState()">Clear History</button>
           </div>
         </div>
 
@@ -1435,13 +1416,15 @@ async function refreshHistory() {
   try {
     const sum = await api('/api/state/summary');
 
-    // KPI pills
-    el('kpis').innerHTML = `
-      <div class="pill"><span class="dot" style="background:var(--accent)"></span><span>Radarr: ${sum.radarr_entries} entries</span></div>
-      <div class="pill"><span class="dot" style="background:var(--accent)"></span><span>Sonarr: ${sum.sonarr_entries} entries</span></div>
-      <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>State File: ${sum.file_size_human}</span></div>
-      <div class="pill"><span class="dot" style="background:rgba(255,255,255,.25)"></span><span>Retention: ${sum.retention_days} days</span></div>
-    `;
+    // KPI pills — per instance counts
+    const instPills = ALL_INSTANCES.map(inst => {
+      const appSt = sum.per_instance || {};
+      const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
+      return `<div class="pill"><span>${escapeHtml(inst.name)}: ${count}</span></div>`;
+    }).join('');
+    el('kpis').innerHTML = instPills +
+      `<div class="pill"><span>History File: ${sum.file_size_human}</span></div>` +
+      `<div class="pill"><span>Retention: ${sum.retention_days} days</span></div>`;
 
     // Build instance dropdown from ALL_INSTANCES (has correct app info)
     // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
@@ -1505,7 +1488,6 @@ function fillAdvanced() {
   el('radarr_missing_max').value = CFG.radarr_missing_max || 0;
   el('radarr_missing_added_days').value = CFG.radarr_missing_added_days || 14;
   el('sonarr_missing_max').value = CFG.sonarr_missing_max || 0;
-  el('sonarr_missing_added_days').value = CFG.sonarr_missing_added_days || 14;
   el('state_retention_days').value = CFG.state_retention_days || 180;
 }
 
@@ -1514,7 +1496,6 @@ async function saveAdvanced() {
     CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
     CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
     CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '0', 10);
-    CFG.sonarr_missing_added_days = parseInt(el('sonarr_missing_added_days').value || '14', 10);
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
     CFG.state_pretty = false;
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
@@ -1544,7 +1525,14 @@ async function copyDiagnostic() {
     const data = await api('/api/diagnostic');
     el('diagBox').textContent = data.text;
     el('diagBox').style.display = 'block';
-    await navigator.clipboard.writeText(data.text);
+    // Use execCommand for local HTTP compatibility
+    const ta = document.createElement('textarea');
+    ta.value = data.text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
     el('diagMsg').textContent = 'Copied to clipboard.'; el('diagMsg').className = 'msg ok';
   } catch(e) {
     el('diagMsg').textContent = 'Failed: ' + e.message; el('diagMsg').className = 'msg err';
@@ -1659,6 +1647,7 @@ def api_state_summary():
     st = ensure_state_structure(load_state(), cfg)
     radarr_entries = 0
     sonarr_entries = 0
+    per_instance: Dict[str, Dict[str, int]] = {"radarr": {}, "sonarr": {}}
 
     # Build mapping: state_key → friendly name
     name_map: Dict[str, str] = {}
@@ -1677,10 +1666,12 @@ def api_state_summary():
                 friendly = name_map.get(sk, sk)
                 instances[app].append({"key": sk, "name": friendly})
                 if isinstance(bucket, dict):
+                    count = len(bucket)
+                    per_instance[app][sk] = count
                     if app == "radarr":
-                        radarr_entries += len(bucket)
+                        radarr_entries += count
                     else:
-                        sonarr_entries += len(bucket)
+                        sonarr_entries += count
 
     size = _file_size(STATE_FILE)
     return jsonify({
@@ -1688,6 +1679,7 @@ def api_state_summary():
         "file_size_human": _human_bytes(size),
         "radarr_entries": radarr_entries,
         "sonarr_entries": sonarr_entries,
+        "per_instance": per_instance,
         "instances": instances,
         "retention_days": int(cfg.get("state_retention_days", 180)),
     })
@@ -1779,23 +1771,52 @@ def api_run_now():
 @app.get("/api/diagnostic")
 def api_diagnostic():
     cfg = load_or_init_config()
-    radarr_instances = [i.get("name") for i in cfg.get("instances", {}).get("radarr", [])]
-    sonarr_instances = [i.get("name") for i in cfg.get("instances", {}).get("sonarr", [])]
+    radarr_instances = cfg.get("instances", {}).get("radarr", [])
+    sonarr_instances = cfg.get("instances", {}).get("sonarr", [])
+    radarr_names = [i.get("name") for i in radarr_instances]
+    sonarr_names = [i.get("name") for i in sonarr_instances]
+
+    # Per-instance state counts
+    st = load_state()
+    instance_counts = []
+    for app in ("radarr", "sonarr"):
+        app_obj = st.get(app, {})
+        if isinstance(app_obj, dict):
+            for sk, bucket in app_obj.items():
+                count = len(bucket) if isinstance(bucket, dict) else 0
+                instance_counts.append(f"  {app}/{sk}: {count} entries")
+
+    last_summary = STATUS.get("last_summary") or {}
+    summary_lines = []
+    for app in ("radarr", "sonarr"):
+        for s in last_summary.get(app, []):
+            if "error" in s:
+                summary_lines.append(f"  {s.get('name','?')}: ERROR — {s.get('error')}")
+            else:
+                summary_lines.append(f"  {s.get('name','?')}: searched={s.get('searched',0)} skipped_cooldown={s.get('skipped_cooldown',0)} missing_searched={s.get('searched_missing',0)}")
+
     lines = [
         f"Nudgarr v{VERSION}",
+        f"Port: {PORT}",
         f"Last run: {STATUS.get('last_run_utc') or 'Never'}",
         f"Next run: {STATUS.get('next_run_utc') or 'N/A'}",
         f"Last error: {STATUS.get('last_error') or 'None'}",
         f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, interval: {cfg.get('run_interval_minutes')}min",
         f"Dry run: {cfg.get('dry_run')}",
         f"Cooldown: {cfg.get('cooldown_hours')}h",
-        f"Radarr instances ({len(radarr_instances)}): {', '.join(radarr_instances) or 'none'}",
-        f"Sonarr instances ({len(sonarr_instances)}): {', '.join(sonarr_instances) or 'none'}",
-        f"Radarr cap: {cfg.get('radarr_max_movies_per_run')}/run",
-        f"Sonarr cap: {cfg.get('sonarr_max_episodes_per_run')}/run",
-        f"State file: {STATE_FILE}",
+        f"Radarr instances ({len(radarr_names)}): {', '.join(radarr_names) or 'none'}",
+        f"Sonarr instances ({len(sonarr_names)}): {', '.join(sonarr_names) or 'none'}",
+        f"Radarr cap: {cfg.get('radarr_max_movies_per_run')}/run | Missing cap: {cfg.get('radarr_missing_max', 0)}/run",
+        f"Sonarr cap: {cfg.get('sonarr_max_episodes_per_run')}/run | Missing cap: {cfg.get('sonarr_missing_max', 0)}/run",
+        f"History file: {STATE_FILE}",
         f"Config file: {CONFIG_FILE}",
-    ]
+        "",
+        "Last run summary:",
+    ] + (summary_lines or ["  No runs yet."]) + [
+        "",
+        "History entry counts:",
+    ] + (instance_counts or ["  No entries."])
+
     return jsonify({"text": "\n".join(lines)})
 
 # -------------------------
@@ -1840,7 +1861,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         next_run = now + timedelta(minutes=interval_min)
         STATUS["next_run_utc"] = iso_z(next_run) if scheduler_enabled else None
 
-        # Run one sweep on startup when scheduler is enabled. Otherwise wait for Run Now.
+        # Run on startup OR on schedule OR if manually requested
         should_run = (scheduler_enabled and cycle == 0)
 
         with RUN_LOCK:
@@ -1875,6 +1896,12 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 if STATUS.get("run_requested"):
                     break
             time.sleep(1)
+
+        # After sleeping the full interval, trigger the next scheduled run
+        if scheduler_enabled and not stop_flag["stop"]:
+            with RUN_LOCK:
+                if not STATUS.get("run_requested"):
+                    STATUS["run_requested"] = True
 
     STATUS["scheduler_running"] = False
 

@@ -1204,7 +1204,7 @@ UI_HTML = r"""
     <div class="grid cols2">
       <div class="card">
         <div class="row" style="margin-bottom:12px">
-          <span class="card-title" style="margin:0">Radarr Instances</span>
+          <span class="section-label" style="margin:0">Radarr Instances</span>
           <button class="btn sm" style="margin-left:auto" onclick="addInstance('radarr')">+ Add</button>
         </div>
         <p class="help" style="margin:0 0 8px">Add one or more Radarr instances.</p>
@@ -1213,7 +1213,7 @@ UI_HTML = r"""
 
       <div class="card">
         <div class="row" style="margin-bottom:12px">
-          <span class="card-title" style="margin:0">Sonarr Instances</span>
+          <span class="section-label" style="margin:0">Sonarr Instances</span>
           <button class="btn sm" style="margin-left:auto" onclick="addInstance('sonarr')">+ Add</button>
         </div>
         <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances.</p>
@@ -1378,7 +1378,7 @@ UI_HTML = r"""
         <div class="card">
           <p class="section-label">Backlog Nudges</p>
           <div class="help" style="margin-bottom:12px">Nudges movies and episodes identified as missing. These searches are on top of your Max Per Run caps. Off by default.</div>
-          <p class="help" style="margin:0 0 8px; font-weight:600; color:var(--text-dim)">Radarr</p>
+          <p class="section-label" style="margin:0 0 8px">Radarr</p>
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Radarr Missing Max</label>
@@ -1392,7 +1392,7 @@ UI_HTML = r"""
             </div>
           </div>
           <div style="margin-top:14px">
-          <p class="help" style="margin:0 0 8px; font-weight:600; color:var(--text-dim)">Sonarr</p>
+          <p class="section-label" style="margin:0 0 8px">Sonarr</p>
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Sonarr Missing Max</label>
@@ -1422,9 +1422,10 @@ UI_HTML = r"""
               </label>
               <span class="help" id="auth_label">Enabled</span>
             </div>
-            <div class="help">When disabled anyone on your network can access the UI. If locked out delete the config file and restart.</div>
+            <div class="help">When disabled, anyone on your network can access the UI.</div>
+            <div class="help" style="margin-top:4px;color:var(--text-dim)">Locked out? Delete the config file and restart.</div>
           </div>
-          <div class="field">
+          <div class="field" style="margin-top:12px">
             <label>Session Timeout (Minutes)</label>
             <input id="auth_session_minutes" type="number" min="1"/>
             <div class="help">Minutes of inactivity before requiring re-login.</div>
@@ -1434,7 +1435,7 @@ UI_HTML = r"""
           <div class="field">
             <label>Import Check Delay (Hours)</label>
             <input id="import_check_hours" type="number" min="1"/>
-            <div class="help">How long after a search before checking for a confirmed import.</div>
+            <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Files</p>
@@ -1769,25 +1770,25 @@ async function refreshHistory() {
     const instPills = ALL_INSTANCES.map(inst => {
       const appSt = sum.per_instance || {};
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
-      return `<div class="pill"><span>${escapeHtml(inst.name)}: ${count}</span></div>`;
+      return `<div class="pill"><span style="color:var(--text-dim)">${escapeHtml(inst.name)}</span><span style="color:var(--text);font-weight:600">${count}</span></div>`;
     }).join('');
     el('kpis').innerHTML = instPills +
-      `<div class="pill"><span>History File: ${sum.file_size_human}</span></div>` +
-      `<div class="pill"><span>Retention: ${sum.retention_days} days</span></div>`;
+      `<div class="pill"><span style="color:var(--text-dim)">History File</span><span style="color:var(--text);font-weight:600">${sum.file_size_human}</span></div>` +
+      `<div class="pill"><span style="color:var(--text-dim)">Retention</span><span style="color:var(--text);font-weight:600">${sum.retention_days} days</span></div>`;
 
     // Build instance dropdown from ALL_INSTANCES (has correct app info)
     // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
     const sel = el('historyInstance');
     const prevIdx = sel.value;
-    sel.innerHTML = ALL_INSTANCES.map((inst, idx) =>
+    sel.innerHTML = '<option value="">All Instances</option>' + ALL_INSTANCES.map((inst, idx) =>
       `<option value="${idx}">${escapeHtml(inst.name)}</option>`
     ).join('');
-    if (prevIdx && parseInt(prevIdx) < ALL_INSTANCES.length) sel.value = prevIdx;
+    if (prevIdx && (prevIdx === '' || parseInt(prevIdx) < ALL_INSTANCES.length)) sel.value = prevIdx;
 
-    const selIdx = parseInt(sel.value || '0');
-    const selected = ALL_INSTANCES[selIdx];
+    const selVal = sel.value;
+    const selected = selVal !== '' ? ALL_INSTANCES[parseInt(selVal)] : null;
     const instKey = selected ? selected.key : '';
-    const appName = selected ? selected.app : 'radarr';
+    const appName = selected ? selected.app : '';
 
     const limit = parseInt(el('historyLimit').value || '250', 10);
     const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${PAGE*limit}&limit=${limit}`);
@@ -2200,45 +2201,47 @@ def api_state_raw():
 def api_state_items():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
-    app_name = request.args.get("app", "radarr")
+    app_name = request.args.get("app", "")
     inst = request.args.get("instance", "")
     offset = int(request.args.get("offset", "0"))
     limit = int(request.args.get("limit", "250"))
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
 
-    # Build valid instance keys to filter orphaned entries from display
-    valid_keys = set()
-    for i in cfg.get("instances", {}).get(app_name, []):
-        valid_keys.add(state_key(i["name"], i["url"]))
-
-    app_obj = st.get(app_name, {})
-    # Only show items for valid (non-orphaned) instances
-    if inst:
-        buckets = {inst: app_obj.get(inst, {})} if inst in valid_keys else {}
-    else:
-        buckets = {k: v for k, v in (app_obj.items() if isinstance(app_obj, dict) else []) if k in valid_keys}
+    # Determine which apps to include
+    apps_to_scan = [app_name] if app_name else ["radarr", "sonarr"]
 
     items = []
-    for bucket_key, bucket in buckets.items():
-        if not isinstance(bucket, dict):
-            continue
-        for k, entry in bucket.items():
-            if not isinstance(k, str):
+    for cur_app in apps_to_scan:
+        valid_keys = set()
+        for i in cfg.get("instances", {}).get(cur_app, []):
+            valid_keys.add(state_key(i["name"], i["url"]))
+
+        app_obj = st.get(cur_app, {})
+        if inst:
+            buckets = {inst: app_obj.get(inst, {})} if inst in valid_keys else {}
+        else:
+            buckets = {k: v for k, v in (app_obj.items() if isinstance(app_obj, dict) else []) if k in valid_keys}
+
+        for bucket_key, bucket in buckets.items():
+            if not isinstance(bucket, dict):
                 continue
-            if isinstance(entry, dict):
-                ts = entry.get("ts", "")
-                title = entry.get("title", "")
-                sweep_type = entry.get("sweep_type", "")
-            else:
-                ts = entry if isinstance(entry, str) else ""
-                title = ""
-                sweep_type = ""
-            dt = parse_iso(ts)
-            eligible = ""
-            if dt is not None:
-                eligible_dt = dt + timedelta(hours=cooldown_hours)
-                eligible = iso_z(eligible_dt)
-            items.append({"key": k, "title": title, "last_searched": ts, "eligible_again": eligible, "sweep_type": sweep_type})
+            for k, entry in bucket.items():
+                if not isinstance(k, str):
+                    continue
+                if isinstance(entry, dict):
+                    ts = entry.get("ts", "")
+                    title = entry.get("title", "")
+                    sweep_type = entry.get("sweep_type", "")
+                else:
+                    ts = entry if isinstance(entry, str) else ""
+                    title = ""
+                    sweep_type = ""
+                dt = parse_iso(ts)
+                eligible = ""
+                if dt is not None:
+                    eligible_dt = dt + timedelta(hours=cooldown_hours)
+                    eligible = iso_z(eligible_dt)
+                items.append({"key": k, "title": title, "last_searched": ts, "eligible_again": eligible, "sweep_type": sweep_type})
 
     items.sort(key=lambda x: x.get("last_searched", ""), reverse=True)
     total = len(items)

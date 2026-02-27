@@ -1079,6 +1079,10 @@ UI_HTML = r"""
     .msg.ok { color: var(--ok); }
     .msg.err { color: var(--bad); }
     .msg.fade { opacity: 0; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text); }
+    th.sort-asc::after { content: ' ↑'; }
+    th.sort-desc::after { content: ' ↓'; }
 
     /* ── Toggle switch ── */
     .toggle-wrap { display: flex; align-items: center; gap: 10px; }
@@ -1188,7 +1192,7 @@ UI_HTML = r"""
     <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
-    <div class="tab" data-tab="stats" onclick="showTab('stats'); refreshStats()">Stats</div>
+    <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
   </div>
 
@@ -1548,6 +1552,9 @@ let CFG = null;
 let PAGE = 0;
 let ALL_INSTANCES = [];
 let confirmResolve = null;
+let ACTIVE_TAB = 'instances';
+let HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
+let STATS_SORT = { col: 'imported_ts', dir: 'desc' };
 
 async function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
   el('confirmTitle').textContent = title;
@@ -1564,10 +1571,12 @@ function showAlert(msg) {
 }
 
 function showTab(name) {
+  ACTIVE_TAB = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') refreshHistory();
+  if (name === 'stats') refreshStats();
   if (name === 'advanced') fillAdvanced();
 }
 
@@ -1850,7 +1859,8 @@ async function refreshHistory() {
     el('pageInfo').textContent = `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
     el('historyPagination').style.display = items.total > 0 ? 'flex' : 'none';
 
-    const rows = items.items.map(it => `
+    const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
+    const rows = sorted.map(it => `
       <tr>
         <td>${escapeHtml(it.title || it.key)}</td>
         <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
@@ -1861,13 +1871,57 @@ async function refreshHistory() {
 
     el('historyTableWrap').innerHTML = `
       <table>
-        <thead><tr><th>Title</th><th>Type</th><th>Last Searched</th><th>Eligible Again</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="sortHistory('title')">Title</th>
+          <th class="sortable" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable" onclick="sortHistory('eligible_again')">Eligible Again</th>
+        </tr></thead>
         <tbody>${rows || '<tr><td colspan="4" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
       </table>
     `;
+    applySortIndicators('#historyTableWrap table', HISTORY_SORT);
   } catch(e) {
     el('historyTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load history: ${escapeHtml(e.message)}</p>`;
   }
+}
+
+function sortHistory(col) {
+  if (HISTORY_SORT.col === col) {
+    HISTORY_SORT.dir = HISTORY_SORT.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    HISTORY_SORT.col = col;
+    HISTORY_SORT.dir = 'asc';
+  }
+  PAGE = 0;
+  refreshHistory();
+}
+
+function sortStats(col) {
+  if (STATS_SORT.col === col) {
+    STATS_SORT.dir = STATS_SORT.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    STATS_SORT.col = col;
+    STATS_SORT.dir = 'asc';
+  }
+  refreshStats();
+}
+
+function applySortIndicators(tableSelector, sortState) {
+  document.querySelectorAll(`${tableSelector} th.sortable`).forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.getAttribute('onclick').includes(`'${sortState.col}'`)) {
+      th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+}
+
+function sortItems(items, col, dir) {
+  return [...items].sort((a, b) => {
+    const av = (a[col] || '').toString().toLowerCase();
+    const bv = (b[col] || '').toString().toLowerCase();
+    return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
 }
 
 function prevPage() { if (PAGE > 0) { PAGE--; refreshHistory(); } }
@@ -1907,7 +1961,8 @@ async function refreshStats() {
       return;
     }
 
-    const rows = data.entries.map(e => `
+    const sorted = sortItems(data.entries, STATS_SORT.col, STATS_SORT.dir);
+    const rows = sorted.map(e => `
       <tr>
         <td>${escapeHtml(e.title || e.item_id)}</td>
         <td>${escapeHtml(e.instance)}</td>
@@ -1920,10 +1975,17 @@ async function refreshStats() {
     el('statsTableWrap').innerHTML = `
       <p class="help" style="margin-bottom:12px">${data.total} confirmed import${data.total !== 1 ? 's' : ''}</p>
       <table>
-        <thead><tr><th>Title</th><th>Instance</th><th>Type</th><th>Searched</th><th>Imported</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="sortStats('title')">Title</th>
+          <th class="sortable" onclick="sortStats('instance')">Instance</th>
+          <th class="sortable" onclick="sortStats('type')">Type</th>
+          <th class="sortable" onclick="sortStats('searched_ts')">Searched</th>
+          <th class="sortable" onclick="sortStats('imported_ts')">Imported</th>
+        </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     `;
+    applySortIndicators('#statsTableWrap table', STATS_SORT);
   } catch(e) {
     el('statsTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load stats: ${escapeHtml(e.message)}</p>`;
   }
@@ -2044,8 +2106,19 @@ async function refreshStatus() {
   } catch(e) {}
 }
 
+let AUTO_REFRESH_COUNT = 0;
+async function pollCycle() {
+  await refreshStatus();
+  AUTO_REFRESH_COUNT++;
+  // Auto-refresh active tab every 30s (every 6th 5s poll cycle)
+  if (AUTO_REFRESH_COUNT % 6 === 0) {
+    if (ACTIVE_TAB === 'history') refreshHistory();
+    if (ACTIVE_TAB === 'stats') refreshStats();
+  }
+}
+
 loadAll();
-setInterval(refreshStatus, 5000);
+setInterval(pollCycle, 5000);
 </script>
 </body>
 </html>

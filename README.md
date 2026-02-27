@@ -45,6 +45,20 @@ services:
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json
+    tty: false
+    stdin_open: false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 256m
+    cpus: 1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
 Open the UI at `http://<your-host>:8085`
@@ -88,6 +102,20 @@ Nudgarr intentionally avoids features that introduce unnecessary attack surface.
 - Run Nudgarr on your LAN only — do not expose port 8085 to the internet
 - If you need remote access, use a VPN or a reverse proxy with proper authentication and HTTPS
 - Enable the built-in login as a basic layer of protection on your local network
+
+**Container hardening (implemented in v2.0.0)**
+The provided `docker-compose.yml` includes the following hardening settings out of the box:
+- `no-new-privileges` — prevents the container from elevating privileges after start
+- `cap_drop: ALL` — removes all Linux capabilities; Nudgarr does not require any
+- `pids_limit`, `mem_limit`, `cpus` — limits resource consumption to protect the host
+- `tty: false`, `stdin_open: false` — disables unnecessary input channels
+- Logging limits — prevents log files from consuming unbounded disk space
+
+These are standard Docker settings and work on any platform.
+
+**Planned security improvements (v2.0.1)**
+- Non-root container user — the container currently runs as root. A future release will introduce a dedicated non-root user with an entrypoint script that handles config directory permissions automatically, reducing the blast radius of any container compromise.
+- Read-only filesystem — mounting the container filesystem as read-only with a restricted `/tmp` tmpfs, so any payload downloaded inside the container cannot be executed.
 
 Locked out? Delete the config file and restart — Nudgarr will run the setup wizard again.
 

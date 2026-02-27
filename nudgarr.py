@@ -42,11 +42,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "sonarr_max_episodes_per_run": 25,
 
     # Optional Radarr backlog missing nudges (OFF by default)
-    "radarr_missing_max": 0,
+    "radarr_backlog_enabled": False,
+    "radarr_missing_max": 1,
     "radarr_missing_added_days": 14,
 
     # Optional Sonarr backlog missing nudges (OFF by default)
-    "sonarr_missing_max": 0,
+    "sonarr_backlog_enabled": False,
+    "sonarr_missing_max": 1,
     "sonarr_missing_added_days": 14,
 
     "batch_size": 20,
@@ -608,27 +610,28 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                     jitter_sleep(sleep_seconds, jitter_seconds)
 
             # Optional: Missing backlog nudges (Radarr only)
-            missing_max = int(cfg.get("radarr_missing_max", 0))
+            missing_max = int(cfg.get("radarr_missing_max", 1))
             missing_added_days = int(cfg.get("radarr_missing_added_days", 14))
+            radarr_backlog_enabled = bool(cfg.get("radarr_backlog_enabled", False))
             missing_total = 0
             eligible_missing = 0
             skipped_missing = 0
             searched_missing = 0
             chosen_missing: List[Dict[str, Any]] = []
 
-            if missing_max > 0:
+            if radarr_backlog_enabled and missing_max > 0:
                 missing_records = radarr_get_missing_movies(session, url, key)
                 missing_total = len(missing_records)
-                min_added_dt = utcnow() - timedelta(days=missing_added_days)
 
                 missing_filtered: List[Dict[str, Any]] = []
                 for rec in missing_records:
                     added_s = rec.get("added")
                     ok_old = True
-                    if isinstance(added_s, str):
+                    if missing_added_days > 0 and isinstance(added_s, str):
                         dt = parse_iso(added_s)
                         if dt is not None:
-                            ok_old = dt < min_added_dt
+                            min_added_dt = utcnow() - timedelta(days=missing_added_days)
+                            ok_old = dt <= min_added_dt
                     if ok_old:
                         missing_filtered.append(rec)
 
@@ -691,14 +694,15 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                     jitter_sleep(sleep_seconds, jitter_seconds)
 
             # Optional: Missing backlog nudges (Sonarr)
-            sonarr_missing_max = int(cfg.get("sonarr_missing_max", 0))
+            sonarr_missing_max = int(cfg.get("sonarr_missing_max", 1))
+            sonarr_backlog_enabled = bool(cfg.get("sonarr_backlog_enabled", False))
             missing_total = 0
             eligible_missing = 0
             skipped_missing = 0
             searched_missing = 0
             chosen_missing: List[Dict[str, Any]] = []
 
-            if sonarr_missing_max > 0:
+            if sonarr_backlog_enabled and sonarr_missing_max > 0:
                 missing_records = sonarr_get_missing_episodes(session, url, key)
                 missing_total = len(missing_records)
                 # No added days filter for Sonarr — if it's in Wanted, search it
@@ -1366,29 +1370,57 @@ UI_HTML = r"""
       <div class="grid cols2">
         <div class="card">
           <p class="section-label">Backlog Nudges</p>
-          <div class="help" style="margin-bottom:12px">Nudges movies and episodes identified as missing. These searches are on top of your Max Per Run caps. Off by default.</div>
+          <div class="help" style="margin-bottom:12px">Searches movies and episodes identified as missing. These searches are on top of your Max Per Run caps.</div>
           <p class="section-label" style="margin:0 0 8px">Radarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi()"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="radarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="radarr_backlog_fields" style="opacity:0.35;pointer-events:none">
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Radarr Missing Max</label>
-              <input id="radarr_missing_max" type="number" min="0"/>
-              <div class="help">Maximum missing movie searches per instance run. 0 disables.</div>
+              <input id="radarr_missing_max" type="number" min="1"/>
+              <div class="help">Maximum missing movie searches per instance run.</div>
             </div>
             <div class="field">
               <label>Radarr Missing Added Days</label>
               <input id="radarr_missing_added_days" type="number" min="0"/>
-              <div class="help">Only nudge movies that have been missing for more than this many days.</div>
+              <div class="help">Only search missing items added more than this many days ago.</div>
             </div>
+          </div>
           </div>
           <div style="margin-top:14px">
           <p class="section-label" style="margin:0 0 8px">Sonarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="sonarr_backlog_enabled" onchange="syncBacklogUi()"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="sonarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="sonarr_backlog_fields" style="opacity:0.35;pointer-events:none">
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Sonarr Missing Max</label>
-              <input id="sonarr_missing_max" type="number" min="0"/>
-              <div class="help">Nudges monitored episodes in your Wanted list. 0 disables.</div>
+              <input id="sonarr_missing_max" type="number" min="1"/>
+              <div class="help">Maximum missing episode searches per instance run.</div>
             </div>
           </div>
+          </div>
+          </div>
+          <div class="card" style="margin-top:16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2)">
+            <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
+            <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible regardless of when they were added. Searching large numbers of missing items aggressively can result in indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
         </div>
 
@@ -1489,11 +1521,47 @@ UI_HTML = r"""
     </div>
   </div>
 
+  <!-- ══ Confirm Modal ══ -->
+  <div class="modal-backdrop" id="confirmModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+      <h2 id="confirmTitle">Confirm</h2>
+      <p class="help" id="confirmMsg" style="margin:0 0 20px"></p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm" onclick="confirmResolve(false)">Cancel</button>
+        <button class="btn sm primary" id="confirmOkBtn" onclick="confirmResolve(true)">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Alert Modal ══ -->
+  <div class="modal-backdrop" id="alertModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+      <p class="help" id="alertMsg" style="margin:0 0 20px"></p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm primary" onclick="el('alertModal').style.display='none'">OK</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 let CFG = null;
 let PAGE = 0;
-// Track all configured instances: [{key, name, app}]
 let ALL_INSTANCES = [];
+let confirmResolve = null;
+
+function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
+  el('confirmTitle').textContent = title;
+  el('confirmMsg').textContent = msg;
+  el('confirmOkBtn').textContent = okLabel;
+  el('confirmOkBtn').className = danger ? 'btn sm danger' : 'btn sm primary';
+  el('confirmModal').style.display = 'flex';
+  return new Promise(resolve => { confirmResolve = (v) => { el('confirmModal').style.display = 'none'; resolve(v); }; });
+}
+
+function showAlert(msg) {
+  el('alertMsg').textContent = msg;
+  el('alertModal').style.display = 'flex';
+}
 
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
@@ -1617,7 +1685,7 @@ function saveModal() {
   const name = el('modalName').value.trim();
   const url = el('modalUrl').value.trim();
   const key = el('modalKey').value.trim();
-  if (!name || !url || !key) { alert('All fields are required.'); return; }
+  if (!name || !url || !key) { showAlert('All fields are required.'); return; }
   CFG.instances = CFG.instances || {radarr:[], sonarr:[]};
   if (MODAL_IDX >= 0) {
     CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key};
@@ -1639,7 +1707,7 @@ function editInstance(kind, idx) {
 }
 
 function deleteInstance(kind, idx) {
-  if (!confirm('Delete this instance?')) return;
+  if (!await showConfirm('Delete Instance', 'Are you sure you want to delete this instance?', 'Delete', true)) return;
   CFG.instances[kind].splice(idx, 1);
   renderInstances(kind);
   el('saveMsg').textContent = 'Deleted — click Save Changes.';
@@ -1776,7 +1844,7 @@ async function refreshHistory() {
     const instKey = selected ? selected.key : '';
     const appName = selected ? selected.app : '';
 
-    const limit = parseInt(el('historyLimit').value || '250', 10);
+    const limit = parseInt(el('historyLimit').value || '25', 10);
     const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${PAGE*limit}&limit=${limit}`);
 
     el('pageInfo').textContent = `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
@@ -1806,16 +1874,16 @@ function prevPage() { if (PAGE > 0) { PAGE--; refreshHistory(); } }
 function nextPage() { PAGE++; refreshHistory(); }
 
 async function pruneState() {
-  if (!confirm('Prune expired history entries now?')) return;
+  if (!await showConfirm('Prune Expired', 'Remove all expired history entries?', 'Prune')) return;
   const out = await api('/api/state/prune', {method:'POST'});
-  alert(`Pruned ${out.removed} entries.`);
+  showAlert(`Pruned ${out.removed} entries.`);
   PAGE = 0; refreshHistory();
 }
 
 async function clearState() {
-  if (!confirm('Clear all history? This removes all cooldown records.')) return;
+  if (!await showConfirm('Clear History', 'Clear all history? This removes all cooldown records and cannot be undone.', 'Clear', true)) return;
   await api('/api/state/clear', {method:'POST'});
-  alert('History cleared.');
+  showAlert('History cleared.');
   PAGE = 0; refreshHistory();
 }
 
@@ -1871,7 +1939,7 @@ async function checkImportsNow() {
 }
 
 async function clearStats() {
-  if (!confirm('Clear all confirmed import stats? This cannot be undone.')) return;
+  if (!await showConfirm('Clear Stats', 'Clear all confirmed import stats? This cannot be undone.', 'Clear', true)) return;
   await api('/api/stats/clear', {method:'POST'});
   refreshStats();
 }
@@ -1879,14 +1947,17 @@ async function clearStats() {
 // ── Advanced tab ──
 function fillAdvanced() {
   if (!CFG) return;
-  el('radarr_missing_max').value = CFG.radarr_missing_max || 0;
+  el('radarr_backlog_enabled').checked = !!CFG.radarr_backlog_enabled;
+  el('radarr_missing_max').value = CFG.radarr_missing_max || 1;
   el('radarr_missing_added_days').value = CFG.radarr_missing_added_days || 14;
-  el('sonarr_missing_max').value = CFG.sonarr_missing_max || 0;
+  el('sonarr_backlog_enabled').checked = !!CFG.sonarr_backlog_enabled;
+  el('sonarr_missing_max').value = CFG.sonarr_missing_max || 1;
   el('state_retention_days').value = CFG.state_retention_days || 180;
   el('auth_enabled').checked = CFG.auth_enabled !== false;
   el('auth_session_minutes').value = CFG.auth_session_minutes || 30;
   el('import_check_hours').value = CFG.import_check_hours || 2;
   syncAuthUi();
+  syncBacklogUi();
 }
 
 function syncAuthUi() {
@@ -1894,11 +1965,24 @@ function syncAuthUi() {
   el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled — anyone on your network can access the UI';
 }
 
+function syncBacklogUi() {
+  const radarrOn = el('radarr_backlog_enabled').checked;
+  const sonarrOn = el('sonarr_backlog_enabled').checked;
+  el('radarr_backlog_label').textContent = radarrOn ? 'Enabled' : 'Disabled';
+  el('sonarr_backlog_label').textContent = sonarrOn ? 'Enabled' : 'Disabled';
+  el('radarr_backlog_fields').style.opacity = radarrOn ? '1' : '0.35';
+  el('radarr_backlog_fields').style.pointerEvents = radarrOn ? '' : 'none';
+  el('sonarr_backlog_fields').style.opacity = sonarrOn ? '1' : '0.35';
+  el('sonarr_backlog_fields').style.pointerEvents = sonarrOn ? '' : 'none';
+}
+
 async function saveAdvanced() {
   try {
-    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '0', 10);
+    CFG.radarr_backlog_enabled = el('radarr_backlog_enabled').checked;
+    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '1', 10);
     CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
-    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '0', 10);
+    CFG.sonarr_backlog_enabled = el('sonarr_backlog_enabled').checked;
+    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '1', 10);
     CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
     CFG.auth_enabled = el('auth_enabled').checked;
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value || '30', 10);
@@ -1917,9 +2001,9 @@ async function logout() {
 }
 
 async function resetConfig() {
-  if (!confirm('Reset config to defaults? All instances and settings will be lost.')) return;
+  if (!await showConfirm('Reset Config', 'Reset config to defaults? All instances and settings will be lost.', 'Reset', true)) return;
   await api('/api/config/reset', {method:'POST'});
-  alert('Config reset to defaults.');
+  showAlert('Config reset to defaults.');
   await loadAll();
 }
 
@@ -1944,7 +2028,7 @@ async function runNow() {
     el('lastRun').textContent = 'Running…';
     el('dot-dryrun').classList.add('running');
   } catch(e) {
-    alert('Run request failed: ' + e.message);
+    showAlert('Run request failed: ' + e.message);
   }
 }
 

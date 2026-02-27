@@ -7,8 +7,9 @@ services:
     ports:
       - "8085:8085"
     volumes:
-      - /mnt/user/appdata/nudgarr:/config
+      - /your/path/to/appdata/nudgarr:/config
     environment:
       - PORT=8085
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
+      - STATS_FILE=/config/nudgarr-stats.json

@@ -1112,7 +1112,9 @@ UI_HTML = r"""
     .status-dot.ok { background: var(--ok); }
     .status-dot.bad { background: var(--bad); }
     .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
+    .dot.running { background: var(--warn) !important; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    #pill-lastrun { min-width: 185px; }
 
     /* ── Test result cards ── */
     .test-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -1170,7 +1172,7 @@ UI_HTML = r"""
     </div>
     <div class="header-right">
       <div class="pill" id="pill-dryrun"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
-      <div class="pill"><span>Last: <span id="lastRun">—</span></span></div>
+      <div class="pill" id="pill-lastrun"><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
       <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
@@ -1325,7 +1327,7 @@ UI_HTML = r"""
           </div>
           <div class="field" style="min-width:100px">
             <select id="historyLimit" onchange="PAGE=0; refreshHistory()">
-              <option>100</option><option selected>250</option><option>500</option><option>1000</option>
+              <option selected>25</option><option>50</option><option>100</option>
             </select>
           </div>
         </div>
@@ -1940,6 +1942,7 @@ async function runNow() {
   try {
     await api('/api/run-now', {method:'POST'});
     el('lastRun').textContent = 'Running…';
+    el('dot-dryrun').classList.add('running');
   } catch(e) {
     alert('Run request failed: ' + e.message);
   }
@@ -1951,6 +1954,7 @@ async function refreshStatus() {
     const st = await api('/api/status');
     el('ver').textContent = st.version;
     el('lastRun').textContent = fmtTime(st.last_run_utc);
+    el('dot-dryrun').classList.remove('running');
     el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
     updateStatusPill(CFG?.scheduler_enabled);
   } catch(e) {}

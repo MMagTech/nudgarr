@@ -1071,9 +1071,10 @@ UI_HTML = r"""
     .help { font-size: 12px; color: var(--muted); line-height: 1.4; }
     .hr { height: 1px; background: var(--border); margin: 16px 0; }
     .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .msg { font-size: 12px; color: var(--muted); }
+    .msg { font-size: 12px; color: var(--muted); transition: opacity 0.5s ease; }
     .msg.ok { color: var(--ok); }
     .msg.err { color: var(--bad); }
+    .msg.fade { opacity: 0; }
 
     /* ── Toggle switch ── */
     .toggle-wrap { display: flex; align-items: center; gap: 10px; }
@@ -1304,7 +1305,7 @@ UI_HTML = r"""
       </div>
 
       <div class="row">
-        <button class="btn primary" onclick="saveSettings()">Save Settings</button>
+        <button class="btn primary" onclick="saveSettings()">Save Changes</button>
         <span class="msg" id="setMsg"></span>
       </div>
     </div>
@@ -1433,7 +1434,7 @@ UI_HTML = r"""
       </div>
 
       <div class="row" style="margin-top:4px">
-        <button class="btn primary" onclick="saveAdvanced()">Save</button>
+        <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
         <span class="msg" id="advMsg"></span>
       </div>
 
@@ -1643,10 +1644,17 @@ function deleteInstance(kind, idx) {
   el('saveMsg').className = 'msg';
 }
 
+function fadeMsg(id) {
+  const el_ = el(id);
+  clearTimeout(el_._fadeTimer);
+  el_.classList.remove('fade');
+  el_._fadeTimer = setTimeout(() => el_.classList.add('fade'), 2000);
+}
+
 async function saveAll() {
   try {
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('saveMsg').textContent = 'Saved.'; el('saveMsg').className = 'msg ok';
+    el('saveMsg').textContent = 'Saved.'; el('saveMsg').className = 'msg ok'; fadeMsg('saveMsg');
     await loadAll();
   } catch(e) {
     el('saveMsg').textContent = 'Save failed: ' + e.message; el('saveMsg').className = 'msg err';
@@ -1703,7 +1711,6 @@ function syncSchedulerUi() {
   const enabled = el('scheduler_enabled').checked;
   el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual only';
   el('run_interval_minutes').disabled = !enabled;
-  updateStatusPill(enabled);
 }
 
 function fillSettings() {
@@ -1731,7 +1738,7 @@ async function saveSettings() {
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('setMsg').textContent = 'Saved.'; el('setMsg').className = 'msg ok';
+    el('setMsg').textContent = 'Saved.'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
     await loadAll();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
@@ -1895,7 +1902,7 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value || '30', 10);
     CFG.import_check_hours = parseInt(el('import_check_hours').value || '2', 10);
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok';
+    el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
     await loadAll();
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
@@ -2361,6 +2368,7 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     print("====================================")
     print(f"Config: {CONFIG_FILE}")
     print(f"State:  {STATE_FILE}")
+    print(f"Stats:  {STATS_FILE}")
     print(f"UI:     http://<host>:{PORT}/")
     print("")
     print("")

@@ -34,7 +34,6 @@ PORT = int(os.getenv("PORT", "8085"))
 DEFAULT_CONFIG: Dict[str, Any] = {
     "scheduler_enabled": True,        # automatic sweeps on/off (container stays running)
     "run_interval_minutes": 360,
-    "dry_run": True,
 
     "cooldown_hours": 48,
     "sample_mode": "random",           # random | first
@@ -453,27 +452,21 @@ def radarr_get_missing_movies(session: requests.Session, url: str, key: str, pag
     return out
 
 
-def radarr_search_movies(session: requests.Session, url: str, key: str, movie_ids: List[int], dry_run: bool) -> None:
+def radarr_search_movies(session: requests.Session, url: str, key: str, movie_ids: List[int]) -> None:
     if not movie_ids:
         return
     cmd = f"{url.rstrip('/')}/api/v3/command"
     payload = {"name": "MoviesSearch", "movieIds": movie_ids}
-    if dry_run:
-        print(f"[Radarr] DRY_RUN would search {len(movie_ids)} movie(s)")
-    else:
-        req(session, "POST", cmd, key, payload)
-        print(f"[Radarr] Started MoviesSearch for {len(movie_ids)} movie(s)")
+    req(session, "POST", cmd, key, payload)
+    print(f"[Radarr] Started MoviesSearch for {len(movie_ids)} movie(s)")
 
-def sonarr_search_episodes(session: requests.Session, url: str, key: str, episode_ids: List[int], dry_run: bool) -> None:
+def sonarr_search_episodes(session: requests.Session, url: str, key: str, episode_ids: List[int]) -> None:
     if not episode_ids:
         return
     cmd = f"{url.rstrip('/')}/api/v3/command"
     payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
-    if dry_run:
-        print(f"[Sonarr] DRY_RUN would search {len(episode_ids)} episode(s)")
-    else:
-        req(session, "POST", cmd, key, payload)
-        print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
+    req(session, "POST", cmd, key, payload)
+    print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
 def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, series_id:int, title:str} from Wanted->Cutoff Unmet."""
@@ -568,7 +561,6 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
 # -------------------------
 
 def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
-    dry_run = bool(cfg.get("dry_run", True))
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
     sample_mode = str(cfg.get("sample_mode", "random")).lower()
 
@@ -585,13 +577,11 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
     pruned = prune_state_by_retention(state, retention_days)
 
     summary = {
-        "dry_run": dry_run,
         "pruned_entries": pruned,
         "radarr": [],
         "sonarr": [],
     }
 
-    print(f"Started: {utcnow().isoformat()}  dry_run={dry_run}")
 
     # RADARR
     for inst in cfg.get("instances", {}).get("radarr", []):
@@ -609,11 +599,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             for i in range(0, len(chosen_items), batch_size):
                 batch_items = chosen_items[i:i+batch_size]
                 batch_ids = [m["id"] for m in batch_items]
-                radarr_search_movies(session, url, key, batch_ids, dry_run)
-                if not dry_run:
-                    mark_items_searched(st_bucket, "movie", batch_items, "Cutoff Unmet")
-                    for m in batch_items:
-                        record_stat_entry("radarr", name, str(m["id"]), m.get("title",""), "Upgraded", iso_z(utcnow()))
+                radarr_search_movies(session, url, key, batch_ids)
+                mark_items_searched(st_bucket, "movie", batch_items, "Cutoff Unmet")
+                for m in batch_items:
+                    record_stat_entry("radarr", name, str(m["id"]), m.get("title",""), "Upgraded", iso_z(utcnow()))
                 searched += len(batch_items)
                 if i + batch_size < len(chosen_items):
                     jitter_sleep(sleep_seconds, jitter_seconds)
@@ -651,11 +640,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 for i in range(0, len(chosen_missing), batch_size):
                     batch_items = chosen_missing[i:i+batch_size]
                     batch_ids = [m["id"] for m in batch_items]
-                    radarr_search_movies(session, url, key, batch_ids, dry_run)
-                    if not dry_run:
-                        mark_items_searched(st_bucket, "missing_movie", batch_items, "Backlog Nudge")
-                        for m in batch_items:
-                            record_stat_entry("radarr", name, str(m["id"]), m.get("title",""), "Acquired", iso_z(utcnow()))
+                    radarr_search_movies(session, url, key, batch_ids)
+                    mark_items_searched(st_bucket, "missing_movie", batch_items, "Backlog Nudge")
+                    for m in batch_items:
+                        record_stat_entry("radarr", name, str(m["id"]), m.get("title",""), "Acquired", iso_z(utcnow()))
                     searched_missing += len(batch_items)
                     if i + batch_size < len(chosen_missing):
                         jitter_sleep(sleep_seconds, jitter_seconds)
@@ -694,11 +682,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             for i in range(0, len(chosen_items), batch_size):
                 batch_items = chosen_items[i:i+batch_size]
                 batch_ids = [e["id"] for e in batch_items]
-                sonarr_search_episodes(session, url, key, batch_ids, dry_run)
-                if not dry_run:
-                    mark_items_searched(st_bucket, "episode", batch_items, "Cutoff Unmet")
-                    for e in batch_items:
-                        record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title",""), "Upgraded", iso_z(utcnow()))
+                sonarr_search_episodes(session, url, key, batch_ids)
+                mark_items_searched(st_bucket, "episode", batch_items, "Cutoff Unmet")
+                for e in batch_items:
+                    record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title",""), "Upgraded", iso_z(utcnow()))
                 searched += len(batch_items)
                 if i + batch_size < len(chosen_items):
                     jitter_sleep(sleep_seconds, jitter_seconds)
@@ -723,11 +710,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 for i in range(0, len(chosen_missing), batch_size):
                     batch_items = chosen_missing[i:i+batch_size]
                     batch_ids = [e["id"] for e in batch_items]
-                    sonarr_search_episodes(session, url, key, batch_ids, dry_run)
-                    if not dry_run:
-                        mark_items_searched(st_bucket, "missing_episode", batch_items, "Backlog Nudge")
-                        for e in batch_items:
-                            record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title",""), "Acquired", iso_z(utcnow()))
+                    sonarr_search_episodes(session, url, key, batch_ids)
+                    mark_items_searched(st_bucket, "missing_episode", batch_items, "Backlog Nudge")
+                    for e in batch_items:
+                        record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title",""), "Acquired", iso_z(utcnow()))
                     searched_missing += len(batch_items)
                     if i + batch_size < len(chosen_missing):
                         jitter_sleep(sleep_seconds, jitter_seconds)
@@ -1447,7 +1433,7 @@ UI_HTML = r"""
       </div>
 
       <div class="row" style="margin-top:4px">
-        <button class="btn primary sm" onclick="saveAdvanced()">Save</button>
+        <button class="btn primary" onclick="saveAdvanced()">Save</button>
         <span class="msg" id="advMsg"></span>
       </div>
 
@@ -1731,21 +1717,6 @@ function fillSettings() {
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
   syncSchedulerUi();
-}
-
-async function toggleDryRun() {
-  const currentlyDry = CFG?.dry_run;
-  if (currentlyDry) {
-    // Switching to LIVE — confirm first
-    if (!confirm('Switch to Live mode? Nudgarr will start triggering real searches.')) return;
-  }
-  try {
-    const out = await api('/api/toggle-dry-run', {method:'POST'});
-    CFG.dry_run = out.dry_run;
-    updateStatusPill(CFG?.scheduler_enabled);
-  } catch(e) {
-    alert('Failed to toggle DRY RUN: ' + e.message);
-  }
 }
 
 async function saveSettings() {
@@ -2104,14 +2075,6 @@ def api_reset_config():
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True})
 
-@app.post("/api/toggle-dry-run")
-@requires_auth
-def api_toggle_dryrun():
-    cfg = load_or_init_config()
-    cfg["dry_run"] = not bool(cfg.get("dry_run", True))
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
-    return jsonify({"ok": True, "dry_run": cfg["dry_run"]})
-
 @app.post("/api/test")
 @requires_auth
 def api_test():
@@ -2364,7 +2327,6 @@ def api_diagnostic():
         f"Next run: {STATUS.get('next_run_utc') or 'N/A'}",
         f"Last error: {STATUS.get('last_error') or 'None'}",
         f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, interval: {cfg.get('run_interval_minutes')}min",
-        f"Dry run: {cfg.get('dry_run')}",
         f"Cooldown: {cfg.get('cooldown_hours')}h",
         f"Radarr instances ({len(radarr_names)}): {', '.join(radarr_names) or 'none'}",
         f"Sonarr instances ({len(sonarr_names)}): {', '.join(sonarr_names) or 'none'}",
@@ -2401,7 +2363,6 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     print(f"State:  {STATE_FILE}")
     print(f"UI:     http://<host>:{PORT}/")
     print("")
-    print(f"Mode: {'loop' if cfg.get('scheduler_enabled', True) else 'manual'}  Interval: {cfg.get('run_interval_minutes')} minute(s)  DRY_RUN: {cfg.get('dry_run')}")
     print("")
 
 def start_ui_server() -> None:

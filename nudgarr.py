@@ -1549,7 +1549,7 @@ let PAGE = 0;
 let ALL_INSTANCES = [];
 let confirmResolve = null;
 
-function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
+async function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
   el('confirmTitle').textContent = title;
   el('confirmMsg').textContent = msg;
   el('confirmOkBtn').textContent = okLabel;
@@ -1706,7 +1706,7 @@ function editInstance(kind, idx) {
   openModal(kind, idx);
 }
 
-function deleteInstance(kind, idx) {
+async function deleteInstance(kind, idx) {
   if (!await showConfirm('Delete Instance', 'Are you sure you want to delete this instance?', 'Delete', true)) return;
   CFG.instances[kind].splice(idx, 1);
   renderInstances(kind);

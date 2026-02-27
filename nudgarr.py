@@ -1118,7 +1118,7 @@ UI_HTML = r"""
       display: flex; align-items: center; gap: 10px;
     }
     .inst-card .inst-info { flex: 1; min-width: 0; }
-    .inst-card .inst-name { font-weight: 600; font-size: 13px; }
+    .inst-card .inst-name { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
     .inst-card .inst-meta { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .inst-card .inst-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .3s; }
@@ -1182,7 +1182,7 @@ UI_HTML = r"""
       <p>Sweeping your library, one nudge at a time.</p>
     </div>
     <div class="header-right">
-      <div class="pill clickable" id="pill-dryrun" onclick="toggleDryRun()" title="Click to toggle DRY RUN"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
+      <div class="pill" id="pill-dryrun"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
       <div class="pill"><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
@@ -1535,9 +1535,14 @@ async function api(path, opts) {
   return data;
 }
 
-function updateDryRunPill(dry) {
-  el('dot-dryrun').style.background = dry ? 'var(--warn)' : 'var(--ok)';
-  el('txt-dryrun').textContent = dry ? 'DRY RUN' : 'LIVE';
+function updateStatusPill(schedulerEnabled) {
+  if (schedulerEnabled) {
+    el('dot-dryrun').style.background = 'var(--ok)';
+    el('txt-dryrun').textContent = 'AUTO';
+  } else {
+    el('dot-dryrun').style.background = '#a78bfa';
+    el('txt-dryrun').textContent = 'MANUAL';
+  }
 }
 
 async function loadAll() {
@@ -1546,7 +1551,7 @@ async function loadAll() {
   el('ver').textContent = st.version;
   el('lastRun').textContent = fmtTime(st.last_run_utc);
   el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
-  updateDryRunPill(CFG.dry_run);
+  updateStatusPill(CFG.scheduler_enabled);
 
   // Show logout button when auth is enabled
   const lb = el('logoutBtn');
@@ -1712,6 +1717,7 @@ function syncSchedulerUi() {
   const enabled = el('scheduler_enabled').checked;
   el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual only';
   el('run_interval_minutes').disabled = !enabled;
+  updateStatusPill(enabled);
 }
 
 function fillSettings() {
@@ -1736,7 +1742,7 @@ async function toggleDryRun() {
   try {
     const out = await api('/api/toggle-dry-run', {method:'POST'});
     CFG.dry_run = out.dry_run;
-    updateDryRunPill(out.dry_run);
+    updateStatusPill(CFG?.scheduler_enabled);
   } catch(e) {
     alert('Failed to toggle DRY RUN: ' + e.message);
   }
@@ -1968,7 +1974,7 @@ async function refreshStatus() {
     el('ver').textContent = st.version;
     el('lastRun').textContent = fmtTime(st.last_run_utc);
     el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
-    updateDryRunPill(CFG?.dry_run);
+    updateStatusPill(CFG?.scheduler_enabled);
   } catch(e) {}
 }
 

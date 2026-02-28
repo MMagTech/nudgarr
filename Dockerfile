@@ -4,9 +4,6 @@ FROM python:3.12-alpine
 RUN pip install --no-cache-dir --no-compile requests flask \
     && apk add --no-cache su-exec
 
-# Create non-root user and group
-RUN addgroup -S nudgarr && adduser -S -G nudgarr nudgarr
-
 WORKDIR /app
 COPY nudgarr.py /app/nudgarr.py
 COPY entrypoint.sh /entrypoint.sh

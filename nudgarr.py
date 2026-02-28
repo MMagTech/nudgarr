@@ -592,6 +592,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
         st_bucket = state.setdefault("radarr", {}).setdefault(ik, {})
         try:
             all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
+            STATUS["instance_health"][f"radarr|{name}"] = "ok"
             all_ids = [m["id"] for m in all_movies]
             chosen_items, eligible, skipped = pick_items_with_cooldown(all_movies, st_bucket, "movie", cooldown_hours, radarr_max, sample_mode)
             chosen = [m["id"] for m in chosen_items]
@@ -667,6 +668,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             })
         except Exception as e:
             print(f"[Radarr:{name}] ERROR: {e}")
+            STATUS["instance_health"][f"radarr|{name}"] = "bad"
             summary["radarr"].append({"name": name, "url": mask_url(url), "error": str(e)})
 
     # SONARR
@@ -676,6 +678,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
         st_bucket = state.setdefault("sonarr", {}).setdefault(ik, {})
         try:
             all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key)
+            STATUS["instance_health"][f"sonarr|{name}"] = "ok"
             all_ids = [e["id"] for e in all_episodes]
             chosen_items, eligible, skipped = pick_items_with_cooldown(all_episodes, st_bucket, "episode", cooldown_hours, sonarr_max, sample_mode)
             chosen = [e["id"] for e in chosen_items]
@@ -737,6 +740,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             })
         except Exception as e:
             print(f"[Sonarr:{name}] ERROR: {e}")
+            STATUS["instance_health"][f"sonarr|{name}"] = "bad"
             summary["sonarr"].append({"name": name, "url": mask_url(url), "error": str(e)})
 
     # Persist state (even on dry run, so pruning/structure changes persist)
@@ -927,6 +931,7 @@ STATUS: Dict[str, Any] = {
     "run_in_progress": False,
     "run_requested": False,
     "last_error": None,
+    "instance_health": {},  # {"radarr|name": "ok"|"bad", ...}
 }
 
 UI_HTML = r"""
@@ -1223,6 +1228,7 @@ UI_HTML = r"""
           <button class="btn" onclick="testConnections()">Test Connections</button>
           <span class="msg" id="saveMsg"></span>
         </div>
+        <div class="help" style="margin-top:8px">Connection status updates automatically on each sweep.</div>
         <div id="testResults" style="display:none">
           <div class="hr"></div>
           <div class="test-results" id="testResultsInner"></div>
@@ -1781,7 +1787,7 @@ async function testConnections() {
 
   } catch(e) {
     el('testResultsInner').innerHTML = `<p class="help" style="color:var(--bad)">Test failed: ${escapeHtml(e.message)}</p>`;
-    document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot'; });
+    document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot bad'; });
   }
 }
 
@@ -1827,6 +1833,7 @@ async function saveSettings() {
 // ── History tab ──
 async function refreshHistory() {
   try {
+    applySortIndicators('#historyTableWrap table', HISTORY_SORT);
     const sum = await api('/api/state/summary');
 
     // KPI pills — per instance counts
@@ -1944,6 +1951,7 @@ async function clearState() {
 // ── Stats tab ──
 async function refreshStats() {
   try {
+    applySortIndicators('#statsTableWrap table', STATS_SORT);
     const inst = el('statsInstance') ? el('statsInstance').value : '';
     const data = await api(`/api/stats${inst ? '?instance=' + encodeURIComponent(inst) : ''}`);
 
@@ -2103,6 +2111,24 @@ async function refreshStatus() {
     el('dot-dryrun').classList.remove('running');
     el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
     updateStatusPill(CFG?.scheduler_enabled);
+
+    // Update instance health dots from last known state
+    const health = st.instance_health || {};
+    Object.entries(health).forEach(([key, state]) => {
+      const [app, ...nameParts] = key.split('|');
+      const name = nameParts.join('|');
+      const inst = ALL_INSTANCES.find(i => i.app === app && i.name === name);
+      if (inst) {
+        const idx = ALL_INSTANCES.indexOf(inst);
+        const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
+        if (cfgIdx >= 0) {
+          const dot = el(`sdot-${app}-${cfgIdx}`);
+          if (dot && !dot.classList.contains('checking')) {
+            dot.className = 'status-dot ' + (state === 'ok' ? 'ok' : 'bad');
+          }
+        }
+      }
+    });
   } catch(e) {}
 }
 
@@ -2255,16 +2281,20 @@ def api_test():
             url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
             data = req(session, "GET", url, inst["key"])
             results["radarr"].append({"name": inst["name"], "url": mask_url(inst["url"]), "ok": True, "version": data.get("version") if isinstance(data, dict) else None})
+            STATUS["instance_health"][f"radarr|{inst['name']}"] = "ok"
         except Exception as e:
             results["radarr"].append({"name": inst.get("name"), "url": mask_url(inst.get("url","")), "ok": False, "error": str(e)})
+            STATUS["instance_health"][f"radarr|{inst.get('name','')}"] = "bad"
 
     for inst in cfg.get("instances", {}).get("sonarr", []):
         try:
             url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
             data = req(session, "GET", url, inst["key"])
             results["sonarr"].append({"name": inst["name"], "url": mask_url(inst["url"]), "ok": True, "version": data.get("version") if isinstance(data, dict) else None})
+            STATUS["instance_health"][f"sonarr|{inst['name']}"] = "ok"
         except Exception as e:
             results["sonarr"].append({"name": inst.get("name"), "url": mask_url(inst.get("url","")), "ok": False, "error": str(e)})
+            STATUS["instance_health"][f"sonarr|{inst.get('name','')}"] = "bad"
 
     return jsonify({"ok": True, "results": results})
 

@@ -1258,7 +1258,7 @@ UI_HTML = r"""
             <div class="help">When disabled, only sweeps when you click <b>Run Now</b>.</div>
           </div>
           <div class="field" style="max-width:160px">
-            <label>Run Interval (minutes)</label>
+            <label>Run Interval (Minutes)</label>
             <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg')"/>
             <div class="help">How often Nudgarr runs a sweep.</div>
           </div>
@@ -1710,7 +1710,7 @@ async function saveModal() {
   }
   closeModalDirect();
   renderInstances(MODAL_KIND);
-  el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Edited — click Save Changes.' : 'Added — click Save Changes.';
+  el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Unsaved Changes' : 'Unsaved Changes';
   el('saveMsg').className = 'msg unsaved';
 
   // Silently test the new/edited instance and update its dot
@@ -1739,7 +1739,7 @@ async function deleteInstance(kind, idx) {
   if (!await showConfirm('Delete Instance', 'Are you sure you want to delete this instance?', 'Delete', true)) return;
   CFG.instances[kind].splice(idx, 1);
   renderInstances(kind);
-  el('saveMsg').textContent = 'Deleted — click Save Changes.';
+  el('saveMsg').textContent = 'Unsaved Changes';
   el('saveMsg').className = 'msg unsaved';
 }
 
@@ -2030,14 +2030,14 @@ async function clearStats() {
 function fillAdvanced() {
   if (!CFG) return;
   el('radarr_backlog_enabled').checked = !!CFG.radarr_backlog_enabled;
-  el('radarr_missing_max').value = CFG.radarr_missing_max || 1;
-  el('radarr_missing_added_days').value = CFG.radarr_missing_added_days || 14;
+  el('radarr_missing_max').value = CFG.radarr_missing_max ?? 1;
+  el('radarr_missing_added_days').value = CFG.radarr_missing_added_days ?? 14;
   el('sonarr_backlog_enabled').checked = !!CFG.sonarr_backlog_enabled;
-  el('sonarr_missing_max').value = CFG.sonarr_missing_max || 1;
-  el('state_retention_days').value = CFG.state_retention_days || 180;
+  el('sonarr_missing_max').value = CFG.sonarr_missing_max ?? 1;
+  el('state_retention_days').value = CFG.state_retention_days ?? 180;
   el('auth_enabled').checked = CFG.auth_enabled !== false;
-  el('auth_session_minutes').value = CFG.auth_session_minutes || 30;
-  el('import_check_hours').value = CFG.import_check_hours || 2;
+  el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
+  el('import_check_hours').value = CFG.import_check_hours ?? 2;
   syncAuthUi();
   syncBacklogUi();
 }
@@ -2050,9 +2050,11 @@ function syncAuthUi() {
 function markUnsaved(msgId) {
   const m = el(msgId);
   if (!m || m.classList.contains('ok')) return;
-  m.textContent = 'Unsaved changes — click Save Changes.';
+  clearTimeout(m._fadeTimer);
+  m.classList.remove('fade');
+  m.style.opacity = '';
+  m.textContent = 'Unsaved Changes';
   m.className = 'msg unsaved';
-  m.style.opacity = '1';
 }
 
 function syncBacklogUi() {
@@ -2069,14 +2071,14 @@ function syncBacklogUi() {
 async function saveAdvanced() {
   try {
     CFG.radarr_backlog_enabled = el('radarr_backlog_enabled').checked;
-    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value || '1', 10);
-    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value || '14', 10);
+    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value !== '' ? el('radarr_missing_max').value : '1', 10);
+    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value !== '' ? el('radarr_missing_added_days').value : '14', 10);
     CFG.sonarr_backlog_enabled = el('sonarr_backlog_enabled').checked;
-    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value || '1', 10);
-    CFG.state_retention_days = parseInt(el('state_retention_days').value || '180', 10);
+    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value !== '' ? el('sonarr_missing_max').value : '1', 10);
+    CFG.state_retention_days = parseInt(el('state_retention_days').value !== '' ? el('state_retention_days').value : '180', 10);
     CFG.auth_enabled = el('auth_enabled').checked;
-    CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value || '30', 10);
-    CFG.import_check_hours = parseInt(el('import_check_hours').value || '2', 10);
+    CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
+    CFG.import_check_hours = parseInt(el('import_check_hours').value !== '' ? el('import_check_hours').value : '2', 10);
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
     await loadAll();

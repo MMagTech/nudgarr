@@ -1162,14 +1162,14 @@ UI_HTML = r"""
 
     /* ── KPI pills row ── */
     .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .import-stats { display: flex; gap: 12px; margin-bottom: 20px; }
-    .import-stat-card { flex: 1; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; border: 1px solid; }
+    .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .import-stat-card { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 20px; border: 1px solid; font-size: 13px; }
     .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.2); }
     .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.2); }
-    .import-stat-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+    .import-stat-label { font-weight: 400; }
     .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.7); }
     .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.7); }
-    .import-stat-value { font-size: 32px; font-weight: 700; line-height: 1; }
+    .import-stat-value { font-weight: 600; }
     .import-stat-card.movies .import-stat-value { color: #10b981; }
     .import-stat-card.shows .import-stat-value { color: #6366f1; }
 
@@ -1782,13 +1782,13 @@ function fadeMsg(id) {
   const el_ = el(id);
   clearTimeout(el_._fadeTimer);
   el_.classList.remove('fade');
-  el_._fadeTimer = setTimeout(() => el_.classList.add('fade'), 2000);
+  el_._fadeTimer = setTimeout(() => el_.classList.add('fade'), 4000);
 }
 
 async function saveAll() {
   try {
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('saveMsg').textContent = 'Saved.'; el('saveMsg').className = 'msg ok'; fadeMsg('saveMsg');
+    el('saveMsg').textContent = 'Saved'; el('saveMsg').className = 'msg ok'; fadeMsg('saveMsg');
     await loadAll();
   } catch(e) {
     el('saveMsg').textContent = 'Save failed: ' + e.message; el('saveMsg').className = 'msg err';
@@ -1873,7 +1873,7 @@ async function saveSettings() {
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('setMsg').textContent = 'Saved.'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
+    el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
     await loadAll();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
@@ -1889,11 +1889,11 @@ async function refreshHistory() {
     const instPills = ALL_INSTANCES.map(inst => {
       const appSt = sum.per_instance || {};
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
-      return `<div class="pill"><span style="color:var(--text-dim)">${escapeHtml(inst.name)}</span><span style="color:var(--text);font-weight:600">${count}</span></div>`;
+      return `<div class="pill"><span style="color:var(--text-dim)">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:600">${count}</span></div>`;
     }).join('');
     el('kpis').innerHTML = instPills +
-      `<div class="pill"><span style="color:var(--text-dim)">History File</span><span style="color:var(--text);font-weight:600">${sum.file_size_human}</span></div>` +
-      `<div class="pill"><span style="color:var(--text-dim)">Retention</span><span style="color:var(--text);font-weight:600">${sum.retention_days} days</span></div>`;
+      `<div class="pill"><span style="color:var(--text-dim)">History File:</span><span style="color:var(--text);font-weight:600">${sum.file_size_human}</span></div>` +
+      `<div class="pill"><span style="color:var(--text-dim)">Retention:</span><span style="color:var(--text);font-weight:600">${sum.retention_days} days</span></div>`;
 
     // Build instance dropdown from ALL_INSTANCES (has correct app info)
     // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
@@ -2142,7 +2142,7 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
+    el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
     await loadAll();
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';

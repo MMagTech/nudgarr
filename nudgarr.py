@@ -1696,7 +1696,7 @@ function toggleKeyVis() {
   else { inp.type = 'password'; btn.textContent = 'Show'; }
 }
 
-function saveModal() {
+async function saveModal() {
   const name = el('modalName').value.trim();
   const url = el('modalUrl').value.trim();
   const key = el('modalKey').value.trim();
@@ -1711,6 +1711,19 @@ function saveModal() {
   renderInstances(MODAL_KIND);
   el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Edited — click Save Changes.' : 'Added — click Save Changes.';
   el('saveMsg').className = 'msg';
+
+  // Silently test the new/edited instance and update its dot
+  const idx = MODAL_IDX >= 0 ? MODAL_IDX : CFG.instances[MODAL_KIND].length - 1;
+  const dot = el(`sdot-${MODAL_KIND}-${idx}`);
+  if (dot) dot.className = 'status-dot checking';
+  try {
+    const out = await api('/api/test', {method:'POST'});
+    const results = out.results[MODAL_KIND] || [];
+    const match = results.find(r => r.name === name);
+    if (dot && match) dot.className = 'status-dot ' + (match.ok ? 'ok' : 'bad');
+  } catch(e) {
+    if (dot) dot.className = 'status-dot bad';
+  }
 }
 
 function addInstance(kind) {

@@ -239,8 +239,12 @@ def save_state(state: Dict[str, Any], cfg: Dict[str, Any]) -> None:
 # -------------------------
 
 def load_stats() -> Dict[str, Any]:
-    st = load_json(STATS_FILE, {"entries": []})
-    return st if isinstance(st, dict) else {"entries": []}
+    st = load_json(STATS_FILE, {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0})
+    if not isinstance(st, dict):
+        return {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0}
+    st.setdefault("lifetime_movies", 0)
+    st.setdefault("lifetime_shows", 0)
+    return st
 
 def save_stats(stats: Dict[str, Any]) -> None:
     save_json_atomic(STATS_FILE, stats, pretty=True)
@@ -311,6 +315,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             if ev_dt and ev_dt > dt:
                                 entry["imported"] = True
                                 entry["imported_ts"] = iso_z(ev_dt)
+                                stats["lifetime_movies"] = stats.get("lifetime_movies", 0) + 1
                                 updated = True
                                 break
             else:
@@ -324,6 +329,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             if ev_dt and ev_dt > dt:
                                 entry["imported"] = True
                                 entry["imported_ts"] = iso_z(ev_dt)
+                                stats["lifetime_shows"] = stats.get("lifetime_shows", 0) + 1
                                 updated = True
                                 break
         except Exception as e:
@@ -2086,7 +2092,6 @@ async function refreshStats() {
     `).join('');
 
     el('statsTableWrap').innerHTML = `
-      <p class="help" style="margin-bottom:12px">${data.total} confirmed import${data.total !== 1 ? 's' : ''}</p>
       <table>
         <thead><tr>
           <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
@@ -2335,10 +2340,6 @@ def api_get_stats():
     cfg = load_or_init_config()
     stats = load_stats()
     entries = stats.get("entries", [])
-    # Grand totals across all instances before any filtering
-    all_confirmed = [e for e in entries if e.get("imported")]
-    movies_total = sum(1 for e in all_confirmed if e.get("app") == "radarr")
-    shows_total = sum(1 for e in all_confirmed if e.get("app") == "sonarr")
     instance_filter = request.args.get("instance", "")
     type_filter = request.args.get("type", "")
     if instance_filter:
@@ -2362,7 +2363,15 @@ def api_get_stats():
         all_instances.append({"name": inst["name"], "app": "radarr"})
     for inst in cfg.get("instances", {}).get("sonarr", []):
         all_instances.append({"name": inst["name"], "app": "sonarr"})
-    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total, "movies_total": movies_total, "shows_total": shows_total})
+    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total, "movies_total": stats.get("lifetime_movies", 0), "shows_total": stats.get("lifetime_shows", 0)})
+
+@app.post("/api/stats/clear")
+@requires_auth
+def api_clear_stats():
+    stats = load_stats()
+    stats["entries"] = []
+    save_stats(stats)
+    return jsonify({"ok": True})
 
 @app.post("/api/stats/check-imports")
 @requires_auth

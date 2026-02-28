@@ -242,6 +242,12 @@ def load_stats() -> Dict[str, Any]:
     st = load_json(STATS_FILE, {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0})
     if not isinstance(st, dict):
         return {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0}
+    # Seed lifetime totals from existing confirmed entries if not yet set
+    if "lifetime_movies" not in st or "lifetime_shows" not in st:
+        confirmed = [e for e in st.get("entries", []) if e.get("imported")]
+        st["lifetime_movies"] = sum(1 for e in confirmed if e.get("app") == "radarr")
+        st["lifetime_shows"] = sum(1 for e in confirmed if e.get("app") == "sonarr")
+        save_json_atomic(STATS_FILE, st, pretty=True)
     st.setdefault("lifetime_movies", 0)
     st.setdefault("lifetime_shows", 0)
     return st

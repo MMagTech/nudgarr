@@ -1162,6 +1162,16 @@ UI_HTML = r"""
 
     /* ── KPI pills row ── */
     .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .import-stats { display: flex; gap: 12px; margin-bottom: 20px; }
+    .import-stat-card { flex: 1; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; border: 1px solid; }
+    .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.2); }
+    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.2); }
+    .import-stat-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+    .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.7); }
+    .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.7); }
+    .import-stat-value { font-size: 32px; font-weight: 700; line-height: 1; }
+    .import-stat-card.movies .import-stat-value { color: #10b981; }
+    .import-stat-card.shows .import-stat-value { color: #6366f1; }
 
     /* ── Danger zone ── */
     .danger-section { border: 1px solid var(--bad-border); border-radius: 12px; padding: 14px; background: var(--bad-dim); }
@@ -1359,6 +1369,16 @@ UI_HTML = r"""
   <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
   <div class="section" id="tab-stats">
     <div class="card">
+      <div class="import-stats">
+        <div class="import-stat-card movies">
+          <span class="import-stat-label">Movies:</span>
+          <span class="import-stat-value" id="statMoviesTotal">—</span>
+        </div>
+        <div class="import-stat-card shows">
+          <span class="import-stat-label">Shows:</span>
+          <span class="import-stat-value" id="statShowsTotal">—</span>
+        </div>
+      </div>
       <div class="row" style="margin-bottom:14px">
         <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
         <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
@@ -2010,6 +2030,10 @@ async function refreshStats() {
     el('statsPageInfo').textContent = `Page ${STATS_PAGE+1} · ${data.entries.length} of ${data.total}`;
     el('statsPagination').style.display = data.total > 0 ? 'flex' : 'none';
 
+    // Update grand total cards
+    el('statMoviesTotal').textContent = data.movies_total ?? 0;
+    el('statShowsTotal').textContent = data.shows_total ?? 0;
+
     if (!data.entries.length && STATS_PAGE === 0) {
       el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
       return;
@@ -2275,6 +2299,10 @@ def api_get_stats():
     cfg = load_or_init_config()
     stats = load_stats()
     entries = stats.get("entries", [])
+    # Grand totals across all instances before any filtering
+    all_confirmed = [e for e in entries if e.get("imported")]
+    movies_total = sum(1 for e in all_confirmed if e.get("app") == "radarr")
+    shows_total = sum(1 for e in all_confirmed if e.get("app") == "sonarr")
     instance_filter = request.args.get("instance", "")
     type_filter = request.args.get("type", "")
     if instance_filter:
@@ -2298,7 +2326,7 @@ def api_get_stats():
         all_instances.append({"name": inst["name"], "app": "radarr"})
     for inst in cfg.get("instances", {}).get("sonarr", []):
         all_instances.append({"name": inst["name"], "app": "sonarr"})
-    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total})
+    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total, "movies_total": movies_total, "shows_total": shows_total})
 
 @app.post("/api/stats/check-imports")
 @requires_auth

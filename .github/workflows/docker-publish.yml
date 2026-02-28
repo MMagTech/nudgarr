@@ -2,7 +2,7 @@ name: Build and Publish (GHCR)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "nightly", "dev"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -45,6 +45,12 @@ jobs:
           TAGS=""
           if [[ "${REF}" == refs/heads/main ]]; then
             TAGS="${IMAGE}:latest,${IMAGE}:edge"
+          fi
+          if [[ "${REF}" == refs/heads/nightly ]]; then
+            TAGS="${IMAGE}:nightly"
+          fi
+          if [[ "${REF}" == refs/heads/dev ]]; then
+            TAGS="${IMAGE}:dev"
           fi
           if [[ "${REF}" == refs/tags/v* ]]; then
             V="${REF_NAME#v}"

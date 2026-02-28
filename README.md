@@ -47,6 +47,8 @@ services:
     volumes:
       - /your/path/to/appdata/nudgarr:/config
     environment:
+      - PUID=1000
+      - PGID=1000
       - PORT=8085
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
@@ -71,6 +73,20 @@ services:
 ```
 
 Open the UI at `http://<your-host>:8085`
+
+---
+
+## User and Group ID (PUID / PGID)
+
+Nudgarr supports `PUID` and `PGID` environment variables so the container runs as the correct user on your system — no permission issues with your `/config` volume.
+
+| Platform | Typical values |
+|----------|---------------|
+| Unraid | `PUID=99` `PGID=100` (nobody:users) |
+| Linux | `PUID=1000` `PGID=1000` |
+| Synology | Match your DSM user — check with `id` in SSH |
+
+If `PUID` and `PGID` are not set, the container defaults to `1000:1000`.
 
 ---
 
@@ -121,7 +137,7 @@ The provided `docker-compose.yml` includes the following hardening settings out 
 - Logging limits — prevents log files from consuming unbounded disk space
 
 **Additional hardening (implemented in v2.1.0)**
-- Non-root container user — the container runs as a dedicated `nudgarr` user. An entrypoint script briefly runs as root to fix `/config` ownership then immediately drops privileges before the app starts.
+- Non-root container user — the container runs as the UID/GID you specify via `PUID` and `PGID`. The entrypoint briefly runs as root to set ownership of `/config`, then immediately drops to your specified user before the app starts. Defaults to `1000:1000` if not set.
 - Read-only filesystem — the container filesystem is mounted read-only with a restricted `/tmp` tmpfs (`noexec,nosuid,nodev`), so any payload written inside the container cannot be executed.
 
 These are standard Docker settings and work on any platform.

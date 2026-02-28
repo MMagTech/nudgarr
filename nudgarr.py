@@ -297,7 +297,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
             continue
 
         url = inst["url"].rstrip("/")
-        key = inst["api_key"]
+        key = inst["key"]
         item_id = entry.get("item_id", "")
 
         try:
@@ -2048,7 +2048,7 @@ function syncAuthUi() {
 
 function markUnsaved(msgId) {
   const m = el(msgId);
-  if (!m || m.classList.contains('ok')) return;
+  if (!m) return;
   clearTimeout(m._fadeTimer);
   m.classList.remove('fade');
   m.style.opacity = '';

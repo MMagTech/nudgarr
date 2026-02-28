@@ -317,7 +317,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                 r = session_obj.get(f"{url}/api/v3/history/series", params={"seriesId": item_id}, headers={"X-Api-Key": key}, timeout=15)
                 if r.ok:
                     data = r.json()
-                    events = data.get("records", []) if isinstance(data, dict) else []
+                    events = data if isinstance(data, list) else data.get("records", [])
                     for ev in events:
                         if ev.get("eventType") == "downloadFolderImported":
                             ev_dt = parse_iso(ev.get("date", ""))
@@ -1364,13 +1364,28 @@ UI_HTML = r"""
         <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
         <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
           <div class="field" style="min-width:200px">
-            <select id="statsInstance" onchange="refreshStats()">
+            <select id="statsInstance" onchange="STATS_PAGE=0; refreshStats()">
               <option value="">All Instances</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:150px">
+            <select id="statsType" onchange="STATS_PAGE=0; refreshStats()">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="statsLimit" onchange="STATS_PAGE=0; refreshStats()">
+              <option selected>25</option><option>50</option><option>100</option>
             </select>
           </div>
         </div>
       </div>
       <div id="statsTableWrap"></div>
+      <div class="row" style="margin-top:12px" id="statsPagination">
+        <button class="btn sm" onclick="prevStatsPage()">Prev</button>
+        <button class="btn sm" onclick="nextStatsPage()">Next</button>
+        <span class="msg" id="statsPageInfo"></span>
+      </div>
     </div>
   </div>
 
@@ -1556,6 +1571,7 @@ UI_HTML = r"""
 <script>
 let CFG = null;
 let PAGE = 0;
+let STATS_PAGE = 0;
 let ALL_INSTANCES = [];
 let confirmResolve = null;
 let ACTIVE_TAB = 'instances';
@@ -1822,6 +1838,7 @@ function fillSettings() {
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
   syncSchedulerUi();
+  el('setMsg').textContent = ''; el('setMsg').className = 'msg';
 }
 
 async function saveSettings() {
@@ -1923,6 +1940,7 @@ function sortStats(col) {
     STATS_SORT.col = col;
     STATS_SORT.dir = 'asc';
   }
+  STATS_PAGE = 0;
   refreshStats();
 }
 
@@ -1964,7 +1982,12 @@ async function clearState() {
 async function refreshStats() {
   try {
     const inst = el('statsInstance') ? el('statsInstance').value : '';
-    const data = await api(`/api/stats${inst ? '?instance=' + encodeURIComponent(inst) : ''}`);
+    const type = el('statsType') ? el('statsType').value : '';
+    const limit = parseInt(el('statsLimit')?.value || '25', 10);
+    let url = `/api/stats?offset=${STATS_PAGE * limit}&limit=${limit}`;
+    if (inst) url += `&instance=${encodeURIComponent(inst)}`;
+    if (type) url += `&type=${encodeURIComponent(type)}`;
+    const data = await api(url);
 
     // Populate instance dropdown
     const sel = el('statsInstance');
@@ -1975,7 +1998,19 @@ async function refreshStats() {
       if (prev) sel.value = prev;
     }
 
-    if (!data.entries.length) {
+    // Populate type dropdown dynamically from available types
+    const typeSel = el('statsType');
+    if (typeSel) {
+      const prevType = typeSel.value;
+      typeSel.innerHTML = '<option value="">All Types</option>' +
+        (data.types || []).map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      if (prevType && (data.types || []).includes(prevType)) typeSel.value = prevType;
+    }
+
+    el('statsPageInfo').textContent = `Page ${STATS_PAGE+1} · ${data.entries.length} of ${data.total}`;
+    el('statsPagination').style.display = data.total > 0 ? 'flex' : 'none';
+
+    if (!data.entries.length && STATS_PAGE === 0) {
       el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
       return;
     }
@@ -2010,6 +2045,9 @@ async function refreshStats() {
   }
 }
 
+function prevStatsPage() { if (STATS_PAGE > 0) { STATS_PAGE--; refreshStats(); } }
+function nextStatsPage() { STATS_PAGE++; refreshStats(); }
+
 async function checkImportsNow() {
   try {
     await api('/api/stats/check-imports', {method:'POST'});
@@ -2039,6 +2077,7 @@ function fillAdvanced() {
   el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
   syncAuthUi();
   syncBacklogUi();
+  el('advMsg').textContent = ''; el('advMsg').className = 'msg';
 }
 
 function syncAuthUi() {
@@ -2237,17 +2276,29 @@ def api_get_stats():
     stats = load_stats()
     entries = stats.get("entries", [])
     instance_filter = request.args.get("instance", "")
+    type_filter = request.args.get("type", "")
     if instance_filter:
         entries = [e for e in entries if e.get("instance") == instance_filter]
     confirmed = [e for e in entries if e.get("imported")]
     confirmed.sort(key=lambda x: x.get("imported_ts", ""), reverse=True)
+    # Build available types from current instance-filtered confirmed entries
+    available_types = sorted(set(e.get("type", "") for e in confirmed if e.get("type")))
+    if type_filter:
+        confirmed = [e for e in confirmed if e.get("type") == type_filter]
+    total = len(confirmed)
+    try:
+        offset = int(request.args.get("offset", 0))
+        limit = int(request.args.get("limit", 25))
+    except ValueError:
+        offset, limit = 0, 25
+    page_entries = confirmed[offset:offset + limit]
     # Build instance list for dropdown
     all_instances = []
     for inst in cfg.get("instances", {}).get("radarr", []):
         all_instances.append({"name": inst["name"], "app": "radarr"})
     for inst in cfg.get("instances", {}).get("sonarr", []):
         all_instances.append({"name": inst["name"], "app": "sonarr"})
-    return jsonify({"entries": confirmed, "instances": all_instances, "total": len(confirmed)})
+    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total})
 
 @app.post("/api/stats/check-imports")
 @requires_auth

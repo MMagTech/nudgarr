@@ -20,10 +20,14 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 - Scheduler with configurable run interval
 - Configurable cooldown period to avoid hammering indexers
 - Batch size and sleep controls for indexer rate limit compliance
-- Search history with sweep type (Cutoff Unmet / Backlog Nudge)
-- Confirmed import tracking via Stats tab
-- UI login to prevent unauthorized config changes
+- Per-app Backlog Nudge toggles with age and cap controls
+- Search history with sweep type labels, sortable columns, pagination, and auto-refresh
+- Confirmed import tracking with Movies/Shows totals, type filtering, and pagination
+- Instance health dots — updated on every sweep and on add/edit
+- Unsaved Changes notices across all tabs
+- UI login with configurable session timeout
 - Download Diagnostic for troubleshooting
+- Multi-arch Docker images — `linux/amd64` and `linux/arm64`
 
 ---
 
@@ -45,6 +49,9 @@ services:
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
     tty: false
     stdin_open: false
     security_opt:
@@ -111,13 +118,13 @@ The provided `docker-compose.yml` includes the following hardening settings out 
 - `tty: false`, `stdin_open: false` — disables unnecessary input channels
 - Logging limits — prevents log files from consuming unbounded disk space
 
-These are standard Docker settings and work on any platform.
-
-**Additional hardening (implemented in v2.0.1)**
+**Additional hardening (implemented in v2.1.0)**
 - Non-root container user — the container runs as a dedicated `nudgarr` user. An entrypoint script briefly runs as root to fix `/config` ownership then immediately drops privileges before the app starts.
 - Read-only filesystem — the container filesystem is mounted read-only with a restricted `/tmp` tmpfs (`noexec,nosuid,nodev`), so any payload written inside the container cannot be executed.
 
-Locked out? Delete the config file and restart — Nudgarr will run the setup wizard again.
+These are standard Docker settings and work on any platform.
+
+Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
 
 ---
 

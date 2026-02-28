@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response, session, redirect
 
-VERSION = "2.0.1"
+VERSION = "2.1.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")

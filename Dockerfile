@@ -10,6 +10,7 @@ RUN addgroup -S nudgarr && adduser -S -G nudgarr nudgarr
 WORKDIR /app
 COPY nudgarr.py /app/nudgarr.py
 COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 VOLUME ["/config"]
 EXPOSE 8085

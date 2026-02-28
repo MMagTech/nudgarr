@@ -1052,8 +1052,10 @@ UI_HTML = r"""
     .tab:hover { color: var(--text); border-color: rgba(255,255,255,.15); }
     .tab.active { color: var(--text); background: var(--card); border-color: rgba(255,255,255,.18); }
     .section { display: none; opacity: 0; }
-    .section.active { display: block; animation: tabFadeIn 0.15s ease forwards; }
-    @keyframes tabFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .section.active { display: block; animation: tabFadeIn 0.18s ease forwards; }
+    .section.leaving { animation: tabFadeOut 0.1s ease forwards; }
+    @keyframes tabFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes tabFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
     /* ── Cards & Grid ── */
     .grid { display: grid; gap: 12px; }
@@ -1617,10 +1619,48 @@ function showAlert(msg) {
 function showTab(name) {
   ACTIVE_TAB = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'history') refreshHistory();
-  if (name === 'stats') refreshStats();
+  const current = document.querySelector('.section.active');
+  const next = document.getElementById('tab-' + name);
+  if (current && current !== next) {
+    current.classList.add('leaving');
+    setTimeout(() => {
+      current.classList.remove('active', 'leaving');
+      next.classList.add('active');
+      _onTabShown(name);
+    }, 100);
+  } else {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    next.classList.add('active');
+    _onTabShown(name);
+  }
+}
+
+function _onTabShown(name) {
+  if (name === 'history') {
+    if (!el('historyTableWrap').querySelector('table')) {
+      el('historyTableWrap').innerHTML = `
+        <table><thead><tr>
+          <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
+        </tr></thead><tbody></tbody></table>`;
+    }
+    refreshHistory();
+  }
+  if (name === 'stats') {
+    if (!el('statsTableWrap').querySelector('table')) {
+      el('statsTableWrap').innerHTML = `
+        <table><thead><tr>
+          <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
+          <th class="sortable ${STATS_SORT.col==='instance' ? 'sort-'+STATS_SORT.dir : ''}" data-col="instance" onclick="sortStats('instance')">Instance</th>
+          <th class="sortable ${STATS_SORT.col==='type' ? 'sort-'+STATS_SORT.dir : ''}" data-col="type" onclick="sortStats('type')">Type</th>
+          <th class="sortable ${STATS_SORT.col==='searched_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
+          <th class="sortable ${STATS_SORT.col==='imported_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
+        </tr></thead><tbody></tbody></table>`;
+    }
+    refreshStats();
+  }
   if (name === 'advanced') fillAdvanced();
 }
 

@@ -67,7 +67,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "auth_session_minutes": 30,
 
     # Stats (v2.0)
-    "import_check_hours": 2,
+    "import_check_minutes": 120,
 }
 
 # -------------------------
@@ -266,7 +266,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     """Poll Radarr/Sonarr history for import events on recently searched items."""
     stats = load_stats()
     entries = stats.get("entries", [])
-    check_hours = int(cfg.get("import_check_hours", 2))
+    check_minutes = int(cfg.get("import_check_minutes", 120))
     now = utcnow()
     updated = False
 
@@ -287,7 +287,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
         if dt is None:
             continue
         # Only check after the delay has elapsed
-        if (now - dt).total_seconds() / 3600 < check_hours:
+        if (now - dt).total_seconds() / 60 < check_minutes:
             continue
 
         app = entry.get("app", "radarr")
@@ -1360,7 +1360,6 @@ UI_HTML = r"""
   <div class="section" id="tab-stats">
     <div class="card">
       <div class="row" style="margin-bottom:14px">
-        <button class="btn sm" onclick="refreshStats()">Refresh</button>
         <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
         <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
         <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
@@ -1465,8 +1464,8 @@ UI_HTML = r"""
           <div class="hr"></div>
           <p class="section-label">Stats</p>
           <div class="field">
-            <label>Import Check Delay (Hours)</label>
-            <input id="import_check_hours" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <label>Import Check Delay (Minutes)</label>
+            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
           </div>
           <div class="hr"></div>
@@ -1977,7 +1976,7 @@ async function refreshStats() {
     }
 
     if (!data.entries.length) {
-      el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_hours || 2) + ' hours after each search.</p>';
+      el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
       return;
     }
 
@@ -2037,7 +2036,7 @@ function fillAdvanced() {
   el('state_retention_days').value = CFG.state_retention_days ?? 180;
   el('auth_enabled').checked = CFG.auth_enabled !== false;
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
-  el('import_check_hours').value = CFG.import_check_hours ?? 2;
+  el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
   syncAuthUi();
   syncBacklogUi();
 }
@@ -2078,7 +2077,7 @@ async function saveAdvanced() {
     CFG.state_retention_days = parseInt(el('state_retention_days').value !== '' ? el('state_retention_days').value : '180', 10);
     CFG.auth_enabled = el('auth_enabled').checked;
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
-    CFG.import_check_hours = parseInt(el('import_check_hours').value !== '' ? el('import_check_hours').value : '2', 10);
+    CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     el('advMsg').textContent = 'Saved.'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
     await loadAll();
@@ -2257,15 +2256,12 @@ def api_check_imports_now():
     session = requests.Session()
     # Temporarily override check delay to 0 for manual check
     cfg_override = dict(cfg)
-    cfg_override["import_check_hours"] = 0
+    cfg_override["import_check_minutes"] = 0
     try:
         check_imports(session, cfg_override)
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
     return jsonify({"ok": True})
-    save_stats({"entries": []})
-    return jsonify({"ok": True})
-    return jsonify(STATUS)
 
 @app.get("/api/config")
 @requires_auth

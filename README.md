@@ -113,9 +113,9 @@ The provided `docker-compose.yml` includes the following hardening settings out 
 
 These are standard Docker settings and work on any platform.
 
-**Planned security improvements (v2.0.1)**
-- Non-root container user — the container currently runs as root. A future release will introduce a dedicated non-root user with an entrypoint script that handles config directory permissions automatically, reducing the blast radius of any container compromise.
-- Read-only filesystem — mounting the container filesystem as read-only with a restricted `/tmp` tmpfs, so any payload downloaded inside the container cannot be executed.
+**Additional hardening (implemented in v2.0.1)**
+- Non-root container user — the container runs as a dedicated `nudgarr` user. An entrypoint script briefly runs as root to fix `/config` ownership then immediately drops privileges before the app starts.
+- Read-only filesystem — the container filesystem is mounted read-only with a restricted `/tmp` tmpfs (`noexec,nosuid,nodev`), so any payload written inside the container cannot be executed.
 
 Locked out? Delete the config file and restart — Nudgarr will run the setup wizard again.
 

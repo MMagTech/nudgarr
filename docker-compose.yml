@@ -13,3 +13,20 @@ services:
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    tty: false
+    stdin_open: false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 256m
+    cpus: 1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

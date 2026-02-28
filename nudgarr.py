@@ -332,7 +332,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     if updated:
         stats["entries"] = entries
         save_stats(stats)
-        print(f"[Stats] Import check complete — updated confirmed imports")
+        print("[Stats] Import check complete — updated confirmed imports")
 
 def is_allowed_by_cooldown(last_entry: Any, cooldown_hours: int) -> bool:
     if cooldown_hours <= 0:
@@ -548,15 +548,6 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
                     title = ep_title or f"Episode {eid}"
                 episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
-    if not episode_ids:
-        return
-    cmd = f"{url.rstrip('/')}/api/v3/command"
-    payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
-    if dry_run:
-        print(f"[Sonarr] DRY_RUN would search {len(episode_ids)} episode(s)")
-    else:
-        req(session, "POST", cmd, key, payload)
-        print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
 # -------------------------
 # Sweep
@@ -2713,10 +2704,6 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     STATUS["scheduler_running"] = True
     session = requests.Session()
     cycle = 0
-    run_event = threading.Event()
-
-    # Patch RUN_LOCK to also signal the event so manual triggers wake immediately
-    _orig_run_now_setter = None  # we'll use the event directly in the loop
 
     while not stop_flag["stop"]:
         cfg = load_or_init_config()

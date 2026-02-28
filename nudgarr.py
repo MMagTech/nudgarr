@@ -1083,6 +1083,7 @@ UI_HTML = r"""
     .msg { font-size: 12px; color: var(--muted); transition: opacity 0.5s ease; }
     .msg.ok { color: var(--ok); }
     .msg.err { color: var(--bad); }
+    .msg.unsaved { color: #fbbf24; }
     .msg.fade { opacity: 0; }
     th.sortable { cursor: pointer; user-select: none; }
     th.sortable:hover { color: var(--text); }
@@ -1248,7 +1249,7 @@ UI_HTML = r"""
             <label>Automatic Sweeps</label>
             <div class="toggle-wrap">
               <label class="toggle">
-                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi()"/>
+                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
                 <span class="toggle-track"></span>
                 <span class="toggle-thumb"></span>
               </label>
@@ -1258,7 +1259,7 @@ UI_HTML = r"""
           </div>
           <div class="field" style="max-width:160px">
             <label>Run Interval (minutes)</label>
-            <input id="run_interval_minutes" type="number" min="1"/>
+            <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg')"/>
             <div class="help">How often Nudgarr runs a sweep.</div>
           </div>
         </div>
@@ -1269,12 +1270,12 @@ UI_HTML = r"""
         <div class="grid cols2" style="gap:12px">
           <div class="field">
             <label>Cooldown Hours</label>
-            <input id="cooldown_hours" type="number" min="0"/>
+            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
           </div>
           <div class="field">
             <label>Sample Mode</label>
-            <select id="sample_mode">
+            <select id="sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="first">First</option>
             </select>
@@ -1284,12 +1285,12 @@ UI_HTML = r"""
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
           <div class="field">
             <label>Max Movies Per Run</label>
-            <input id="radarr_max_movies_per_run" type="number" min="0"/>
+            <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet movie searches per instance run. 0 disables.</div>
           </div>
           <div class="field">
             <label>Max Episodes Per Run</label>
-            <input id="sonarr_max_episodes_per_run" type="number" min="0"/>
+            <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet episode searches per instance run. 0 disables.</div>
           </div>
         </div>
@@ -1300,17 +1301,17 @@ UI_HTML = r"""
         <div class="grid cols2" style="gap:12px">
           <div class="field">
             <label>Batch Size</label>
-            <input id="batch_size" type="number" min="1"/>
+            <input id="batch_size" type="number" min="1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
           </div>
           <div class="field">
             <label>Sleep Seconds</label>
-            <input id="sleep_seconds" type="number" min="0" step="0.1"/>
+            <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
           </div>
           <div class="field">
             <label>Jitter Seconds</label>
-            <input id="jitter_seconds" type="number" min="0" step="0.1"/>
+            <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting.</div>
           </div>
         </div>
@@ -1385,7 +1386,7 @@ UI_HTML = r"""
           <div class="field" style="margin-bottom:10px">
             <div class="toggle-wrap">
               <label class="toggle">
-                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi()"/>
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
                 <span class="toggle-track"></span>
                 <span class="toggle-thumb"></span>
               </label>
@@ -1396,12 +1397,12 @@ UI_HTML = r"""
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Radarr Missing Max</label>
-              <input id="radarr_missing_max" type="number" min="1"/>
+              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing movie searches per instance run.</div>
             </div>
             <div class="field">
               <label>Radarr Missing Added Days</label>
-              <input id="radarr_missing_added_days" type="number" min="0"/>
+              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
               <div class="help">Only search missing items added more than this many days ago.</div>
             </div>
           </div>
@@ -1411,7 +1412,7 @@ UI_HTML = r"""
           <div class="field" style="margin-bottom:10px">
             <div class="toggle-wrap">
               <label class="toggle">
-                <input type="checkbox" id="sonarr_backlog_enabled" onchange="syncBacklogUi()"/>
+                <input type="checkbox" id="sonarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
                 <span class="toggle-track"></span>
                 <span class="toggle-thumb"></span>
               </label>
@@ -1422,7 +1423,7 @@ UI_HTML = r"""
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <label>Sonarr Missing Max</label>
-              <input id="sonarr_missing_max" type="number" min="1"/>
+              <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing episode searches per instance run.</div>
             </div>
           </div>
@@ -1438,7 +1439,7 @@ UI_HTML = r"""
           <p class="section-label">History Size</p>
           <div class="field">
             <label>Retention Days</label>
-            <input id="state_retention_days" type="number" min="0"/>
+            <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
             <div class="help">Delete history entries older than this. 0 disables.</div>
           </div>
           <div class="hr"></div>
@@ -1447,7 +1448,7 @@ UI_HTML = r"""
             <label>Require Login</label>
             <div class="toggle-wrap">
               <label class="toggle">
-                <input type="checkbox" id="auth_enabled" onchange="syncAuthUi()"/>
+                <input type="checkbox" id="auth_enabled" onchange="syncAuthUi(); markUnsaved('advMsg')"/>
                 <span class="toggle-track"></span>
                 <span class="toggle-thumb"></span>
               </label>
@@ -1458,14 +1459,14 @@ UI_HTML = r"""
           </div>
           <div class="field" style="margin-top:12px">
             <label>Session Timeout (Minutes)</label>
-            <input id="auth_session_minutes" type="number" min="1"/>
+            <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Minutes of inactivity before requiring re-login.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Stats</p>
           <div class="field">
             <label>Import Check Delay (Hours)</label>
-            <input id="import_check_hours" type="number" min="1"/>
+            <input id="import_check_hours" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
           </div>
           <div class="hr"></div>
@@ -1710,7 +1711,7 @@ async function saveModal() {
   closeModalDirect();
   renderInstances(MODAL_KIND);
   el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Edited — click Save Changes.' : 'Added — click Save Changes.';
-  el('saveMsg').className = 'msg';
+  el('saveMsg').className = 'msg unsaved';
 
   // Silently test the new/edited instance and update its dot
   const idx = MODAL_IDX >= 0 ? MODAL_IDX : CFG.instances[MODAL_KIND].length - 1;
@@ -1739,7 +1740,7 @@ async function deleteInstance(kind, idx) {
   CFG.instances[kind].splice(idx, 1);
   renderInstances(kind);
   el('saveMsg').textContent = 'Deleted — click Save Changes.';
-  el('saveMsg').className = 'msg';
+  el('saveMsg').className = 'msg unsaved';
 }
 
 function fadeMsg(id) {
@@ -1846,7 +1847,6 @@ async function saveSettings() {
 // ── History tab ──
 async function refreshHistory() {
   try {
-    applySortIndicators('#historyTableWrap table', HISTORY_SORT);
     const sum = await api('/api/state/summary');
 
     // KPI pills — per instance counts
@@ -1892,10 +1892,10 @@ async function refreshHistory() {
     el('historyTableWrap').innerHTML = `
       <table>
         <thead><tr>
-          <th class="sortable" data-col="title" onclick="sortHistory('title')">Title</th>
-          <th class="sortable" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
-          <th class="sortable" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
-          <th class="sortable" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
+          <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="4" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
       </table>
@@ -1964,7 +1964,6 @@ async function clearState() {
 // ── Stats tab ──
 async function refreshStats() {
   try {
-    applySortIndicators('#statsTableWrap table', STATS_SORT);
     const inst = el('statsInstance') ? el('statsInstance').value : '';
     const data = await api(`/api/stats${inst ? '?instance=' + encodeURIComponent(inst) : ''}`);
 
@@ -1997,11 +1996,11 @@ async function refreshStats() {
       <p class="help" style="margin-bottom:12px">${data.total} confirmed import${data.total !== 1 ? 's' : ''}</p>
       <table>
         <thead><tr>
-          <th class="sortable" data-col="title" onclick="sortStats('title')">Title</th>
-          <th class="sortable" data-col="instance" onclick="sortStats('instance')">Instance</th>
-          <th class="sortable" data-col="type" onclick="sortStats('type')">Type</th>
-          <th class="sortable" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
-          <th class="sortable" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
+          <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
+          <th class="sortable ${STATS_SORT.col==='instance' ? 'sort-'+STATS_SORT.dir : ''}" data-col="instance" onclick="sortStats('instance')">Instance</th>
+          <th class="sortable ${STATS_SORT.col==='type' ? 'sort-'+STATS_SORT.dir : ''}" data-col="type" onclick="sortStats('type')">Type</th>
+          <th class="sortable ${STATS_SORT.col==='searched_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
+          <th class="sortable ${STATS_SORT.col==='imported_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -2046,6 +2045,14 @@ function fillAdvanced() {
 function syncAuthUi() {
   const enabled = el('auth_enabled').checked;
   el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled — anyone on your network can access the UI';
+}
+
+function markUnsaved(msgId) {
+  const m = el(msgId);
+  if (!m || m.classList.contains('ok')) return;
+  m.textContent = 'Unsaved changes — click Save Changes.';
+  m.className = 'msg unsaved';
+  m.style.opacity = '1';
 }
 
 function syncBacklogUi() {

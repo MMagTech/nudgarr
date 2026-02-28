@@ -1181,7 +1181,7 @@ UI_HTML = r"""
   <!-- Header -->
   <div class="header">
     <div class="brand">
-      <h1>Nudgarr <span style="font-weight:400; font-size:13px; color:var(--muted)">v<span id="ver"></span></span></h1>
+      <h1><span style="font-style:italic; letter-spacing:0.03em">Nudgarr</span> <span style="font-weight:400; font-size:13px; color:var(--muted)">v<span id="ver"></span></span></h1>
       <p>Sweeping your library, one nudge at a time.</p>
     </div>
     <div class="header-right">

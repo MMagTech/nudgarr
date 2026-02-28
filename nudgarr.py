@@ -1872,10 +1872,10 @@ async function refreshHistory() {
     el('historyTableWrap').innerHTML = `
       <table>
         <thead><tr>
-          <th class="sortable" onclick="sortHistory('title')">Title</th>
-          <th class="sortable" onclick="sortHistory('sweep_type')">Type</th>
-          <th class="sortable" onclick="sortHistory('last_searched')">Last Searched</th>
-          <th class="sortable" onclick="sortHistory('eligible_again')">Eligible Again</th>
+          <th class="sortable" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="sortable" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="4" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
       </table>
@@ -1910,7 +1910,7 @@ function sortStats(col) {
 function applySortIndicators(tableSelector, sortState) {
   document.querySelectorAll(`${tableSelector} th.sortable`).forEach(th => {
     th.classList.remove('sort-asc', 'sort-desc');
-    if (th.getAttribute('onclick').includes(`'${sortState.col}'`)) {
+    if (th.dataset.col === sortState.col) {
       th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc');
     }
   });
@@ -1976,11 +1976,11 @@ async function refreshStats() {
       <p class="help" style="margin-bottom:12px">${data.total} confirmed import${data.total !== 1 ? 's' : ''}</p>
       <table>
         <thead><tr>
-          <th class="sortable" onclick="sortStats('title')">Title</th>
-          <th class="sortable" onclick="sortStats('instance')">Instance</th>
-          <th class="sortable" onclick="sortStats('type')">Type</th>
-          <th class="sortable" onclick="sortStats('searched_ts')">Searched</th>
-          <th class="sortable" onclick="sortStats('imported_ts')">Imported</th>
+          <th class="sortable" data-col="title" onclick="sortStats('title')">Title</th>
+          <th class="sortable" data-col="instance" onclick="sortStats('instance')">Instance</th>
+          <th class="sortable" data-col="type" onclick="sortStats('type')">Type</th>
+          <th class="sortable" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
+          <th class="sortable" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -2106,12 +2106,12 @@ async function refreshStatus() {
   } catch(e) {}
 }
 
-let AUTO_REFRESH_COUNT = 0;
+let AUTO_REFRESH_LAST = 0;
 async function pollCycle() {
   await refreshStatus();
-  AUTO_REFRESH_COUNT++;
-  // Auto-refresh active tab every 30s (every 6th 5s poll cycle)
-  if (AUTO_REFRESH_COUNT % 6 === 0) {
+  const now = Date.now();
+  if (now - AUTO_REFRESH_LAST >= 30000) {
+    AUTO_REFRESH_LAST = now;
     if (ACTIVE_TAB === 'history') refreshHistory();
     if (ACTIVE_TAB === 'stats') refreshStats();
   }

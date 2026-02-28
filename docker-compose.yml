@@ -22,9 +22,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    pids_limit: 512
-    mem_limit: 256m
-    cpus: 1
+    pids_limit: 50
+    mem_limit: 128m
+    cpus: 0.5
     logging:
       driver: json-file
       options:

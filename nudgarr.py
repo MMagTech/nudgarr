@@ -332,7 +332,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     if updated:
         stats["entries"] = entries
         save_stats(stats)
-        print(f"[Stats] Import check complete — updated confirmed imports")
+        print("[Stats] Import check complete — updated confirmed imports")
 
 def is_allowed_by_cooldown(last_entry: Any, cooldown_hours: int) -> bool:
     if cooldown_hours <= 0:
@@ -548,15 +548,6 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
                     title = ep_title or f"Episode {eid}"
                 episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
-    if not episode_ids:
-        return
-    cmd = f"{url.rstrip('/')}/api/v3/command"
-    payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
-    if dry_run:
-        print(f"[Sonarr] DRY_RUN would search {len(episode_ids)} episode(s)")
-    else:
-        req(session, "POST", cmd, key, payload)
-        print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
 # -------------------------
 # Sweep
@@ -1051,8 +1042,11 @@ UI_HTML = r"""
     }
     .tab:hover { color: var(--text); border-color: rgba(255,255,255,.15); }
     .tab.active { color: var(--text); background: var(--card); border-color: rgba(255,255,255,.18); }
-    .section { display: none; }
-    .section.active { display: block; }
+    .section { display: none; opacity: 0; }
+    .section.active { display: block; animation: tabFadeIn 0.18s ease forwards; }
+    .section.leaving { animation: tabFadeOut 0.1s ease forwards; }
+    @keyframes tabFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes tabFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
     /* ── Cards & Grid ── */
     .grid { display: grid; gap: 12px; }
@@ -1087,8 +1081,9 @@ UI_HTML = r"""
     .msg.fade { opacity: 0; }
     th.sortable { cursor: pointer; user-select: none; }
     th.sortable:hover { color: var(--text); }
-    th.sort-asc::after { content: ' ↑'; }
-    th.sort-desc::after { content: ' ↓'; }
+    th.sortable::after { content: ' ↕'; opacity: 0.25; font-size: 10px; }
+    th.sort-asc::after { content: ' ↑'; opacity: 1; }
+    th.sort-desc::after { content: ' ↓'; opacity: 1; }
 
     /* ── Toggle switch ── */
     .toggle-wrap { display: flex; align-items: center; gap: 10px; }
@@ -1163,13 +1158,13 @@ UI_HTML = r"""
     /* ── KPI pills row ── */
     .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .import-stat-card { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 20px; border: 1px solid; font-size: 13px; }
-    .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.2); }
-    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.2); }
+    .import-stat-card { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border-radius: 20px; border: 1px solid; font-size: 13px; }
+    .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.25); }
+    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.25); }
     .import-stat-label { font-weight: 400; }
-    .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.7); }
-    .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.7); }
-    .import-stat-value { font-weight: 600; }
+    .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.75); }
+    .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.75); }
+    .import-stat-value { font-weight: 700; font-size: 15px; }
     .import-stat-card.movies .import-stat-value { color: #10b981; }
     .import-stat-card.shows .import-stat-value { color: #6366f1; }
 
@@ -1352,7 +1347,7 @@ UI_HTML = r"""
           </div>
           <div class="field" style="min-width:100px">
             <select id="historyLimit" onchange="PAGE=0; refreshHistory()">
-              <option selected>25</option><option>50</option><option>100</option>
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
             </select>
           </div>
         </div>
@@ -1395,7 +1390,7 @@ UI_HTML = r"""
           </div>
           <div class="field" style="min-width:100px">
             <select id="statsLimit" onchange="STATS_PAGE=0; refreshStats()">
-              <option selected>25</option><option>50</option><option>100</option>
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
             </select>
           </div>
         </div>
@@ -1615,10 +1610,48 @@ function showAlert(msg) {
 function showTab(name) {
   ACTIVE_TAB = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'history') refreshHistory();
-  if (name === 'stats') refreshStats();
+  const current = document.querySelector('.section.active');
+  const next = document.getElementById('tab-' + name);
+  if (current && current !== next) {
+    current.classList.add('leaving');
+    setTimeout(() => {
+      current.classList.remove('active', 'leaving');
+      next.classList.add('active');
+      _onTabShown(name);
+    }, 100);
+  } else {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    next.classList.add('active');
+    _onTabShown(name);
+  }
+}
+
+function _onTabShown(name) {
+  if (name === 'history') {
+    if (!el('historyTableWrap').querySelector('table')) {
+      el('historyTableWrap').innerHTML = `
+        <table><thead><tr>
+          <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
+        </tr></thead><tbody></tbody></table>`;
+    }
+    refreshHistory();
+  }
+  if (name === 'stats') {
+    if (!el('statsTableWrap').querySelector('table')) {
+      el('statsTableWrap').innerHTML = `
+        <table><thead><tr>
+          <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
+          <th class="sortable ${STATS_SORT.col==='instance' ? 'sort-'+STATS_SORT.dir : ''}" data-col="instance" onclick="sortStats('instance')">Instance</th>
+          <th class="sortable ${STATS_SORT.col==='type' ? 'sort-'+STATS_SORT.dir : ''}" data-col="type" onclick="sortStats('type')">Type</th>
+          <th class="sortable ${STATS_SORT.col==='searched_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
+          <th class="sortable ${STATS_SORT.col==='imported_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
+        </tr></thead><tbody></tbody></table>`;
+    }
+    refreshStats();
+  }
   if (name === 'advanced') fillAdvanced();
 }
 
@@ -1788,8 +1821,9 @@ function fadeMsg(id) {
 async function saveAll() {
   try {
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('saveMsg').textContent = 'Saved'; el('saveMsg').className = 'msg ok'; fadeMsg('saveMsg');
     await loadAll();
+    await new Promise(r => setTimeout(r, 400));
+    el('saveMsg').textContent = 'Saved'; el('saveMsg').className = 'msg ok'; fadeMsg('saveMsg');
   } catch(e) {
     el('saveMsg').textContent = 'Save failed: ' + e.message; el('saveMsg').className = 'msg err';
   }
@@ -1873,8 +1907,9 @@ async function saveSettings() {
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
     await loadAll();
+    await new Promise(r => setTimeout(r, 400));
+    el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2142,8 +2177,9 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
     await loadAll();
+    await new Promise(r => setTimeout(r, 400));
+    el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }
@@ -2668,10 +2704,6 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     STATUS["scheduler_running"] = True
     session = requests.Session()
     cycle = 0
-    run_event = threading.Event()
-
-    # Patch RUN_LOCK to also signal the event so manual triggers wake immediately
-    _orig_run_now_setter = None  # we'll use the event directly in the loop
 
     while not stop_flag["stop"]:
         cfg = load_or_init_config()

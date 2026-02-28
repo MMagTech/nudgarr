@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "nightly", "dev"]
+  pull_request:
+    branches: ["main", "nightly", "dev"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check syntax
+        run: python -m py_compile nudgarr.py && echo "Syntax OK"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Lint
+        run: |
+          flake8 nudgarr.py \
+            --max-line-length=120 \
+            --ignore=E122,E226,E231,E302,E303,E305,E306,E402,E501,W503 \
+            --count \
+            --statistics

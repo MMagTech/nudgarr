@@ -1,6 +1,8 @@
 # Nudgarr
 ### Because RSS sometimes needs a nudge.
 
+> **A note from the creator:** I'm not a developer — I'm a tech enthusiast and a fan of the *arr stack who wanted to build something useful. Nudgarr is vibe coded, built through curiosity, community tools, and a lot of learning along the way. If you're a developer and want to contribute, improve the code, or help with branding and design, I'd genuinely welcome it. This is as much a learning experience as it is a project.
+
 Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonarr. It runs on a schedule, finds items in your Wanted lists, and instructs your instances to search — so you don't have to.
 
 ---
@@ -58,9 +60,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    pids_limit: 512
-    mem_limit: 256m
-    cpus: 1
+    pids_limit: 50
+    mem_limit: 128m
+    cpus: 0.5
     logging:
       driver: json-file
       options:
@@ -125,6 +127,14 @@ The provided `docker-compose.yml` includes the following hardening settings out 
 These are standard Docker settings and work on any platform.
 
 Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
+
+---
+
+## Contributing
+
+Nudgarr is a community-welcome project. Whether you want to fix a bug, improve the code quality, add a feature, or just give feedback — all of it is appreciated.
+
+If you have design skills and want to help with a proper icon or branding, that's something the project genuinely needs. Open an issue or a PR and let's talk.
 
 ---
 

@@ -1,9 +1,30 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.0.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.1.2 — Because RSS sometimes needs a nudge.
+
+v2.1.2:
+- PUID/PGID support — container runs as specified UID/GID, defaults to 1000:1000
+- Lifetime Movies/Shows import totals persist through Clear Stats
+- Clear Stats backend endpoint fixed — was missing entirely
+- Existing confirmed entries auto-seeded into lifetime totals on first run
+- Save transition fixed — Unsaved Changes → Saved is visible and unhurried
+- Sort indicators on all columns immediately on tab open
+- Tab fade transition on switch
+- Page size 10 added to History and Stats
+- Docker resource limits right-sized for actual usage
+- CI workflow — flake8 lint and syntax check on every push and PR
+
+v2.1.0:
+- Stats tab with confirmed import tracking
+- Per-app Backlog Nudge toggles with age and cap controls
+- Instance health dots — updated on every sweep and on add/edit
+- Unsaved Changes notices across all tabs
+- Import check delay in minutes, Check Now bypasses delay
+- Non-root container user, read-only filesystem
+- Multi-arch Docker images (amd64/arm64)
 
 v2.0.0:
-- Authentication — first run setup screen, hashed password, 30 min inactivity session
+- Authentication — first run setup screen, hashed password, session timeout
 - Require Login toggle in Advanced (default on)
 - Login page styled to match UI
 - Lockout recovery: delete config and restart
@@ -24,7 +45,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response, session, redirect
 
-VERSION = "2.1.0"
+VERSION = "2.1.2"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -239,8 +260,18 @@ def save_state(state: Dict[str, Any], cfg: Dict[str, Any]) -> None:
 # -------------------------
 
 def load_stats() -> Dict[str, Any]:
-    st = load_json(STATS_FILE, {"entries": []})
-    return st if isinstance(st, dict) else {"entries": []}
+    st = load_json(STATS_FILE, {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0})
+    if not isinstance(st, dict):
+        return {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0}
+    # Seed lifetime totals from existing confirmed entries if not yet set or uninitialized
+    confirmed = [e for e in st.get("entries", []) if e.get("imported")]
+    if st.get("lifetime_movies", 0) == 0 and st.get("lifetime_shows", 0) == 0 and confirmed:
+        st["lifetime_movies"] = sum(1 for e in confirmed if e.get("app") == "radarr")
+        st["lifetime_shows"] = sum(1 for e in confirmed if e.get("app") == "sonarr")
+        save_json_atomic(STATS_FILE, st, pretty=True)
+    st.setdefault("lifetime_movies", 0)
+    st.setdefault("lifetime_shows", 0)
+    return st
 
 def save_stats(stats: Dict[str, Any]) -> None:
     save_json_atomic(STATS_FILE, stats, pretty=True)
@@ -311,6 +342,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             if ev_dt and ev_dt > dt:
                                 entry["imported"] = True
                                 entry["imported_ts"] = iso_z(ev_dt)
+                                stats["lifetime_movies"] = stats.get("lifetime_movies", 0) + 1
                                 updated = True
                                 break
             else:
@@ -324,6 +356,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             if ev_dt and ev_dt > dt:
                                 entry["imported"] = True
                                 entry["imported_ts"] = iso_z(ev_dt)
+                                stats["lifetime_shows"] = stats.get("lifetime_shows", 0) + 1
                                 updated = True
                                 break
         except Exception as e:
@@ -2086,7 +2119,6 @@ async function refreshStats() {
     `).join('');
 
     el('statsTableWrap').innerHTML = `
-      <p class="help" style="margin-bottom:12px">${data.total} confirmed import${data.total !== 1 ? 's' : ''}</p>
       <table>
         <thead><tr>
           <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
@@ -2335,10 +2367,6 @@ def api_get_stats():
     cfg = load_or_init_config()
     stats = load_stats()
     entries = stats.get("entries", [])
-    # Grand totals across all instances before any filtering
-    all_confirmed = [e for e in entries if e.get("imported")]
-    movies_total = sum(1 for e in all_confirmed if e.get("app") == "radarr")
-    shows_total = sum(1 for e in all_confirmed if e.get("app") == "sonarr")
     instance_filter = request.args.get("instance", "")
     type_filter = request.args.get("type", "")
     if instance_filter:
@@ -2362,7 +2390,15 @@ def api_get_stats():
         all_instances.append({"name": inst["name"], "app": "radarr"})
     for inst in cfg.get("instances", {}).get("sonarr", []):
         all_instances.append({"name": inst["name"], "app": "sonarr"})
-    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total, "movies_total": movies_total, "shows_total": shows_total})
+    return jsonify({"entries": page_entries, "instances": all_instances, "types": available_types, "total": total, "movies_total": stats.get("lifetime_movies", 0), "shows_total": stats.get("lifetime_shows", 0)})
+
+@app.post("/api/stats/clear")
+@requires_auth
+def api_clear_stats():
+    stats = load_stats()
+    stats["entries"] = []
+    save_stats(stats)
+    return jsonify({"ok": True})
 
 @app.post("/api/stats/check-imports")
 @requires_auth

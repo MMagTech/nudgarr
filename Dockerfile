@@ -2,7 +2,7 @@ FROM python:3.12-alpine
 
 # Install dependencies including su-exec for privilege dropping
 RUN pip install --no-cache-dir --no-compile requests flask \
-    && apk add --no-cache su-exec shadow
+    && apk add --no-cache su-exec
 
 WORKDIR /app
 COPY nudgarr.py /app/nudgarr.py

@@ -2402,6 +2402,7 @@ def api_setup():
 def api_login():
     ip = request.remote_addr or "unknown"
     locked, remaining = check_auth_lockout(ip)
+    print(f"[Auth] Login attempt from {ip} — locked={locked} failures={_AUTH_FAILURES.get(ip, {})}")
     if locked:
         return jsonify({"ok": False, "error": f"Too many failed attempts. Try again in {remaining}s."}), 429
     data = request.get_json(force=True, silent=True) or {}
@@ -2412,6 +2413,7 @@ def api_login():
     valid = verify_password(password, stored_hash) and username == cfg.get("auth_username", "")
     if not valid:
         duration = record_auth_failure(ip)
+        print(f"[Auth] Failed attempt from {ip} — count={_AUTH_FAILURES.get(ip, {}).get('count')} lockout={duration}s")
         msg = "Invalid credentials"
         if duration:
             msg += f" — locked out for {duration}s"

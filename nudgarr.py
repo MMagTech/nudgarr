@@ -1813,14 +1813,14 @@ Tracks confirmed imports — items that were searched by Nudgarr and later succe
   },
   {
     title: "Step 6 — Advanced & Backlog Nudges",
-    body: `The <strong>Advanced tab</strong> contains settings for history management, security, and backlog nudges.
+    body: `The <strong>Advanced tab</strong> contains settings for backlog nudges, history management, and security.
 <br><br>
-<strong>History Retention</strong> — How many days of search history Nudgarr keeps before pruning old entries. Default is 180 days.<br><br>
-<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen — confirming that a sweep or backlog nudge actually resulted in new media being added. Default is every 120 minutes.<br><br>
-<strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.<br><br>
 <strong>Backlog Nudges</strong> — Off by default. When enabled, searches for missing movies and episodes that have never been grabbed, going beyond just cutoff upgrades.<br><br>
 <strong>Missing Max</strong> — How many missing items to search per run. Keep this low.<br><br>
-<strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.
+<strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.<br><br>
+<strong>History Retention</strong> — How many days of search history Nudgarr keeps before pruning old entries. Default is 180 days.<br><br>
+<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen — confirming that a sweep or backlog nudge actually resulted in new media being added. Default is every 120 minutes.<br><br>
+<strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.
 <br><br>
 ⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`
   },

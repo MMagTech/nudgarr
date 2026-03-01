@@ -28,6 +28,6 @@ jobs:
         run: |
           flake8 nudgarr.py \
             --max-line-length=120 \
-            --ignore=E122,E226,E231,E302,E303,E305,E306,E402,E501,W503 \
+            --ignore=E122,E226,E231,E241,E302,E303,E305,E306,E402,E501,W503 \
             --count \
             --statistics

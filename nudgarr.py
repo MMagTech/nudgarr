@@ -817,8 +817,8 @@ _AUTH_FAILURES: Dict[str, Any] = {}  # ip -> {"count": int, "locked_until": floa
 _AUTH_LOCK = threading.Lock()
 
 LOCKOUT_SCHEDULE = [
-    (3,  30),       # 3 failures  → 30 seconds
-    (6,  300),      # 6 failures  → 5 minutes
+    (3, 30),        # 3 failures  → 30 seconds
+    (6, 300),       # 6 failures  → 5 minutes
     (10, 1800),     # 10 failures → 30 minutes
     (15, 3600),     # 15+ failures → 1 hour
 ]

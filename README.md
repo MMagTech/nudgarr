@@ -47,6 +47,8 @@ services:
     volumes:
       - /your/path/to/appdata/nudgarr:/config
     environment:
+      - PUID=1000
+      - PGID=1000
       - PORT=8085
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
@@ -71,6 +73,20 @@ services:
 ```
 
 Open the UI at `http://<your-host>:8085`
+
+---
+
+## User and Group ID (PUID / PGID)
+
+Nudgarr supports `PUID` and `PGID` environment variables so the container runs as the correct user on your system — no permission issues with your `/config` volume.
+
+| Platform | Typical values |
+|----------|---------------|
+| Unraid | `PUID=99` `PGID=100` (nobody:users) |
+| Linux | `PUID=1000` `PGID=1000` |
+| Synology | Match your DSM user — check with `id` in SSH |
+
+If `PUID` and `PGID` are not set, the container defaults to `1000:1000`.
 
 ---
 
@@ -99,6 +115,8 @@ Nudgarr is a local network tool. Understanding what it does and doesn't protect 
 **What the built-in login does**
 The login screen prevents someone on your network from accessing the UI and changing your configuration. It is not a hardened security layer — it is a basic access control for your local network.
 
+Passwords are stored using PBKDF2-HMAC-SHA256 with a unique random salt. Failed login attempts trigger a progressive lockout to protect against brute force. Timing-safe comparison is used throughout.
+
 **What it does not protect**
 - Your Radarr and Sonarr API keys are stored in plaintext in the config file. Anyone with access to your server's filesystem can read them.
 - The login does not encrypt traffic. Credentials are sent over plain HTTP unless you put Nudgarr behind a reverse proxy with HTTPS.
@@ -121,12 +139,23 @@ The provided `docker-compose.yml` includes the following hardening settings out 
 - Logging limits — prevents log files from consuming unbounded disk space
 
 **Additional hardening (implemented in v2.1.0)**
-- Non-root container user — the container runs as a dedicated `nudgarr` user. An entrypoint script briefly runs as root to fix `/config` ownership then immediately drops privileges before the app starts.
+- Non-root container user — the container runs as the UID/GID you specify via `PUID` and `PGID`. The entrypoint briefly runs as root to set ownership of `/config`, then immediately drops to your specified user before the app starts. Defaults to `1000:1000` if not set.
 - Read-only filesystem — the container filesystem is mounted read-only with a restricted `/tmp` tmpfs (`noexec,nosuid,nodev`), so any payload written inside the container cannot be executed.
 
 These are standard Docker settings and work on any platform.
 
 Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
+
+## Upgrade Notes
+
+**v2.1.3 — Password security hardening**
+Passwords are now stored using PBKDF2-HMAC-SHA256 with a unique random salt per password, replacing the previous unsalted SHA256 hash. Existing passwords automatically migrate to the new format on next successful login — no action required. A progressive lockout is applied to failed login attempts (3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr) to protect against brute force attacks.
+
+**v2.1.1 — Lifetime import totals**
+The Stats tab now tracks lifetime Movies and Shows totals that persist through Clear Stats. On first run after upgrading, existing confirmed entries are automatically counted and the totals are seeded. This is a one-way migration — downgrading to an earlier version will show zeros on the pills. The stats file itself is not corrupted by downgrading, but the lifetime keys will be ignored by older versions.
+
+**v2.1.0 — Import check delay unit change**
+The config key `import_check_hours` was renamed to `import_check_minutes`. The value defaults to 120 minutes (2 hours) if not set. Your config will auto-migrate on next save.
 
 ---
 

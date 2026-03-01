@@ -1,9 +1,35 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.0.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.1.3 — Because RSS sometimes needs a nudge.
+
+v2.1.3:
+- Password hashing upgraded to PBKDF2-HMAC-SHA256 with unique random salt
+- Progressive brute force lockout: 3→30s, 6→5min, 10→30min, 15+→1hr
+- Existing passwords auto-migrate on next successful login
+
+v2.1.2:
+- PUID/PGID support — container runs as specified UID/GID, defaults to 1000:1000
+- Lifetime Movies/Shows import totals persist through Clear Stats
+- Clear Stats backend endpoint fixed — was missing entirely
+- Existing confirmed entries auto-seeded into lifetime totals on first run
+- Save transition fixed — Unsaved Changes → Saved is visible and unhurried
+- Sort indicators on all columns immediately on tab open
+- Tab fade transition on switch
+- Page size 10 added to History and Stats
+- Docker resource limits right-sized for actual usage
+- CI workflow — flake8 lint and syntax check on every push and PR
+
+v2.1.0:
+- Stats tab with confirmed import tracking
+- Per-app Backlog Nudge toggles with age and cap controls
+- Instance health dots — updated on every sweep and on add/edit
+- Unsaved Changes notices across all tabs
+- Import check delay in minutes, Check Now bypasses delay
+- Non-root container user, read-only filesystem
+- Multi-arch Docker images (amd64/arm64)
 
 v2.0.0:
-- Authentication — first run setup screen, hashed password, 30 min inactivity session
+- Authentication — first run setup screen, hashed password, session timeout
 - Require Login toggle in Advanced (default on)
 - Login page styled to match UI
 - Lockout recovery: delete config and restart
@@ -24,7 +50,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response, session, redirect
 
-VERSION = "2.1.0"
+VERSION = "2.1.3"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -772,10 +798,64 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 SESSION_TIMEOUT_MINUTES = 30  # default, overridden by config
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash password using PBKDF2-HMAC-SHA256 with a random salt. Returns 'salt:hash'."""
+    salt = secrets.token_hex(32)
+    h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260000).hex()
+    return f"{salt}:{h}"
 
-def verify_password(password: str, hashed: str) -> bool:
-    return hmac.compare_digest(hash_password(password), hashed)
+def verify_password(password: str, stored: str) -> bool:
+    """Verify password against stored 'salt:hash' or legacy plain sha256 hash."""
+    if ":" in stored:
+        salt, h = stored.split(":", 1)
+        expected = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260000).hex()
+        return hmac.compare_digest(expected, h)
+    # Legacy sha256 — auto-migrate on next successful login
+    return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest(), stored)
+
+# ── Progressive brute force lockout ──
+_AUTH_FAILURES: Dict[str, Any] = {}  # ip -> {"count": int, "locked_until": float}
+_AUTH_LOCK = threading.Lock()
+
+LOCKOUT_SCHEDULE = [
+    (3,  30),       # 3 failures  → 30 seconds
+    (6,  300),      # 6 failures  → 5 minutes
+    (10, 1800),     # 10 failures → 30 minutes
+    (15, 3600),     # 15+ failures → 1 hour
+]
+
+def get_lockout_seconds(count: int) -> int:
+    duration = 0
+    for threshold, seconds in LOCKOUT_SCHEDULE:
+        if count >= threshold:
+            duration = seconds
+    return duration
+
+def check_auth_lockout(ip: str) -> tuple:
+    """Returns (is_locked, seconds_remaining)."""
+    with _AUTH_LOCK:
+        record = _AUTH_FAILURES.get(ip)
+        if not record:
+            return False, 0
+        if record["locked_until"] and time.time() < record["locked_until"]:
+            return True, int(record["locked_until"] - time.time())
+        return False, 0
+
+def record_auth_failure(ip: str) -> int:
+    """Record a failed attempt. Returns lockout duration in seconds (0 if none)."""
+    with _AUTH_LOCK:
+        record = _AUTH_FAILURES.get(ip, {"count": 0, "locked_until": 0.0})
+        # Reset if previous lockout has expired
+        if record["locked_until"] and time.time() >= record["locked_until"]:
+            record = {"count": 0, "locked_until": 0.0}
+        record["count"] += 1
+        duration = get_lockout_seconds(record["count"])
+        record["locked_until"] = time.time() + duration if duration else 0.0
+        _AUTH_FAILURES[ip] = record
+        return duration
+
+def clear_auth_failures(ip: str) -> None:
+    with _AUTH_LOCK:
+        _AUTH_FAILURES.pop(ip, None)
 
 def auth_required() -> bool:
     """Returns True if auth is enabled and credentials are configured."""
@@ -2311,7 +2391,7 @@ def api_setup():
         return jsonify({"ok": False, "error": "Password must be at least 6 characters"}), 400
     cfg = load_or_init_config()
     cfg["auth_username"] = username
-    cfg["auth_password_hash"] = hash_password(password)
+    cfg["auth_password_hash"] = hash_password(password)  # salted PBKDF2
     cfg["auth_enabled"] = True
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     session["authenticated"] = True
@@ -2320,12 +2400,27 @@ def api_setup():
 
 @app.post("/api/auth/login")
 def api_login():
+    ip = request.remote_addr or "unknown"
+    locked, remaining = check_auth_lockout(ip)
+    if locked:
+        return jsonify({"ok": False, "error": f"Too many failed attempts. Try again in {remaining}s."}), 429
     data = request.get_json(force=True, silent=True) or {}
     username = str(data.get("username", "")).strip()
     password = str(data.get("password", ""))
     cfg = load_or_init_config()
-    if not verify_password(password, cfg.get("auth_password_hash", "")) or username != cfg.get("auth_username", ""):
-        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+    stored_hash = cfg.get("auth_password_hash", "")
+    valid = verify_password(password, stored_hash) and username == cfg.get("auth_username", "")
+    if not valid:
+        duration = record_auth_failure(ip)
+        msg = "Invalid credentials"
+        if duration:
+            msg += f" — locked out for {duration}s"
+        return jsonify({"ok": False, "error": msg}), 401
+    # Auto-migrate legacy sha256 hash to salted PBKDF2 on successful login
+    if ":" not in stored_hash:
+        cfg["auth_password_hash"] = hash_password(password)
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    clear_auth_failures(ip)
     session["authenticated"] = True
     session["last_active"] = datetime.now().timestamp()
     return jsonify({"ok": True})

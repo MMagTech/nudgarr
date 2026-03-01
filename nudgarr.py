@@ -942,7 +942,12 @@ async function login() {
     body: JSON.stringify({username: document.getElementById('usr').value, password: document.getElementById('pwd').value})
   });
   if (r.ok) { window.location.href = '/'; }
-  else { document.getElementById('err').classList.add('show'); }
+  else {
+    const d = await r.json();
+    const err = document.getElementById('err');
+    err.textContent = d.error || 'Invalid username or password.';
+    err.classList.add('show');
+  }
 }
 </script>
 </body>

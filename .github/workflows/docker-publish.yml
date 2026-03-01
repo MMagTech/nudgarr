@@ -47,7 +47,7 @@ jobs:
           REF_NAME="${GITHUB_REF_NAME}"
           TAGS=""
           if [[ "${REF}" == refs/heads/main ]]; then
-            TAGS="${GHCR}:latest,${GHCR}:edge,${HUB}:latest,${HUB}:edge"
+            TAGS="${GHCR}:latest,${HUB}:latest"
           fi
           if [[ "${REF}" == refs/heads/nightly ]]; then
             TAGS="${GHCR}:nightly,${HUB}:nightly"

@@ -919,7 +919,8 @@ LOGIN_HTML = r"""<!doctype html>
     input:focus { border-color: rgba(99,120,255,.6); }
     button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(99,120,255,.35);
       background: rgba(99,120,255,.2); color: #a8b4ff; font-size: 14px; font-weight: 600; cursor: pointer; }
-    button:hover { background: rgba(99,120,255,.32); color: #c0caff; }
+    button:hover:not(:disabled) { background: rgba(99,120,255,.32); color: #c0caff; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
     .err { color: #fca5a5; font-size: 12px; margin-bottom: 14px; display: none; }
     .err.show { display: block; }
   </style>
@@ -928,14 +929,37 @@ LOGIN_HTML = r"""<!doctype html>
 <div class="card">
   <h1>Nudgarr</h1>
   <p class="sub">Sign in to continue</p>
-  <div class="err" id="err">Invalid username or password.</div>
+  <div class="err" id="err"></div>
   <label>Username</label>
   <input type="text" id="usr" autocomplete="username" autofocus/>
   <label>Password</label>
   <input type="password" id="pwd" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
-  <button onclick="login()">Sign In</button>
+  <button id="btn" onclick="login()">Sign In</button>
 </div>
 <script>
+let _countdown = null;
+
+function startCountdown(seconds) {
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  btn.disabled = true;
+  if (_countdown) clearInterval(_countdown);
+  let remaining = seconds;
+  function tick() {
+    if (remaining <= 0) {
+      clearInterval(_countdown);
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      err.textContent = 'You may try again.';
+      return;
+    }
+    btn.textContent = `Try again in ${remaining}s`;
+    remaining--;
+  }
+  tick();
+  _countdown = setInterval(tick, 1000);
+}
+
 async function login() {
   const r = await fetch('/api/auth/login', {method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -947,6 +971,9 @@ async function login() {
     const err = document.getElementById('err');
     err.textContent = d.error || 'Invalid username or password.';
     err.classList.add('show');
+    // Parse seconds from lockout message and start countdown
+    const match = d.error && d.error.match(/Try again in (\d+)s/);
+    if (match) startCountdown(parseInt(match[1]));
   }
 }
 </script>
@@ -2407,7 +2434,6 @@ def api_setup():
 def api_login():
     ip = request.remote_addr or "unknown"
     locked, remaining = check_auth_lockout(ip)
-    print(f"[Auth] Login attempt from {ip} — locked={locked} failures={_AUTH_FAILURES.get(ip, {})}")
     if locked:
         return jsonify({"ok": False, "error": f"Too many failed attempts. Try again in {remaining}s."}), 429
     data = request.get_json(force=True, silent=True) or {}
@@ -2418,7 +2444,6 @@ def api_login():
     valid = verify_password(password, stored_hash) and username == cfg.get("auth_username", "")
     if not valid:
         duration = record_auth_failure(ip)
-        print(f"[Auth] Failed attempt from {ip} — count={_AUTH_FAILURES.get(ip, {}).get('count')} lockout={duration}s")
         msg = "Invalid credentials"
         if duration:
             msg += f" — locked out for {duration}s"

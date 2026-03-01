@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.1.3 — Because RSS sometimes needs a nudge.
+Nudgarr v2.2.0 — Because RSS sometimes needs a nudge.
 
-v2.1.3:
+v2.2.0:
+- First-run onboarding walkthrough — 8-step guided setup for new users
+- Safe defaults — scheduler off, max per run 1, batch size 1 on fresh installs
 - Password hashing upgraded to PBKDF2-HMAC-SHA256 with unique random salt
 - Progressive brute force lockout: 3→30s, 6→5min, 10→30min, 15+→1hr
-- Existing passwords auto-migrate on next successful login
+- Login countdown timer — button disables and counts down during lockout
+- PUID/PGID support — container runs as specified UID/GID
+- Lifetime Movies/Shows import totals persist through Clear Stats
+- Clear Stats backend endpoint fixed
+- Advanced tab reordered — History → Stats → Security
+- README reverse proxy guidance for public internet exposure
 
 v2.1.2:
 - PUID/PGID support — container runs as specified UID/GID, defaults to 1000:1000
@@ -50,7 +57,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response, session, redirect
 
-VERSION = "2.1.3"
+VERSION = "2.2.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")

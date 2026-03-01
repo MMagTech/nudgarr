@@ -58,14 +58,14 @@ STATS_FILE = os.getenv("STATS_FILE", "/config/nudgarr-stats.json")
 PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "scheduler_enabled": True,        # automatic sweeps on/off (container stays running)
+    "scheduler_enabled": False,        # off by default — user enables deliberately
     "run_interval_minutes": 360,
 
     "cooldown_hours": 48,
-    "sample_mode": "random",           # random | first
+    "sample_mode": "manual",           # manual | random — manual until user is ready
 
-    "radarr_max_movies_per_run": 25,
-    "sonarr_max_episodes_per_run": 25,
+    "radarr_max_movies_per_run": 1,
+    "sonarr_max_episodes_per_run": 1,
 
     # Optional Radarr backlog missing nudges (OFF by default)
     "radarr_backlog_enabled": False,
@@ -77,8 +77,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "sonarr_missing_max": 1,
     "sonarr_missing_added_days": 14,
 
-    "batch_size": 20,
-    "sleep_seconds": 3,
+    "batch_size": 1,
+    "sleep_seconds": 5,
     "jitter_seconds": 2,
 
     # State size controls
@@ -94,6 +94,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # Stats (v2.0)
     "import_check_minutes": 120,
+
+    # Onboarding
+    "onboarding_complete": False,
 }
 
 # -------------------------
@@ -169,8 +172,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
 
-    if cfg.get("sample_mode") not in ("random", "first"):
-        errs.append("sample_mode must be 'random' or 'first'")
+    if cfg.get("sample_mode") not in ("random", "first", "manual"):
+        errs.append("sample_mode must be 'random', 'first', or 'manual'")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -973,7 +976,10 @@ async function login() {
     err.classList.add('show');
     // Parse seconds from lockout message and start countdown
     const match = d.error && d.error.match(/Try again in (\d+)s/);
-    if (match) startCountdown(parseInt(match[1]));
+    if (match) {
+      err.textContent = 'Too many failed attempts.';
+      startCountdown(parseInt(match[1]));
+    }
   }
 }
 </script>
@@ -1405,10 +1411,11 @@ UI_HTML = r"""
           <div class="field">
             <label>Sample Mode</label>
             <select id="sample_mode" onchange="markUnsaved('setMsg')">
+              <option value="manual">Manual</option>
               <option value="random">Random</option>
               <option value="first">First</option>
             </select>
-            <div class="help">Random picks different items each run for even library coverage. First always prioritises the same items until they're upgraded.</div>
+            <div class="help">Manual disables automatic selection — use Run Now to control exactly when searches happen. Random picks different items each run for even library coverage. First always prioritises the same items until they're upgraded.</div>
           </div>
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
@@ -1707,6 +1714,20 @@ UI_HTML = r"""
     </div>
   </div>
 
+  <!-- ══ Onboarding Modal ══ -->
+  <div class="modal-backdrop" id="onboardingModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+      <div id="onboardingContent"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px">
+        <div style="display:flex; gap:6px" id="onboardingDots"></div>
+        <div style="display:flex; gap:8px">
+          <button class="btn sm" id="onboardingPrev" onclick="onboardingStep(-1)">Back</button>
+          <button class="btn sm primary" id="onboardingNext" onclick="onboardingStep(1)">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 let CFG = null;
 let PAGE = 0;
@@ -1729,6 +1750,88 @@ async function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
 function showAlert(msg) {
   el('alertMsg').textContent = msg;
   el('alertModal').style.display = 'flex';
+}
+
+// ── Onboarding Walkthrough ──
+const ONBOARDING_STEPS = [
+  {
+    title: "Welcome to Nudgarr",
+    body: `Nudgarr searches your Radarr and Sonarr Wanted lists automatically — finding items that need a quality upgrade or haven't been grabbed yet — so you don't have to.
+<br><br>
+This quick walkthrough covers the key things to know before your first run. It takes about two minutes and could save you from an indexer ban.`
+  },
+  {
+    title: "Step 1 — Add Your Instances",
+    body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
+<br><br>
+You can add multiple instances — Nudgarr manages each one independently. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+  },
+  {
+    title: "Step 2 — Understand the Settings",
+    body: `On the <strong>Settings tab</strong> you control how Nudgarr runs:
+<br><br>
+<strong>Run Interval</strong> — how often the scheduler fires. Default is every 6 hours.<br>
+<strong>Cooldown</strong> — how long before the same item can be searched again. Default is 48 hours — don't lower this aggressively.<br>
+<strong>Max Per Run</strong> — how many items to search each run. Starts at 1. Increase slowly.<br>
+<strong>Mode</strong> — Manual means you control when runs happen. Enable the scheduler when you're ready.`
+  },
+  {
+    title: "Step 3 — Backlog Nudges (Read This Carefully)",
+    body: `<strong>Backlog Nudges</strong> on the Advanced tab search for missing movies and episodes that haven't been grabbed yet.
+<br><br>
+⚠️ <span style="color:#fbbf24;font-weight:600">These can generate a lot of searches very quickly.</span> If you enable backlog nudges with aggressive settings — especially with Max set high or age filters disabled — you risk getting banned from your indexer.
+<br><br>
+Backlog nudges are <strong>off by default</strong>. Enable them carefully, start with a low cap, and watch your indexer's rate limits.`
+  },
+  {
+    title: "You're Ready",
+    body: `Here's the recommended way to start:
+<br><br>
+1. Add your instances and test connections<br>
+2. Hit <strong>Run Now</strong> once to see what happens<br>
+3. Check the History tab to review what was searched<br>
+4. If it looks right, enable the scheduler<br>
+5. Gradually increase Max Per Run as you get comfortable
+<br><br>
+Start slow. Nudgarr is designed to work quietly in the background — not to hammer your indexers.`
+  }
+];
+
+let _obStep = 0;
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[_obStep];
+  const total = ONBOARDING_STEPS.length;
+  el('onboardingContent').innerHTML = `
+    <h2 style="font-size:16px;font-weight:700;margin:0 0 12px">${step.title}</h2>
+    <p class="help" style="line-height:1.7;margin:0">${step.body}</p>
+  `;
+  // Dots
+  el('onboardingDots').innerHTML = ONBOARDING_STEPS.map((_, i) =>
+    `<div style="width:7px;height:7px;border-radius:50%;background:${i===_obStep ? 'var(--accent)' : 'var(--border)'}"></div>`
+  ).join('');
+  el('onboardingPrev').style.display = _obStep === 0 ? 'none' : '';
+  el('onboardingNext').textContent = _obStep === total - 1 ? 'Got it' : 'Next';
+}
+
+async function onboardingStep(dir) {
+  const total = ONBOARDING_STEPS.length;
+  if (dir === 1 && _obStep === total - 1) {
+    // Finished
+    el('onboardingModal').style.display = 'none';
+    await api('/api/onboarding/complete', {method: 'POST'});
+    if (CFG) CFG.onboarding_complete = true;
+    return;
+  }
+  _obStep = Math.max(0, Math.min(total - 1, _obStep + dir));
+  renderOnboardingStep();
+}
+
+function maybeShowOnboarding() {
+  if (!CFG || CFG.onboarding_complete) return;
+  _obStep = 0;
+  renderOnboardingStep();
+  el('onboardingModal').style.display = 'flex';
 }
 
 function showTab(name) {
@@ -2386,7 +2489,7 @@ async function pollCycle() {
   }
 }
 
-loadAll();
+loadAll().then(() => maybeShowOnboarding());
 setInterval(pollCycle, 5000);
 </script>
 </body>
@@ -2446,7 +2549,7 @@ def api_login():
         duration = record_auth_failure(ip)
         msg = "Invalid credentials"
         if duration:
-            msg += f" — locked out for {duration}s"
+            msg = f"Too many failed attempts. Try again in {duration}s."
         return jsonify({"ok": False, "error": msg}), 401
     # Auto-migrate legacy sha256 hash to salted PBKDF2 on successful login
     if ":" not in stored_hash:
@@ -2536,6 +2639,14 @@ def api_set_config():
         return jsonify({"ok": False, "errors": errs}), 400
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True, "message": "Config saved", "config_file": CONFIG_FILE})
+
+@app.post("/api/onboarding/complete")
+@requires_auth
+def api_onboarding_complete():
+    cfg = load_or_init_config()
+    cfg["onboarding_complete"] = True
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    return jsonify({"ok": True})
 
 @app.post("/api/config/reset")
 @requires_auth

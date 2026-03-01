@@ -115,6 +115,8 @@ Nudgarr is a local network tool. Understanding what it does and doesn't protect 
 **What the built-in login does**
 The login screen prevents someone on your network from accessing the UI and changing your configuration. It is not a hardened security layer — it is a basic access control for your local network.
 
+Passwords are stored using PBKDF2-HMAC-SHA256 with a unique random salt. Failed login attempts trigger a progressive lockout to protect against brute force. Timing-safe comparison is used throughout.
+
 **What it does not protect**
 - Your Radarr and Sonarr API keys are stored in plaintext in the config file. Anyone with access to your server's filesystem can read them.
 - The login does not encrypt traffic. Credentials are sent over plain HTTP unless you put Nudgarr behind a reverse proxy with HTTPS.
@@ -127,6 +129,9 @@ Nudgarr intentionally avoids features that introduce unnecessary attack surface.
 - Run Nudgarr on your LAN only — do not expose port 8085 to the internet
 - If you need remote access, use a VPN or a reverse proxy with proper authentication and HTTPS
 - Enable the built-in login as a basic layer of protection on your local network
+
+**If you expose Nudgarr to the public internet**
+The built-in login is designed for local network use and should not be considered sufficient protection for a publicly accessible instance. If you need to access Nudgarr remotely, the strongly recommended approach is to place it behind a reverse proxy such as NGINX Proxy Manager, Caddy, or Traefik with HTTPS and its own authentication layer — or use a VPN such as Tailscale or WireGuard to access your home network securely. This keeps Nudgarr off the public internet entirely and removes the need to rely solely on the built-in login for security.
 
 **Container hardening (implemented in v2.0.0)**
 The provided `docker-compose.yml` includes the following hardening settings out of the box:
@@ -143,6 +148,17 @@ The provided `docker-compose.yml` includes the following hardening settings out 
 These are standard Docker settings and work on any platform.
 
 Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
+
+## Upgrade Notes
+
+**v2.2.0 — Major feature and security release**
+First-run onboarding walkthrough guides new users through every setting before their first run. Safe defaults ensure fresh installs do nothing until the user deliberately enables them. Passwords are now stored using PBKDF2-HMAC-SHA256 with a unique random salt per password, replacing the previous unsalted SHA256 hash. Existing passwords automatically migrate to the new format on next successful login — no action required. A progressive lockout is applied to failed login attempts (3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr) to protect against brute force attacks.
+
+**v2.1.1 — Lifetime import totals**
+The Stats tab now tracks lifetime Movies and Shows totals that persist through Clear Stats. On first run after upgrading, existing confirmed entries are automatically counted and the totals are seeded. This is a one-way migration — downgrading to an earlier version will show zeros on the pills. The stats file itself is not corrupted by downgrading, but the lifetime keys will be ignored by older versions.
+
+**v2.1.0 — Import check delay unit change**
+The config key `import_check_hours` was renamed to `import_check_minutes`. The value defaults to 120 minutes (2 hours) if not set. Your config will auto-migrate on next save.
 
 ---
 

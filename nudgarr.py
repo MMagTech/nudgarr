@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.1.2 — Because RSS sometimes needs a nudge.
+Nudgarr v2.2.0 — Because RSS sometimes needs a nudge.
+
+v2.2.0:
+- First-run onboarding walkthrough — 8-step guided setup for new users
+- Safe defaults — scheduler off, max per run 1, batch size 1 on fresh installs
+- Password hashing upgraded to PBKDF2-HMAC-SHA256 with unique random salt
+- Progressive brute force lockout: 3→30s, 6→5min, 10→30min, 15+→1hr
+- Login countdown timer — button disables and counts down during lockout
+- PUID/PGID support — container runs as specified UID/GID
+- Lifetime Movies/Shows import totals persist through Clear Stats
+- Clear Stats backend endpoint fixed
+- Advanced tab reordered — History → Stats → Security
+- README reverse proxy guidance for public internet exposure
 
 v2.1.2:
 - PUID/PGID support — container runs as specified UID/GID, defaults to 1000:1000
@@ -45,7 +57,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from flask import Flask, jsonify, request, Response, session, redirect
 
-VERSION = "2.1.2"
+VERSION = "2.2.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -53,14 +65,14 @@ STATS_FILE = os.getenv("STATS_FILE", "/config/nudgarr-stats.json")
 PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "scheduler_enabled": True,        # automatic sweeps on/off (container stays running)
+    "scheduler_enabled": False,        # off by default — user enables deliberately
     "run_interval_minutes": 360,
 
     "cooldown_hours": 48,
     "sample_mode": "random",           # random | first
 
-    "radarr_max_movies_per_run": 25,
-    "sonarr_max_episodes_per_run": 25,
+    "radarr_max_movies_per_run": 1,
+    "sonarr_max_episodes_per_run": 1,
 
     # Optional Radarr backlog missing nudges (OFF by default)
     "radarr_backlog_enabled": False,
@@ -72,8 +84,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "sonarr_missing_max": 1,
     "sonarr_missing_added_days": 14,
 
-    "batch_size": 20,
-    "sleep_seconds": 3,
+    "batch_size": 1,
+    "sleep_seconds": 5,
     "jitter_seconds": 2,
 
     # State size controls
@@ -89,6 +101,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # Stats (v2.0)
     "import_check_minutes": 120,
+
+    # Onboarding
+    "onboarding_complete": False,
 }
 
 # -------------------------
@@ -793,10 +808,64 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 SESSION_TIMEOUT_MINUTES = 30  # default, overridden by config
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash password using PBKDF2-HMAC-SHA256 with a random salt. Returns 'salt:hash'."""
+    salt = secrets.token_hex(32)
+    h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260000).hex()
+    return f"{salt}:{h}"
 
-def verify_password(password: str, hashed: str) -> bool:
-    return hmac.compare_digest(hash_password(password), hashed)
+def verify_password(password: str, stored: str) -> bool:
+    """Verify password against stored 'salt:hash' or legacy plain sha256 hash."""
+    if ":" in stored:
+        salt, h = stored.split(":", 1)
+        expected = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260000).hex()
+        return hmac.compare_digest(expected, h)
+    # Legacy sha256 — auto-migrate on next successful login
+    return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest(), stored)
+
+# ── Progressive brute force lockout ──
+_AUTH_FAILURES: Dict[str, Any] = {}  # ip -> {"count": int, "locked_until": float}
+_AUTH_LOCK = threading.Lock()
+
+LOCKOUT_SCHEDULE = [
+    (3, 30),        # 3 failures  → 30 seconds
+    (6, 300),       # 6 failures  → 5 minutes
+    (10, 1800),     # 10 failures → 30 minutes
+    (15, 3600),     # 15+ failures → 1 hour
+]
+
+def get_lockout_seconds(count: int) -> int:
+    duration = 0
+    for threshold, seconds in LOCKOUT_SCHEDULE:
+        if count >= threshold:
+            duration = seconds
+    return duration
+
+def check_auth_lockout(ip: str) -> tuple:
+    """Returns (is_locked, seconds_remaining)."""
+    with _AUTH_LOCK:
+        record = _AUTH_FAILURES.get(ip)
+        if not record:
+            return False, 0
+        if record["locked_until"] and time.time() < record["locked_until"]:
+            return True, int(record["locked_until"] - time.time())
+        return False, 0
+
+def record_auth_failure(ip: str) -> int:
+    """Record a failed attempt. Returns lockout duration in seconds (0 if none)."""
+    with _AUTH_LOCK:
+        record = _AUTH_FAILURES.get(ip, {"count": 0, "locked_until": 0.0})
+        # Reset if previous lockout has expired
+        if record["locked_until"] and time.time() >= record["locked_until"]:
+            record = {"count": 0, "locked_until": 0.0}
+        record["count"] += 1
+        duration = get_lockout_seconds(record["count"])
+        record["locked_until"] = time.time() + duration if duration else 0.0
+        _AUTH_FAILURES[ip] = record
+        return duration
+
+def clear_auth_failures(ip: str) -> None:
+    with _AUTH_LOCK:
+        _AUTH_FAILURES.pop(ip, None)
 
 def auth_required() -> bool:
     """Returns True if auth is enabled and credentials are configured."""
@@ -860,7 +929,8 @@ LOGIN_HTML = r"""<!doctype html>
     input:focus { border-color: rgba(99,120,255,.6); }
     button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(99,120,255,.35);
       background: rgba(99,120,255,.2); color: #a8b4ff; font-size: 14px; font-weight: 600; cursor: pointer; }
-    button:hover { background: rgba(99,120,255,.32); color: #c0caff; }
+    button:hover:not(:disabled) { background: rgba(99,120,255,.32); color: #c0caff; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
     .err { color: #fca5a5; font-size: 12px; margin-bottom: 14px; display: none; }
     .err.show { display: block; }
   </style>
@@ -869,21 +939,55 @@ LOGIN_HTML = r"""<!doctype html>
 <div class="card">
   <h1>Nudgarr</h1>
   <p class="sub">Sign in to continue</p>
-  <div class="err" id="err">Invalid username or password.</div>
+  <div class="err" id="err"></div>
   <label>Username</label>
   <input type="text" id="usr" autocomplete="username" autofocus/>
   <label>Password</label>
   <input type="password" id="pwd" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
-  <button onclick="login()">Sign In</button>
+  <button id="btn" onclick="login()">Sign In</button>
 </div>
 <script>
+let _countdown = null;
+
+function startCountdown(seconds) {
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  btn.disabled = true;
+  if (_countdown) clearInterval(_countdown);
+  let remaining = seconds;
+  function tick() {
+    if (remaining <= 0) {
+      clearInterval(_countdown);
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      err.textContent = 'You may try again.';
+      return;
+    }
+    btn.textContent = `Try again in ${remaining}s`;
+    remaining--;
+  }
+  tick();
+  _countdown = setInterval(tick, 1000);
+}
+
 async function login() {
   const r = await fetch('/api/auth/login', {method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({username: document.getElementById('usr').value, password: document.getElementById('pwd').value})
   });
   if (r.ok) { window.location.href = '/'; }
-  else { document.getElementById('err').classList.add('show'); }
+  else {
+    const d = await r.json();
+    const err = document.getElementById('err');
+    err.textContent = d.error || 'Invalid username or password.';
+    err.classList.add('show');
+    // Parse seconds from lockout message and start countdown
+    const match = d.error && d.error.match(/Try again in (\d+)s/);
+    if (match) {
+      err.textContent = 'Too many failed attempts.';
+      startCountdown(parseInt(match[1]));
+    }
+  }
 }
 </script>
 </body>
@@ -1505,6 +1609,13 @@ UI_HTML = r"""
             <div class="help">Delete history entries older than this. 0 disables.</div>
           </div>
           <div class="hr"></div>
+          <p class="section-label">Stats</p>
+          <div class="field">
+            <label>Import Check Delay (Minutes)</label>
+            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
+          </div>
+          <div class="hr"></div>
           <p class="section-label">Security</p>
           <div class="field">
             <label>Require Login</label>
@@ -1523,13 +1634,6 @@ UI_HTML = r"""
             <label>Session Timeout (Minutes)</label>
             <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Minutes of inactivity before requiring re-login.</div>
-          </div>
-          <div class="hr"></div>
-          <p class="section-label">Stats</p>
-          <div class="field">
-            <label>Import Check Delay (Minutes)</label>
-            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Files</p>
@@ -1616,6 +1720,20 @@ UI_HTML = r"""
     </div>
   </div>
 
+  <!-- ══ Onboarding Modal ══ -->
+  <div class="modal-backdrop" id="onboardingModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+      <div id="onboardingContent"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px">
+        <div style="display:flex; gap:6px" id="onboardingDots"></div>
+        <div style="display:flex; gap:8px">
+          <button class="btn sm" id="onboardingPrev" onclick="onboardingStep(-1)">Back</button>
+          <button class="btn sm primary" id="onboardingNext" onclick="onboardingStep(1)">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 let CFG = null;
 let PAGE = 0;
@@ -1638,6 +1756,131 @@ async function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
 function showAlert(msg) {
   el('alertMsg').textContent = msg;
   el('alertModal').style.display = 'flex';
+}
+
+// ── Onboarding Walkthrough ──
+const ONBOARDING_STEPS = [
+  {
+    title: "Welcome to Nudgarr",
+    body: `Nudgarr searches your Radarr and Sonarr Wanted lists automatically — finding items that need a quality upgrade or haven't been grabbed yet — so you don't have to.
+<br><br>
+This quick walkthrough covers the key things to know before your first run. It is key to understand these settings to prevent an indexer ban.`
+  },
+  {
+    title: "Step 1 — Add Your Instances",
+    body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
+<br><br>
+You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply globally across all instances, not per instance. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+  },
+  {
+    title: "Step 2 — Scheduler",
+    body: `The Scheduler controls when Nudgarr automatically runs sweeps.
+<br><br>
+<strong>Automatic Sweeps</strong><br>
+Off by default — Nudgarr will not run until you enable it. You can still trigger a sweep at any time by clicking <strong>Run Now</strong>. This is the recommended approach until you are confident in your settings.
+<br><br>
+<strong>Run Interval</strong><br>
+How often the scheduler fires when enabled. Default is every 6 hours. Start conservative and adjust based on the size of your library and how active your indexers are.`
+  },
+  {
+    title: "Step 3 — Search Behavior",
+    body: `These settings control what gets searched and how often.
+<br><br>
+<strong>Max Per Run</strong><br>
+How many items are searched across all instances each run. Starts at 1. Increase slowly as you get comfortable with how Nudgarr behaves.
+<br><br>
+<strong>Cooldown</strong><br>
+How long Nudgarr waits before searching the same item again. Default is 48 hours. Do not lower this aggressively — repeated searches for the same item in a short window is one of the fastest ways to get banned from an indexer.
+<br><br>
+<strong>Mode</strong><br>
+Random picks different items each run for even library coverage. First always prioritises the same items until they are upgraded.`
+  },
+  {
+    title: "Step 4 — Throttling",
+    body: `These settings control how fast Nudgarr communicates with your Radarr and Sonarr instances during a run.
+<br><br>
+<strong>Batch Size</strong><br>
+How many search commands are sent at once. Default is 1. Keeping this low reduces the chance of overwhelming your indexer.
+<br><br>
+<strong>Sleep</strong><br>
+How long Nudgarr pauses between batches. Default is 5 seconds. A longer pause is more respectful of your indexer's rate limits.
+<br><br>
+<strong>Jitter</strong><br>
+Adds a small random delay on top of the sleep time to make search patterns less predictable. Helps avoid triggering automated rate limit detection.`
+  },
+  {
+    title: "Step 5 — History & Stats",
+    body: `Nudgarr keeps track of everything it does so you can see exactly what's happening.
+<br><br>
+<strong>History</strong><br>
+A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
+<br><br>
+<strong>Stats</strong><br>
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Shows totals are lifetime counters that persist even if you clear the stats table.`
+  },
+  {
+    title: "Step 6 — Advanced & Backlog Nudges",
+    body: `The <strong>Advanced tab</strong> contains settings for backlog nudges, history management, and security.
+<br><br>
+<strong>Backlog Nudges</strong> — Off by default. When enabled, searches for missing movies and episodes that have never been grabbed, going beyond just cutoff upgrades.<br><br>
+<strong>Missing Max</strong> — How many missing items to search per run. Keep this low.<br><br>
+<strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.<br><br>
+<strong>History Retention</strong> — How many days of search history Nudgarr keeps before pruning old entries. Default is 180 days.<br><br>
+<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen — confirming that a sweep or backlog nudge actually resulted in new media being added. Default is every 120 minutes.<br><br>
+<strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.
+<br><br>
+⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`
+  },
+  {
+    title: "You're Ready",
+    body: `You're all set. Here's the recommended way to start:
+<br><br>
+1. Add your instances and test connections<br>
+2. Review your settings — keep them conservative to start<br>
+3. Hit <strong>Run Now</strong> to trigger your first sweep manually<br>
+4. Check the <strong>History tab</strong> to see what was searched<br>
+5. If everything looks right, enable the scheduler<br>
+6. Gradually increase Max Per Run as you get comfortable
+<br><br>
+Nudgarr is designed to work quietly in the background — not to hammer your indexers. Start slow and let it earn your trust.`
+  }
+];
+
+let _obStep = 0;
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[_obStep];
+  const total = ONBOARDING_STEPS.length;
+  el('onboardingContent').innerHTML = `
+    <h2 style="font-size:16px;font-weight:700;margin:0 0 12px">${step.title}</h2>
+    <p class="help" style="line-height:1.7;margin:0">${step.body}</p>
+  `;
+  // Dots
+  el('onboardingDots').innerHTML = ONBOARDING_STEPS.map((_, i) =>
+    `<div style="width:7px;height:7px;border-radius:50%;background:${i===_obStep ? 'var(--accent)' : 'var(--border)'}"></div>`
+  ).join('');
+  el('onboardingPrev').style.display = _obStep === 0 ? 'none' : '';
+  el('onboardingNext').textContent = _obStep === total - 1 ? 'Got it' : 'Next';
+}
+
+async function onboardingStep(dir) {
+  const total = ONBOARDING_STEPS.length;
+  if (dir === 1 && _obStep === total - 1) {
+    // Finished
+    el('onboardingModal').style.display = 'none';
+    await api('/api/onboarding/complete', {method: 'POST'});
+    if (CFG) CFG.onboarding_complete = true;
+    return;
+  }
+  _obStep = Math.max(0, Math.min(total - 1, _obStep + dir));
+  renderOnboardingStep();
+}
+
+function maybeShowOnboarding() {
+  if (!CFG || CFG.onboarding_complete) return;
+  _obStep = 0;
+  renderOnboardingStep();
+  el('onboardingModal').style.display = 'flex';
 }
 
 function showTab(name) {
@@ -2295,7 +2538,7 @@ async function pollCycle() {
   }
 }
 
-loadAll();
+loadAll().then(() => maybeShowOnboarding());
 setInterval(pollCycle, 5000);
 </script>
 </body>
@@ -2332,7 +2575,7 @@ def api_setup():
         return jsonify({"ok": False, "error": "Password must be at least 6 characters"}), 400
     cfg = load_or_init_config()
     cfg["auth_username"] = username
-    cfg["auth_password_hash"] = hash_password(password)
+    cfg["auth_password_hash"] = hash_password(password)  # salted PBKDF2
     cfg["auth_enabled"] = True
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     session["authenticated"] = True
@@ -2341,12 +2584,27 @@ def api_setup():
 
 @app.post("/api/auth/login")
 def api_login():
+    ip = request.remote_addr or "unknown"
+    locked, remaining = check_auth_lockout(ip)
+    if locked:
+        return jsonify({"ok": False, "error": f"Too many failed attempts. Try again in {remaining}s."}), 429
     data = request.get_json(force=True, silent=True) or {}
     username = str(data.get("username", "")).strip()
     password = str(data.get("password", ""))
     cfg = load_or_init_config()
-    if not verify_password(password, cfg.get("auth_password_hash", "")) or username != cfg.get("auth_username", ""):
-        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+    stored_hash = cfg.get("auth_password_hash", "")
+    valid = verify_password(password, stored_hash) and username == cfg.get("auth_username", "")
+    if not valid:
+        duration = record_auth_failure(ip)
+        msg = "Invalid credentials"
+        if duration:
+            msg = f"Too many failed attempts. Try again in {duration}s."
+        return jsonify({"ok": False, "error": msg}), 401
+    # Auto-migrate legacy sha256 hash to salted PBKDF2 on successful login
+    if ":" not in stored_hash:
+        cfg["auth_password_hash"] = hash_password(password)
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    clear_auth_failures(ip)
     session["authenticated"] = True
     session["last_active"] = datetime.now().timestamp()
     return jsonify({"ok": True})
@@ -2430,6 +2688,14 @@ def api_set_config():
         return jsonify({"ok": False, "errors": errs}), 400
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True, "message": "Config saved", "config_file": CONFIG_FILE})
+
+@app.post("/api/onboarding/complete")
+@requires_auth
+def api_onboarding_complete():
+    cfg = load_or_init_config()
+    cfg["onboarding_complete"] = True
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    return jsonify({"ok": True})
 
 @app.post("/api/config/reset")
 @requires_auth

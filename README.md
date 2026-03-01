@@ -130,6 +130,9 @@ Nudgarr intentionally avoids features that introduce unnecessary attack surface.
 - If you need remote access, use a VPN or a reverse proxy with proper authentication and HTTPS
 - Enable the built-in login as a basic layer of protection on your local network
 
+**If you expose Nudgarr to the public internet**
+The built-in login is designed for local network use and should not be considered sufficient protection for a publicly accessible instance. If you need to access Nudgarr remotely, the strongly recommended approach is to place it behind a reverse proxy such as NGINX Proxy Manager, Caddy, or Traefik with HTTPS and its own authentication layer — or use a VPN such as Tailscale or WireGuard to access your home network securely. This keeps Nudgarr off the public internet entirely and removes the need to rely solely on the built-in login for security.
+
 **Container hardening (implemented in v2.0.0)**
 The provided `docker-compose.yml` includes the following hardening settings out of the box:
 - `no-new-privileges` — prevents the container from elevating privileges after start

@@ -62,7 +62,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "run_interval_minutes": 360,
 
     "cooldown_hours": 48,
-    "sample_mode": "manual",           # manual | random — manual until user is ready
+    "sample_mode": "random",           # random | first
 
     "radarr_max_movies_per_run": 1,
     "sonarr_max_episodes_per_run": 1,
@@ -172,8 +172,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
 
-    if cfg.get("sample_mode") not in ("random", "first", "manual"):
-        errs.append("sample_mode must be 'random', 'first', or 'manual'")
+    if cfg.get("sample_mode") not in ("random", "first"):
+        errs.append("sample_mode must be 'random' or 'first'")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -1411,11 +1411,10 @@ UI_HTML = r"""
           <div class="field">
             <label>Sample Mode</label>
             <select id="sample_mode" onchange="markUnsaved('setMsg')">
-              <option value="manual">Manual</option>
               <option value="random">Random</option>
               <option value="first">First</option>
             </select>
-            <div class="help">Manual disables automatic selection — use Run Now to control exactly when searches happen. Random picks different items each run for even library coverage. First always prioritises the same items until they're upgraded.</div>
+            <div class="help">Random picks different items each run for even library coverage. First always prioritises the same items until they're upgraded.</div>
           </div>
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
@@ -1603,6 +1602,13 @@ UI_HTML = r"""
             <div class="help">Delete history entries older than this. 0 disables.</div>
           </div>
           <div class="hr"></div>
+          <p class="section-label">Stats</p>
+          <div class="field">
+            <label>Import Check Delay (Minutes)</label>
+            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
+          </div>
+          <div class="hr"></div>
           <p class="section-label">Security</p>
           <div class="field">
             <label>Require Login</label>
@@ -1621,13 +1627,6 @@ UI_HTML = r"""
             <label>Session Timeout (Minutes)</label>
             <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Minutes of inactivity before requiring re-login.</div>
-          </div>
-          <div class="hr"></div>
-          <p class="section-label">Stats</p>
-          <div class="field">
-            <label>Import Check Delay (Minutes)</label>
-            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Files</p>
@@ -1758,42 +1757,85 @@ const ONBOARDING_STEPS = [
     title: "Welcome to Nudgarr",
     body: `Nudgarr searches your Radarr and Sonarr Wanted lists automatically — finding items that need a quality upgrade or haven't been grabbed yet — so you don't have to.
 <br><br>
-This quick walkthrough covers the key things to know before your first run. It takes about two minutes and could save you from an indexer ban.`
+This quick walkthrough covers the key things to know before your first run. It is key to understand these settings to prevent an indexer ban.`
   },
   {
     title: "Step 1 — Add Your Instances",
     body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
 <br><br>
-You can add multiple instances — Nudgarr manages each one independently. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply globally across all instances, not per instance. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
   },
   {
-    title: "Step 2 — Understand the Settings",
-    body: `On the <strong>Settings tab</strong> you control how Nudgarr runs:
+    title: "Step 2 — Scheduler",
+    body: `The Scheduler controls when Nudgarr automatically runs sweeps.
 <br><br>
-<strong>Run Interval</strong> — how often the scheduler fires. Default is every 6 hours.<br>
-<strong>Cooldown</strong> — how long before the same item can be searched again. Default is 48 hours — don't lower this aggressively.<br>
-<strong>Max Per Run</strong> — how many items to search each run. Starts at 1. Increase slowly.<br>
-<strong>Mode</strong> — Manual means you control when runs happen. Enable the scheduler when you're ready.`
+<strong>Automatic Sweeps</strong><br>
+Off by default — Nudgarr will not run until you enable it. You can still trigger a sweep at any time by clicking <strong>Run Now</strong>. This is the recommended approach until you are confident in your settings.
+<br><br>
+<strong>Run Interval</strong><br>
+How often the scheduler fires when enabled. Default is every 6 hours. Start conservative and adjust based on the size of your library and how active your indexers are.`
   },
   {
-    title: "Step 3 — Backlog Nudges (Read This Carefully)",
-    body: `<strong>Backlog Nudges</strong> on the Advanced tab search for missing movies and episodes that haven't been grabbed yet.
+    title: "Step 3 — Search Behavior",
+    body: `These settings control what gets searched and how often.
 <br><br>
-⚠️ <span style="color:#fbbf24;font-weight:600">These can generate a lot of searches very quickly.</span> If you enable backlog nudges with aggressive settings — especially with Max set high or age filters disabled — you risk getting banned from your indexer.
+<strong>Max Per Run</strong><br>
+How many items are searched across all instances each run. Starts at 1. Increase slowly as you get comfortable with how Nudgarr behaves.
 <br><br>
-Backlog nudges are <strong>off by default</strong>. Enable them carefully, start with a low cap, and watch your indexer's rate limits.`
+<strong>Cooldown</strong><br>
+How long Nudgarr waits before searching the same item again. Default is 48 hours. Do not lower this aggressively — repeated searches for the same item in a short window is one of the fastest ways to get banned from an indexer.
+<br><br>
+<strong>Mode</strong><br>
+Random picks different items each run for even library coverage. First always prioritises the same items until they are upgraded.`
+  },
+  {
+    title: "Step 4 — Throttling",
+    body: `These settings control how fast Nudgarr communicates with your Radarr and Sonarr instances during a run.
+<br><br>
+<strong>Batch Size</strong><br>
+How many search commands are sent at once. Default is 1. Keeping this low reduces the chance of overwhelming your indexer.
+<br><br>
+<strong>Sleep</strong><br>
+How long Nudgarr pauses between batches. Default is 5 seconds. A longer pause is more respectful of your indexer's rate limits.
+<br><br>
+<strong>Jitter</strong><br>
+Adds a small random delay on top of the sleep time to make search patterns less predictable. Helps avoid triggering automated rate limit detection.`
+  },
+  {
+    title: "Step 5 — History & Stats",
+    body: `Nudgarr keeps track of everything it does so you can see exactly what's happening.
+<br><br>
+<strong>History</strong><br>
+A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
+<br><br>
+<strong>Stats</strong><br>
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Shows totals are lifetime counters that persist even if you clear the stats table.`
+  },
+  {
+    title: "Step 6 — Advanced & Backlog Nudges",
+    body: `The <strong>Advanced tab</strong> contains settings for history management, security, and backlog nudges.
+<br><br>
+<strong>History Retention</strong> — How many days of search history Nudgarr keeps before pruning old entries. Default is 180 days.<br><br>
+<strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.<br><br>
+<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen — confirming that a sweep or backlog nudge actually resulted in new media being added. Default is every 120 minutes.<br><br>
+<strong>Backlog Nudges</strong> — Off by default. When enabled, searches for missing movies and episodes that have never been grabbed, going beyond just cutoff upgrades.<br><br>
+<strong>Missing Max</strong> — How many missing items to search per run. Keep this low.<br><br>
+<strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.
+<br><br>
+⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`
   },
   {
     title: "You're Ready",
-    body: `Here's the recommended way to start:
+    body: `You're all set. Here's the recommended way to start:
 <br><br>
 1. Add your instances and test connections<br>
-2. Hit <strong>Run Now</strong> once to see what happens<br>
-3. Check the History tab to review what was searched<br>
-4. If it looks right, enable the scheduler<br>
-5. Gradually increase Max Per Run as you get comfortable
+2. Review your settings — keep them conservative to start<br>
+3. Hit <strong>Run Now</strong> to trigger your first sweep manually<br>
+4. Check the <strong>History tab</strong> to see what was searched<br>
+5. If everything looks right, enable the scheduler<br>
+6. Gradually increase Max Per Run as you get comfortable
 <br><br>
-Start slow. Nudgarr is designed to work quietly in the background — not to hammer your indexers.`
+Nudgarr is designed to work quietly in the background — not to hammer your indexers. Start slow and let it earn your trust.`
   }
 ];
 

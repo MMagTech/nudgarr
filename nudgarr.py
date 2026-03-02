@@ -3,17 +3,24 @@
 Nudgarr v2.4.0 — Because RSS sometimes needs a nudge.
 
 v2.4.0:
-- Data Retention — renamed from History Size, now prunes stats entries alongside history, lifetime totals unaffected
-- Days to Keep label replaces Retention Days, updated help text clarifies both history and stats are pruned
+- Title search on History and Stats tabs — inline with filters, ✕ to clear, no results message, resets on tab switch
+- Pagination memory — shared across History and Stats, syncs for the session
+- Data Retention — renamed from History Size, stats entries pruned alongside history, lifetime totals unaffected
+- Retry logic — one retry per instance per sweep with 15 second wait, marks bad and moves on
+- Instance error notifications — fires per failed instance with friendly unreachable message
+- Error notification fix — now correctly fires on individual instance failures, not just catastrophic sweep failure
+- Max Per Run labels updated to Per Instance across Settings and Advanced tabs
+- Onboarding walkthrough updated — new Notifications step, per instance wording corrected throughout
 
 v2.3.0:
 - Apprise notifications tab — sweep complete, import confirmed, error triggers
 - Universal docker-compose with .env support
 - PUID/PGID startup fix — graceful chown fallback, cap_add CHOWN/SETUID/SETGID
-- Sweep complete notification correctly aggregates across all instances including backlog
+- Sweep complete notification correctly aggregates across all instances
 - Import Check help text corrected from Hours to Minutes
 - Notifications save button colour fixed
 - Open Issue button added to Diagnostics
+- USE WITH CAUTION box moved to bottom of Advanced backlog card
 - apk upgrade at build time for latest Alpine security patches
 
 v2.2.0:
@@ -1541,14 +1548,14 @@ UI_HTML = r"""
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
           <div class="field">
-            <label>Max Movies Per Run</label>
+            <label>Max Movies (Per Instance)</label>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet movie searches per instance run. 0 disables.</div>
+            <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
           </div>
           <div class="field">
-            <label>Max Episodes Per Run</label>
+            <label>Max Episodes (Per Instance)</label>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet episode searches per instance run. 0 disables.</div>
+            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
           </div>
         </div>
       </div>
@@ -1762,9 +1769,9 @@ UI_HTML = r"""
           <div id="radarr_backlog_fields" style="opacity:0.35;pointer-events:none">
           <div class="grid cols2" style="gap:12px">
             <div class="field">
-              <label>Radarr Missing Max</label>
+              <label>Radarr Missing Max (Per Instance)</label>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-              <div class="help">Maximum missing movie searches per instance run.</div>
+              <div class="help">Maximum missing movies searched per instance per run.</div>
             </div>
             <div class="field">
               <label>Radarr Missing Added Days</label>
@@ -1788,14 +1795,14 @@ UI_HTML = r"""
           <div id="sonarr_backlog_fields" style="opacity:0.35;pointer-events:none">
           <div class="grid cols2" style="gap:12px">
             <div class="field">
-              <label>Sonarr Missing Max</label>
+              <label>Sonarr Missing Max (Per Instance)</label>
               <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-              <div class="help">Maximum missing episode searches per instance run.</div>
+              <div class="help">Maximum missing episodes searched per instance per run.</div>
             </div>
           </div>
           </div>
           </div>
-          <div class="card" style="margin-top:16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2)">
+          <div style="margin-top:16px;padding:12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px">
             <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
             <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible regardless of when they were added. Searching large numbers of missing items aggressively can result in indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
@@ -1973,7 +1980,7 @@ This quick walkthrough covers the key things to know before your first run. It i
     title: "Step 1 — Add Your Instances",
     body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
 <br><br>
-You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply globally across all instances, not per instance. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
   },
   {
     title: "Step 2 — Scheduler",
@@ -1990,7 +1997,7 @@ How often the scheduler fires when enabled. Default is every 6 hours. Start cons
     body: `These settings control what gets searched and how often.
 <br><br>
 <strong>Max Per Run</strong><br>
-How many items are searched across all instances each run. Starts at 1. Increase slowly as you get comfortable with how Nudgarr behaves.
+How many items are searched <strong>per instance</strong> each run. If you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Starts at 1 — increase slowly as you get comfortable with how Nudgarr behaves.
 <br><br>
 <strong>Cooldown</strong><br>
 How long Nudgarr waits before searching the same item again. Default is 48 hours. Do not lower this aggressively — repeated searches for the same item in a short window is one of the fastest ways to get banned from an indexer.
@@ -2019,17 +2026,25 @@ Adds a small random delay on top of the sleep time to make search patterns less 
 A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
 <br><br>
 <strong>Stats</strong><br>
-Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Shows totals are lifetime counters that persist even if you clear the stats table.`
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Shows totals are lifetime counters that persist even if you clear the stats table.
+<br><br>
+Both tabs support <strong>title search</strong> — type a show or movie name to filter the table instantly. Use the instance dropdown alongside it to narrow results further.`
   },
   {
-    title: "Step 6 — Advanced & Backlog Nudges",
-    body: `The <strong>Advanced tab</strong> contains settings for backlog nudges, history management, and security.
+    title: "Step 6 — Notifications",
+    body: `Nudgarr can notify you when sweeps complete, imports are confirmed, or an instance becomes unreachable.
+<br><br>
+Add your Apprise-compatible URL, choose which events to be notified on, and use <strong>Send Test</strong> to confirm it's working before enabling. Supports Discord, Gotify, Ntfy, Pushover, Slack, and more.`
+  },
+  {
+    title: "Step 7 — Advanced & Backlog Nudges",
+    body: `The <strong>Advanced tab</strong> contains settings for backlog nudges, data retention, and security.
 <br><br>
 <strong>Backlog Nudges</strong> — Off by default. When enabled, searches for missing movies and episodes that have never been grabbed, going beyond just cutoff upgrades.<br><br>
-<strong>Missing Max</strong> — How many missing items to search per run. Keep this low.<br><br>
+<strong>Missing Max (Per Instance)</strong> — How many missing items to search per instance per run. Keep this low.<br><br>
 <strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.<br><br>
-<strong>History Retention</strong> — How many days of search history Nudgarr keeps before pruning old entries. Default is 180 days.<br><br>
-<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen — confirming that a sweep or backlog nudge actually resulted in new media being added. Default is every 120 minutes.<br><br>
+<strong>Data Retention</strong> — How many days Nudgarr keeps history and stats entries before pruning. Lifetime totals are never affected. Default is 180 days.<br><br>
+<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen. Default is every 120 minutes.<br><br>
 <strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.
 <br><br>
 ⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`

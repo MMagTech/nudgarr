@@ -180,6 +180,9 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 
 ## Upgrade Notes
 
+**v2.4.0 — Search, reliability and data improvements**
+Stats entries are now pruned using the same Data Retention setting as history — existing stats are not affected, only entries older than your retention days will be removed on the next sweep. Lifetime totals are never pruned. No config changes required.
+
 **v2.3.0 — Notifications and deployment improvements**
 Apprise notifications are off by default — nothing changes for existing users until you configure a URL and enable them. If you are using `cap_drop: ALL` without `cap_add`, update your compose to include `CHOWN`, `SETUID`, and `SETGID` or pre-set your `/config` volume ownership on the host to match your PUID/PGID.
 

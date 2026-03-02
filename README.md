@@ -45,7 +45,7 @@ Images are available on both **Docker Hub** and **GitHub Container Registry (GHC
 **Available tags:**
 - `latest` — current stable release from main
 - `dev` — development branch, may be unstable
-- `v2.3.0`, `2.3.0`, `2.3` — pinned version tags
+- `v2.4.0`, `2.4.0`, `2.4` — pinned version tags
 
 **Setup**
 

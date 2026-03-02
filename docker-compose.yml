@@ -5,13 +5,13 @@ services:
     container_name: nudgarr
     restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "${PORT:-8085}:${PORT:-8085}"
     volumes:
-      - /your/path/to/appdata/nudgarr:/config
+      - ${CONFIG_PATH:-./config}:/config
     environment:
-      - PUID=1000
-      - PGID=1000
-      - PORT=8085
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json

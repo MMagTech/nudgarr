@@ -45,7 +45,20 @@ Images are available on both **Docker Hub** and **GitHub Container Registry (GHC
 **Available tags:**
 - `latest` — current stable release from main
 - `dev` — development branch, may be unstable
-- `v2.2.0`, `2.2.0`, `2.2` — pinned version tags
+- `v2.3.0`, `2.3.0`, `2.3` — pinned version tags
+
+**Setup**
+
+1. Copy `.env.example` to `.env` and fill in your values
+2. Run `docker compose up -d`
+
+```env
+# .env
+PUID=1000
+PGID=1000
+PORT=8085
+CONFIG_PATH=/your/path/to/appdata/nudgarr
+```
 
 ```yaml
 version: "3.8"
@@ -55,13 +68,13 @@ services:
     container_name: nudgarr
     restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "${PORT:-8085}:${PORT:-8085}"
     volumes:
-      - /your/path/to/appdata/nudgarr:/config
+      - ${CONFIG_PATH:-./config}:/config
     environment:
-      - PUID=1000
-      - PGID=1000
-      - PORT=8085
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json

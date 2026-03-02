@@ -1810,8 +1810,11 @@ UI_HTML = r"""
         <div class="card">
           <p class="section-label">Diagnostics</p>
           <p class="help" style="margin:0 0 12px">Copy diagnostic info to share when opening a GitHub issue.</p>
-          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
-          <span class="msg" id="diagMsg" style="margin-left:8px"></span>
+          <div class="row" style="align-items:center;gap:10px">
+            <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+            <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
+          </div>
+          <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
           <div id="diagBox" class="diag-box" style="display:none"></div>
         </div>
       </div>

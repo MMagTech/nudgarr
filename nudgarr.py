@@ -2598,7 +2598,7 @@ async function saveNotifications() {
   if (r && r.ok) {
     await loadAll();
     await new Promise(res => setTimeout(res, 400));
-    el('notifyMsg').textContent = 'Saved'; fadeMsg('notifyMsg');
+    el('notifyMsg').textContent = 'Saved'; el('notifyMsg').className = 'msg ok'; fadeMsg('notifyMsg');
   }
 }
 

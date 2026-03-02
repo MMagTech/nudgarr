@@ -1,7 +1,7 @@
 FROM python:3.12-alpine
 
 # Install dependencies including su-exec for privilege dropping
-RUN pip install --no-cache-dir --no-compile requests flask \
+RUN pip install --no-cache-dir --no-compile requests flask apprise \
     && apk add --no-cache su-exec
 
 WORKDIR /app

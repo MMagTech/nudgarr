@@ -1,4 +1,4 @@
-name: Build and Publish (GHCR)
+name: Build and Publish (GHCR + Docker Hub)
 
 on:
   push:
@@ -30,34 +30,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set image name (lowercase)
-        id: img
-        run: echo "IMAGE=ghcr.io/mmagtech/nudgarr" >> $GITHUB_OUTPUT
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Prepare tags
         id: prep
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="${{ steps.img.outputs.IMAGE }}"
+          GHCR="ghcr.io/mmagtech/nudgarr"
+          HUB="${{ secrets.DOCKERHUB_USERNAME }}/nudgarr"
           REF="${GITHUB_REF}"
           REF_NAME="${GITHUB_REF_NAME}"
           TAGS=""
           if [[ "${REF}" == refs/heads/main ]]; then
-            TAGS="${IMAGE}:latest,${IMAGE}:edge"
+            TAGS="${GHCR}:latest,${HUB}:latest"
           fi
           if [[ "${REF}" == refs/heads/nightly ]]; then
-            TAGS="${IMAGE}:nightly"
+            TAGS="${GHCR}:nightly,${HUB}:nightly"
           fi
           if [[ "${REF}" == refs/heads/dev ]]; then
-            TAGS="${IMAGE}:dev"
+            TAGS="${GHCR}:dev,${HUB}:dev"
           fi
           if [[ "${REF}" == refs/tags/v* ]]; then
             V="${REF_NAME#v}"
             MAJOR="${V%%.*}"
             REST="${V#*.}"
             MINOR="${REST%%.*}"
-            TAGS="${IMAGE}:${REF_NAME},${IMAGE}:${V},${IMAGE}:${MAJOR}.${MINOR}"
+            TAGS="${GHCR}:${REF_NAME},${GHCR}:${V},${GHCR}:${MAJOR}.${MINOR},${HUB}:${REF_NAME},${HUB}:${V},${HUB}:${MAJOR}.${MINOR}"
           fi
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
 

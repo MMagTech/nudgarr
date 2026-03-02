@@ -56,6 +56,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from flask import Flask, jsonify, request, Response, session, redirect
+try:
+    import apprise
+    APPRISE_AVAILABLE = True
+except ImportError:
+    APPRISE_AVAILABLE = False
 
 VERSION = "2.2.0"
 
@@ -101,6 +106,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # Stats (v2.0)
     "import_check_minutes": 120,
+
+    # Notifications (v2.3.0)
+    "notify_enabled": False,
+    "notify_url": "",
+    "notify_on_sweep_complete": True,
+    "notify_on_import": True,
+    "notify_on_error": True,
 
     # Onboarding
     "onboarding_complete": False,
@@ -291,6 +303,60 @@ def load_stats() -> Dict[str, Any]:
 def save_stats(stats: Dict[str, Any]) -> None:
     save_json_atomic(STATS_FILE, stats, pretty=True)
 
+# ── Notifications ──
+def send_notification(title: str, body: str, cfg: Optional[Dict[str, Any]] = None) -> bool:
+    """Send a notification via Apprise. Returns True on success."""
+    if not APPRISE_AVAILABLE:
+        print("[Notify] Apprise not available")
+        return False
+    if cfg is None:
+        cfg = load_or_init_config()
+    if not cfg.get("notify_enabled") or not cfg.get("notify_url", "").strip():
+        return False
+    try:
+        ap = apprise.Apprise()
+        ap.add(cfg["notify_url"].strip())
+        result = ap.notify(title=title, body=body)
+        if result:
+            print(f"[Notify] Sent: {title}")
+        else:
+            print(f"[Notify] Failed to send: {title}")
+        return result
+    except Exception as e:
+        print(f"[Notify] Error: {e}")
+        return False
+
+def notify_sweep_complete(summary: Dict[str, Any], cfg: Dict[str, Any]) -> None:
+    if not cfg.get("notify_on_sweep_complete", True):
+        return
+    searched = summary.get("total_searched", 0)
+    skipped = summary.get("total_skipped", 0)
+    send_notification(
+        title="Nudgarr — Sweep Complete",
+        body=f"{searched} item{'s' if searched != 1 else ''} searched, {skipped} skipped due to cooldown.",
+        cfg=cfg
+    )
+
+def notify_import(title: str, entry_type: str, instance: str, cfg: Dict[str, Any]) -> None:
+    if not cfg.get("notify_on_import", True):
+        return
+    send_notification(
+        title=f"Nudgarr — {entry_type} Imported",
+        body=f"{title} was successfully imported via {instance}.",
+        cfg=cfg
+    )
+
+def notify_error(message: str, cfg: Optional[Dict[str, Any]] = None) -> None:
+    if cfg is None:
+        cfg = load_or_init_config()
+    if not cfg.get("notify_on_error", True):
+        return
+    send_notification(
+        title="Nudgarr — Error",
+        body=message,
+        cfg=cfg
+    )
+
 def record_stat_entry(app: str, instance_name: str, item_id: str, title: str, entry_type: str, searched_ts: str) -> None:
     """Record a searched item for later import checking. entry_type: 'Upgraded' or 'Acquired'"""
     stats = load_stats()
@@ -358,6 +424,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                                 entry["imported"] = True
                                 entry["imported_ts"] = iso_z(ev_dt)
                                 stats["lifetime_movies"] = stats.get("lifetime_movies", 0) + 1
+                                notify_import(entry.get("title", "Unknown"), entry.get("type", "Upgraded"), instance_name, cfg)
                                 updated = True
                                 break
             else:
@@ -372,6 +439,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                                 entry["imported"] = True
                                 entry["imported_ts"] = iso_z(ev_dt)
                                 stats["lifetime_shows"] = stats.get("lifetime_shows", 0) + 1
+                                notify_import(entry.get("title", "Unknown"), entry.get("type", "Upgraded"), instance_name, cfg)
                                 updated = True
                                 break
         except Exception as e:
@@ -1341,6 +1409,7 @@ UI_HTML = r"""
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
+    <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
   </div>
 
@@ -1538,6 +1607,81 @@ UI_HTML = r"""
         <button class="btn sm" onclick="nextStatsPage()">Next</button>
         <span class="msg" id="statsPageInfo"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ NOTIFICATIONS ══════════════════════════════ -->
+  <div class="section" id="tab-notifications">
+    <div class="grid cols2">
+      <div class="card">
+        <p class="section-label">Notifications</p>
+        <div class="field">
+          <label>Enable Notifications</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_enabled" onchange="syncNotifyUi(); markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="help" id="notify_label">Disabled</span>
+          </div>
+          <div class="help">Send notifications via any Apprise-compatible service — Discord, Gotify, Ntfy, Pushover, Slack, and many more.</div>
+        </div>
+        <div class="field" id="notify_url_field" style="margin-top:12px">
+          <label>Notification URL</label>
+          <div class="key-wrap">
+            <input type="password" id="notify_url" placeholder="e.g. discord://webhookid/token" oninput="markUnsaved('notifyMsg')"/>
+            <button class="key-toggle" onclick="toggleNotifyUrl()" id="notifyUrlToggleBtn">Show</button>
+          </div>
+          <div class="help">Enter your Apprise-compatible notification URL. See <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--accent)">Apprise docs</a> for supported services and URL formats.</div>
+        </div>
+        <div id="notify_test_row" style="margin-top:12px;display:none">
+          <button class="btn sm" onclick="testNotification()">Send Test</button>
+          <span class="msg" id="notifyTestMsg" style="margin-left:8px"></span>
+        </div>
+      </div>
+
+      <div class="card" id="notify_events_card">
+        <p class="section-label">Notify On</p>
+        <div class="field">
+          <label>Sweep Complete</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_sweep_complete" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep finishes — includes items searched and skipped.</div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Import Confirmed</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_import" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a searched item is confirmed imported into your library.</div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Error</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_error" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep fails or an instance becomes unreachable.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:4px">
+      <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
+      <span class="msg" id="notifyMsg"></span>
     </div>
   </div>
 
@@ -1929,6 +2073,7 @@ function _onTabShown(name) {
     refreshStats();
   }
   if (name === 'advanced') fillAdvanced();
+  if (name === 'notifications') fillNotifications();
 }
 
 function el(id) { return document.getElementById(id); }
@@ -1983,6 +2128,7 @@ async function loadAll() {
   renderInstances('sonarr');
   fillSettings();
   fillAdvanced();
+  fillNotifications();
 }
 
 // ── Instances tab ──
@@ -2398,6 +2544,64 @@ async function clearStats() {
 }
 
 // ── Advanced tab ──
+// ── Notifications tab ──
+function fillNotifications() {
+  if (!CFG) return;
+  el('notify_enabled').checked = !!CFG.notify_enabled;
+  el('notify_url').value = CFG.notify_url || '';
+  el('notify_on_sweep_complete').checked = CFG.notify_on_sweep_complete !== false;
+  el('notify_on_import').checked = CFG.notify_on_import !== false;
+  el('notify_on_error').checked = CFG.notify_on_error !== false;
+  syncNotifyUi();
+}
+
+function syncNotifyUi() {
+  const enabled = el('notify_enabled').checked;
+  el('notify_label').textContent = enabled ? 'Enabled' : 'Disabled';
+  el('notify_url_field').style.opacity = enabled ? '1' : '0.5';
+  el('notify_url_field').style.pointerEvents = enabled ? '' : 'none';
+  el('notify_events_card').style.opacity = enabled ? '1' : '0.5';
+  el('notify_events_card').style.pointerEvents = enabled ? '' : 'none';
+  el('notify_test_row').style.display = enabled ? '' : 'none';
+}
+
+function toggleNotifyUrl() {
+  const inp = el('notify_url');
+  const btn = el('notifyUrlToggleBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+async function testNotification() {
+  const url = el('notify_url').value.trim();
+  const msg = el('notifyTestMsg');
+  if (!url) { msg.textContent = 'Enter a URL first.'; msg.className = 'msg err'; return; }
+  msg.textContent = 'Sending…'; msg.className = 'msg';
+  const r = await api('/api/notifications/test', {method: 'POST', body: JSON.stringify({url})});
+  if (r && r.ok) {
+    msg.textContent = '✓ Notification sent successfully';
+    msg.className = 'msg ok';
+  } else {
+    msg.textContent = '✗ ' + (r?.error || 'Failed — check your URL');
+    msg.className = 'msg err';
+  }
+  setTimeout(() => { msg.textContent = ''; msg.className = 'msg'; }, 5000);
+}
+
+async function saveNotifications() {
+  CFG.notify_enabled = el('notify_enabled').checked;
+  CFG.notify_url = el('notify_url').value.trim();
+  CFG.notify_on_sweep_complete = el('notify_on_sweep_complete').checked;
+  CFG.notify_on_import = el('notify_on_import').checked;
+  CFG.notify_on_error = el('notify_on_error').checked;
+  const r = await api('/api/config', {method: 'POST', body: JSON.stringify(CFG)});
+  if (r && r.ok) {
+    await loadAll();
+    await new Promise(res => setTimeout(res, 400));
+    el('notifyMsg').textContent = 'Saved'; fadeMsg('notifyMsg');
+  }
+}
+
 function fillAdvanced() {
   if (!CFG) return;
   el('radarr_backlog_enabled').checked = !!CFG.radarr_backlog_enabled;
@@ -2696,6 +2900,26 @@ def api_onboarding_complete():
     cfg["onboarding_complete"] = True
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True})
+
+@app.post("/api/notifications/test")
+@requires_auth
+def api_test_notification():
+    data = request.get_json(force=True, silent=True) or {}
+    url = str(data.get("url", "")).strip()
+    if not url:
+        return jsonify({"ok": False, "error": "No URL provided"}), 400
+    if not APPRISE_AVAILABLE:
+        return jsonify({"ok": False, "error": "Apprise is not installed in this container"}), 500
+    try:
+        ap = apprise.Apprise()
+        if not ap.add(url):
+            return jsonify({"ok": False, "error": "Invalid notification URL — check the format"}), 400
+        result = ap.notify(title="Nudgarr — Test Notification", body="Your notification setup is working correctly.")
+        if result:
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": "Notification sent but delivery failed — check your service settings"}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.post("/api/config/reset")
 @requires_auth
@@ -3037,6 +3261,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 STATUS["last_summary"] = summary
                 STATUS["last_run_utc"] = iso_z(utcnow())
                 STATUS["last_error"] = None
+                notify_sweep_complete(summary, cfg)
                 # Check for confirmed imports from previous searches
                 try:
                     check_imports(session, cfg)
@@ -3045,6 +3270,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
             except Exception as e:
                 STATUS["last_error"] = str(e)
                 print(f"ERROR (sweep): {e}")
+                notify_error(f"Sweep failed: {e}", cfg)
             finally:
                 STATUS["run_in_progress"] = False
 

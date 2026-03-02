@@ -35,11 +35,23 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 
 ## Docker Compose
 
+Images are available on both **Docker Hub** and **GitHub Container Registry (GHCR)**. Either works — use whichever your platform prefers.
+
+| Registry | Image |
+|----------|-------|
+| Docker Hub | `mmagtech/nudgarr:latest` |
+| GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
+
+**Available tags:**
+- `latest` — current stable release from main
+- `dev` — development branch, may be unstable
+- `v2.2.0`, `2.2.0`, `2.2` — pinned version tags
+
 ```yaml
 version: "3.8"
 services:
   nudgarr:
-    image: ghcr.io/mmagtech/nudgarr:latest
+    image: mmagtech/nudgarr:latest
     container_name: nudgarr
     restart: unless-stopped
     ports:

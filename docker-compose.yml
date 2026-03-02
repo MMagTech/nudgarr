@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   nudgarr:
-    image: ghcr.io/mmagtech/nudgarr:latest
+    image: mmagtech/nudgarr:latest
     container_name: nudgarr
     restart: unless-stopped
     ports:

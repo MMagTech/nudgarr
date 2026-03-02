@@ -329,8 +329,12 @@ def send_notification(title: str, body: str, cfg: Optional[Dict[str, Any]] = Non
 def notify_sweep_complete(summary: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     if not cfg.get("notify_on_sweep_complete", True):
         return
-    searched = summary.get("total_searched", 0)
-    skipped = summary.get("total_skipped", 0)
+    searched = 0
+    skipped = 0
+    for app in ("radarr", "sonarr"):
+        for inst in summary.get(app, []):
+            searched += inst.get("searched", 0) + inst.get("searched_missing", 0)
+            skipped += inst.get("skipped_cooldown", 0) + inst.get("skipped_missing_cooldown", 0)
     send_notification(
         title="Nudgarr — Sweep Complete",
         body=f"{searched} item{'s' if searched != 1 else ''} searched, {skipped} skipped due to cooldown.",
@@ -1757,7 +1761,7 @@ UI_HTML = r"""
           <div class="field">
             <label>Import Check Delay (Minutes)</label>
             <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Hours to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
+            <div class="help">Minutes to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Security</p>

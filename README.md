@@ -180,7 +180,7 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 
 ## Upgrade Notes
 
-**v2.2.0 — Major feature and security release**
+**v2.3.0 — Major feature and security release**
 First-run onboarding walkthrough guides new users through every setting before their first run. Safe defaults ensure fresh installs do nothing until the user deliberately enables them. Passwords are now stored using PBKDF2-HMAC-SHA256 with a unique random salt per password, replacing the previous unsalted SHA256 hash. Existing passwords automatically migrate to the new format on next successful login — no action required. A progressive lockout is applied to failed login attempts (3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr) to protect against brute force attacks.
 
 **v2.1.1 — Lifetime import totals**

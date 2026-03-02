@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.2.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.3.0 — Because RSS sometimes needs a nudge.
+
+v2.3.0:
+- Apprise notifications tab — sweep complete, import confirmed, error triggers
+- Universal docker-compose with .env support
+- PUID/PGID startup fix — graceful chown fallback, cap_add CHOWN/SETUID/SETGID
+- Sweep complete notification correctly aggregates across all instances
+- Import Check help text corrected from Hours to Minutes
+- Notifications save button colour fixed
+- Open Issue button added to Diagnostics
+- USE WITH CAUTION box moved to bottom of Advanced backlog card
+- apk upgrade at build time for latest Alpine security patches
 
 v2.2.0:
 - First-run onboarding walkthrough — 8-step guided setup for new users
@@ -62,7 +73,7 @@ try:
 except ImportError:
     APPRISE_AVAILABLE = False
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -1743,7 +1754,7 @@ UI_HTML = r"""
           </div>
           </div>
           </div>
-          <div class="card" style="margin-top:16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2)">
+          <div style="margin-top:16px;padding:12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px">
             <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
             <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible regardless of when they were added. Searching large numbers of missing items aggressively can result in indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>

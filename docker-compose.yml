@@ -24,6 +24,10 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN      # required to set /config ownership on startup
+      - SETUID     # required for su-exec to drop privileges
+      - SETGID     # required for su-exec to drop privileges
     pids_limit: 50
     mem_limit: 128m
     cpus: 0.5

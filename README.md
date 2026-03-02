@@ -74,6 +74,10 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN      # required to set /config ownership on startup
+      - SETUID     # required for su-exec to drop privileges
+      - SETGID     # required for su-exec to drop privileges
     pids_limit: 50
     mem_limit: 128m
     cpus: 0.5
@@ -148,7 +152,7 @@ The built-in login is designed for local network use and should not be considere
 **Container hardening (implemented in v2.0.0)**
 The provided `docker-compose.yml` includes the following hardening settings out of the box:
 - `no-new-privileges` — prevents the container from elevating privileges after start
-- `cap_drop: ALL` — removes all Linux capabilities; Nudgarr does not require any
+- `cap_drop: ALL` — removes all Linux capabilities; three are added back explicitly: `CHOWN` (to set /config ownership on startup), `SETUID` and `SETGID` (required for su-exec to drop to your PUID/PGID)
 - `pids_limit`, `mem_limit`, `cpus` — limits resource consumption to protect the host
 - `tty: false`, `stdin_open: false` — disables unnecessary input channels
 - Logging limits — prevents log files from consuming unbounded disk space

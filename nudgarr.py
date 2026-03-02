@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.3.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.4.0 — Because RSS sometimes needs a nudge.
+
+v2.4.0:
+- Data Retention — renamed from History Size, now prunes stats entries alongside history, lifetime totals unaffected
+- Days to Keep label replaces Retention Days, updated help text clarifies both history and stats are pruned
 
 v2.3.0:
 - Apprise notifications tab — sweep complete, import confirmed, error triggers
@@ -72,7 +76,7 @@ try:
 except ImportError:
     APPRISE_AVAILABLE = False
 
-VERSION = "2.3.0"
+VERSION = "2.4.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -699,6 +703,20 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
     state = ensure_state_structure(state, cfg)
     pruned = prune_state_by_retention(state, retention_days)
 
+    # Prune stats entries using same retention setting — lifetime totals unaffected
+    if retention_days > 0:
+        stats = load_stats()
+        cutoff = utcnow() - timedelta(days=retention_days)
+        entries = stats.get("entries", [])
+        before = len(entries)
+        stats["entries"] = [
+            e for e in entries
+            if parse_iso(e.get("searched_ts", "")) and parse_iso(e.get("searched_ts", "")) > cutoff
+        ]
+        if len(stats["entries"]) < before:
+            save_stats(stats)
+            print(f"[Stats] Pruned {before - len(stats['entries'])} entries older than {retention_days} days")
+
     summary = {
         "pruned_entries": pruned,
         "radarr": [],
@@ -788,9 +806,16 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             "missing_added_days": missing_added_days
             })
         except Exception as e:
-            print(f"[Radarr:{name}] ERROR: {e}")
-            STATUS["instance_health"][f"radarr|{name}"] = "bad"
-            summary["radarr"].append({"name": name, "url": mask_url(url), "error": str(e)})
+            print(f"[Radarr:{name}] ERROR: {e} — retrying in 15s")
+            time.sleep(15)
+            try:
+                all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
+                STATUS["instance_health"][f"radarr|{name}"] = "ok"
+                print(f"[Radarr:{name}] Retry succeeded")
+            except Exception as e2:
+                print(f"[Radarr:{name}] Retry failed: {e2}")
+                STATUS["instance_health"][f"radarr|{name}"] = "bad"
+                summary["radarr"].append({"name": name, "url": mask_url(url), "error": str(e2)})
 
     # SONARR
     for inst in cfg.get("instances", {}).get("sonarr", []):
@@ -860,9 +885,16 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 "limit_missing": sonarr_missing_max,
             })
         except Exception as e:
-            print(f"[Sonarr:{name}] ERROR: {e}")
-            STATUS["instance_health"][f"sonarr|{name}"] = "bad"
-            summary["sonarr"].append({"name": name, "url": mask_url(url), "error": str(e)})
+            print(f"[Sonarr:{name}] ERROR: {e} — retrying in 15s")
+            time.sleep(15)
+            try:
+                all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key)
+                STATUS["instance_health"][f"sonarr|{name}"] = "ok"
+                print(f"[Sonarr:{name}] Retry succeeded")
+            except Exception as e2:
+                print(f"[Sonarr:{name}] Retry failed: {e2}")
+                STATUS["instance_health"][f"sonarr|{name}"] = "bad"
+                summary["sonarr"].append({"name": name, "url": mask_url(url), "error": str(e2)})
 
     # Persist state (even on dry run, so pruning/structure changes persist)
     save_state(state, cfg)
@@ -1566,13 +1598,18 @@ UI_HTML = r"""
             <select id="historyInstance" onchange="PAGE=0; refreshHistory()"></select>
           </div>
           <div class="field" style="min-width:100px">
-            <select id="historyLimit" onchange="PAGE=0; refreshHistory()">
+            <select id="historyLimit" onchange="syncPageSize('history'); PAGE=0; refreshHistory()">
               <option>10</option><option selected>25</option><option>50</option><option>100</option>
             </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="historySearch" placeholder="Search title…" oninput="filterHistorySearch()" style="padding-right:28px"/>
+            <button id="historySearchClear" onclick="clearHistorySearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
           </div>
         </div>
       </div>
       <div id="historyTableWrap"></div>
+      <div id="historyNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
       <div class="row" style="margin-top:12px" id="historyPagination">
         <button class="btn sm" onclick="prevPage()">Prev</button>
         <button class="btn sm" onclick="nextPage()">Next</button>
@@ -1609,13 +1646,18 @@ UI_HTML = r"""
             </select>
           </div>
           <div class="field" style="min-width:100px">
-            <select id="statsLimit" onchange="STATS_PAGE=0; refreshStats()">
+            <select id="statsLimit" onchange="syncPageSize('stats'); STATS_PAGE=0; refreshStats()">
               <option>10</option><option selected>25</option><option>50</option><option>100</option>
             </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="statsSearch" placeholder="Search title…" oninput="filterStatsSearch()" style="padding-right:28px"/>
+            <button id="statsSearchClear" onclick="clearStatsSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
           </div>
         </div>
       </div>
       <div id="statsTableWrap"></div>
+      <div id="statsNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
       <div class="row" style="margin-top:12px" id="statsPagination">
         <button class="btn sm" onclick="prevStatsPage()">Prev</button>
         <button class="btn sm" onclick="nextStatsPage()">Next</button>
@@ -1760,11 +1802,11 @@ UI_HTML = r"""
         </div>
 
         <div class="card">
-          <p class="section-label">History Size</p>
+          <p class="section-label">Data Retention</p>
           <div class="field">
-            <label>Retention Days</label>
+            <label>Days to Keep</label>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Delete history entries older than this. 0 disables.</div>
+            <div class="help">Prunes history and stats entries older than this. Lifetime totals are not affected. 0 disables.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Stats</p>
@@ -2065,6 +2107,7 @@ function showTab(name) {
 
 function _onTabShown(name) {
   if (name === 'history') {
+    clearHistorySearch();
     if (!el('historyTableWrap').querySelector('table')) {
       el('historyTableWrap').innerHTML = `
         <table><thead><tr>
@@ -2077,6 +2120,7 @@ function _onTabShown(name) {
     refreshHistory();
   }
   if (name === 'stats') {
+    clearStatsSearch();
     if (!el('statsTableWrap').querySelector('table')) {
       el('statsTableWrap').innerHTML = `
         <table><thead><tr>
@@ -2457,6 +2501,57 @@ function sortItems(items, col, dir) {
 
 function prevPage() { if (PAGE > 0) { PAGE--; refreshHistory(); } }
 function nextPage() { PAGE++; refreshHistory(); }
+
+// ── Page size memory (shared across History and Stats) ──
+function syncPageSize(source) {
+  const val = el(source === 'history' ? 'historyLimit' : 'statsLimit').value;
+  const other = el(source === 'history' ? 'statsLimit' : 'historyLimit');
+  if (other && other.value !== val) other.value = val;
+}
+
+// ── History search ──
+function filterHistorySearch() {
+  const q = el('historySearch').value.trim().toLowerCase();
+  el('historySearchClear').style.display = q ? '' : 'none';
+  const rows = el('historyTableWrap').querySelectorAll('tbody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const title = row.cells[0]?.textContent.toLowerCase() || '';
+    const show = !q || title.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const noRes = el('historyNoResults');
+  if (noRes) noRes.style.display = (!visible && q) ? '' : 'none';
+}
+
+function clearHistorySearch() {
+  el('historySearch').value = '';
+  el('historySearchClear').style.display = 'none';
+  filterHistorySearch();
+}
+
+// ── Stats search ──
+function filterStatsSearch() {
+  const q = el('statsSearch').value.trim().toLowerCase();
+  el('statsSearchClear').style.display = q ? '' : 'none';
+  const rows = el('statsTableWrap').querySelectorAll('tbody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const title = row.cells[0]?.textContent.toLowerCase() || '';
+    const show = !q || title.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const noRes = el('statsNoResults');
+  if (noRes) noRes.style.display = (!visible && q) ? '' : 'none';
+}
+
+function clearStatsSearch() {
+  el('statsSearch').value = '';
+  el('statsSearchClear').style.display = 'none';
+  filterStatsSearch();
+}
 
 async function pruneState() {
   if (!await showConfirm('Prune Expired', 'Remove all expired history entries?', 'Prune')) return;
@@ -3279,6 +3374,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 STATUS["last_run_utc"] = iso_z(utcnow())
                 STATUS["last_error"] = None
                 notify_sweep_complete(summary, cfg)
+                # Notify on any instance-level errors within the sweep
+                for app in ("radarr", "sonarr"):
+                    for inst in summary.get(app, []):
+                        if "error" in inst:
+                            notify_error(f"'{inst['name']}' is unreachable.", cfg)
                 # Check for confirmed imports from previous searches
                 try:
                     check_imports(session, cfg)

@@ -45,7 +45,20 @@ Images are available on both **Docker Hub** and **GitHub Container Registry (GHC
 **Available tags:**
 - `latest` — current stable release from main
 - `dev` — development branch, may be unstable
-- `v2.2.0`, `2.2.0`, `2.2` — pinned version tags
+- `v2.3.0`, `2.3.0`, `2.3` — pinned version tags
+
+**Setup**
+
+1. Copy `.env.example` to `.env` and fill in your values
+2. Run `docker compose up -d`
+
+```env
+# .env
+PUID=1000
+PGID=1000
+PORT=8085
+CONFIG_PATH=/your/path/to/appdata/nudgarr
+```
 
 ```yaml
 version: "3.8"
@@ -55,13 +68,13 @@ services:
     container_name: nudgarr
     restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "${PORT:-8085}:${PORT:-8085}"
     volumes:
-      - /your/path/to/appdata/nudgarr:/config
+      - ${CONFIG_PATH:-./config}:/config
     environment:
-      - PUID=1000
-      - PGID=1000
-      - PORT=8085
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json
@@ -74,6 +87,10 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN      # required to set /config ownership on startup
+      - SETUID     # required for su-exec to drop privileges
+      - SETGID     # required for su-exec to drop privileges
     pids_limit: 50
     mem_limit: 128m
     cpus: 0.5
@@ -148,7 +165,7 @@ The built-in login is designed for local network use and should not be considere
 **Container hardening (implemented in v2.0.0)**
 The provided `docker-compose.yml` includes the following hardening settings out of the box:
 - `no-new-privileges` — prevents the container from elevating privileges after start
-- `cap_drop: ALL` — removes all Linux capabilities; Nudgarr does not require any
+- `cap_drop: ALL` — removes all Linux capabilities; three are added back explicitly: `CHOWN` (to set /config ownership on startup), `SETUID` and `SETGID` (required for su-exec to drop to your PUID/PGID)
 - `pids_limit`, `mem_limit`, `cpus` — limits resource consumption to protect the host
 - `tty: false`, `stdin_open: false` — disables unnecessary input channels
 - Logging limits — prevents log files from consuming unbounded disk space
@@ -163,7 +180,7 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 
 ## Upgrade Notes
 
-**v2.2.0 — Major feature and security release**
+**v2.3.0 — Major feature and security release**
 First-run onboarding walkthrough guides new users through every setting before their first run. Safe defaults ensure fresh installs do nothing until the user deliberately enables them. Passwords are now stored using PBKDF2-HMAC-SHA256 with a unique random salt per password, replacing the previous unsalted SHA256 hash. Existing passwords automatically migrate to the new format on next successful login — no action required. A progressive lockout is applied to failed login attempts (3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr) to protect against brute force attacks.
 
 **v2.1.1 — Lifetime import totals**

@@ -1,7 +1,10 @@
 FROM python:3.12-alpine
 
+# Upgrade all Alpine packages to pull latest security patches at build time
+RUN apk upgrade --no-cache
+
 # Install dependencies including su-exec for privilege dropping
-RUN pip install --no-cache-dir --no-compile requests flask \
+RUN pip install --no-cache-dir --no-compile requests flask apprise \
     && apk add --no-cache su-exec
 
 WORKDIR /app

@@ -6,11 +6,10 @@ v2.3.0:
 - Apprise notifications tab — sweep complete, import confirmed, error triggers
 - Universal docker-compose with .env support
 - PUID/PGID startup fix — graceful chown fallback, cap_add CHOWN/SETUID/SETGID
-- Sweep complete notification correctly aggregates across all instances
+- Sweep complete notification correctly aggregates across all instances including backlog
 - Import Check help text corrected from Hours to Minutes
 - Notifications save button colour fixed
 - Open Issue button added to Diagnostics
-- USE WITH CAUTION box moved to bottom of Advanced backlog card
 - apk upgrade at build time for latest Alpine security patches
 
 v2.2.0:
@@ -1754,10 +1753,10 @@ UI_HTML = r"""
           </div>
           </div>
           </div>
-        </div>
-        <div class="card" style="margin-top:16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2)">
-          <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
-          <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible regardless of when they were added. Searching large numbers of missing items aggressively can result in indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+          <div class="card" style="margin-top:16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2)">
+            <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
+            <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible regardless of when they were added. Searching large numbers of missing items aggressively can result in indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+          </div>
         </div>
 
         <div class="card">

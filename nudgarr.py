@@ -1426,6 +1426,37 @@ UI_HTML = r"""
     .import-stat-card.movies .import-stat-value { color: #10b981; }
     .import-stat-card.shows .import-stat-value { color: #6366f1; }
 
+
+    /* ── Tooltips ── */
+    .tooltip-wrap { position: relative; display: inline-flex; align-items: center; gap: 5px; }
+    .tooltip-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid var(--accent-border); color: var(--accent);
+      font-size: 9px; font-style: italic; font-weight: 700;
+      cursor: default; flex-shrink: 0; line-height: 1;
+      user-select: none;
+    }
+    .tooltip-icon:hover + .tooltip-box,
+    .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; }
+    .tooltip-box {
+      position: absolute; left: 0; top: calc(100% + 6px);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+      font-size: 12px; color: var(--text-dim); line-height: 1.5;
+      width: 280px; z-index: 100;
+      opacity: 0; pointer-events: none;
+      transition: opacity .15s;
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    }
+
+    /* ── Cooldown warning flash ── */
+    @keyframes warnFlash {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .warn-flash { animation: warnFlash 1s ease 3; color: var(--warn); font-size: 12px; }
+    .warn-steady { color: var(--warn); font-size: 12px; }
     /* ── Danger zone ── */
     .danger-section { border: 1px solid var(--bad-border); border-radius: 12px; padding: 14px; background: var(--bad-dim); }
 
@@ -1522,19 +1553,27 @@ UI_HTML = r"""
             <div class="help">When disabled, only sweeps when you click <b>Run Now</b>.</div>
           </div>
           <div class="field" style="max-width:160px">
-            <label>Run Interval (Minutes)</label>
-            <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg')"/>
+            <div class="tooltip-wrap">
+              <label>Run Interval (Hours)</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div>
+            </div>
+            <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
             <div class="help">How often Nudgarr runs a sweep.</div>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <p class="section-label">Search Behaviour</p>
+        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p><span id="cooldownWarnMsg"></span></div>
         <div class="grid cols2" style="gap:12px">
           <div class="field">
-            <label>Cooldown Hours</label>
-            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="tooltip-wrap">
+              <label>Cooldown (Hours)</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div>
+            </div>
+            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
             <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
           </div>
           <div class="field">
@@ -1548,12 +1587,20 @@ UI_HTML = r"""
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
           <div class="field">
-            <label>Max Movies (Per Instance)</label>
+            <div class="tooltip-wrap">
+              <label>Max Movies (Per Instance)</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div>
+            </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
           </div>
           <div class="field">
-            <label>Max Episodes (Per Instance)</label>
+            <div class="tooltip-wrap">
+              <label>Max Episodes (Per Instance)</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div>
+            </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
           </div>
@@ -1564,17 +1611,29 @@ UI_HTML = r"""
         <p class="section-label">Throttling</p>
         <div class="grid cols2" style="gap:12px">
           <div class="field">
-            <label>Batch Size</label>
+            <div class="tooltip-wrap">
+              <label>Batch Size</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How many search commands are sent to your indexer at once per batch. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously which can overwhelm indexers and trigger rate limiting. Keep this at 1 unless you have a specific reason to increase it.</div>
+            </div>
             <input id="batch_size" type="number" min="1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
           </div>
           <div class="field">
-            <label>Sleep Seconds</label>
+            <div class="tooltip-wrap">
+              <label>Sleep Seconds</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div>
+            </div>
             <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
           </div>
           <div class="field">
-            <label>Jitter Seconds</label>
+            <div class="tooltip-wrap">
+              <label>Jitter Seconds</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div>
+            </div>
             <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting.</div>
           </div>
@@ -1769,12 +1828,20 @@ UI_HTML = r"""
           <div id="radarr_backlog_fields" style="opacity:0.35;pointer-events:none">
           <div class="grid cols2" style="gap:12px">
             <div class="field">
-              <label>Radarr Missing Max (Per Instance)</label>
+              <div class="tooltip-wrap">
+                <label>Radarr Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i</span>
+                <div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div>
+              </div>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing movies searched per instance per run.</div>
             </div>
             <div class="field">
-              <label>Radarr Missing Added Days</label>
+              <div class="tooltip-wrap">
+                <label>Radarr Missing Added Days</label>
+                <span class="tooltip-icon">i</span>
+                <div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div>
+              </div>
               <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
               <div class="help">Only search missing items added more than this many days ago.</div>
             </div>
@@ -1795,7 +1862,11 @@ UI_HTML = r"""
           <div id="sonarr_backlog_fields" style="opacity:0.35;pointer-events:none">
           <div class="grid cols2" style="gap:12px">
             <div class="field">
-              <label>Sonarr Missing Max (Per Instance)</label>
+              <div class="tooltip-wrap">
+                <label>Sonarr Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i</span>
+                <div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div>
+              </div>
               <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing episodes searched per instance per run.</div>
             </div>
@@ -1804,14 +1875,18 @@ UI_HTML = r"""
           </div>
           <div style="margin-top:16px;padding:12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px">
             <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
-            <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible regardless of when they were added. Searching large numbers of missing items aggressively can result in indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+            <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
         </div>
 
         <div class="card">
           <p class="section-label">Data Retention</p>
           <div class="field">
-            <label>Days to Keep</label>
+            <div class="tooltip-wrap">
+              <label>Days to Keep</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Shows totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div>
+            </div>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
             <div class="help">Prunes history and stats entries older than this. Lifetime totals are not affected. 0 disables.</div>
           </div>
@@ -2381,7 +2456,7 @@ function syncSchedulerUi() {
 
 function fillSettings() {
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
-  el('run_interval_minutes').value = CFG.run_interval_minutes;
+  el('run_interval_minutes').value = Math.round((CFG.run_interval_minutes || 360) / 60);
   el('cooldown_hours').value = CFG.cooldown_hours;
   el('sample_mode').value = CFG.sample_mode;
   el('radarr_max_movies_per_run').value = CFG.radarr_max_movies_per_run;
@@ -2391,12 +2466,13 @@ function fillSettings() {
   el('jitter_seconds').value = CFG.jitter_seconds;
   syncSchedulerUi();
   el('setMsg').textContent = ''; el('setMsg').className = 'msg';
+  checkCooldownWarning();
 }
 
 async function saveSettings() {
   try {
     CFG.scheduler_enabled = el('scheduler_enabled').checked;
-    CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '360', 10);
+    CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '6', 10) * 60;
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
     CFG.sample_mode = el('sample_mode').value;
     CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
@@ -2410,6 +2486,28 @@ async function saveSettings() {
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
+  }
+}
+
+// ── Cooldown warning ──
+let _warnFlashTimer = null;
+function checkCooldownWarning() {
+  const intervalHours = parseFloat(el('run_interval_minutes').value || '6');
+  const cooldown = parseFloat(el('cooldown_hours').value || '48');
+  const warn = el('cooldownWarnMsg');
+  if (!warn) return;
+  const shouldWarn = cooldown > 0 && cooldown < intervalHours;
+  if (shouldWarn) {
+    if (warn.textContent === '') {
+      warn.textContent = '⚠️ Cooldown < run interval — repeated searches likely';
+      warn.className = 'warn-flash';
+      if (_warnFlashTimer) clearTimeout(_warnFlashTimer);
+      _warnFlashTimer = setTimeout(() => { warn.className = 'warn-steady'; }, 3000);
+    }
+  } else {
+    warn.textContent = '';
+    warn.className = '';
+    if (_warnFlashTimer) { clearTimeout(_warnFlashTimer); _warnFlashTimer = null; }
   }
 }
 

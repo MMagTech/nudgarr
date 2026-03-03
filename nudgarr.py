@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.4.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.5.0 — Because RSS sometimes needs a nudge.
+
+v2.5.0:
+- Sample Modes expanded — Random, Alphabetical, Oldest Added, Newest Added
+- Added field extracted from Radarr/Sonarr cutoff unmet endpoints for sort support
+- Newest Added warning — amber notice on Settings and Advanced tabs when selected
+- What's New modal — shows once per version upgrade, never on fresh install
+- Support link pill — 🍺 Buy Me a Coffee in header, toggleable in Advanced → UI Preferences
+- Confirm dialog copy updated — Prune Expired, Clear History, Clear Stats clarified
+- Stats tab — Lifetime Confirmed pill above Movies and Shows cards
+- Onboarding step 3 updated — all four sample modes described
+- Onboarding final step updated — support link note added
 
 v2.4.0:
 - Title search on History and Stats tabs — inline with filters, ✕ to clear, no results message, resets on tab switch
@@ -84,7 +95,7 @@ try:
 except ImportError:
     APPRISE_AVAILABLE = False
 
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -96,7 +107,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "run_interval_minutes": 360,
 
     "cooldown_hours": 48,
-    "sample_mode": "random",           # random | first
+    "sample_mode": "random",           # random | alphabetical | oldest_added | newest_added
 
     "radarr_max_movies_per_run": 1,
     "sonarr_max_episodes_per_run": 1,
@@ -138,6 +149,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # Onboarding
     "onboarding_complete": False,
+
+    # UI Preferences (v2.5.0)
+    "last_seen_version": "",
+    "show_support_link": True,
 }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -214,8 +229,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
 
-    if cfg.get("sample_mode") not in ("random", "first"):
-        errs.append("sample_mode must be 'random' or 'first'")
+    if cfg.get("sample_mode") not in ("random", "alphabetical", "oldest_added", "newest_added"):
+        errs.append("sample_mode must be 'random', 'alphabetical', 'oldest_added', or 'newest_added'")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -508,6 +523,15 @@ def pick_items_with_cooldown(items: List[Dict[str, Any]], st_bucket: Dict[str, A
             skipped += 1
     if sample_mode == "random":
         random.shuffle(eligible)
+    elif sample_mode == "alphabetical":
+        eligible.sort(key=lambda x: (x.get("title") or "").lower())
+    elif sample_mode == "oldest_added":
+        # Items without added date sort to end
+        eligible.sort(key=lambda x: (x.get("added") or "9999"))
+    elif sample_mode == "newest_added":
+        # Items without added date sort to end
+        eligible.sort(key=lambda x: (x.get("added") or ""), reverse=True)
+    # "first" and unknown modes: preserve original API order
     chosen = eligible[:max_per_run] if max_per_run > 0 else []
     return chosen, len(eligible), skipped
 
@@ -564,7 +588,7 @@ def prune_state_by_retention(state: Dict[str, Any], retention_days: int) -> int:
 # ─────────────────────────────────────────────────────────────────────
 
 def radarr_get_cutoff_unmet_movies(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str} from Wanted->Cutoff Unmet."""
+    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Cutoff Unmet."""
     movies: List[Dict[str, Any]] = []
     for page in range(1, max_pages + 1):
         endpoint = f"{url.rstrip('/')}/api/v3/wanted/cutoff?page={page}&pageSize={page_size}"
@@ -577,8 +601,9 @@ def radarr_get_cutoff_unmet_movies(session: requests.Session, url: str, key: str
         for rec in records:
             # Radarr /wanted/cutoff returns movie objects directly; primary key is "id"
             mid = rec.get("id") or rec.get("movieId")
+            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")
             if isinstance(mid, int):
-                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}"})
+                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added})
     return movies
 
 def radarr_get_missing_movies(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
@@ -618,7 +643,7 @@ def sonarr_search_episodes(session: requests.Session, url: str, key: str, episod
     print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
 def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, series_id:int, title:str} from Wanted->Cutoff Unmet."""
+    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Cutoff Unmet."""
     # First fetch all series to build id→title map
     series_map: Dict[int, str] = {}
     try:
@@ -647,13 +672,14 @@ def sonarr_get_cutoff_unmet_episodes(session: requests.Session, url: str, key: s
                 season = rec.get("seasonNumber")
                 ep_num = rec.get("episodeNumber")
                 ep_title = rec.get("title")
+                added = rec.get("airDateUtc") or rec.get("added")
                 if series_title and season is not None and ep_num is not None:
                     title = f"{series_title} S{season:02d}E{ep_num:02d}"
                     if ep_title:
                         title += f" · {ep_title}"
                 else:
                     title = ep_title or f"Episode {eid}"
-                episodes.append({"id": eid, "series_id": series_id, "title": title})
+                episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
 
 def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
@@ -1498,6 +1524,7 @@ UI_HTML = r"""
       <div class="pill" id="pill-lastrun"><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
+      <a id="supportLink" href="https://buymeacoffee.com/mmag" target="_blank" class="pill clickable" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Support</a>
       <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
     </div>
   </div>
@@ -1592,12 +1619,19 @@ UI_HTML = r"""
             <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
           </div>
           <div class="field">
-            <label>Sample Mode</label>
-            <select id="sample_mode" onchange="markUnsaved('setMsg')">
+            <div class="tooltip-wrap">
+              <label>Sample Mode</label>
+              <span class="tooltip-icon">i</span>
+              <div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — picks different items each run for even library coverage.<br><strong>Alphabetical</strong> — always picks from the start of the alphabet first.<br><strong>Oldest Added</strong> — prioritises items added to your library longest ago.<br><strong>Newest Added</strong> — prioritises the most recently added items. <span style="color:#fbbf24">Use with caution — combined with backlog nudges this may conflict with Missing Added Days.</span></div>
+            </div>
+            <select id="sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
               <option value="random">Random</option>
-              <option value="first">First</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help">Random picks different items each run for even library coverage. First always prioritises the same items until they're upgraded.</div>
+            <div class="help" id="newestAddedWarnSettings" style="display:none;color:#f59e0b">⚠️ Newest Added may conflict with Missing Added Days — items just added will be searched immediately.</div>
+            <div class="help" id="sampleModeHelp">Random picks different items each run for even library coverage. Alphabetical, Oldest Added, and Newest Added are deterministic — good for working through a backlog systematically.</div>
           </div>
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
@@ -1702,6 +1736,12 @@ UI_HTML = r"""
   <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
   <div class="section" id="tab-stats">
     <div class="card">
+      <div style="display:flex;justify-content:center;margin-bottom:10px">
+        <div class="pill" style="font-size:13px;gap:8px">
+          <span style="color:var(--text-dim)">Lifetime Confirmed:</span>
+          <span id="statLifetimeTotal" style="font-weight:700;color:var(--text)">—</span>
+        </div>
+      </div>
       <div class="import-stats">
         <div class="import-stat-card movies">
           <span class="import-stat-label">Movies:</span>
@@ -1892,6 +1932,9 @@ UI_HTML = r"""
             <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
             <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
+          <div id="newestAddedWarnAdvanced" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px">
+            <p style="font-size:12px;color:#f59e0b;margin:0">⚠️ <strong>Newest Added</strong> mode is active. This may override Missing Added Days — recently added items will be searched first.</p>
+          </div>
         </div>
 
         <div class="card">
@@ -1931,6 +1974,20 @@ UI_HTML = r"""
             <label>Session Timeout (Minutes)</label>
             <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Minutes of inactivity before requiring re-login.</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">UI Preferences</p>
+          <div class="field">
+            <label>Show Support Link</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="show_support_link" onchange="syncSupportLinkUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="support_link_label">Shown</span>
+            </div>
+            <div class="help">Shows a 🍺 Buy Me a Coffee link in the header. Toggle off to hide it.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Files</p>
@@ -2020,6 +2077,35 @@ UI_HTML = r"""
     </div>
   </div>
 
+  <!-- ══ What's New Modal ══ -->
+  <div class="modal-backdrop" id="whatsNewModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+      <h2 style="margin:0 0 4px">What's New in v2.5.0</h2>
+      <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎯 Sample Modes</div>
+          <div class="help">Four modes now available: <strong>Random</strong>, <strong>Alphabetical</strong>, <strong>Oldest Added</strong>, and <strong>Newest Added</strong>. Find them in Settings → Search Behaviour.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Stats — Lifetime Confirmed pill</div>
+          <div class="help">A combined lifetime total now appears above the Movies and Shows cards on the Stats tab.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">⚠️ Newest Added warning</div>
+          <div class="help">Selecting Newest Added mode now shows an amber warning when backlog nudges are enabled, as it may conflict with Missing Added Days.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🍺 Support link</div>
+          <div class="help">A Buy Me a Coffee link now appears in the header. Toggle it off anytime in Advanced → UI Preferences.</div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:20px">
+        <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ Onboarding Modal ══ -->
   <div class="modal-backdrop" id="onboardingModal" style="display:none">
     <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
@@ -2092,8 +2178,8 @@ How many items are searched <strong>per instance</strong> each run. If you have 
 <strong>Cooldown</strong><br>
 How long Nudgarr waits before searching the same item again. Default is 48 hours. Do not lower this aggressively — repeated searches for the same item in a short window is one of the fastest ways to get banned from an indexer.
 <br><br>
-<strong>Mode</strong><br>
-Random picks different items each run for even library coverage. First always prioritises the same items until they are upgraded.`
+<strong>Sample Mode</strong><br>
+Controls which eligible items are picked each run. <strong>Random</strong> gives even library coverage. <strong>Alphabetical</strong> works through your library from A to Z. <strong>Oldest Added</strong> prioritises items you've had longest. <strong>Newest Added</strong> targets recently added items — use with caution if backlog nudges are enabled.`
   },
   {
     title: "Step 4 — Throttling",
@@ -2150,7 +2236,9 @@ Add your Apprise-compatible URL, choose which events to be notified on, and use 
 5. If everything looks right, enable the scheduler<br>
 6. Gradually increase Max Per Run as you get comfortable
 <br><br>
-Nudgarr is designed to work quietly in the background — not to hammer your indexers. Start slow and let it earn your trust.`
+Nudgarr is designed to work quietly in the background — not to hammer your indexers. Start slow and let it earn your trust.
+<br><br>
+<span style="color:var(--muted);font-size:12px">If Nudgarr is useful to you, the 🍺 support link in the header is a nice way to say thanks. You can hide it anytime in Advanced → UI Preferences.</span>`
   }
 ];
 
@@ -2177,7 +2265,7 @@ async function onboardingStep(dir) {
     // Finished
     el('onboardingModal').style.display = 'none';
     await api('/api/onboarding/complete', {method: 'POST'});
-    if (CFG) CFG.onboarding_complete = true;
+    if (CFG) { CFG.onboarding_complete = true; CFG.last_seen_version = el('ver').textContent; }
     return;
   }
   _obStep = Math.max(0, Math.min(total - 1, _obStep + dir));
@@ -2284,6 +2372,10 @@ async function loadAll() {
   // Show logout button when auth is enabled
   const lb = el('logoutBtn');
   if (lb) lb.style.display = CFG.auth_enabled !== false ? 'inline-flex' : 'none';
+
+  // Support link
+  const sl = el('supportLink');
+  if (sl) sl.style.display = CFG.show_support_link !== false ? 'inline-flex' : 'none';
 
   // Build instance list
   ALL_INSTANCES = [];
@@ -2473,7 +2565,7 @@ function fillSettings() {
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
   el('run_interval_minutes').value = Math.round((CFG.run_interval_minutes || 360) / 60);
   el('cooldown_hours').value = CFG.cooldown_hours;
-  el('sample_mode').value = CFG.sample_mode;
+  el('sample_mode').value = CFG.sample_mode || 'random';
   el('radarr_max_movies_per_run').value = CFG.radarr_max_movies_per_run;
   el('sonarr_max_episodes_per_run').value = CFG.sonarr_max_episodes_per_run;
   el('batch_size').value = CFG.batch_size;
@@ -2482,6 +2574,7 @@ function fillSettings() {
   syncSchedulerUi();
   el('setMsg').textContent = ''; el('setMsg').className = 'msg';
   checkCooldownWarning();
+  checkNewestAddedWarning();
 }
 
 async function saveSettings() {
@@ -2524,6 +2617,44 @@ function checkCooldownWarning() {
     warn.className = '';
     if (_warnFlashTimer) { clearTimeout(_warnFlashTimer); _warnFlashTimer = null; }
   }
+}
+
+// ── Newest Added warning ──
+function checkNewestAddedWarning() {
+  const mode = el('sample_mode') ? el('sample_mode').value : '';
+  const isNewest = mode === 'newest_added';
+  const warnSettings = el('newestAddedWarnSettings');
+  const warnAdv = el('newestAddedWarnAdvanced');
+  const helpText = el('sampleModeHelp');
+  if (warnSettings) warnSettings.style.display = isNewest ? '' : 'none';
+  if (warnAdv) warnAdv.style.display = isNewest ? '' : 'none';
+  if (helpText) helpText.style.display = isNewest ? 'none' : '';
+}
+
+// ── What's New modal ──
+async function dismissWhatsNew() {
+  el('whatsNewModal').style.display = 'none';
+  await api('/api/whats-new/dismiss', {method: 'POST'});
+  if (CFG) CFG.last_seen_version = el('ver').textContent;
+}
+
+function maybeShowWhatsNew() {
+  if (!CFG) return;
+  if (!CFG.onboarding_complete) return;
+  const lastSeen = CFG.last_seen_version || '';
+  const current = el('ver').textContent || '';
+  if (current && lastSeen !== current) {
+    el('whatsNewModal').style.display = 'flex';
+  }
+}
+
+// ── Support link UI ──
+function syncSupportLinkUi() {
+  const show = el('show_support_link') ? el('show_support_link').checked : true;
+  const sl = el('supportLink');
+  if (sl) sl.style.display = show ? 'inline-flex' : 'none';
+  const lbl = el('support_link_label');
+  if (lbl) lbl.textContent = show ? 'Shown' : 'Hidden';
 }
 
 // ── History tab ──
@@ -2682,14 +2813,14 @@ function clearStatsSearch() {
 }
 
 async function pruneState() {
-  if (!await showConfirm('Prune Expired', 'Remove all expired history entries?', 'Prune')) return;
+  if (!await showConfirm('Prune Expired', 'Remove history entries that have passed your retention window? This does not affect cooldowns on items still within the retention period.', 'Prune')) return;
   const out = await api('/api/state/prune', {method:'POST'});
   showAlert(`Pruned ${out.removed} entries.`);
   PAGE = 0; refreshHistory();
 }
 
 async function clearState() {
-  if (!await showConfirm('Clear History', 'Clear all history? This removes all cooldown records and cannot be undone.', 'Clear', true)) return;
+  if (!await showConfirm('Clear History', 'Clear all search history? Cooldown records will be reset — every item becomes eligible for search immediately. This cannot be undone.', 'Clear', true)) return;
   await api('/api/state/clear', {method:'POST'});
   showAlert('History cleared.');
   PAGE = 0; refreshHistory();
@@ -2730,6 +2861,8 @@ async function refreshStats() {
     // Update grand total cards
     el('statMoviesTotal').textContent = data.movies_total ?? 0;
     el('statShowsTotal').textContent = data.shows_total ?? 0;
+    const lt = el('statLifetimeTotal');
+    if (lt) lt.textContent = (data.movies_total ?? 0) + (data.shows_total ?? 0);
 
     if (!data.entries.length && STATS_PAGE === 0) {
       el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
@@ -2778,7 +2911,7 @@ async function checkImportsNow() {
 }
 
 async function clearStats() {
-  if (!await showConfirm('Clear Stats', 'Clear all confirmed import stats? This cannot be undone.', 'Clear', true)) return;
+  if (!await showConfirm('Clear Stats', 'Clear all confirmed import entries? Lifetime Movies and Shows totals are preserved. This cannot be undone.', 'Clear', true)) return;
   await api('/api/stats/clear', {method:'POST'});
   refreshStats();
 }
@@ -2853,8 +2986,11 @@ function fillAdvanced() {
   el('auth_enabled').checked = CFG.auth_enabled !== false;
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
   el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
+  if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
   syncAuthUi();
   syncBacklogUi();
+  syncSupportLinkUi();
+  checkNewestAddedWarning();
   el('advMsg').textContent = ''; el('advMsg').className = 'msg';
 }
 
@@ -2895,6 +3031,7 @@ async function saveAdvanced() {
     CFG.auth_enabled = el('auth_enabled').checked;
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
+    if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
@@ -2982,7 +3119,10 @@ async function pollCycle() {
   }
 }
 
-loadAll().then(() => maybeShowOnboarding());
+loadAll().then(() => {
+  maybeShowOnboarding();
+  if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
+});
 setInterval(pollCycle, 5000);
 </script>
 </body>
@@ -3144,6 +3284,15 @@ def api_set_config():
 def api_onboarding_complete():
     cfg = load_or_init_config()
     cfg["onboarding_complete"] = True
+    cfg["last_seen_version"] = VERSION
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    return jsonify({"ok": True})
+
+@app.post("/api/whats-new/dismiss")
+@requires_auth
+def api_whats_new_dismiss():
+    cfg = load_or_init_config()
+    cfg["last_seen_version"] = VERSION
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True})
 

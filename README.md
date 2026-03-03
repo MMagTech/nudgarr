@@ -18,15 +18,19 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 
 ## Features
 
-- Web UI with Instances, Settings, History, Stats, and Advanced tabs
+- Web UI with Instances, Settings, History, Stats, Notifications, and Advanced tabs
 - Scheduler with configurable run interval
 - Configurable cooldown period to avoid hammering indexers
+- **Four sample modes** — Random, Alphabetical, Oldest Added, Newest Added
 - Batch size and sleep controls for indexer rate limit compliance
 - Per-app Backlog Nudge toggles with age and cap controls
-- Search history with sweep type labels, sortable columns, pagination, and auto-refresh
-- Confirmed import tracking with Movies/Shows totals, type filtering, and pagination
+- Search history with sweep type labels, sortable columns, title search, and pagination
+- Confirmed import tracking with lifetime Movies/Shows totals, type filtering, and title search
+- Apprise notifications — sweep complete, import confirmed, and error triggers
 - Instance health dots — updated on every sweep and on add/edit
 - Unsaved Changes notices across all tabs
+- What's New modal — shown once on version upgrade, never on fresh install
+- Support link toggle in Advanced → UI Preferences
 - UI login with configurable session timeout
 - Download Diagnostic for troubleshooting
 - Multi-arch Docker images — `linux/amd64` and `linux/arm64`
@@ -45,7 +49,7 @@ Images are available on both **Docker Hub** and **GitHub Container Registry (GHC
 **Available tags:**
 - `latest` — current stable release from main
 - `dev` — development branch, may be unstable
-- `v2.4.0`, `2.4.0`, `2.4` — pinned version tags
+- `v2.5.0`, `2.5.0`, `2.5` — pinned version tags
 
 **Setup**
 
@@ -178,15 +182,19 @@ These are standard Docker settings and work on any platform.
 
 Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
 
+---
+
 ## Upgrade Notes
 
-**v2.4.0 — Search, reliability and data improvements**
-Stats entries are now pruned using the same Data Retention setting as history — existing stats are not affected, only entries older than your retention days will be removed on the next sweep. Lifetime totals are never pruned. No config changes required.
+**v2.5.0**
+Four sample modes are now available: Random, Alphabetical, Oldest Added, and Newest Added. The `added` date is now extracted from the Radarr and Sonarr Cutoff Unmet endpoints to support the new sort modes. A What's New modal fires once on version upgrade and never on fresh install — it is dismissed and recorded per version so it won't reappear. A 🍺 Buy Me a Coffee support link appears in the header and can be hidden permanently in Advanced → UI Preferences. The Stats tab now shows a combined Lifetime Confirmed total above the Movies and Shows cards. Confirm dialog copy for Prune Expired, Clear History, and Clear Stats has been clarified. Onboarding step 3 now describes all four sample modes.
 
-**v2.3.0 — Notifications and deployment improvements**
-Apprise notifications are off by default — nothing changes for existing users until you configure a URL and enable them. If you are using `cap_drop: ALL` without `cap_add`, update your compose to include `CHOWN`, `SETUID`, and `SETGID` or pre-set your `/config` volume ownership on the host to match your PUID/PGID.
+Upgrading users: `sample_mode` values of `random` and `first` from v2.4.0 are still accepted. `first` will fall through to the default API order behaviour. Two new config keys are added automatically on first load: `last_seen_version` and `show_support_link` — no manual config changes needed.
 
-**v2.2.0 — Security hardening and onboarding**
+**v2.4.0**
+Title search was added to the History and Stats tabs. Pagination page size is now shared between both tabs for the session. History Size was renamed to Data Retention — stats entries are now pruned alongside history on each sweep, with lifetime totals unaffected. A retry mechanism was added: one retry per instance per sweep with a 15 second wait before marking an instance as bad. Instance error notifications now fire per failed instance with a friendly unreachable message. Max Per Run labels were updated to Per Instance throughout.
+
+**v2.3.0 — Major feature and security release**
 First-run onboarding walkthrough guides new users through every setting before their first run. Safe defaults ensure fresh installs do nothing until the user deliberately enables them. Passwords are now stored using PBKDF2-HMAC-SHA256 with a unique random salt per password, replacing the previous unsalted SHA256 hash. Existing passwords automatically migrate to the new format on next successful login — no action required. A progressive lockout is applied to failed login attempts (3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr) to protect against brute force attacks.
 
 **v2.1.1 — Lifetime import totals**

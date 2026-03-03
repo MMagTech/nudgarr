@@ -931,8 +931,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 # Note: secret_key is regenerated on restart if not set via env var.
 # Sessions will be invalidated on container restart — expected behaviour for local tool.
-
-import logging
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 # ─────────────────────────────────────────────────────────────────────

@@ -1435,19 +1435,28 @@ UI_HTML = r"""
       border: 1px solid var(--accent-border); color: var(--accent);
       font-size: 9px; font-style: italic; font-weight: 700;
       cursor: default; flex-shrink: 0; line-height: 1;
-      user-select: none;
+      user-select: none; transition: background .15s, border-color .15s;
     }
-    .tooltip-icon:hover + .tooltip-box,
+    .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
     .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
-      position: absolute; left: 0; top: calc(100% + 6px);
-      background: var(--card); border: 1px solid var(--border);
+      position: absolute; left: 0; top: calc(100% + 10px);
+      background: #242640; border: 1px solid var(--accent-border);
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; color: var(--text-dim); line-height: 1.5;
-      width: 280px; z-index: 100;
+      width: 290px; z-index: 100;
       opacity: 0; pointer-events: none;
-      transition: opacity .15s;
-      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      transition: opacity .2s;
+      box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(99,120,255,.08);
+    }
+    .tooltip-box::before {
+      content: '';
+      position: absolute; top: -6px; left: 10px;
+      width: 10px; height: 10px;
+      background: #242640;
+      border-left: 1px solid var(--accent-border);
+      border-top: 1px solid var(--accent-border);
+      transform: rotate(45deg);
     }
 
     /* ── Cooldown warning flash ── */
@@ -1641,7 +1650,7 @@ UI_HTML = r"""
       </div>
 
       <div class="card" style="border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.06);">
-        <p class="help" style="margin:0; line-height:1.6; color: rgba(245,158,11,.9)">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be respectful of your indexers' limits and know their caps — searching too aggressively can get you banned from your indexer.</p>
+        <p class="help" style="margin:0; line-height:1.6; color: rgba(245,158,11,.9)">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be mindful of their rate limits — aggressive search behaviour can result in temporary or permanent bans.</p>
       </div>
 
       <div class="row">

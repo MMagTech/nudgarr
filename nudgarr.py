@@ -1455,8 +1455,7 @@ UI_HTML = r"""
     .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
     .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
-      position: absolute; left: 50%; top: calc(100% + 10px);
-      transform: translateX(-50%);
+      position: absolute; left: 0; top: calc(100% + 8px);
       background: #242640; border: 1px solid var(--accent-border);
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; color: var(--text-dim); line-height: 1.5;
@@ -1464,15 +1463,6 @@ UI_HTML = r"""
       opacity: 0; pointer-events: none;
       transition: opacity .2s;
       box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(99,120,255,.08);
-    }
-    .tooltip-box::before {
-      content: '';
-      position: absolute; top: -6px; left: 50%;
-      transform: translateX(-50%) rotate(45deg);
-      width: 10px; height: 10px;
-      background: #242640;
-      border-left: 1px solid var(--accent-border);
-      border-top: 1px solid var(--accent-border);
     }
 
     /* ── Cooldown warning flash ── */

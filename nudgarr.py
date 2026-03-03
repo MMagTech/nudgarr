@@ -1456,16 +1456,7 @@ UI_HTML = r"""
 
     /* ── KPI pills row ── */
     .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .import-stat-card { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border-radius: 20px; border: 1px solid; font-size: 13px; }
-    .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.25); }
-    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.25); }
-    .import-stat-label { font-weight: 400; }
-    .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.75); }
-    .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.75); }
-    .import-stat-value { font-weight: 700; font-size: 15px; }
-    .import-stat-card.movies .import-stat-value { color: #10b981; }
-    .import-stat-card.shows .import-stat-value { color: #6366f1; }
+    .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; justify-content: center; }
 
 
     /* ── Tooltips ── */
@@ -1481,7 +1472,7 @@ UI_HTML = r"""
     .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
     .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
-      position: absolute; left: 0; top: calc(100% + 8px);
+      position: absolute; left: calc(100% + 8px); bottom: 0; top: auto;
       background: #242640; border: 1px solid var(--accent-border);
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; color: var(--text-dim); line-height: 1.5;
@@ -1524,7 +1515,6 @@ UI_HTML = r"""
       <div class="pill" id="pill-lastrun"><span>Last: <span id="lastRun">—</span></span></div>
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
-      <a id="supportLink" href="https://buymeacoffee.com/mmag" target="_blank" class="pill clickable" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Support</a>
       <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
     </div>
   </div>
@@ -1537,6 +1527,7 @@ UI_HTML = r"""
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
+    <a id="supportLink" href="https://buymeacoffee.com/mmag" target="_blank" style="text-decoration:none;display:none;margin-left:auto;align-self:center;padding:4px 10px;font-size:12px;border-radius:20px;border:1px solid var(--border);color:var(--muted);white-space:nowrap" title="Buy Me a Coffee">🍺 Support</a>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -1622,7 +1613,7 @@ UI_HTML = r"""
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
               <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — picks different items each run for even library coverage.<br><strong>Alphabetical</strong> — always picks from the start of the alphabet first.<br><strong>Oldest Added</strong> — prioritises items added to your library longest ago.<br><strong>Newest Added</strong> — prioritises the most recently added items. <span style="color:#fbbf24">Use with caution — combined with backlog nudges this may conflict with Missing Added Days.</span></div>
+              <div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — picks different items each run for even library coverage.<br><strong>Alphabetical</strong> — always picks from the start of the alphabet first.<br><strong>Oldest Added</strong> — prioritises items added to your library longest ago.<br><strong>Newest Added</strong> — prioritises the most recently added items. If Radarr backlog nudges are enabled, this may conflict with Missing Added Days.</div>
             </div>
             <select id="sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
               <option value="random">Random</option>
@@ -1631,7 +1622,7 @@ UI_HTML = r"""
               <option value="newest_added">Newest Added</option>
             </select>
             <div class="help" id="newestAddedWarnSettings" style="display:none;color:#f59e0b">⚠️ Newest Added may conflict with Missing Added Days — items just added will be searched immediately.</div>
-            <div class="help" id="sampleModeHelp">Random picks different items each run for even library coverage. Alphabetical, Oldest Added, and Newest Added are deterministic — good for working through a backlog systematically.</div>
+            <div class="help" id="sampleModeHelp">How Nudgarr picks which eligible items to search each run.</div>
           </div>
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
@@ -1737,19 +1728,19 @@ UI_HTML = r"""
   <div class="section" id="tab-stats">
     <div class="card">
       <div style="display:flex;justify-content:center;margin-bottom:10px">
-        <div class="pill" style="font-size:13px;gap:8px">
-          <span style="color:var(--text-dim)">Lifetime Confirmed:</span>
-          <span id="statLifetimeTotal" style="font-weight:700;color:var(--text)">—</span>
+        <div class="pill" style="font-size:13px;gap:8px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3)">
+          <span style="color:rgba(16,185,129,0.7)">Lifetime Confirmed</span>
+          <span id="statLifetimeTotal" style="font-weight:700;color:#10b981">—</span>
         </div>
       </div>
       <div class="import-stats">
-        <div class="import-stat-card movies">
-          <span class="import-stat-label">Movies:</span>
-          <span class="import-stat-value" id="statMoviesTotal">—</span>
+        <div class="pill" style="font-size:13px;gap:8px">
+          <span style="color:var(--text-dim)">Movies</span>
+          <span id="statMoviesTotal" style="font-weight:700;color:var(--text)">—</span>
         </div>
-        <div class="import-stat-card shows">
-          <span class="import-stat-label">Shows:</span>
-          <span class="import-stat-value" id="statShowsTotal">—</span>
+        <div class="pill" style="font-size:13px;gap:8px">
+          <span style="color:var(--text-dim)">Shows</span>
+          <span id="statShowsTotal" style="font-weight:700;color:var(--text)">—</span>
         </div>
       </div>
       <div class="row" style="margin-bottom:14px">
@@ -2375,7 +2366,7 @@ async function loadAll() {
 
   // Support link
   const sl = el('supportLink');
-  if (sl) sl.style.display = CFG.show_support_link !== false ? 'inline-flex' : 'none';
+  if (sl) sl.style.display = CFG.show_support_link !== false ? 'inline' : 'none';
 
   // Build instance list
   ALL_INSTANCES = [];
@@ -2622,13 +2613,15 @@ function checkCooldownWarning() {
 // ── Newest Added warning ──
 function checkNewestAddedWarning() {
   const mode = el('sample_mode') ? el('sample_mode').value : '';
+  const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : false;
   const isNewest = mode === 'newest_added';
+  const showWarn = isNewest && radarrBacklog;
   const warnSettings = el('newestAddedWarnSettings');
   const warnAdv = el('newestAddedWarnAdvanced');
   const helpText = el('sampleModeHelp');
-  if (warnSettings) warnSettings.style.display = isNewest ? '' : 'none';
-  if (warnAdv) warnAdv.style.display = isNewest ? '' : 'none';
-  if (helpText) helpText.style.display = isNewest ? 'none' : '';
+  if (warnSettings) warnSettings.style.display = showWarn ? '' : 'none';
+  if (warnAdv) warnAdv.style.display = showWarn ? '' : 'none';
+  if (helpText) helpText.style.display = showWarn ? 'none' : '';
 }
 
 // ── What's New modal ──
@@ -2652,7 +2645,7 @@ function maybeShowWhatsNew() {
 function syncSupportLinkUi() {
   const show = el('show_support_link') ? el('show_support_link').checked : true;
   const sl = el('supportLink');
-  if (sl) sl.style.display = show ? 'inline-flex' : 'none';
+  if (sl) sl.style.display = show ? 'inline' : 'none';
   const lbl = el('support_link_label');
   if (lbl) lbl.textContent = show ? 'Shown' : 'Hidden';
 }
@@ -3018,6 +3011,7 @@ function syncBacklogUi() {
   el('radarr_backlog_fields').style.pointerEvents = radarrOn ? '' : 'none';
   el('sonarr_backlog_fields').style.opacity = sonarrOn ? '1' : '0.35';
   el('sonarr_backlog_fields').style.pointerEvents = sonarrOn ? '' : 'none';
+  checkNewestAddedWarning();
 }
 
 async function saveAdvanced() {

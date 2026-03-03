@@ -66,6 +66,7 @@ v2.0.0:
 import hashlib
 import hmac
 import json
+import logging
 import os
 import random
 import secrets
@@ -139,9 +140,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "onboarding_complete": False,
 }
 
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
 # Utilities
-# -------------------------
+# Shared helpers: time, file I/O, URL masking, config validation, HTTP
+# ─────────────────────────────────────────────────────────────────────
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -303,9 +305,10 @@ def ensure_state_structure(state: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[s
 def save_state(state: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     save_json_atomic(STATE_FILE, state, pretty=True)
 
-# -------------------------
-# Stats file helpers
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
+# Stats & Notifications
+# Confirmed import tracking, lifetime totals, Apprise notification hooks
+# ─────────────────────────────────────────────────────────────────────
 
 def load_stats() -> Dict[str, Any]:
     st = load_json(STATS_FILE, {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0})
@@ -325,6 +328,8 @@ def save_stats(stats: Dict[str, Any]) -> None:
     save_json_atomic(STATS_FILE, stats, pretty=True)
 
 # ── Notifications ──
+# Apprise-based push notifications. send_notification() is the core
+# dispatcher; notify_* helpers are called from the sweep engine.
 def send_notification(title: str, body: str, cfg: Optional[Dict[str, Any]] = None) -> bool:
     """Send a notification via Apprise. Returns True on success."""
     if not APPRISE_AVAILABLE:
@@ -553,9 +558,10 @@ def prune_state_by_retention(state: Dict[str, Any], retention_days: int) -> int:
                     removed += 1
     return removed
 
-# -------------------------
-# Arr API helpers
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
+# Arr API Helpers
+# Radarr/Sonarr API calls: cutoff unmet, missing, search commands
+# ─────────────────────────────────────────────────────────────────────
 
 def radarr_get_cutoff_unmet_movies(session: requests.Session, url: str, key: str, page_size: int = 100, max_pages: int = 5) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, title:str} from Wanted->Cutoff Unmet."""
@@ -690,9 +696,11 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
                 episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
 
-# -------------------------
-# Sweep
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
+# Sweep Engine
+# Core sweep logic: picks eligible items, applies cooldown, searches,
+# records results, prunes state, fires notifications
+# ─────────────────────────────────────────────────────────────────────
 
 def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
@@ -909,22 +917,29 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
     return summary
 
-# -------------------------
-# Web UI
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
+# Web UI — Embedded HTML Templates
+# Nudgarr is intentionally a single-file application. All HTML, CSS and
+# JS is embedded here as raw strings to eliminate build steps and keep
+# deployment as simple as possible (one file, one container).
+# LOGIN_HTML  — login page
+# SETUP_HTML  — first-run account creation
+# UI_HTML     — main application interface
+# ─────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 # Note: secret_key is regenerated on restart if not set via env var.
 # Sessions will be invalidated on container restart — expected behaviour for local tool.
 
-# Silence default Flask request logging (werkzeug)
 import logging
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
-# -------------------------
-# Auth helpers
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
+# Auth Helpers
+# Password hashing (PBKDF2-HMAC-SHA256), session management,
+# progressive brute force lockout, login required decorator
+# ─────────────────────────────────────────────────────────────────────
 
 SESSION_TIMEOUT_MINUTES = 30  # default, overridden by config
 
@@ -1171,6 +1186,8 @@ async function setup() {
 </body>
 </html>"""
 
+# Runtime status dict — shared between scheduler thread and Flask routes
+# Read by /api/status endpoint and updated throughout sweep lifecycle
 STATUS: Dict[str, Any] = {
     "version": VERSION,
     "last_run_utc": None,
@@ -1440,7 +1457,8 @@ UI_HTML = r"""
     .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
     .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
-      position: absolute; left: 0; top: calc(100% + 10px);
+      position: absolute; left: 50%; top: calc(100% + 10px);
+      transform: translateX(-50%);
       background: #242640; border: 1px solid var(--accent-border);
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; color: var(--text-dim); line-height: 1.5;
@@ -1451,12 +1469,12 @@ UI_HTML = r"""
     }
     .tooltip-box::before {
       content: '';
-      position: absolute; top: -6px; left: 10px;
+      position: absolute; top: -6px; left: 50%;
+      transform: translateX(-50%) rotate(45deg);
       width: 10px; height: 10px;
       background: #242640;
       border-left: 1px solid var(--accent-border);
       border-top: 1px solid var(--accent-border);
-      transform: rotate(45deg);
     }
 
     /* ── Cooldown warning flash ── */
@@ -2983,6 +3001,12 @@ setInterval(pollCycle, 5000);
 </html>
 """
 
+# ─────────────────────────────────────────────────────────────────────
+# Flask Routes
+# REST API endpoints consumed by the UI and the scheduler
+# All state-mutating endpoints are POST, read-only endpoints are GET
+# ─────────────────────────────────────────────────────────────────────
+
 @app.get("/")
 @requires_auth
 def index():
@@ -3440,9 +3464,11 @@ def api_diagnostic():
         headers={"Content-Disposition": "attachment; filename=nudgarr-diagnostic.txt"}
     )
 
-# -------------------------
-# Scheduler / Service runner
-# -------------------------
+# ─────────────────────────────────────────────────────────────────────
+# Scheduler & Service Runner
+# Background thread runs sweeps on interval, handles run-now requests,
+# manages stop signal, prints banner on startup
+# ─────────────────────────────────────────────────────────────────────
 
 def print_banner(cfg: Dict[str, Any]) -> None:
     print("")

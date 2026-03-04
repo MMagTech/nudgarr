@@ -1957,9 +1957,12 @@ UI_HTML = r"""
           <div class="hr"></div>
           <p class="section-label">Stats</p>
           <div class="field">
-            <label>Import Check Delay (Minutes)</label>
+            <div class="tooltip-wrap">
+              <label>Import Check (Minutes)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. Setting this too low may miss slow downloads — 120 minutes is a safe default. Confirmed imports appear in the Stats tab.</div></span>
+            </div>
             <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Minutes to wait before checking if a searched item was successfully imported. Confirmed imports appear in the Stats tab.</div>
+            <div class="help">How often Nudgarr checks for confirmed imports.</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Security</p>
@@ -2007,8 +2010,6 @@ UI_HTML = r"""
         <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
         <div class="row" style="flex-wrap:wrap;gap:8px">
           <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
-        </div>
-        <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
           <button class="btn sm danger" onclick="clearState()">Clear History</button>
           <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
         </div>
@@ -2858,7 +2859,6 @@ async function pruneState() {
 async function clearState() {
   if (!await showConfirm('Clear History', 'Clear all search history? Cooldown records will be reset — every item becomes eligible for search immediately. This cannot be undone.', 'Clear', true)) return;
   await api('/api/state/clear', {method:'POST'});
-  showAlert('History cleared.');
   PAGE = 0; refreshHistory();
 }
 

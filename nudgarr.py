@@ -1637,7 +1637,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><em>Radarr's Missing Added Days sets the eligible pool — Newest Added picks closest to the cutoff, Oldest Added works from the far end.</em></div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><em>Radarr's Missing Added Days sets the eligible pool. For example, with days set to 30 only items added 30+ days ago qualify — Newest Added then picks the ones closest to that cutoff first. Set days to 0 to search all missing items newest-first with no age filter.</em></div></span>
             </div>
             <select id="sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
               <option value="random">Random</option>
@@ -1883,7 +1883,7 @@ UI_HTML = r"""
           <div class="field" style="margin-bottom:10px">
             <div class="toggle-wrap">
               <label class="toggle">
-                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); checkNewestAddedWarning(); markUnsaved('advMsg')"/>
                 <span class="toggle-track"></span>
                 <span class="toggle-thumb"></span>
               </label>
@@ -1905,7 +1905,7 @@ UI_HTML = r"""
                 <label>Radarr Missing Added Days</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div></span>
               </div>
-              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
               <div class="help">Only search missing items added more than this many days ago.</div>
             </div>
           </div>
@@ -2598,12 +2598,6 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
-    // Collapse warning after save
-    const ws = el('newestAddedWarnSettings');
-    if (ws && ws.classList.contains('visible')) {
-      clearTimeout(ws._warnFade);
-      ws._warnFade = setTimeout(() => ws.classList.remove('visible'), 4000);
-    }
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2635,9 +2629,10 @@ function checkCooldownWarning() {
 function checkNewestAddedWarning() {
   const mode = el('sample_mode') ? el('sample_mode').value : (CFG ? CFG.sample_mode : '');
   const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
-  const missingMax = CFG ? (CFG.radarr_missing_max || 0) : 0;
+  const missingDaysEl = el('radarr_missing_added_days');
+  const missingDays = missingDaysEl ? parseInt(missingDaysEl.value || '0', 10) : (CFG ? (CFG.radarr_missing_added_days ?? 0) : 0);
   const isNewest = mode === 'newest_added';
-  const showWarn = isNewest && radarrBacklog && missingMax > 0;
+  const showWarn = isNewest && radarrBacklog && missingDays > 0;
   const warnSettings = el('newestAddedWarnSettings');
   const warnAdv = el('newestAddedWarnAdvanced');
   const helpText = el('sampleModeHelp');
@@ -3009,7 +3004,6 @@ function fillAdvanced() {
   syncAuthUi();
   syncBacklogUi();
   syncSupportLinkUi();
-  checkNewestAddedWarning();
   el('advMsg').textContent = ''; el('advMsg').className = 'msg';
 }
 
@@ -3037,7 +3031,6 @@ function syncBacklogUi() {
   el('radarr_backlog_fields').style.pointerEvents = radarrOn ? '' : 'none';
   el('sonarr_backlog_fields').style.opacity = sonarrOn ? '1' : '0.35';
   el('sonarr_backlog_fields').style.pointerEvents = sonarrOn ? '' : 'none';
-  checkNewestAddedWarning();
 }
 
 async function saveAdvanced() {
@@ -3056,12 +3049,6 @@ async function saveAdvanced() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
-    // Collapse warning after save
-    const wa = el('newestAddedWarnAdvanced');
-    if (wa && wa.classList.contains('visible')) {
-      clearTimeout(wa._warnFade);
-      wa._warnFade = setTimeout(() => wa.classList.remove('visible'), 4000);
-    }
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }

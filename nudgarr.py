@@ -2384,8 +2384,6 @@ async function loadAll() {
 
   renderInstances('radarr');
   renderInstances('sonarr');
-  // Set dots to checking immediately — background health ping will resolve them
-  document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
   fillSettings();
   fillAdvanced();
   fillNotifications();
@@ -3135,7 +3133,7 @@ async function refreshStatus() {
         const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
         if (cfgIdx >= 0) {
           const dot = el(`sdot-${app}-${cfgIdx}`);
-          if (dot && !dot.classList.contains('checking')) {
+          if (dot) {
             dot.className = 'status-dot ' + (state === 'ok' ? 'ok' : 'bad');
           }
         }
@@ -3156,6 +3154,7 @@ async function pollCycle() {
 }
 
 loadAll().then(() => {
+  document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
   maybeShowOnboarding();
   if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
 });

@@ -1457,15 +1457,11 @@ UI_HTML = r"""
     /* ── KPI pills row ── */
     .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .import-stat-card { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border-radius: 20px; border: 1px solid; font-size: 13px; }
-    .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.25); }
-    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.25); }
-    .import-stat-label { font-weight: 400; }
-    .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.75); }
-    .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.75); }
-    .import-stat-value { font-weight: 700; font-size: 15px; }
-    .import-stat-card.movies .import-stat-value { color: #10b981; }
-    .import-stat-card.shows .import-stat-value { color: #6366f1; }
+    .import-stat-card { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 20px; border: 1px solid; font-size: 13px; }
+    .import-stat-card.movies { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.3); }
+    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.3); }
+    .import-stat-label { font-weight: 500; color: rgba(99,102,241,0.7); }
+    .import-stat-value { font-weight: 700; font-size: 20px; color: #6366f1; text-shadow: 0 0 16px rgba(99,102,241,0.4); }
 
 
     /* ── Tooltips ── */
@@ -1487,7 +1483,7 @@ UI_HTML = r"""
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; font-weight: 400; font-style: normal;
       color: var(--text-dim); line-height: 1.5;
-      width: 290px; z-index: 100;
+      width: 360px; z-index: 100;
       opacity: 0; pointer-events: none;
       transition: opacity .2s;
       box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(99,120,255,.08);
@@ -1558,7 +1554,7 @@ UI_HTML = r"""
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
-    <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;margin-left:auto;align-self:center;white-space:nowrap;padding:7px 14px;font-size:13px" title="Buy Me a Coffee">🍺 Support</a>
+    <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;margin-left:auto;align-self:center;white-space:nowrap;padding:7px 14px;font-size:13px" title="Buy Me a Coffee">🍺 Donate</a>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -1641,7 +1637,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><em>Radarr's Missing Added Days sets the eligible pool. At 30 days, only items added 30+ days ago qualify — Newest Added picks closest to that cutoff, Oldest Added works from the far end. Sonarr missing nudges have no age filter.</em></div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><em>Radarr's Missing Added Days sets the eligible pool — Newest Added picks closest to the cutoff, Oldest Added works from the far end.</em></div></span>
             </div>
             <select id="sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
               <option value="random">Random</option>
@@ -1649,10 +1645,10 @@ UI_HTML = r"""
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
+            <div class="help" id="sampleModeHelp">How Nudgarr picks which eligible items to search each run.</div>
             <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
               <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
             </div>
-            <div class="help" id="sampleModeHelp">How Nudgarr picks which eligible items to search each run.</div>
           </div>
         </div>
         <div style="margin-top:16px" class="grid cols2" style="gap:12px">
@@ -1710,7 +1706,7 @@ UI_HTML = r"""
         <p class="help amber-warn-body">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be mindful of their rate limits — aggressive search behaviour can result in temporary or permanent bans.</p>
       </div>
 
-      <div class="row">
+      <div class="row" style="margin-top:16px">
         <button class="btn primary" onclick="saveSettings()">Save Changes</button>
         <span class="msg" id="setMsg"></span>
       </div>
@@ -1870,7 +1866,7 @@ UI_HTML = r"""
       </div>
     </div>
 
-    <div class="row" style="margin-top:4px">
+    <div class="row" style="margin-top:16px">
       <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
       <span class="msg" id="notifyMsg"></span>
     </div>
@@ -2001,7 +1997,7 @@ UI_HTML = r"""
         </div>
       </div>
 
-      <div class="row" style="margin-top:4px">
+      <div class="row" style="margin-top:16px">
         <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
         <span class="msg" id="advMsg"></span>
       </div>
@@ -2522,7 +2518,7 @@ async function testConnections() {
   try {
     const [out] = await Promise.all([
       api('/api/test', {method:'POST'}),
-      new Promise(r => setTimeout(r, 1200))
+      new Promise(r => setTimeout(r, 2000))
     ]);
     const allResults = [...(out.results.radarr||[]), ...(out.results.sonarr||[])];
 
@@ -2639,7 +2635,7 @@ function checkCooldownWarning() {
 function checkNewestAddedWarning() {
   const mode = el('sample_mode') ? el('sample_mode').value : (CFG ? CFG.sample_mode : '');
   const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
-  const missingMax = el('radarr_missing_max') ? parseInt(el('radarr_missing_max').value || '0', 10) : (CFG ? (CFG.radarr_missing_max || 0) : 0);
+  const missingMax = CFG ? (CFG.radarr_missing_max || 0) : 0;
   const isNewest = mode === 'newest_added';
   const showWarn = isNewest && radarrBacklog && missingMax > 0;
   const warnSettings = el('newestAddedWarnSettings');
@@ -2653,7 +2649,7 @@ function checkNewestAddedWarning() {
       w.classList.remove('visible');
     }
   });
-  if (helpText) helpText.style.display = showWarn ? 'none' : '';
+  if (helpText) helpText.style.display = '';
 }
 
 // ── What's New modal ──

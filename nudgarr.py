@@ -1360,7 +1360,7 @@ UI_HTML = r"""
 
     /* ── Form elements ── */
     .field { display: flex; flex-direction: column; gap: 5px; }
-    label { font-size: 11px; color: var(--muted); font-weight: 500; }
+    label { font-size: 12px; color: var(--text-dim); font-weight: 500; }
     input, select {
       padding: 9px 11px; border-radius: 9px;
       border: 1px solid var(--border);
@@ -1441,8 +1441,8 @@ UI_HTML = r"""
 
     /* ── Settings section headers ── */
     .section-label {
-      font-size: 12px; font-weight: 600; letter-spacing: .04em;
-      color: var(--text-dim);
+      font-size: 13px; font-weight: 600; letter-spacing: .04em;
+      color: var(--text);
       margin: 0 0 10px;
     }
 

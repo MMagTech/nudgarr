@@ -1360,7 +1360,7 @@ UI_HTML = r"""
 
     /* ── Form elements ── */
     .field { display: flex; flex-direction: column; gap: 5px; }
-    label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
     input, select {
       padding: 9px 11px; border-radius: 9px;
       border: 1px solid var(--border);
@@ -1618,7 +1618,7 @@ UI_HTML = r"""
               <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div></span>
             </div>
             <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
-            <div class="help">How often Nudgarr runs a sweep.</div>
+            <div class="help">How often sweeps run.</div>
           </div>
         </div>
       </div>
@@ -1651,7 +1651,7 @@ UI_HTML = r"""
             </div>
           </div>
         </div>
-        <div style="margin-top:16px" class="grid cols2" style="gap:12px">
+        <div style="margin-top:8px" class="grid cols2" style="gap:12px">
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Movies (Per Instance)</label>
@@ -2702,11 +2702,11 @@ async function refreshHistory() {
     const instPills = ALL_INSTANCES.map(inst => {
       const appSt = sum.per_instance || {};
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
-      return `<div class="pill"><span style="color:var(--text-dim)">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:600">${count}</span></div>`;
+      return `<div class="pill"><span style="color:var(--text-dim);font-size:11px">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:600;font-size:13px">${count}</span></div>`;
     }).join('');
     el('kpis').innerHTML = instPills +
-      `<div class="pill"><span style="color:var(--text-dim)">History File:</span><span style="color:var(--text);font-weight:600">${sum.file_size_human}</span></div>` +
-      `<div class="pill"><span style="color:var(--text-dim)">Retention:</span><span style="color:var(--text);font-weight:600">${sum.retention_days} days</span></div>`;
+      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">History File:</span><span style="color:var(--text);font-weight:600;font-size:13px">${sum.file_size_human}</span></div>` +
+      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">Retention:</span><span style="color:var(--text);font-weight:600;font-size:13px">${sum.retention_days} days</span></div>`;
 
     // Build instance dropdown from ALL_INSTANCES (has correct app info)
     // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
@@ -3692,6 +3692,9 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 STATUS["last_summary"] = summary
                 STATUS["last_run_utc"] = iso_z(utcnow())
                 STATUS["last_error"] = None
+                # Persist last_run so it survives restart
+                st["last_run_utc"] = STATUS["last_run_utc"]
+                save_state(st, cfg)
                 notify_sweep_complete(summary, cfg)
                 # Notify on any instance-level errors within the sweep
                 for app in ("radarr", "sonarr"):
@@ -3743,6 +3746,34 @@ def main() -> None:
 
     cfg = load_or_init_config()
     print_banner(cfg)
+
+    # Pre-populate STATUS from persisted state so UI has values immediately
+    _st = load_state()
+    if _st.get("last_run_utc"):
+        STATUS["last_run_utc"] = _st["last_run_utc"]
+    if cfg.get("scheduler_enabled"):
+        _interval = int(cfg.get("run_interval_minutes", 360))
+        STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=_interval))
+
+    # Background health ping — parallel, non-blocking, populates dots within ~1s
+    def _startup_health_ping():
+        _session = requests.Session()
+        instances = []
+        for _inst in cfg.get("instances", {}).get("radarr", []):
+            instances.append(("radarr", _inst))
+        for _inst in cfg.get("instances", {}).get("sonarr", []):
+            instances.append(("sonarr", _inst))
+        def _ping(app, inst):
+            try:
+                _url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
+                req(_session, "GET", _url, inst["key"], timeout=5)
+                STATUS["instance_health"][f"{app}|{inst['name']}"] = "ok"
+            except Exception:
+                STATUS["instance_health"][f"{app}|{inst['name']}"] = "bad"
+        threads = [threading.Thread(target=_ping, args=(a, i), daemon=True) for a, i in instances]
+        for t in threads: t.start()
+        for t in threads: t.join()
+    threading.Thread(target=_startup_health_ping, daemon=True).start()
 
     # Start UI
     threading.Thread(target=start_ui_server, daemon=True).start()

@@ -1461,7 +1461,7 @@ UI_HTML = r"""
     .import-stat-card.movies { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.3); }
     .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.3); }
     .import-stat-label { font-weight: 500; color: rgba(99,102,241,0.7); }
-    .import-stat-value { font-weight: 700; font-size: 20px; color: #6366f1; text-shadow: 0 0 16px rgba(99,102,241,0.4); }
+    .import-stat-value { font-weight: 700; font-size: 15px; color: #6366f1; text-shadow: 0 0 16px rgba(99,102,241,0.4); }
 
 
     /* ── Tooltips ── */
@@ -1749,7 +1749,7 @@ UI_HTML = r"""
   <div class="section" id="tab-stats">
     <div class="card">
       <div style="display:flex;justify-content:center;margin-bottom:14px">
-        <div class="pill" style="font-size:14px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase">
+        <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase">
           Lifetime Confirmed
         </div>
       </div>
@@ -2639,8 +2639,19 @@ function checkNewestAddedWarning() {
   [warnSettings, warnAdv].forEach(w => {
     if (!w) return;
     if (showWarn) {
+      // Reset any pending fade, make visible, then auto-fade after 4s
+      clearTimeout(w._warnFade);
+      w.style.opacity = '';
+      w.style.transition = '';
       w.classList.add('visible');
+      w._warnFade = setTimeout(() => {
+        w.style.transition = 'opacity 0.5s ease';
+        w.style.opacity = '0';
+      }, 4000);
     } else {
+      clearTimeout(w._warnFade);
+      w.style.opacity = '';
+      w.style.transition = '';
       w.classList.remove('visible');
     }
   });

@@ -2598,6 +2598,7 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
+    fadeNewestAddedWarnings();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2638,24 +2639,32 @@ function checkNewestAddedWarning() {
   const helpText = el('sampleModeHelp');
   [warnSettings, warnAdv].forEach(w => {
     if (!w) return;
+    clearTimeout(w._warnFade);
     if (showWarn) {
-      // Reset any pending fade, make visible, then auto-fade after 4s
-      clearTimeout(w._warnFade);
       w.style.opacity = '';
       w.style.transition = '';
       w.classList.add('visible');
-      w._warnFade = setTimeout(() => {
-        w.style.transition = 'opacity 0.5s ease';
-        w.style.opacity = '0';
-      }, 4000);
     } else {
-      clearTimeout(w._warnFade);
       w.style.opacity = '';
       w.style.transition = '';
       w.classList.remove('visible');
     }
   });
   if (helpText) helpText.style.display = '';
+}
+
+function fadeNewestAddedWarnings() {
+  [el('newestAddedWarnSettings'), el('newestAddedWarnAdvanced')].forEach(w => {
+    if (!w || !w.classList.contains('visible')) return;
+    clearTimeout(w._warnFade);
+    w.style.transition = 'opacity 0.5s ease';
+    w.style.opacity = '0';
+    w._warnFade = setTimeout(() => {
+      w.style.opacity = '';
+      w.style.transition = '';
+      w.classList.remove('visible');
+    }, 500);
+  });
 }
 
 // ── What's New modal ──
@@ -3060,6 +3069,7 @@ async function saveAdvanced() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
+    fadeNewestAddedWarnings();
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }

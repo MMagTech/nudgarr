@@ -1360,7 +1360,7 @@ UI_HTML = r"""
 
     /* ── Form elements ── */
     .field { display: flex; flex-direction: column; gap: 5px; }
-    label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+    label { font-size: 11px; color: var(--muted); font-weight: 500; }
     input, select {
       padding: 9px 11px; border-radius: 9px;
       border: 1px solid var(--border);
@@ -1441,8 +1441,8 @@ UI_HTML = r"""
 
     /* ── Settings section headers ── */
     .section-label {
-      font-size: 11px; font-weight: 600; letter-spacing: .06em;
-      text-transform: uppercase; color: var(--muted);
+      font-size: 12px; font-weight: 600; letter-spacing: .04em;
+      color: var(--text-dim);
       margin: 0 0 10px;
     }
 
@@ -1651,7 +1651,7 @@ UI_HTML = r"""
             </div>
           </div>
         </div>
-        <div style="margin-top:8px" class="grid cols2" style="gap:12px">
+        <div class="grid cols2" style="gap:12px">
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Movies (Per Instance)</label>
@@ -2384,6 +2384,8 @@ async function loadAll() {
 
   renderInstances('radarr');
   renderInstances('sonarr');
+  // Set dots to checking immediately — background health ping will resolve them
+  document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
   fillSettings();
   fillAdvanced();
   fillNotifications();
@@ -2702,11 +2704,11 @@ async function refreshHistory() {
     const instPills = ALL_INSTANCES.map(inst => {
       const appSt = sum.per_instance || {};
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
-      return `<div class="pill"><span style="color:var(--text-dim);font-size:11px">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:600;font-size:13px">${count}</span></div>`;
+      return `<div class="pill"><span style="color:var(--text-dim);font-size:11px">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:400;font-size:13px">${count}</span></div>`;
     }).join('');
     el('kpis').innerHTML = instPills +
-      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">History File:</span><span style="color:var(--text);font-weight:600;font-size:13px">${sum.file_size_human}</span></div>` +
-      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">Retention:</span><span style="color:var(--text);font-weight:600;font-size:13px">${sum.retention_days} days</span></div>`;
+      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">History File:</span><span style="color:var(--text);font-weight:400;font-size:13px">${sum.file_size_human}</span></div>` +
+      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">Retention:</span><span style="color:var(--text);font-weight:400;font-size:13px">${sum.retention_days} days</span></div>`;
 
     // Build instance dropdown from ALL_INSTANCES (has correct app info)
     // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
@@ -3771,8 +3773,10 @@ def main() -> None:
             except Exception:
                 STATUS["instance_health"][f"{app}|{inst['name']}"] = "bad"
         threads = [threading.Thread(target=_ping, args=(a, i), daemon=True) for a, i in instances]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
     threading.Thread(target=_startup_health_ping, daemon=True).start()
 
     # Start UI

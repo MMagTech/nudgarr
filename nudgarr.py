@@ -1482,10 +1482,11 @@ UI_HTML = r"""
     .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
     .tooltip-wrap:hover .tooltip-icon .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
-      position: absolute; left: calc(100% + 2px); bottom: 0; top: auto;
+      position: absolute; left: calc(100% + 3px); bottom: 0; top: auto;
       background: #242640; border: 1px solid var(--accent-border);
       border-radius: 10px; padding: 10px 12px;
-      font-size: 12px; color: var(--text-dim); line-height: 1.5;
+      font-size: 12px; font-weight: 400; font-style: normal;
+      color: var(--text-dim); line-height: 1.5;
       width: 290px; z-index: 100;
       opacity: 0; pointer-events: none;
       transition: opacity .2s;
@@ -1506,6 +1507,18 @@ UI_HTML = r"""
     }
     .amber-warn-title { font-size: 12px; color: #fbbf24; font-weight: 600; margin: 0 0 4px; }
     .amber-warn-body { margin: 0; }
+    .amber-warn-collapsible {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.35s ease;
+      margin-top: 0;
+    }
+    .amber-warn-collapsible.visible {
+      max-height: 120px;
+      opacity: 1;
+      margin-top: 6px;
+    }
 
     /* ── Danger zone ── */
     .danger-section { border: 1px solid var(--bad-border); border-radius: 12px; padding: 14px; background: var(--bad-dim); }
@@ -1545,7 +1558,7 @@ UI_HTML = r"""
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
-    <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;margin-left:6px;align-self:center;white-space:nowrap" title="Buy Me a Coffee">🍺 Support</a>
+    <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;margin-left:auto;align-self:center;white-space:nowrap;padding:7px 14px;font-size:13px" title="Buy Me a Coffee">🍺 Support</a>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -1636,7 +1649,7 @@ UI_HTML = r"""
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div id="newestAddedWarnSettings" class="amber-warn" style="display:none;margin-top:6px">
+            <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
               <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
             </div>
             <div class="help" id="sampleModeHelp">How Nudgarr picks which eligible items to search each run.</div>
@@ -1693,6 +1706,7 @@ UI_HTML = r"""
       </div>
 
       <div class="card amber-warn">
+        <p class="amber-warn-title">INDEXER LIMITS</p>
         <p class="help amber-warn-body">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be mindful of their rate limits — aggressive search behaviour can result in temporary or permanent bans.</p>
       </div>
 
@@ -1710,7 +1724,6 @@ UI_HTML = r"""
       <div class="row" style="margin-bottom:14px">
         <button class="btn sm" onclick="refreshHistory()">Refresh</button>
         <button class="btn sm" onclick="pruneState()">Prune Expired</button>
-        <button class="btn sm danger" onclick="clearState()">Clear History</button>
         <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
           <div class="field" style="min-width:200px">
             <select id="historyInstance" onchange="PAGE=0; refreshHistory()"></select>
@@ -1740,8 +1753,8 @@ UI_HTML = r"""
   <div class="section" id="tab-stats">
     <div class="card">
       <div style="display:flex;justify-content:center;margin-bottom:14px">
-        <div class="pill" style="font-size:14px;font-weight:700;letter-spacing:0.02em;padding:8px 20px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981">
-          Lifetime Imports
+        <div class="pill" style="font-size:14px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase">
+          Lifetime Confirmed
         </div>
       </div>
       <div class="import-stats">
@@ -1888,7 +1901,7 @@ UI_HTML = r"""
                 <label>Radarr Missing Max (Per Instance)</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
-              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
               <div class="help">Maximum missing movies searched per instance per run.</div>
             </div>
             <div class="field">
@@ -1930,7 +1943,7 @@ UI_HTML = r"""
             <p class="amber-warn-title">USE WITH CAUTION</p>
             <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
-          <div id="newestAddedWarnAdvanced" class="amber-warn" style="display:none;margin-top:10px">
+          <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
             <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
           </div>
         </div>
@@ -1993,31 +2006,29 @@ UI_HTML = r"""
         <span class="msg" id="advMsg"></span>
       </div>
 
-      <div class="grid cols2">
-        <div class="card danger-section">
-          <p class="section-label" style="color:#fca5a5">Danger Zone</p>
-          <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
-          <div class="row" style="flex-wrap:wrap;gap:8px">
-            <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
-            <button class="btn sm danger" onclick="clearState()">Clear History</button>
-            <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
-          </div>
+      <div class="card danger-section" style="margin-bottom:12px">
+        <p class="section-label" style="color:#fca5a5">Danger Zone</p>
+        <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
         </div>
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+          <button class="btn sm danger" onclick="clearState()">Clear History</button>
+          <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
+        </div>
+      </div>
 
-        <div class="card">
-          <p class="section-label">Support &amp; Diagnostics</p>
-          <p class="help" style="margin:0 0 12px">Backup your data or grab a diagnostic to share on GitHub.</p>
-          <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
-            <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
-            <button class="btn sm" onclick="downloadFile('state')">Download History</button>
-          </div>
-          <div class="row" style="align-items:center;gap:10px">
-            <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
-            <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
-          </div>
-          <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
-          <div id="diagBox" class="diag-box" style="display:none"></div>
+      <div class="card">
+        <p class="section-label">Support &amp; Diagnostics</p>
+        <p class="help" style="margin:0 0 12px">Backup your data or grab a diagnostic to share on GitHub.</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
+          <button class="btn sm" onclick="downloadFile('state')">Download History</button>
+          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+          <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
         </div>
+        <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
+        <div id="diagBox" class="diag-box" style="display:none"></div>
       </div>
     </div>
   </div>
@@ -2368,7 +2379,7 @@ async function loadAll() {
 
   // Support link
   const sl = el('supportLink');
-  if (sl) sl.style.display = CFG.show_support_link !== false ? 'inline' : 'none';
+  if (sl) sl.style.display = CFG.show_support_link !== false ? 'inline-flex' : 'none';
 
   // Build instance list
   ALL_INSTANCES = [];
@@ -2509,7 +2520,10 @@ async function testConnections() {
   document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
 
   try {
-    const out = await api('/api/test', {method:'POST'});
+    const [out] = await Promise.all([
+      api('/api/test', {method:'POST'}),
+      new Promise(r => setTimeout(r, 1200))
+    ]);
     const allResults = [...(out.results.radarr||[]), ...(out.results.sonarr||[])];
 
     ['radarr','sonarr'].forEach(kind => {
@@ -2526,7 +2540,7 @@ async function testConnections() {
           <span class="test-icon">✗</span>
           <div>
             <div class="tc-name">${escapeHtml(r.name)}</div>
-            <div class="tc-detail">${escapeHtml(r.error||'Connection failed')}</div>
+            <div class="tc-detail">${r.error && r.error.length < 80 ? escapeHtml(r.error) : 'Could not connect — check the URL and API key'}</div>
           </div>
         </div>
       `).join('');
@@ -2588,13 +2602,12 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
-    // Fade warnings after successful save
-    ['newestAddedWarnSettings'].forEach(id => {
-      const w = el(id); if (w && w.style.display !== 'none') {
-        clearTimeout(w._warnFade);
-        w._warnFade = setTimeout(() => { w.classList.add('fade'); setTimeout(() => { w.classList.remove('fade'); }, 500); }, 4000);
-      }
-    });
+    // Collapse warning after save
+    const ws = el('newestAddedWarnSettings');
+    if (ws && ws.classList.contains('visible')) {
+      clearTimeout(ws._warnFade);
+      ws._warnFade = setTimeout(() => ws.classList.remove('visible'), 4000);
+    }
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2624,15 +2637,22 @@ function checkCooldownWarning() {
 
 // ── Newest Added warning ──
 function checkNewestAddedWarning() {
-  const mode = el('sample_mode') ? el('sample_mode').value : '';
-  const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : false;
+  const mode = el('sample_mode') ? el('sample_mode').value : (CFG ? CFG.sample_mode : '');
+  const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
+  const missingMax = el('radarr_missing_max') ? parseInt(el('radarr_missing_max').value || '0', 10) : (CFG ? (CFG.radarr_missing_max || 0) : 0);
   const isNewest = mode === 'newest_added';
-  const showWarn = isNewest && radarrBacklog;
+  const showWarn = isNewest && radarrBacklog && missingMax > 0;
   const warnSettings = el('newestAddedWarnSettings');
   const warnAdv = el('newestAddedWarnAdvanced');
   const helpText = el('sampleModeHelp');
-  if (warnSettings) warnSettings.style.display = showWarn ? '' : 'none';
-  if (warnAdv) warnAdv.style.display = showWarn ? '' : 'none';
+  [warnSettings, warnAdv].forEach(w => {
+    if (!w) return;
+    if (showWarn) {
+      w.classList.add('visible');
+    } else {
+      w.classList.remove('visible');
+    }
+  });
   if (helpText) helpText.style.display = showWarn ? 'none' : '';
 }
 
@@ -2657,7 +2677,7 @@ function maybeShowWhatsNew() {
 function syncSupportLinkUi() {
   const show = el('show_support_link') ? el('show_support_link').checked : true;
   const sl = el('supportLink');
-  if (sl) sl.style.display = show ? 'inline' : 'none';
+  if (sl) sl.style.display = show ? 'inline-flex' : 'none';
   const lbl = el('support_link_label');
   if (lbl) lbl.textContent = show ? 'Shown' : 'Hidden';
 }
@@ -3040,12 +3060,12 @@ async function saveAdvanced() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
-    ['newestAddedWarnAdvanced'].forEach(id => {
-      const w = el(id); if (w && w.style.display !== 'none') {
-        clearTimeout(w._warnFade);
-        w._warnFade = setTimeout(() => { w.classList.add('fade'); setTimeout(() => { w.style.display = 'none'; w.classList.remove('fade'); }, 500); }, 4000);
-      }
-    });
+    // Collapse warning after save
+    const wa = el('newestAddedWarnAdvanced');
+    if (wa && wa.classList.contains('visible')) {
+      clearTimeout(wa._warnFade);
+      wa._warnFade = setTimeout(() => wa.classList.remove('visible'), 4000);
+    }
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }

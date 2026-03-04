@@ -1456,7 +1456,16 @@ UI_HTML = r"""
 
     /* ── KPI pills row ── */
     .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; justify-content: center; }
+    .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .import-stat-card { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border-radius: 20px; border: 1px solid; font-size: 13px; }
+    .import-stat-card.movies { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.25); }
+    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.25); }
+    .import-stat-label { font-weight: 400; }
+    .import-stat-card.movies .import-stat-label { color: rgba(16,185,129,0.75); }
+    .import-stat-card.shows .import-stat-label { color: rgba(99,102,241,0.75); }
+    .import-stat-value { font-weight: 700; font-size: 15px; }
+    .import-stat-card.movies .import-stat-value { color: #10b981; }
+    .import-stat-card.shows .import-stat-value { color: #6366f1; }
 
 
     /* ── Tooltips ── */
@@ -1468,11 +1477,12 @@ UI_HTML = r"""
       font-size: 9px; font-style: italic; font-weight: 700;
       cursor: default; flex-shrink: 0; line-height: 1;
       user-select: none; transition: background .15s, border-color .15s;
+      position: relative;
     }
     .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
-    .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; }
+    .tooltip-wrap:hover .tooltip-icon .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
-      position: absolute; left: calc(100% + 8px); bottom: 0; top: auto;
+      position: absolute; left: calc(100% + 2px); bottom: 0; top: auto;
       background: #242640; border: 1px solid var(--accent-border);
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; color: var(--text-dim); line-height: 1.5;
@@ -1489,6 +1499,14 @@ UI_HTML = r"""
     }
     .warn-flash { animation: warnFlash 1s ease 3; color: var(--warn); font-size: 12px; }
     .warn-steady { color: var(--warn); font-size: 12px; }
+    /* ── Amber warning boxes ── */
+    .amber-warn {
+      padding: 12px; border-radius: 12px;
+      background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2);
+    }
+    .amber-warn-title { font-size: 12px; color: #fbbf24; font-weight: 600; margin: 0 0 4px; }
+    .amber-warn-body { margin: 0; }
+
     /* ── Danger zone ── */
     .danger-section { border: 1px solid var(--bad-border); border-radius: 12px; padding: 14px; background: var(--bad-dim); }
 
@@ -1527,7 +1545,7 @@ UI_HTML = r"""
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
-    <a id="supportLink" href="https://buymeacoffee.com/mmag" target="_blank" style="text-decoration:none;display:none;margin-left:auto;align-self:center;padding:4px 10px;font-size:12px;border-radius:20px;border:1px solid var(--border);color:var(--muted);white-space:nowrap" title="Buy Me a Coffee">🍺 Support</a>
+    <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;margin-left:6px;align-self:center;white-space:nowrap" title="Buy Me a Coffee">🍺 Support</a>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -1588,8 +1606,7 @@ UI_HTML = r"""
           <div class="field" style="max-width:160px">
             <div class="tooltip-wrap">
               <label>Run Interval (Hours)</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div></span>
             </div>
             <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
             <div class="help">How often Nudgarr runs a sweep.</div>
@@ -1603,8 +1620,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Cooldown (Hours)</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
             </div>
             <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
             <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
@@ -1612,8 +1628,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — picks different items each run for even library coverage.<br><strong>Alphabetical</strong> — always picks from the start of the alphabet first.<br><strong>Oldest Added</strong> — prioritises items added to your library longest ago.<br><strong>Newest Added</strong> — prioritises the most recently added items. If Radarr backlog nudges are enabled, this may conflict with Missing Added Days.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><em>Radarr's Missing Added Days sets the eligible pool. At 30 days, only items added 30+ days ago qualify — Newest Added picks closest to that cutoff, Oldest Added works from the far end. Sonarr missing nudges have no age filter.</em></div></span>
             </div>
             <select id="sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
               <option value="random">Random</option>
@@ -1621,7 +1636,9 @@ UI_HTML = r"""
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help" id="newestAddedWarnSettings" style="display:none;color:#f59e0b">⚠️ Newest Added may conflict with Missing Added Days — items just added will be searched immediately.</div>
+            <div id="newestAddedWarnSettings" class="amber-warn" style="display:none;margin-top:6px">
+              <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+            </div>
             <div class="help" id="sampleModeHelp">How Nudgarr picks which eligible items to search each run.</div>
           </div>
         </div>
@@ -1629,8 +1646,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Movies (Per Instance)</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
@@ -1638,8 +1654,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Episodes (Per Instance)</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
@@ -1653,8 +1668,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Batch Size</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How many search commands are sent to your indexer at once per batch. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously which can overwhelm indexers and trigger rate limiting. Keep this at 1 unless you have a specific reason to increase it.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many search commands are sent to your indexer at once per batch. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously which can overwhelm indexers and trigger rate limiting. Keep this at 1 unless you have a specific reason to increase it.</div></span>
             </div>
             <input id="batch_size" type="number" min="1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
@@ -1662,8 +1676,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sleep Seconds</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div></span>
             </div>
             <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
@@ -1671,8 +1684,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Jitter Seconds</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div></span>
             </div>
             <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting.</div>
@@ -1680,8 +1692,8 @@ UI_HTML = r"""
         </div>
       </div>
 
-      <div class="card" style="border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.06);">
-        <p class="help" style="margin:0; line-height:1.6; color: rgba(245,158,11,.9)">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be mindful of their rate limits — aggressive search behaviour can result in temporary or permanent bans.</p>
+      <div class="card amber-warn">
+        <p class="help amber-warn-body">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be mindful of their rate limits — aggressive search behaviour can result in temporary or permanent bans.</p>
       </div>
 
       <div class="row">
@@ -1727,25 +1739,23 @@ UI_HTML = r"""
   <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
   <div class="section" id="tab-stats">
     <div class="card">
-      <div style="display:flex;justify-content:center;margin-bottom:10px">
-        <div class="pill" style="font-size:13px;gap:8px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3)">
-          <span style="color:rgba(16,185,129,0.7)">Lifetime Confirmed</span>
-          <span id="statLifetimeTotal" style="font-weight:700;color:#10b981">—</span>
+      <div style="display:flex;justify-content:center;margin-bottom:14px">
+        <div class="pill" style="font-size:14px;font-weight:700;letter-spacing:0.02em;padding:8px 20px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981">
+          Lifetime Imports
         </div>
       </div>
       <div class="import-stats">
-        <div class="pill" style="font-size:13px;gap:8px">
-          <span style="color:var(--text-dim)">Movies</span>
-          <span id="statMoviesTotal" style="font-weight:700;color:var(--text)">—</span>
+        <div class="import-stat-card movies">
+          <span class="import-stat-label">Movies:</span>
+          <span class="import-stat-value" id="statMoviesTotal">—</span>
         </div>
-        <div class="pill" style="font-size:13px;gap:8px">
-          <span style="color:var(--text-dim)">Shows</span>
-          <span id="statShowsTotal" style="font-weight:700;color:var(--text)">—</span>
+        <div class="import-stat-card shows">
+          <span class="import-stat-label">Shows:</span>
+          <span class="import-stat-value" id="statShowsTotal">—</span>
         </div>
       </div>
       <div class="row" style="margin-bottom:14px">
         <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
-        <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
         <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
           <div class="field" style="min-width:200px">
             <select id="statsInstance" onchange="STATS_PAGE=0; refreshStats()">
@@ -1876,8 +1886,7 @@ UI_HTML = r"""
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Radarr Missing Max (Per Instance)</label>
-                <span class="tooltip-icon">i</span>
-                <div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing movies searched per instance per run.</div>
@@ -1885,8 +1894,7 @@ UI_HTML = r"""
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Radarr Missing Added Days</label>
-                <span class="tooltip-icon">i</span>
-                <div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div>
+                <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div></span>
               </div>
               <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
               <div class="help">Only search missing items added more than this many days ago.</div>
@@ -1910,8 +1918,7 @@ UI_HTML = r"""
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Sonarr Missing Max (Per Instance)</label>
-                <span class="tooltip-icon">i</span>
-                <div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
               </div>
               <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing episodes searched per instance per run.</div>
@@ -1919,12 +1926,12 @@ UI_HTML = r"""
           </div>
           </div>
           </div>
-          <div style="margin-top:16px;padding:12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px">
-            <p style="font-size:12px;color:#fbbf24;margin:0 0 6px;font-weight:600">USE WITH CAUTION</p>
-            <p class="help" style="margin:0">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+          <div class="amber-warn" style="margin-top:16px">
+            <p class="amber-warn-title">USE WITH CAUTION</p>
+            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
-          <div id="newestAddedWarnAdvanced" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px">
-            <p style="font-size:12px;color:#f59e0b;margin:0">⚠️ <strong>Newest Added</strong> mode is active. This may override Missing Added Days — recently added items will be searched first.</p>
+          <div id="newestAddedWarnAdvanced" class="amber-warn" style="display:none;margin-top:10px">
+            <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
           </div>
         </div>
 
@@ -1933,8 +1940,7 @@ UI_HTML = r"""
           <div class="field">
             <div class="tooltip-wrap">
               <label>Days to Keep</label>
-              <span class="tooltip-icon">i</span>
-              <div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Shows totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Shows totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
             </div>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
             <div class="help">Prunes history and stats entries older than this. Lifetime totals are not affected. 0 disables.</div>
@@ -1959,9 +1965,8 @@ UI_HTML = r"""
               <span class="help" id="auth_label">Enabled</span>
             </div>
             <div class="help">When disabled, anyone on your network can access the UI.</div>
-            <div class="help" style="margin-top:4px;color:var(--text-dim)">Locked out? Delete the config file and restart.</div>
           </div>
-          <div class="field" style="margin-top:12px">
+          <div class="field" style="margin-top:16px">
             <label>Session Timeout (Minutes)</label>
             <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Minutes of inactivity before requiring re-login.</div>
@@ -1978,13 +1983,7 @@ UI_HTML = r"""
               </label>
               <span class="help" id="support_link_label">Shown</span>
             </div>
-            <div class="help">Shows a 🍺 Buy Me a Coffee link in the header. Toggle off to hide it.</div>
-          </div>
-          <div class="hr"></div>
-          <p class="section-label">Files</p>
-          <div class="row">
-            <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
-            <button class="btn sm" onclick="downloadFile('state')">Download History</button>
+            <div class="help">Toggle off to hide.</div>
           </div>
         </div>
       </div>
@@ -1997,16 +1996,21 @@ UI_HTML = r"""
       <div class="grid cols2">
         <div class="card danger-section">
           <p class="section-label" style="color:#fca5a5">Danger Zone</p>
-          <p class="help" style="margin:0 0 12px; color:#fca5a5">These actions are irreversible.</p>
-          <div class="row">
-            <button class="btn sm danger" onclick="resetConfig()">Reset Config to Defaults</button>
+          <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
             <button class="btn sm danger" onclick="clearState()">Clear History</button>
+            <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
           </div>
         </div>
 
         <div class="card">
-          <p class="section-label">Diagnostics</p>
-          <p class="help" style="margin:0 0 12px">Copy diagnostic info to share when opening a GitHub issue.</p>
+          <p class="section-label">Support &amp; Diagnostics</p>
+          <p class="help" style="margin:0 0 12px">Backup your data or grab a diagnostic to share on GitHub.</p>
+          <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
+            <button class="btn sm" onclick="downloadFile('state')">Download History</button>
+          </div>
           <div class="row" style="align-items:center;gap:10px">
             <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
             <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
@@ -2017,8 +2021,6 @@ UI_HTML = r"""
       </div>
     </div>
   </div>
-
-</div>
 
   <!-- ══ Instance Modal ══ -->
   <div class="modal-backdrop" id="instModal" style="display:none" onclick="closeModal(event)">
@@ -2501,9 +2503,8 @@ async function saveAll() {
 }
 
 async function testConnections() {
-  el('testResults').style.display = 'block';
-  el('testResults').style.opacity = '1';
-  el('testResultsInner').innerHTML = '<p class="help">Testing…</p>';
+  el('testResults').style.display = 'none';
+  el('testResultsInner').innerHTML = '';
 
   document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
 
@@ -2518,29 +2519,33 @@ async function testConnections() {
       });
     });
 
-    el('testResultsInner').innerHTML = allResults.map(r => `
-      <div class="test-card ${r.ok ? 'ok' : 'bad'}">
-        <span class="test-icon">${r.ok ? '✓' : '✗'}</span>
-        <div>
-          <div class="tc-name">${escapeHtml(r.name)}</div>
-          <div class="tc-detail">${r.ok ? 'Connected · v' + escapeHtml(r.version||'?') + ' · ' + escapeHtml(r.url) : escapeHtml(r.error||'Connection failed')}</div>
+    const failures = allResults.filter(r => !r.ok);
+    if (failures.length > 0) {
+      el('testResultsInner').innerHTML = failures.map(r => `
+        <div class="test-card bad">
+          <span class="test-icon">✗</span>
+          <div>
+            <div class="tc-name">${escapeHtml(r.name)}</div>
+            <div class="tc-detail">${escapeHtml(r.error||'Connection failed')}</div>
+          </div>
         </div>
-      </div>
-    `).join('');
-
-    // Fade out result cards after 3 seconds, dots persist
-    setTimeout(() => {
-      el('testResults').style.transition = 'opacity 0.8s ease';
-      el('testResults').style.opacity = '0';
+      `).join('');
+      el('testResults').style.display = 'block';
+      el('testResults').style.opacity = '1';
       setTimeout(() => {
-        el('testResults').style.display = 'none';
-        el('testResults').style.transition = '';
-        el('testResults').style.opacity = '1';
-      }, 800);
-    }, 3000);
+        el('testResults').style.transition = 'opacity 0.8s ease';
+        el('testResults').style.opacity = '0';
+        setTimeout(() => {
+          el('testResults').style.display = 'none';
+          el('testResults').style.transition = '';
+          el('testResults').style.opacity = '1';
+        }, 800);
+      }, 4000);
+    }
 
   } catch(e) {
     el('testResultsInner').innerHTML = `<p class="help" style="color:var(--bad)">Test failed: ${escapeHtml(e.message)}</p>`;
+    el('testResults').style.display = 'block';
     document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot bad'; });
   }
 }
@@ -2583,6 +2588,13 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
+    // Fade warnings after successful save
+    ['newestAddedWarnSettings'].forEach(id => {
+      const w = el(id); if (w && w.style.display !== 'none') {
+        clearTimeout(w._warnFade);
+        w._warnFade = setTimeout(() => { w.classList.add('fade'); setTimeout(() => { w.classList.remove('fade'); }, 500); }, 4000);
+      }
+    });
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2854,8 +2866,6 @@ async function refreshStats() {
     // Update grand total cards
     el('statMoviesTotal').textContent = data.movies_total ?? 0;
     el('statShowsTotal').textContent = data.shows_total ?? 0;
-    const lt = el('statLifetimeTotal');
-    if (lt) lt.textContent = (data.movies_total ?? 0) + (data.shows_total ?? 0);
 
     if (!data.entries.length && STATS_PAGE === 0) {
       el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
@@ -3030,6 +3040,12 @@ async function saveAdvanced() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
+    ['newestAddedWarnAdvanced'].forEach(id => {
+      const w = el(id); if (w && w.style.display !== 'none') {
+        clearTimeout(w._warnFade);
+        w._warnFade = setTimeout(() => { w.classList.add('fade'); setTimeout(() => { w.style.display = 'none'; w.classList.remove('fade'); }, 500); }, 4000);
+      }
+    });
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }

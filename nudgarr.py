@@ -2151,6 +2151,9 @@ UI_HTML = r"""
           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔢 Search Count column</div>
           <div class="help">History now tracks how many times each item has been searched. High count with no import may indicate an indexer gap.</div>
         </div>
+        <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div class="help" style="color:var(--muted)">v2.6.0 introduces backend changes to how instances and history are tracked. If you run into anything unexpected, opening an issue on GitHub would be appreciated and goes a long way in improving the app — or roll back to v2.5.0 while we take a look.</div>
+        </div>
       </div>
       <div class="row" style="justify-content:flex-end;margin-top:20px">
         <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>

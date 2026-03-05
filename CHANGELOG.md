@@ -10,17 +10,18 @@ All notable changes to Nudgarr are documented here.
 - Disable/Enable toggle on each instance card — live update, no save required
 - Disabled instances skipped entirely in sweep, Test Connections, and startup health ping
 - Health dot goes grey when disabled; re-enabling triggers an immediate background ping
-- Card opacity dims to 0.45 when disabled
+- Card content dims when disabled — Enable button stays full opacity as the primary action
+- Toggle surgically updates only the affected card — sibling instance dots unaffected
 
 **Per-arr sample mode**
 - `radarr_sample_mode` and `sonarr_sample_mode` replace the single `sample_mode` key
 - Legacy `sample_mode` still accepted — used as fallback for both if per-arr keys not set
 - Newest Added warning checks `radarr_sample_mode` independently of Sonarr
-- Separate dropdowns in Settings under Search Behaviour
+- Settings → Search Behaviour restructured — Cooldown solo at top, Max Movies + Radarr Sample Mode paired, Max Episodes + Sonarr Sample Mode paired
 
 **Library Added column in History**
 - `library_added` field stored in state on each search — populated from Radarr/Sonarr `added` field
-- New column in History between Type and Last Searched, sortable
+- New sortable column in History between Type and Last Searched
 - Persists across searches — preserves value if `added` not returned on subsequent searches
 
 **Search Count in History**
@@ -29,7 +30,17 @@ All notable changes to Nudgarr are documented here.
 - Sortable column — useful for finding items searched many times with no import
 
 **Instance column in History**
-- Instance name now returned from `api/state/items` and shown as a dedicated sortable column
+- Instance name returned from `api/state/items` and shown as a dedicated sortable column
+
+**Backup All**
+- Replaces individual Download Config and Download History buttons in Support & Diagnostics
+- Single button downloads a zip containing config, state, and stats JSON files
+- Danger Zone confirm dialogs now reference Backup All and suggest using it beforehand
+
+**UI polish**
+- Donate pill moved from tab bar into header alongside Sign Out — visible from all tabs
+- Instance card restructured into two rows — name/URL on top, buttons on bottom
+- Indexer limits card retitled to ⚠️ INDEXER RATE LIMITS with updated body copy
 
 ---
 

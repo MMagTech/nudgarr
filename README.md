@@ -20,7 +20,8 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 
 **Core behaviour**
 - Scheduler with configurable run interval, or manual-only mode
-- Four sample modes — Random, Alphabetical, Oldest Added, Newest Added
+- Per-instance enable/disable — disabled instances skipped in sweeps and health checks
+- Per-app sample modes — Random, Alphabetical, Oldest Added, Newest Added independently for Radarr and Sonarr
 - Configurable cooldown to avoid hammering indexers between runs
 - Batch size, sleep, and jitter controls for indexer rate limit compliance
 - One retry per instance per sweep before marking bad and continuing
@@ -28,12 +29,13 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 
 **UI & history**
 - Web UI with Instances, Settings, History, Stats, Notifications, and Advanced tabs
-- Search history with sweep type, sortable columns, title search, and pagination
+- Search history with sweep type, instance, library added date, search count, sortable columns, title search, and pagination
 - Confirmed import tracking with lifetime Movies/Shows totals, type filtering, and title search
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
 - Instance health dots — live status updated on every sweep, test connection, and page load
 - First-run onboarding walkthrough — guided setup before the first sweep runs
 - What's New modal — shown once per version upgrade, never on fresh install
+- Backup All — single download of config, state, and stats as a zip
 
 **Security & operations**
 - UI login with PBKDF2-HMAC-SHA256 password hashing and configurable session timeout
@@ -152,7 +154,7 @@ The login screen prevents someone on your network from accessing the UI and chan
 - For remote access use a VPN (Tailscale, WireGuard) or a reverse proxy with HTTPS
 - Enable the built-in login as a basic layer of protection on your local network
 
-Nudgarr intentionally avoids features that introduce unnecessary attack surface. It does not execute arbitrary code, does not accept external input beyond its own UI, and does not make outbound connections to anything other than your configured Radarr and Sonarr instances.
+Nudgarr intentionally avoids features that introduce unnecessary attack surface. It does not execute arbitrary code, does not accept external input beyond its own UI, and does not make inbound connections — all outbound connections originate from the app itself to your configured Radarr and Sonarr instances, and optionally to your configured Apprise notification endpoints.
 
 Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
 
@@ -161,7 +163,7 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 ## Upgrade notes
 
 **v2.6.0**
-Per-instance enable/disable toggle — disabled instances are skipped in sweeps and health checks, dot goes grey, card dims, re-enabling triggers an immediate ping. Per-app sample mode — Radarr and Sonarr each have their own mode, independently configurable. Library Added column in History — shows when each item was added to your library, sortable. Search Count column in History — tracks how many times each item has been searched.
+Per-instance enable/disable — disabled instances are skipped in sweeps and health checks, dot goes grey, card dims, re-enabling triggers an immediate ping. Per-app sample mode — Radarr and Sonarr each have their own independently configurable mode. Library Added and Search Count columns added to History. Backup All replaces individual download buttons in Support & Diagnostics.
 
 Upgrading from v2.5.0: two new config keys (`radarr_sample_mode`, `sonarr_sample_mode`) default to your existing `sample_mode` value automatically — no manual changes needed.
 
@@ -169,9 +171,6 @@ Upgrading from v2.5.0: two new config keys (`radarr_sample_mode`, `sonarr_sample
 Four sample modes — Random, Alphabetical, Oldest Added, Newest Added. Instance health dots now pulse amber on page load and resolve within ~1 second via parallel background pings. Last Run and Next Run pills populate immediately on startup. Visual hierarchy corrected throughout — section headers, field labels, and help text now cascade correctly. Danger zone consolidated to one row. Clear History no longer shows a second popup. Testing checklists added to `assets/` for community validation.
 
 Upgrading from v2.4.0: `sample_mode` values of `random` and `first` are still accepted. Two new config keys (`last_seen_version`, `show_support_link`) are added automatically — no manual changes needed.
-
-**v2.4.0**
-Title search on History and Stats tabs. Pagination page size shared across both tabs. History Size renamed to Data Retention — stats entries pruned alongside history. Retry logic — one retry per instance with 15 second wait before marking bad. Instance error notifications fire per failed instance.
 
 For full version history see [CHANGELOG.md](CHANGELOG.md).
 

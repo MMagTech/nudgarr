@@ -882,6 +882,13 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             "limit_missing": missing_max,
             "missing_added_days": missing_added_days
             })
+            # Increment lifetime sweep counters — survive Clear History
+            lk = f"radarr|{state_key(name, url)}"
+            lf = state.setdefault("sweep_lifetime", {}).setdefault(lk, {"runs": 0, "eligible": 0, "skipped": 0, "searched": 0})
+            lf["runs"] += 1
+            lf["eligible"] += eligible + eligible_missing
+            lf["skipped"] += skipped + skipped_missing
+            lf["searched"] += searched + searched_missing
         except Exception as e:
             print(f"[Radarr:{name}] ERROR: {e} — retrying in 15s")
             time.sleep(15)
@@ -967,6 +974,13 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 "searched_missing": searched_missing,
                 "limit_missing": sonarr_missing_max,
             })
+            # Increment lifetime sweep counters — survive Clear History
+            lk = f"sonarr|{state_key(name, url)}"
+            lf = state.setdefault("sweep_lifetime", {}).setdefault(lk, {"runs": 0, "eligible": 0, "skipped": 0, "searched": 0})
+            lf["runs"] += 1
+            lf["eligible"] += eligible + eligible_missing
+            lf["skipped"] += skipped + skipped_missing
+            lf["searched"] += searched + searched_missing
         except Exception as e:
             print(f"[Sonarr:{name}] ERROR: {e} — retrying in 15s")
             time.sleep(15)
@@ -1622,7 +1636,7 @@ UI_HTML = r"""
     <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
-    <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
+    <div class="tab" data-tab="imports" onclick="showTab('imports')">Imports</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
   </div>
@@ -1667,15 +1681,23 @@ UI_HTML = r"""
   <div class="section" id="tab-sweep">
     <div class="grid cols2">
       <div class="card">
-        <div class="row" style="margin-bottom:12px">
-          <span class="section-label" style="margin:0">Radarr</span>
+        <div class="row" style="margin-bottom:4px">
+          <div class="tooltip-wrap">
+            <span class="section-label" style="margin:0">Radarr</span>
+            <span class="tooltip-icon">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
+          </div>
         </div>
+        <p class="help" style="margin:0 0 10px">Per-instance sweep activity — last run and lifetime totals.</p>
         <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
       <div class="card">
-        <div class="row" style="margin-bottom:12px">
-          <span class="section-label" style="margin:0">Sonarr</span>
+        <div class="row" style="margin-bottom:4px">
+          <div class="tooltip-wrap">
+            <span class="section-label" style="margin:0">Sonarr</span>
+            <span class="tooltip-icon">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
+          </div>
         </div>
+        <p class="help" style="margin:0 0 10px">Per-instance sweep activity — last run and lifetime totals.</p>
         <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
     </div>
@@ -1851,7 +1873,7 @@ UI_HTML = r"""
   </div>
 
   <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
-  <div class="section" id="tab-stats">
+  <div class="section" id="tab-imports">
     <div class="card">
       <div style="display:flex;justify-content:center;margin-bottom:14px">
         <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase">
@@ -1872,32 +1894,32 @@ UI_HTML = r"""
         <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
         <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
           <div class="field" style="min-width:200px">
-            <select id="statsInstance" onchange="STATS_PAGE=0; refreshStats()">
+            <select id="importsInstance" onchange="IMPORTS_PAGE=0; refreshImports()">
               <option value="">All Instances</option>
             </select>
           </div>
           <div class="field" style="min-width:150px">
-            <select id="statsType" onchange="STATS_PAGE=0; refreshStats()">
+            <select id="importsType" onchange="IMPORTS_PAGE=0; refreshImports()">
               <option value="">All Types</option>
             </select>
           </div>
           <div class="field" style="min-width:100px">
-            <select id="statsLimit" onchange="syncPageSize('stats'); STATS_PAGE=0; refreshStats()">
+            <select id="importsLimit" onchange="syncPageSize('imports'); IMPORTS_PAGE=0; refreshImports()">
               <option>10</option><option selected>25</option><option>50</option><option>100</option>
             </select>
           </div>
           <div class="field" style="min-width:180px;position:relative">
-            <input type="text" id="statsSearch" placeholder="Search title…" oninput="filterStatsSearch()" style="padding-right:28px"/>
-            <button id="statsSearchClear" onclick="clearStatsSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+            <input type="text" id="importsSearch" placeholder="Search title…" oninput="filterImportsSearch()" style="padding-right:28px"/>
+            <button id="importsSearchClear" onclick="clearImportsSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
           </div>
         </div>
       </div>
-      <div id="statsTableWrap"></div>
-      <div id="statsNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div id="importsTableWrap"></div>
+      <div id="importsNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
       <div class="row" style="margin-top:12px" id="statsPagination">
         <button class="btn sm" onclick="prevStatsPage()">Prev</button>
         <button class="btn sm" onclick="nextStatsPage()">Next</button>
-        <span class="msg" id="statsPageInfo"></span>
+        <span class="msg" id="importsPageInfo"></span>
       </div>
     </div>
   </div>
@@ -2235,12 +2257,12 @@ UI_HTML = r"""
 <script>
 let CFG = null;
 let PAGE = 0;
-let STATS_PAGE = 0;
+let IMPORTS_PAGE = 0;
 let ALL_INSTANCES = [];
 let confirmResolve = null;
 let ACTIVE_TAB = 'instances';
 let HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
-let STATS_SORT = { col: 'imported_ts', dir: 'desc' };
+let IMPORTS_SORT = { col: 'imported_ts', dir: 'desc' };
 let EXCLUSIONS_SET = new Set();
 let EXCL_FILTER_ACTIVE = false;
 
@@ -2436,19 +2458,19 @@ function _onTabShown(name) {
     }
     refreshHistory();
   }
-  if (name === 'stats') {
-    clearStatsSearch();
-    if (!el('statsTableWrap').querySelector('table')) {
-      el('statsTableWrap').innerHTML = `
+  if (name === 'imports') {
+    clearImportsSearch();
+    if (!el('importsTableWrap').querySelector('table')) {
+      el('importsTableWrap').innerHTML = `
         <table><thead><tr>
-          <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
-          <th class="sortable ${STATS_SORT.col==='instance' ? 'sort-'+STATS_SORT.dir : ''}" data-col="instance" onclick="sortStats('instance')">Instance</th>
-          <th class="sortable ${STATS_SORT.col==='type' ? 'sort-'+STATS_SORT.dir : ''}" data-col="type" onclick="sortStats('type')">Type</th>
-          <th class="sortable ${STATS_SORT.col==='searched_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
-          <th class="sortable ${STATS_SORT.col==='imported_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
+          <th class="sortable ${IMPORTS_SORT.col==='title' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="title" onclick="sortImports('title')">Title</th>
+          <th class="sortable ${IMPORTS_SORT.col==='instance' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="instance" onclick="sortImports('instance')">Instance</th>
+          <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
+          <th class="sortable ${IMPORTS_SORT.col==='searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="searched_ts" onclick="sortImports('searched_ts')">Searched</th>
+          <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
         </tr></thead><tbody></tbody></table>`;
     }
-    refreshStats();
+    refreshImports();
   }
   if (name === 'sweep') refreshSweep();
   if (name === 'history') { loadExclusions(); }
@@ -2465,12 +2487,99 @@ async function refreshSweep() {
   const cfg = await api('/api/config');
   const summary = status.last_summary || {};
   const health = status.instance_health || {};
+  const lifetime = status.sweep_lifetime || {};
   const instances = cfg.instances || {};
   const legacyMode = cfg.sample_mode || 'random';
+
+  function fmtMode(m) {
+    return (m || 'random').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
 
   for (const kind of ['radarr', 'sonarr']) {
     const listEl = el('sweep' + kind.charAt(0).toUpperCase() + kind.slice(1) + 'List');
     const insts = instances[kind] || [];
+    if (!insts.length) {
+      listEl.innerHTML = `<p class="help" style="margin:4px 0">No ${kind} instances configured.</p>`;
+      continue;
+    }
+    const summaryInsts = summary[kind] || [];
+    listEl.innerHTML = insts.map(inst => {
+      const instKey = `${kind}|${inst.name}`;
+      const sk = `${kind}|${inst.name}|${(inst.url || '').replace(/\\/+$/, '')}`;
+      const dotState = health[instKey] || 'checking';
+      const disabled = inst.enabled === false;
+      const sw = summaryInsts.find(s => s.name === inst.name);
+      const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
+      const mode = cfg[modeKey] || legacyMode || 'random';
+      const lastRun = status.last_run_utc ? fmtTime(status.last_run_utc) : '—';
+
+      // Last run stats
+      const eligible = sw ? (sw.eligible || 0) + (sw.eligible_missing || 0) : null;
+      const skipped = sw ? (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0) : null;
+      const searched = sw ? (sw.searched || 0) + (sw.searched_missing || 0) : null;
+      const hasData = sw != null;
+
+      // Lifetime stats — find by matching name prefix in lifetime keys
+      const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
+      const lf = lk ? lifetime[lk] : null;
+
+      const dimStyle = disabled ? 'opacity:0.45;' : '';
+      const statsRowBg = 'background:var(--card);border-radius:8px;padding:10px 12px;margin-top:2px;';
+      const lifetimeRowBg = 'background:var(--bg);border-radius:8px;padding:10px 12px;border:1px solid var(--border);';
+
+      return `
+        <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\\s+/g,'_')}">
+          <div class="inst-row1" style="${dimStyle}">
+            <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
+            <div class="inst-info">
+              <div class="inst-name">${escapeHtml(inst.name)}</div>
+              <div class="inst-meta">${escapeHtml(inst.url || '')} &nbsp;·&nbsp; ${fmtMode(mode)}${disabled ? ' &nbsp;·&nbsp; <span style="color:var(--text-dim);font-weight:600">Disabled</span>' : ''}</div>
+            </div>
+            <div class="inst-meta" style="flex-shrink:0;text-align:right">${lastRun}</div>
+          </div>
+          <div style="${statsRowBg}${dimStyle}">
+            <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Last Sweep</div>
+            <div class="sweep-stats">
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Eligible</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Skipped</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Searched</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
+              </div>
+            </div>
+            ${!hasData ? '<p class="help" style="margin:6px 0 0;font-size:11px">Waiting for first sweep.</p>' : ''}
+          </div>
+          <div style="${lifetimeRowBg}${dimStyle}">
+            <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Lifetime</div>
+            <div class="sweep-stats">
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Runs</span>
+                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.runs : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Eligible</span>
+                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.eligible : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Skipped</span>
+                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.skipped : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Searched</span>
+                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.searched : '—'}</span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
     if (!insts.length) {
       listEl.innerHTML = `<p class="help" style="margin:4px 0">No ${kind} instances configured.</p>`;
       continue;
@@ -2519,13 +2628,6 @@ async function refreshSweep() {
               <span class="sweep-stat-label">Mode</span>
               <span class="sweep-stat-value">${escapeHtml(mode.replace('_',' '))}</span>
             </div>
-          </div>
-          ${!hasData ? '<p class="help" style="margin:4px 0 0;font-size:11px">Waiting for first sweep.</p>' : ''}
-        </div>`;
-    }).join('');
-  }
-}
-
 function showSweepNoInstancesModal() {
   el('sweepNoInstancesModal').style.display = 'flex';
 }
@@ -2546,7 +2648,7 @@ async function loadExclusions() {
 async function toggleExclusion(title) {
   const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
   const endpoint = isExcl ? '/api/exclusions/remove' : '/api/exclusions/add';
-  await api(endpoint, 'POST', { title });
+  await api(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
   await loadExclusions();
   refreshHistory();
 }
@@ -3086,15 +3188,15 @@ function sortHistory(col) {
   refreshHistory();
 }
 
-function sortStats(col) {
-  if (STATS_SORT.col === col) {
-    STATS_SORT.dir = STATS_SORT.dir === 'asc' ? 'desc' : 'asc';
+function sortImports(col) {
+  if (IMPORTS_SORT.col === col) {
+    IMPORTS_SORT.dir = IMPORTS_SORT.dir === 'asc' ? 'desc' : 'asc';
   } else {
-    STATS_SORT.col = col;
-    STATS_SORT.dir = 'asc';
+    IMPORTS_SORT.col = col;
+    IMPORTS_SORT.dir = 'asc';
   }
-  STATS_PAGE = 0;
-  refreshStats();
+  IMPORTS_PAGE = 0;
+  refreshImports();
 }
 
 function applySortIndicators(tableSelector, sortState) {
@@ -3152,10 +3254,10 @@ function clearHistorySearch() {
 }
 
 // ── Stats search ──
-function filterStatsSearch() {
-  const q = el('statsSearch').value.trim().toLowerCase();
-  el('statsSearchClear').style.display = q ? '' : 'none';
-  const rows = el('statsTableWrap').querySelectorAll('tbody tr');
+function filterImportsSearch() {
+  const q = el('importsSearch').value.trim().toLowerCase();
+  el('importsSearchClear').style.display = q ? '' : 'none';
+  const rows = el('importsTableWrap').querySelectorAll('tbody tr');
   let visible = 0;
   rows.forEach(row => {
     const title = row.cells[0]?.textContent.toLowerCase() || '';
@@ -3163,14 +3265,14 @@ function filterStatsSearch() {
     row.style.display = show ? '' : 'none';
     if (show) visible++;
   });
-  const noRes = el('statsNoResults');
+  const noRes = el('importsNoResults');
   if (noRes) noRes.style.display = (!visible && q) ? '' : 'none';
 }
 
-function clearStatsSearch() {
-  el('statsSearch').value = '';
-  el('statsSearchClear').style.display = 'none';
-  filterStatsSearch();
+function clearImportsSearch() {
+  el('importsSearch').value = '';
+  el('importsSearchClear').style.display = 'none';
+  filterImportsSearch();
 }
 
 async function pruneState() {
@@ -3187,18 +3289,18 @@ async function clearState() {
 }
 
 // ── Stats tab ──
-async function refreshStats() {
+async function refreshImports() {
   try {
-    const inst = el('statsInstance') ? el('statsInstance').value : '';
-    const type = el('statsType') ? el('statsType').value : '';
-    const limit = parseInt(el('statsLimit')?.value || '25', 10);
-    let url = `/api/stats?offset=${STATS_PAGE * limit}&limit=${limit}`;
+    const inst = el('importsInstance') ? el('importsInstance').value : '';
+    const type = el('importsType') ? el('importsType').value : '';
+    const limit = parseInt(el('importsLimit')?.value || '25', 10);
+    let url = `/api/stats?offset=${IMPORTS_PAGE * limit}&limit=${limit}`;
     if (inst) url += `&instance=${encodeURIComponent(inst)}`;
     if (type) url += `&type=${encodeURIComponent(type)}`;
     const data = await api(url);
 
     // Populate instance dropdown
-    const sel = el('statsInstance');
+    const sel = el('importsInstance');
     if (sel) {
       const prev = sel.value;
       sel.innerHTML = '<option value="">All Instances</option>' +
@@ -3207,7 +3309,7 @@ async function refreshStats() {
     }
 
     // Populate type dropdown dynamically from available types
-    const typeSel = el('statsType');
+    const typeSel = el('importsType');
     if (typeSel) {
       const prevType = typeSel.value;
       typeSel.innerHTML = '<option value="">All Types</option>' +
@@ -3215,19 +3317,19 @@ async function refreshStats() {
       if (prevType && (data.types || []).includes(prevType)) typeSel.value = prevType;
     }
 
-    el('statsPageInfo').textContent = `Page ${STATS_PAGE+1} · ${data.entries.length} of ${data.total}`;
+    el('importsPageInfo').textContent = `Page ${IMPORTS_PAGE+1} · ${data.entries.length} of ${data.total}`;
     el('statsPagination').style.display = data.total > 0 ? 'flex' : 'none';
 
     // Update grand total cards
     el('statMoviesTotal').textContent = data.movies_total ?? 0;
     el('statShowsTotal').textContent = data.shows_total ?? 0;
 
-    if (!data.entries.length && STATS_PAGE === 0) {
-      el('statsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
+    if (!data.entries.length && IMPORTS_PAGE === 0) {
+      el('importsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
       return;
     }
 
-    const sorted = sortItems(data.entries, STATS_SORT.col, STATS_SORT.dir);
+    const sorted = sortItems(data.entries, IMPORTS_SORT.col, IMPORTS_SORT.dir);
     const rows = sorted.map(e => `
       <tr>
         <td>${escapeHtml(e.title || e.item_id)}</td>
@@ -3238,31 +3340,31 @@ async function refreshStats() {
       </tr>
     `).join('');
 
-    el('statsTableWrap').innerHTML = `
+    el('importsTableWrap').innerHTML = `
       <table>
         <thead><tr>
-          <th class="sortable ${STATS_SORT.col==='title' ? 'sort-'+STATS_SORT.dir : ''}" data-col="title" onclick="sortStats('title')">Title</th>
-          <th class="sortable ${STATS_SORT.col==='instance' ? 'sort-'+STATS_SORT.dir : ''}" data-col="instance" onclick="sortStats('instance')">Instance</th>
-          <th class="sortable ${STATS_SORT.col==='type' ? 'sort-'+STATS_SORT.dir : ''}" data-col="type" onclick="sortStats('type')">Type</th>
-          <th class="sortable ${STATS_SORT.col==='searched_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="searched_ts" onclick="sortStats('searched_ts')">Searched</th>
-          <th class="sortable ${STATS_SORT.col==='imported_ts' ? 'sort-'+STATS_SORT.dir : ''}" data-col="imported_ts" onclick="sortStats('imported_ts')">Imported</th>
+          <th class="sortable ${IMPORTS_SORT.col==='title' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="title" onclick="sortImports('title')">Title</th>
+          <th class="sortable ${IMPORTS_SORT.col==='instance' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="instance" onclick="sortImports('instance')">Instance</th>
+          <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
+          <th class="sortable ${IMPORTS_SORT.col==='searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="searched_ts" onclick="sortImports('searched_ts')">Searched</th>
+          <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     `;
-    applySortIndicators('#statsTableWrap table', STATS_SORT);
+    applySortIndicators('#statsTableWrap table', IMPORTS_SORT);
   } catch(e) {
-    el('statsTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load stats: ${escapeHtml(e.message)}</p>`;
+    el('importsTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load stats: ${escapeHtml(e.message)}</p>`;
   }
 }
 
-function prevStatsPage() { if (STATS_PAGE > 0) { STATS_PAGE--; refreshStats(); } }
-function nextStatsPage() { STATS_PAGE++; refreshStats(); }
+function prevStatsPage() { if (IMPORTS_PAGE > 0) { IMPORTS_PAGE--; refreshImports(); } }
+function nextStatsPage() { IMPORTS_PAGE++; refreshImports(); }
 
 async function checkImportsNow() {
   try {
     await api('/api/stats/check-imports', {method:'POST'});
-    await refreshStats();
+    await refreshImports();
   } catch(e) {
     console.error('Import check failed:', e);
   }
@@ -3271,7 +3373,7 @@ async function checkImportsNow() {
 async function clearStats() {
   if (!await showConfirm('Clear Stats', 'This will permanently clear all import records from the Stats tab. Lifetime totals are preserved. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
   await api('/api/stats/clear', {method:'POST'});
-  refreshStats();
+  refreshImports();
 }
 
 // ── Advanced tab ──
@@ -3492,7 +3594,7 @@ async function pollCycle() {
   if (now - AUTO_REFRESH_LAST >= 30000) {
     AUTO_REFRESH_LAST = now;
     if (ACTIVE_TAB === 'history') refreshHistory();
-    if (ACTIVE_TAB === 'stats') refreshStats();
+    if (ACTIVE_TAB === 'imports') refreshImports();
     if (ACTIVE_TAB === 'sweep') refreshSweep();
   }
 }
@@ -3598,7 +3700,10 @@ def api_logout():
 @app.get("/api/status")
 @requires_auth
 def api_status():
-    return jsonify(STATUS)
+    st = load_state()
+    payload = dict(STATUS)
+    payload["sweep_lifetime"] = st.get("sweep_lifetime", {})
+    return jsonify(payload)
 
 @app.get("/api/stats")
 @requires_auth
@@ -3933,7 +4038,11 @@ def api_state_prune():
 @requires_auth
 def api_state_clear():
     cfg = load_or_init_config()
+    old_st = load_state()
     st = {"radarr": {}, "sonarr": {}}
+    # Preserve lifetime sweep counters — these survive Clear History
+    if "sweep_lifetime" in old_st:
+        st["sweep_lifetime"] = old_st["sweep_lifetime"]
     st = ensure_state_structure(st, cfg)
     save_state(st, cfg)
     return jsonify({"ok": True})

@@ -80,6 +80,7 @@ v2.0.0:
 
 import hashlib
 import hmac
+import io
 import json
 import logging
 import os
@@ -88,6 +89,7 @@ import secrets
 import signal
 import threading
 import time
+import zipfile
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -3213,12 +3215,6 @@ async function backupAll() {
   }
 }
 
-function downloadFile(which) {
-  const a = document.createElement('a');
-  a.href = which === 'config' ? '/api/file/config' : '/api/file/state';
-  a.download = which === 'config' ? 'nudgarr-config.json' : 'nudgarr-state.json';
-  document.body.appendChild(a); a.click(); a.remove();
-}
 
 function downloadDiagnostic() {
   const a = document.createElement('a');
@@ -3740,11 +3736,10 @@ def api_file_state():
 @app.get("/api/file/backup")
 @requires_auth
 def api_file_backup():
-    import zipfile, io as _io
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
     stats = load_stats()
-    buf = _io.BytesIO()
+    buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("nudgarr-config.json", json.dumps(cfg, indent=2))
         zf.writestr("nudgarr-state.json", json.dumps(st, indent=2))

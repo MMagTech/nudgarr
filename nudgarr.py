@@ -1755,7 +1755,7 @@ UI_HTML = r"""
 
       <div class="card amber-warn">
         <p class="amber-warn-title">⚠️ INDEXER RATE LIMITS</p>
-        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard.</p>
+        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits when using this app.</p>
       </div>
 
       <div class="row" style="margin-top:16px">
@@ -2551,7 +2551,22 @@ async function toggleInstance(kind, idx) {
     const out = await api('/api/instance/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kind, idx})});
     const enabled = out.enabled;
     CFG.instances[kind][idx].enabled = enabled;
-    renderInstances(kind);
+
+    // Surgical update — only touch the card that was toggled, never rebuild the list
+    const card = el(`instcard-${kind}-${idx}`);
+    if (card) {
+      const row1 = card.querySelector('.inst-row1');
+      const actions = card.querySelector('.inst-actions');
+      const toggleBtn = card.querySelector('.inst-row2 button');
+      const dim = enabled ? '' : 'opacity:0.45;';
+      if (row1) row1.style.opacity = enabled ? '' : '0.45';
+      if (actions) actions.style.opacity = enabled ? '' : '0.45';
+      if (toggleBtn) {
+        toggleBtn.textContent = enabled ? 'Disable' : 'Enable';
+        toggleBtn.className = enabled ? 'btn sm' : 'btn sm primary';
+      }
+    }
+
     const dot = el(`sdot-${dotKey}`);
     if (dot) {
       if (!enabled) {

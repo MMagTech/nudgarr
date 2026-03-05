@@ -1,21 +1,11 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.6.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.7.0 — Because RSS sometimes needs a nudge.
 
-v2.6.0:
-- Per-instance enable/disable toggle — skips disabled instances in sweep and health checks
-- Per-arr sample mode — radarr_sample_mode and sonarr_sample_mode independently configurable
-- Library Added column in History — stores added date from Radarr/Sonarr, sortable
-- Search count in History — shows how many times each item has been searched
-- Sample Modes expanded — Random, Alphabetical, Oldest Added, Newest Added
-- Added field extracted from Radarr/Sonarr cutoff unmet endpoints for sort support
-- Newest Added warning — amber notice on Settings and Advanced tabs when selected
-- What's New modal — shows once per version upgrade, never on fresh install
-- Support link pill — 🍺 Buy Me a Coffee in header, toggleable in Advanced → UI Preferences
-- Confirm dialog copy updated — Prune Expired, Clear History, Clear Stats clarified
-- Stats tab — Lifetime Confirmed pill above Movies and Shows cards
-- Onboarding step 3 updated — all four sample modes described
-- Onboarding final step updated — support link note added
+v2.7.0:
+- Sweep tab — per-instance cards showing last run time, eligible/skipped/searched counts, sample mode
+- Exclusion list — exclude titles from future searches via ⊘ icon in History, nudgarr-exclusions.json
+- Favicon — inline base64 SVG served in page head, no external dependency
 
 v2.4.0:
 - Title search on History and Stats tabs — inline with filters, ✕ to clear, no results message, resets on tab switch
@@ -101,11 +91,12 @@ try:
 except ImportError:
     APPRISE_AVAILABLE = False
 
-VERSION = "2.6.0"
+VERSION = "2.7.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
 STATS_FILE = os.getenv("STATS_FILE", "/config/nudgarr-stats.json")
+EXCLUSIONS_FILE = os.getenv("EXCLUSIONS_FILE", "/config/nudgarr-exclusions.json")
 PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -351,6 +342,15 @@ def load_stats() -> Dict[str, Any]:
 
 def save_stats(stats: Dict[str, Any]) -> None:
     save_json_atomic(STATS_FILE, stats, pretty=True)
+
+def load_exclusions() -> List[Dict[str, Any]]:
+    data = load_json(EXCLUSIONS_FILE, [])
+    if not isinstance(data, list):
+        return []
+    return data
+
+def save_exclusions(exclusions: List[Dict[str, Any]]) -> None:
+    save_json_atomic(EXCLUSIONS_FILE, exclusions, pretty=True)
 
 # ── Notifications ──
 # Apprise-based push notifications. send_notification() is the core
@@ -758,6 +758,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
     if sonarr_sample_mode not in VALID_MODES:
         sonarr_sample_mode = "random"
 
+    # Load exclusion list — excluded titles are silently skipped regardless of sweep type
+    exclusions = load_exclusions()
+    excluded_titles = {e["title"].lower() for e in exclusions if e.get("title")}
+
     radarr_max = int(cfg.get("radarr_max_movies_per_run", 25))
     sonarr_max = int(cfg.get("sonarr_max_episodes_per_run", 25))
 
@@ -802,6 +806,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
         st_bucket = state.setdefault("radarr", {}).setdefault(ik, {})
         try:
             all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
+            all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
             STATUS["instance_health"][f"radarr|{name}"] = "ok"
             all_ids = [m["id"] for m in all_movies]
             chosen_items, eligible, skipped = pick_items_with_cooldown(all_movies, st_bucket, "movie", cooldown_hours, radarr_max, radarr_sample_mode)
@@ -832,6 +837,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
             if radarr_backlog_enabled and missing_max > 0:
                 missing_records = radarr_get_missing_movies(session, url, key)
+                missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
                 missing_total = len(missing_records)
 
                 missing_filtered: List[Dict[str, Any]] = []
@@ -899,6 +905,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
         st_bucket = state.setdefault("sonarr", {}).setdefault(ik, {})
         try:
             all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key)
+            all_episodes = [e for e in all_episodes if (e.get("title") or "").lower() not in excluded_titles]
             STATUS["instance_health"][f"sonarr|{name}"] = "ok"
             all_ids = [e["id"] for e in all_episodes]
             chosen_items, eligible, skipped = pick_items_with_cooldown(all_episodes, st_bucket, "episode", cooldown_hours, sonarr_max, sonarr_sample_mode)
@@ -928,6 +935,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
             if sonarr_backlog_enabled and sonarr_missing_max > 0:
                 missing_records = sonarr_get_missing_episodes(session, url, key)
+                missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
                 missing_total = len(missing_records)
                 # No added days filter for Sonarr — if it's in Wanted, search it
                 chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
@@ -1265,6 +1273,7 @@ UI_HTML = r"""
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Nudgarr</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2311131f'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%236366f1'%3EN%3C/text%3E%3C/svg%3E"/>
   <style>
     :root {
       --bg: #11131f;
@@ -1461,6 +1470,29 @@ UI_HTML = r"""
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     #pill-lastrun { min-width: 185px; }
 
+    /* ── Sweep cards ── */
+    .sweep-card {
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 13px 14px; margin-top: 8px; background: var(--surface);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .sweep-card .inst-row1 { display: flex; align-items: center; gap: 10px; }
+    .sweep-card .sweep-stats { display: flex; gap: 16px; flex-wrap: wrap; padding-top: 2px; }
+    .sweep-stat { display: flex; flex-direction: column; gap: 2px; }
+    .sweep-stat-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .sweep-stat-value { font-size: 13px; color: var(--text); font-weight: 500; }
+    .sweep-stat-value.dim { color: var(--text-dim); }
+    .sweep-card.disabled-card { opacity: 0.45; }
+
+    /* ── Exclusion icon ── */
+    .excl-col { width: 28px; text-align: center; }
+    .excl-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; opacity: 0; transition: opacity .15s, color .15s; padding: 0; line-height: 1; }
+    .excl-btn:hover { color: var(--bad); }
+    .excl-btn.excluded { opacity: 1 !important; color: #f87171; }
+    tr:hover .excl-btn { opacity: 1; }
+    tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
+    tr.row-excluded .excl-btn { opacity: 1 !important; }
+
     /* ── Test result cards ── */
     .test-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
     .test-card {
@@ -1587,6 +1619,7 @@ UI_HTML = r"""
   <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
+    <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
@@ -1626,6 +1659,24 @@ UI_HTML = r"""
           <div class="hr"></div>
           <div class="test-results" id="testResultsInner"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ SWEEP ══════════════════════════════ -->
+  <div class="section" id="tab-sweep">
+    <div class="grid cols2">
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <span class="section-label" style="margin:0">Radarr</span>
+        </div>
+        <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
+      </div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <span class="section-label" style="margin:0">Sonarr</span>
+        </div>
+        <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
     </div>
   </div>
@@ -1785,8 +1836,10 @@ UI_HTML = r"""
             <input type="text" id="historySearch" placeholder="Search title…" oninput="filterHistorySearch()" style="padding-right:28px"/>
             <button id="historySearchClear" onclick="clearHistorySearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
           </div>
+          <span id="exclusionsPill" onclick="toggleExclusionsFilter()" class="pill clickable" style="display:none;cursor:pointer;white-space:nowrap">Exclusions</span>
         </div>
       </div>
+      <p id="exclusionsHint" class="help" style="margin:0 0 10px;display:block">Hover over any row to access exclusion options.</p>
       <div id="historyTableWrap"></div>
       <div id="historyNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
       <div class="row" style="margin-top:12px" id="historyPagination">
@@ -2132,31 +2185,35 @@ UI_HTML = r"""
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
     <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-      <h2 style="margin:0 0 4px">What's New in v2.6.0</h2>
+      <h2 style="margin:0 0 4px">What's New in v2.7.0</h2>
       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
       <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔘 Per-Instance Enable / Disable</div>
-          <div class="help">Each instance now has a Disable button. Disabled instances are skipped during sweeps and health checks — their dot goes grey and the card dims. Re-enabling triggers an immediate health ping.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Sweep Tab</div>
+          <div class="help">A dedicated tab showing per-instance sweep stats — eligible, skipped, searched, last run time, and sample mode. Cards mirror the Instances tab layout and update automatically.</div>
         </div>
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎯 Per-App Sample Mode</div>
-          <div class="help">Radarr and Sonarr now each have their own Sample Mode setting. Use Oldest Added for movies and Newest Added for shows — or any combination.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">⊘ Exclusion List</div>
+          <div class="help">Hover any History row to reveal the exclusion icon. Excluding a title prevents Nudgarr from ever searching it again — across all instances and sweep types. Manage exclusions via the Exclusions filter pill.</div>
         </div>
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">📅 Library Added column</div>
-          <div class="help">History now shows when each item was added to your Radarr or Sonarr library, so you can verify sample mode behaviour at a glance.</div>
-        </div>
-        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔢 Search Count column</div>
-          <div class="help">History now tracks how many times each item has been searched. High count with no import may indicate an indexer gap.</div>
-        </div>
-        <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div class="help" style="color:var(--muted)">v2.6.0 introduces backend changes to how instances and history are tracked. If you run into anything unexpected, opening an issue on GitHub would be appreciated and goes a long way in improving the app — or roll back to v2.5.0 while we take a look.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔖 Favicon</div>
+          <div class="help">Nudgarr now has a favicon — look for the N in your browser tabs and bookmarks bar.</div>
         </div>
       </div>
       <div class="row" style="justify-content:flex-end;margin-top:20px">
         <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Sweep No-Instances Modal ══ -->
+  <div class="modal-backdrop" id="sweepNoInstancesModal" style="display:none" onclick="el('sweepNoInstancesModal').style.display='none'">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px">
+      <h2 style="margin:0 0 8px">No Instances Configured</h2>
+      <p class="help" style="margin:0 0 20px">Add a Radarr or Sonarr instance to get started. The Sweep tab will populate automatically once an instance is added.</p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm primary" onclick="el('sweepNoInstancesModal').style.display='none'; showTab('instances')">Go to Instances</button>
       </div>
     </div>
   </div>
@@ -2184,6 +2241,8 @@ let confirmResolve = null;
 let ACTIVE_TAB = 'instances';
 let HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
 let STATS_SORT = { col: 'imported_ts', dir: 'desc' };
+let EXCLUSIONS_SET = new Set();
+let EXCL_FILTER_ACTIVE = false;
 
 async function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
   el('confirmTitle').textContent = title;
@@ -2335,6 +2394,15 @@ function maybeShowOnboarding() {
 }
 
 function showTab(name) {
+  // Sweep tab — if no instances configured, show modal instead
+  if (name === 'sweep') {
+    const radarr = CFG?.instances?.radarr || [];
+    const sonarr = CFG?.instances?.sonarr || [];
+    if (!radarr.length && !sonarr.length) {
+      showSweepNoInstancesModal();
+      return;
+    }
+  }
   ACTIVE_TAB = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   const current = document.querySelector('.section.active');
@@ -2360,6 +2428,7 @@ function _onTabShown(name) {
       el('historyTableWrap').innerHTML = `
         <table><thead><tr>
           <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="excl-col"></th>
           <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
           <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
           <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
@@ -2381,11 +2450,114 @@ function _onTabShown(name) {
     }
     refreshStats();
   }
+  if (name === 'sweep') refreshSweep();
+  if (name === 'history') { loadExclusions(); }
   if (name === 'advanced') fillAdvanced();
   if (name === 'notifications') fillNotifications();
 }
 
 function el(id) { return document.getElementById(id); }
+
+// ── Sweep tab ──────────────────────────────────────────────────────────────
+
+async function refreshSweep() {
+  const status = await api('/api/status');
+  const cfg = await api('/api/config');
+  const summary = status.last_summary || {};
+  const health = status.instance_health || {};
+  const instances = cfg.instances || {};
+  const legacyMode = cfg.sample_mode || 'random';
+
+  for (const kind of ['radarr', 'sonarr']) {
+    const listEl = el('sweep' + kind.charAt(0).toUpperCase() + kind.slice(1) + 'List');
+    const insts = instances[kind] || [];
+    if (!insts.length) {
+      listEl.innerHTML = `<p class="help" style="margin:4px 0">No ${kind} instances configured.</p>`;
+      continue;
+    }
+    const summaryInsts = summary[kind] || [];
+    listEl.innerHTML = insts.map(inst => {
+      const instKey = `${kind}|${inst.name}`;
+      const dotState = health[instKey] || 'checking';
+      const disabled = !inst.enabled && inst.enabled !== undefined ? inst.enabled === false : false;
+      const sw = summaryInsts.find(s => s.name === inst.name);
+      const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
+      const mode = cfg[modeKey] || legacyMode || 'random';
+      const lastRun = status.last_run_utc ? fmtTime(status.last_run_utc) : '—';
+      const eligible = sw ? (sw.eligible ?? sw.eligible_missing ?? '—') : '—';
+      const skipped = sw ? ((sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0) || '—') : '—';
+      const searched = sw ? ((sw.searched || 0) + (sw.searched_missing || 0) || '—') : '—';
+      const hasData = !!sw;
+      const dimClass = disabled ? 'sweep-card disabled-card' : 'sweep-card';
+      return `
+        <div class="${dimClass}" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
+          <div class="inst-row1">
+            <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
+            <div class="inst-info">
+              <div class="inst-name">${escapeHtml(inst.name)}</div>
+              <div class="inst-meta">${escapeHtml(inst.url || '')}</div>
+            </div>
+          </div>
+          <div class="sweep-stats">
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Last Run</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${lastRun}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Eligible</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Skipped</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Searched</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Mode</span>
+              <span class="sweep-stat-value">${escapeHtml(mode.replace('_',' '))}</span>
+            </div>
+          </div>
+          ${!hasData ? '<p class="help" style="margin:4px 0 0;font-size:11px">Waiting for first sweep.</p>' : ''}
+        </div>`;
+    }).join('');
+  }
+}
+
+function showSweepNoInstancesModal() {
+  el('sweepNoInstancesModal').style.display = 'flex';
+}
+
+// ── Exclusions ─────────────────────────────────────────────────────────────
+
+async function loadExclusions() {
+  try {
+    const data = await api('/api/exclusions');
+    EXCLUSIONS_SET = new Set((data || []).map(e => (e.title || '').toLowerCase()));
+    const pill = el('exclusionsPill');
+    if (pill) pill.style.display = EXCLUSIONS_SET.size > 0 ? '' : 'none';
+    const hint = el('exclusionsHint');
+    if (hint) hint.style.display = EXCLUSIONS_SET.size > 0 ? 'none' : 'block';
+  } catch(e) { /* silent */ }
+}
+
+async function toggleExclusion(title) {
+  const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
+  const endpoint = isExcl ? '/api/exclusions/remove' : '/api/exclusions/add';
+  await api(endpoint, 'POST', { title });
+  await loadExclusions();
+  refreshHistory();
+}
+
+function toggleExclusionsFilter() {
+  EXCL_FILTER_ACTIVE = !EXCL_FILTER_ACTIVE;
+  const pill = el('exclusionsPill');
+  if (pill) pill.style.background = EXCL_FILTER_ACTIVE ? 'var(--accent)' : '';
+  PAGE = 0;
+  refreshHistory();
+}
 
 function escapeHtml(s) {
   return (s || '').toString()
@@ -2423,6 +2595,7 @@ async function loadAll() {
   el('lastRun').textContent = fmtTime(st.last_run_utc);
   el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
   updateStatusPill(CFG.scheduler_enabled);
+  await loadExclusions();
 
   // Show logout button when auth is enabled
   const lb = el('logoutBtn');
@@ -2852,13 +3025,26 @@ async function refreshHistory() {
     const limit = parseInt(el('historyLimit').value || '25', 10);
     const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${PAGE*limit}&limit=${limit}`);
 
+    // Apply exclusion filter client-side when active
+    if (EXCL_FILTER_ACTIVE) {
+      items.items = items.items.filter(it => EXCLUSIONS_SET.has((it.title || it.key || '').toLowerCase()));
+    }
+
     el('pageInfo').textContent = `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
     el('historyPagination').style.display = items.total > 0 ? 'flex' : 'none';
 
     const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
-    const rows = sorted.map(it => `
-      <tr>
-        <td>${escapeHtml(it.title || it.key)}</td>
+    const showExclFilter = EXCL_FILTER_ACTIVE;
+    const rows = sorted.map(it => {
+      const title = it.title || it.key;
+      const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
+      const rowClass = isExcl && !showExclFilter ? 'row-excluded' : '';
+      const exclClass = isExcl ? 'excl-btn excluded' : 'excl-btn';
+      const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
+      return `
+      <tr class="${rowClass}">
+        <td>${escapeHtml(title)}</td>
+        <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" onclick="toggleExclusion(${JSON.stringify(title)})">\u2298</button></td>
         <td>${escapeHtml(it.instance || '')}</td>
         <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>
@@ -2866,12 +3052,13 @@ async function refreshHistory() {
         <td>${escapeHtml(fmtTime(it.last_searched))}</td>
         <td>${escapeHtml(fmtTime(it.eligible_again))}</td>
       </tr>
-    `).join('');
+    `}).join('');
 
     el('historyTableWrap').innerHTML = `
       <table>
         <thead><tr>
           <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="excl-col"></th>
           <th class="sortable ${HISTORY_SORT.col==='instance' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="instance" onclick="sortHistory('instance')">Instance</th>
           <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
           <th class="sortable ${HISTORY_SORT.col==='search_count' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="search_count" onclick="sortHistory('search_count')">Count</th>
@@ -2879,7 +3066,7 @@ async function refreshHistory() {
           <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
           <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="7" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
+        <tbody>${rows || '<tr><td colspan="8" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
       </table>
     `;
     applySortIndicators('#historyTableWrap table', HISTORY_SORT);
@@ -3287,6 +3474,14 @@ function refreshDotsFromStatus(health) {
       else if (state === 'disabled') dot.className = 'status-dot disabled';
       else dot.className = 'status-dot';
     }
+    // Mirror dot state to Sweep tab card if present
+    const sweepDot = el(`sdot-sweep-${key}`);
+    if (sweepDot) {
+      if (state === 'ok') sweepDot.className = 'status-dot ok';
+      else if (state === 'bad') sweepDot.className = 'status-dot bad';
+      else if (state === 'disabled') sweepDot.className = 'status-dot disabled';
+      else sweepDot.className = 'status-dot';
+    }
   });
 }
 
@@ -3298,6 +3493,7 @@ async function pollCycle() {
     AUTO_REFRESH_LAST = now;
     if (ACTIVE_TAB === 'history') refreshHistory();
     if (ACTIVE_TAB === 'stats') refreshStats();
+    if (ACTIVE_TAB === 'sweep') refreshSweep();
   }
 }
 
@@ -3762,17 +3958,49 @@ def api_file_backup():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
     stats = load_stats()
+    exclusions = load_exclusions()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("nudgarr-config.json", json.dumps(cfg, indent=2))
         zf.writestr("nudgarr-state.json", json.dumps(st, indent=2))
         zf.writestr("nudgarr-stats.json", json.dumps(stats, indent=2))
+        zf.writestr("nudgarr-exclusions.json", json.dumps(exclusions, indent=2))
     buf.seek(0)
     return Response(
         buf.read(),
         mimetype="application/zip",
         headers={"Content-Disposition": "attachment; filename=nudgarr-backup.zip"}
     )
+
+@app.get("/api/exclusions")
+@requires_auth
+def api_get_exclusions():
+    return jsonify(load_exclusions())
+
+@app.post("/api/exclusions/add")
+@requires_auth
+def api_add_exclusion():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title required"}), 400
+    exclusions = load_exclusions()
+    if not any(e.get("title", "").lower() == title.lower() for e in exclusions):
+        exclusions.append({"title": title, "excluded_at": iso_z(utcnow())})
+        save_exclusions(exclusions)
+    return jsonify({"ok": True, "count": len(exclusions)})
+
+@app.post("/api/exclusions/remove")
+@requires_auth
+def api_remove_exclusion():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title required"}), 400
+    exclusions = load_exclusions()
+    exclusions = [e for e in exclusions if e.get("title", "").lower() != title.lower()]
+    save_exclusions(exclusions)
+    return jsonify({"ok": True, "count": len(exclusions)})
 
 # Run-now endpoint
 RUN_LOCK = threading.Lock()

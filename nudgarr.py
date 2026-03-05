@@ -1442,8 +1442,10 @@ UI_HTML = r"""
     .inst-card {
       border: 1px solid var(--border); border-radius: 12px;
       padding: 13px 14px; margin-top: 8px; background: var(--surface);
-      display: flex; align-items: center; gap: 10px;
+      display: flex; flex-direction: column; gap: 8px;
     }
+    .inst-card .inst-row1 { display: flex; align-items: center; gap: 10px; }
+    .inst-card .inst-row2 { display: flex; align-items: center; justify-content: space-between; }
     .inst-card .inst-info { flex: 1; min-width: 0; }
     .inst-card .inst-name { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
     .inst-card .inst-meta { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1658,14 +1660,24 @@ UI_HTML = r"""
 
       <div class="card">
         <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p><span id="cooldownWarnMsg"></span></div>
-        <div class="grid cols2" style="gap:12px">
+        <div class="grid cols1" style="gap:12px">
           <div class="field">
             <div class="tooltip-wrap">
               <label>Cooldown (Hours)</label>
               <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
             </div>
-            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
+            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
             <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Max Movies (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+            </div>
+            <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">
@@ -1687,6 +1699,14 @@ UI_HTML = r"""
         <div class="grid cols2" style="gap:12px;margin-top:12px">
           <div class="field">
             <div class="tooltip-wrap">
+              <label>Max Episodes (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+            </div>
+            <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
               <label>Sonarr Sample Mode</label>
               <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
             </div>
@@ -1697,24 +1717,6 @@ UI_HTML = r"""
               <option value="newest_added">Newest Added</option>
             </select>
             <div class="help">How Nudgarr picks which Sonarr items to search each run.</div>
-          </div>
-        </div>
-        <div class="grid cols2" style="gap:12px">
-          <div class="field">
-            <div class="tooltip-wrap">
-              <label>Max Movies (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
-            </div>
-            <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
-          </div>
-          <div class="field">
-            <div class="tooltip-wrap">
-              <label>Max Episodes (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
-            </div>
-            <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
           </div>
         </div>
       </div>
@@ -2448,20 +2450,24 @@ function renderInstances(kind) {
   }
   box.innerHTML = list.map((it, idx) => {
     const enabled = it.enabled !== false;
-    const dimStyle = enabled ? '' : 'opacity:0.45;';
+    const contentDim = enabled ? '' : 'opacity:0.45;';
     const toggleLabel = enabled ? 'Disable' : 'Enable';
     const toggleClass = enabled ? 'btn sm' : 'btn sm primary';
     return `
-    <div class="inst-card" id="instcard-${kind}-${idx}" style="${dimStyle}">
-      <span class="status-dot" id="sdot-${kind}-${idx}"></span>
-      <div class="inst-info">
-        <div class="inst-name">${escapeHtml(it.name || '(unnamed)')}</div>
-        <div class="inst-meta">${escapeHtml(it.url || '')} &nbsp;·&nbsp; Key: ••••••••</div>
+    <div class="inst-card" id="instcard-${kind}-${idx}">
+      <div class="inst-row1" style="${contentDim}">
+        <span class="status-dot" id="sdot-${kind}-${idx}"></span>
+        <div class="inst-info">
+          <div class="inst-name">${escapeHtml(it.name || '(unnamed)')}</div>
+          <div class="inst-meta">${escapeHtml(it.url || '')} &nbsp;·&nbsp; Key: ••••••••</div>
+        </div>
       </div>
-      <div class="inst-actions">
+      <div class="inst-row2">
         <button class="${toggleClass}" onclick="toggleInstance('${kind}', ${idx})">${toggleLabel}</button>
-        <button class="btn sm" onclick="editInstance('${kind}', ${idx})">Edit</button>
-        <button class="btn sm danger" onclick="deleteInstance('${kind}', ${idx})">Delete</button>
+        <div class="inst-actions" style="${contentDim}">
+          <button class="btn sm" onclick="editInstance('${kind}', ${idx})">Edit</button>
+          <button class="btn sm danger" onclick="deleteInstance('${kind}', ${idx})">Delete</button>
+        </div>
       </div>
     </div>
   `}).join('');
@@ -2592,7 +2598,14 @@ async function testConnections() {
   el('testResults').style.display = 'none';
   el('testResultsInner').innerHTML = '';
 
-  document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
+  // Only pulse checking on enabled instances
+  ['radarr','sonarr'].forEach(kind => {
+    (CFG?.instances?.[kind] || []).forEach((inst, idx) => {
+      const dot = el(`sdot-${kind}-${idx}`);
+      if (!dot) return;
+      dot.className = inst.enabled !== false ? 'status-dot checking' : 'status-dot disabled';
+    });
+  });
 
   try {
     const [out] = await Promise.all([
@@ -2604,7 +2617,9 @@ async function testConnections() {
     ['radarr','sonarr'].forEach(kind => {
       (out.results[kind]||[]).forEach((r, idx) => {
         const dot = el(`sdot-${kind}-${idx}`);
-        if (dot) dot.className = 'status-dot ' + (r.ok ? 'ok' : 'bad');
+        if (!dot) return;
+        if (r.disabled) { dot.className = 'status-dot disabled'; return; }
+        dot.className = 'status-dot ' + (r.ok ? 'ok' : 'bad');
       });
     });
 
@@ -3245,7 +3260,19 @@ async function pollCycle() {
 }
 
 loadAll().then(() => {
-  document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot checking'; });
+  // Only pulse checking on enabled instances — disabled stay grey
+  (CFG?.instances?.radarr || []).forEach((inst, idx) => {
+    if (inst.enabled !== false) {
+      const d = el(`sdot-radarr-${idx}`);
+      if (d) d.className = 'status-dot checking';
+    }
+  });
+  (CFG?.instances?.sonarr || []).forEach((inst, idx) => {
+    if (inst.enabled !== false) {
+      const d = el(`sdot-sonarr-${idx}`);
+      if (d) d.className = 'status-dot checking';
+    }
+  });
   maybeShowOnboarding();
   if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
 });

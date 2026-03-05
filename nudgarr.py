@@ -556,11 +556,11 @@ def mark_items_searched(st_bucket: Dict[str, Any], prefix: str, items: List[Dict
         existing = st_bucket.get(key) or {}
         prev_count = existing.get("search_count", 0) if isinstance(existing, dict) else 0
         st_bucket[key] = {
-            "ts":            now_s,
-            "title":         item.get("title") or "",
-            "sweep_type":    sweep_type,
+            "ts": now_s,
+            "title": item.get("title") or "",
+            "sweep_type": sweep_type,
             "library_added": item.get("added") or existing.get("library_added") or "",
-            "search_count":  prev_count + 1,
+            "search_count": prev_count + 1,
         }
 
 def mark_ids_searched(st_bucket: Dict[str, Any], prefix: str, ids: List[int]) -> None:

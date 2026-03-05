@@ -4,6 +4,35 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v2.6.0
+
+**Per-instance enable/disable**
+- Disable/Enable toggle on each instance card — live update, no save required
+- Disabled instances skipped entirely in sweep, Test Connections, and startup health ping
+- Health dot goes grey when disabled; re-enabling triggers an immediate background ping
+- Card opacity dims to 0.45 when disabled
+
+**Per-arr sample mode**
+- `radarr_sample_mode` and `sonarr_sample_mode` replace the single `sample_mode` key
+- Legacy `sample_mode` still accepted — used as fallback for both if per-arr keys not set
+- Newest Added warning checks `radarr_sample_mode` independently of Sonarr
+- Separate dropdowns in Settings under Search Behaviour
+
+**Library Added column in History**
+- `library_added` field stored in state on each search — populated from Radarr/Sonarr `added` field
+- New column in History between Type and Last Searched, sortable
+- Persists across searches — preserves value if `added` not returned on subsequent searches
+
+**Search Count in History**
+- `search_count` incremented in state on each search — survives cooldown resets
+- Displayed as a pill in History (×2, ×3…), hidden when count is 1
+- Sortable column — useful for finding items searched many times with no import
+
+**Instance column in History**
+- Instance name now returned from `api/state/items` and shown as a dedicated sortable column
+
+---
+
 ## v2.5.0
 
 **Sample modes**

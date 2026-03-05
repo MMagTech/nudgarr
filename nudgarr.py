@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
-Nudgarr v2.5.0 — Because RSS sometimes needs a nudge.
+Nudgarr v2.6.0 — Because RSS sometimes needs a nudge.
 
-v2.5.0:
+v2.6.0:
+- Per-instance enable/disable toggle — skips disabled instances in sweep and health checks
+- Per-arr sample mode — radarr_sample_mode and sonarr_sample_mode independently configurable
+- Library Added column in History — stores added date from Radarr/Sonarr, sortable
+- Search count in History — shows how many times each item has been searched
 - Sample Modes expanded — Random, Alphabetical, Oldest Added, Newest Added
 - Added field extracted from Radarr/Sonarr cutoff unmet endpoints for sort support
 - Newest Added warning — amber notice on Settings and Advanced tabs when selected
@@ -95,7 +99,7 @@ try:
 except ImportError:
     APPRISE_AVAILABLE = False
 
-VERSION = "2.5.0"
+VERSION = "2.6.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -107,7 +111,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "run_interval_minutes": 360,
 
     "cooldown_hours": 48,
-    "sample_mode": "random",           # random | alphabetical | oldest_added | newest_added
+    "sample_mode": "random",           # legacy — still accepted as fallback
+    "radarr_sample_mode": "random",    # random | alphabetical | oldest_added | newest_added
+    "sonarr_sample_mode": "random",    # random | alphabetical | oldest_added | newest_added
 
     "radarr_max_movies_per_run": 1,
     "sonarr_max_episodes_per_run": 1,
@@ -229,8 +235,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
 
-    if cfg.get("sample_mode") not in ("random", "alphabetical", "oldest_added", "newest_added"):
-        errs.append("sample_mode must be 'random', 'alphabetical', 'oldest_added', or 'newest_added'")
+    VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
+    for mode_key in ("radarr_sample_mode", "sonarr_sample_mode"):
+        if cfg.get(mode_key) not in VALID_MODES:
+            errs.append(f"{mode_key} must be one of {VALID_MODES}")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -544,7 +552,16 @@ def pick_ids_with_cooldown(ids: List[int], st_bucket: Dict[str, Any], prefix: st
 def mark_items_searched(st_bucket: Dict[str, Any], prefix: str, items: List[Dict[str, Any]], sweep_type: str = "") -> None:
     now_s = iso_z(utcnow())
     for item in items:
-        st_bucket[f"{prefix}:{item['id']}"] = {"ts": now_s, "title": item.get("title") or "", "sweep_type": sweep_type}
+        key = f"{prefix}:{item['id']}"
+        existing = st_bucket.get(key) or {}
+        prev_count = existing.get("search_count", 0) if isinstance(existing, dict) else 0
+        st_bucket[key] = {
+            "ts":            now_s,
+            "title":         item.get("title") or "",
+            "sweep_type":    sweep_type,
+            "library_added": item.get("added") or existing.get("library_added") or "",
+            "search_count":  prev_count + 1,
+        }
 
 def mark_ids_searched(st_bucket: Dict[str, Any], prefix: str, ids: List[int]) -> None:
     """Legacy helper for plain ID lists (kept for compatibility)."""
@@ -730,7 +747,14 @@ def sonarr_get_missing_episodes(session: requests.Session, url: str, key: str, p
 
 def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
-    sample_mode = str(cfg.get("sample_mode", "random")).lower()
+    VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
+    legacy_mode = str(cfg.get("sample_mode", "random")).lower()
+    radarr_sample_mode = str(cfg.get("radarr_sample_mode", legacy_mode)).lower()
+    if radarr_sample_mode not in VALID_MODES:
+        radarr_sample_mode = "random"
+    sonarr_sample_mode = str(cfg.get("sonarr_sample_mode", legacy_mode)).lower()
+    if sonarr_sample_mode not in VALID_MODES:
+        sonarr_sample_mode = "random"
 
     radarr_max = int(cfg.get("radarr_max_movies_per_run", 25))
     sonarr_max = int(cfg.get("sonarr_max_episodes_per_run", 25))
@@ -767,6 +791,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
     # RADARR
     for inst in cfg.get("instances", {}).get("radarr", []):
+        if not inst.get("enabled", True):
+            print(f"[Radarr:{inst['name']}] disabled — skipping")
+            STATUS["instance_health"][f"radarr|{inst['name']}"] = "disabled"
+            continue
         name, url, key = inst["name"], inst["url"], inst["key"]
         ik = state_key(name, url)
         st_bucket = state.setdefault("radarr", {}).setdefault(ik, {})
@@ -774,7 +802,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
             STATUS["instance_health"][f"radarr|{name}"] = "ok"
             all_ids = [m["id"] for m in all_movies]
-            chosen_items, eligible, skipped = pick_items_with_cooldown(all_movies, st_bucket, "movie", cooldown_hours, radarr_max, sample_mode)
+            chosen_items, eligible, skipped = pick_items_with_cooldown(all_movies, st_bucket, "movie", cooldown_hours, radarr_max, radarr_sample_mode)
             chosen = [m["id"] for m in chosen_items]
             print(f"[Radarr:{name}] cutoff_unmet_total={len(all_ids)} eligible={eligible} skipped_cooldown={skipped} will_search={len(chosen)} limit={radarr_max}")
 
@@ -817,7 +845,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                         missing_filtered.append(rec)
 
                 chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
-                    missing_filtered, st_bucket, "missing_movie", cooldown_hours, missing_max, sample_mode
+                    missing_filtered, st_bucket, "missing_movie", cooldown_hours, missing_max, radarr_sample_mode
                 )
                 print(f"[Radarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} limit_missing={missing_max} older_than_days={missing_added_days}")
 
@@ -860,6 +888,10 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
 
     # SONARR
     for inst in cfg.get("instances", {}).get("sonarr", []):
+        if not inst.get("enabled", True):
+            print(f"[Sonarr:{inst['name']}] disabled — skipping")
+            STATUS["instance_health"][f"sonarr|{inst['name']}"] = "disabled"
+            continue
         name, url, key = inst["name"], inst["url"], inst["key"]
         ik = state_key(name, url)
         st_bucket = state.setdefault("sonarr", {}).setdefault(ik, {})
@@ -867,7 +899,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key)
             STATUS["instance_health"][f"sonarr|{name}"] = "ok"
             all_ids = [e["id"] for e in all_episodes]
-            chosen_items, eligible, skipped = pick_items_with_cooldown(all_episodes, st_bucket, "episode", cooldown_hours, sonarr_max, sample_mode)
+            chosen_items, eligible, skipped = pick_items_with_cooldown(all_episodes, st_bucket, "episode", cooldown_hours, sonarr_max, sonarr_sample_mode)
             chosen = [e["id"] for e in chosen_items]
             print(f"[Sonarr:{name}] cutoff_unmet_total={len(all_ids)} eligible={eligible} skipped_cooldown={skipped} will_search={len(chosen)} limit={sonarr_max}")
 
@@ -897,7 +929,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
                 missing_total = len(missing_records)
                 # No added days filter for Sonarr — if it's in Wanted, search it
                 chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
-                    missing_records, st_bucket, "missing_episode", cooldown_hours, sonarr_missing_max, sample_mode
+                    missing_records, st_bucket, "missing_episode", cooldown_hours, sonarr_missing_max, sonarr_sample_mode
                 )
                 print(f"[Sonarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} limit_missing={sonarr_missing_max}")
 
@@ -1420,6 +1452,7 @@ UI_HTML = r"""
     .status-dot.ok { background: var(--ok); }
     .status-dot.bad { background: var(--bad); }
     .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
+    .status-dot.disabled { background: var(--border); opacity: 0.4; }
     .dot.running { background: var(--warn) !important; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     #pill-lastrun { min-width: 185px; }
@@ -1636,19 +1669,34 @@ UI_HTML = r"""
           </div>
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Sample Mode</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><em>Radarr's Missing Added Days sets the eligible pool. For example, with days set to 30 only items added 30+ days ago qualify — Newest Added then picks the ones closest to that cutoff first. Set days to 0 to search all missing items newest-first with no age filter.</em></div></span>
+              <label>Radarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end. Missing Added Days sets the eligible pool — set to 0 to search all missing items newest-first with no age filter.</div></span>
             </div>
-            <select id="sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+            <select id="radarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help" id="sampleModeHelp">How Nudgarr picks which eligible items to search each run.</div>
+            <div class="help">How Nudgarr picks which Radarr items to search each run.</div>
             <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
               <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
             </div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sonarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+            </div>
+            <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Sonarr items to search each run.</div>
           </div>
         </div>
         <div class="grid cols2" style="gap:12px">
@@ -2081,24 +2129,24 @@ UI_HTML = r"""
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
     <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-      <h2 style="margin:0 0 4px">What's New in v2.5.0</h2>
+      <h2 style="margin:0 0 4px">What's New in v2.6.0</h2>
       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
       <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎯 Sample Modes</div>
-          <div class="help">Four modes now available: <strong>Random</strong>, <strong>Alphabetical</strong>, <strong>Oldest Added</strong>, and <strong>Newest Added</strong>. Find them in Settings → Search Behaviour.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔘 Per-Instance Enable / Disable</div>
+          <div class="help">Each instance now has a Disable button. Disabled instances are skipped during sweeps and health checks — their dot goes grey and the card dims. Re-enabling triggers an immediate health ping.</div>
         </div>
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Stats — Lifetime Confirmed pill</div>
-          <div class="help">A combined lifetime total now appears above the Movies and Shows cards on the Stats tab.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎯 Per-App Sample Mode</div>
+          <div class="help">Radarr and Sonarr now each have their own Sample Mode setting. Use Oldest Added for movies and Newest Added for shows — or any combination.</div>
         </div>
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">⚠️ Newest Added warning</div>
-          <div class="help">Selecting Newest Added mode now shows an amber warning when backlog nudges are enabled, as it may conflict with Missing Added Days.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">📅 Library Added column</div>
+          <div class="help">History now shows when each item was added to your Radarr or Sonarr library, so you can verify sample mode behaviour at a glance.</div>
         </div>
         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🍺 Support link</div>
-          <div class="help">A Buy Me a Coffee link now appears in the header. Toggle it off anytime in Advanced → UI Preferences.</div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔢 Search Count column</div>
+          <div class="help">History now tracks how many times each item has been searched. High count with no import may indicate an indexer gap.</div>
         </div>
       </div>
       <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -2398,19 +2446,25 @@ function renderInstances(kind) {
     box.innerHTML = '<p class="help" style="margin:8px 0 0">No instances yet. Click <b>+ Add</b>.</p>';
     return;
   }
-  box.innerHTML = list.map((it, idx) => `
-    <div class="inst-card" id="instcard-${kind}-${idx}">
+  box.innerHTML = list.map((it, idx) => {
+    const enabled = it.enabled !== false;
+    const dimStyle = enabled ? '' : 'opacity:0.45;';
+    const toggleLabel = enabled ? 'Disable' : 'Enable';
+    const toggleClass = enabled ? 'btn sm' : 'btn sm primary';
+    return `
+    <div class="inst-card" id="instcard-${kind}-${idx}" style="${dimStyle}">
       <span class="status-dot" id="sdot-${kind}-${idx}"></span>
       <div class="inst-info">
         <div class="inst-name">${escapeHtml(it.name || '(unnamed)')}</div>
         <div class="inst-meta">${escapeHtml(it.url || '')} &nbsp;·&nbsp; Key: ••••••••</div>
       </div>
       <div class="inst-actions">
+        <button class="${toggleClass}" onclick="toggleInstance('${kind}', ${idx})">${toggleLabel}</button>
         <button class="btn sm" onclick="editInstance('${kind}', ${idx})">Edit</button>
         <button class="btn sm danger" onclick="deleteInstance('${kind}', ${idx})">Delete</button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 let MODAL_KIND = '';
@@ -2482,6 +2536,30 @@ function addInstance(kind) {
 
 function editInstance(kind, idx) {
   openModal(kind, idx);
+}
+
+async function toggleInstance(kind, idx) {
+  try {
+    const out = await api('/api/instance/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kind, idx})});
+    const enabled = out.enabled;
+    // Update CFG locally so re-render is immediate
+    CFG.instances[kind][idx].enabled = enabled;
+    renderInstances(kind);
+    // Update dot state
+    const name = CFG.instances[kind][idx].name;
+    const dot = el(`sdot-${kind}-${idx}`);
+    if (dot) {
+      if (!enabled) {
+        dot.className = 'status-dot disabled';
+      } else {
+        dot.className = 'status-dot checking';
+        // Dot will resolve when the background ping completes — poll status
+        setTimeout(() => refreshDotsFromStatus(), 1200);
+      }
+    }
+  } catch(e) {
+    showAlert('Toggle failed: ' + e.message);
+  }
 }
 
 async function deleteInstance(kind, idx) {
@@ -2572,7 +2650,9 @@ function fillSettings() {
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
   el('run_interval_minutes').value = Math.round((CFG.run_interval_minutes || 360) / 60);
   el('cooldown_hours').value = CFG.cooldown_hours;
-  el('sample_mode').value = CFG.sample_mode || 'random';
+  const legacyMode = CFG.sample_mode || 'random';
+  el('radarr_sample_mode').value = CFG.radarr_sample_mode || legacyMode;
+  el('sonarr_sample_mode').value = CFG.sonarr_sample_mode || legacyMode;
   el('radarr_max_movies_per_run').value = CFG.radarr_max_movies_per_run;
   el('sonarr_max_episodes_per_run').value = CFG.sonarr_max_episodes_per_run;
   el('batch_size').value = CFG.batch_size;
@@ -2589,7 +2669,8 @@ async function saveSettings() {
     CFG.scheduler_enabled = el('scheduler_enabled').checked;
     CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '6', 10) * 60;
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
-    CFG.sample_mode = el('sample_mode').value;
+    CFG.radarr_sample_mode = el('radarr_sample_mode').value;
+    CFG.sonarr_sample_mode = el('sonarr_sample_mode').value;
     CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
     CFG.sonarr_max_episodes_per_run = parseInt(el('sonarr_max_episodes_per_run').value || '25', 10);
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
@@ -2629,15 +2710,13 @@ function checkCooldownWarning() {
 
 // ── Newest Added warning ──
 function checkNewestAddedWarning() {
-  const mode = el('sample_mode') ? el('sample_mode').value : (CFG ? CFG.sample_mode : '');
+  const radarrMode = el('radarr_sample_mode') ? el('radarr_sample_mode').value : (CFG ? CFG.radarr_sample_mode || CFG.sample_mode : 'random');
   const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
   const missingDaysEl = el('radarr_missing_added_days');
   const missingDays = missingDaysEl ? parseInt(missingDaysEl.value || '0', 10) : (CFG ? (CFG.radarr_missing_added_days ?? 0) : 0);
-  const isNewest = mode === 'newest_added';
-  const showWarn = isNewest && radarrBacklog && missingDays > 0;
+  const showWarn = radarrMode === 'newest_added' && radarrBacklog && missingDays > 0;
   const warnSettings = el('newestAddedWarnSettings');
   const warnAdv = el('newestAddedWarnAdvanced');
-  const helpText = el('sampleModeHelp');
   [warnSettings, warnAdv].forEach(w => {
     if (!w) return;
     clearTimeout(w._warnFade);
@@ -2651,7 +2730,7 @@ function checkNewestAddedWarning() {
       w.classList.remove('visible');
     }
   });
-  if (helpText) helpText.style.display = '';
+
 }
 
 function fadeNewestAddedWarnings() {
@@ -2733,7 +2812,10 @@ async function refreshHistory() {
     const rows = sorted.map(it => `
       <tr>
         <td>${escapeHtml(it.title || it.key)}</td>
+        <td>${escapeHtml(it.instance || '')}</td>
         <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
+        <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>
+        <td>${escapeHtml(fmtTime(it.library_added))}</td>
         <td>${escapeHtml(fmtTime(it.last_searched))}</td>
         <td>${escapeHtml(fmtTime(it.eligible_again))}</td>
       </tr>
@@ -2743,11 +2825,14 @@ async function refreshHistory() {
       <table>
         <thead><tr>
           <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="sortable ${HISTORY_SORT.col==='instance' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="instance" onclick="sortHistory('instance')">Instance</th>
           <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable ${HISTORY_SORT.col==='search_count' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="search_count" onclick="sortHistory('search_count')">Count</th>
+          <th class="sortable ${HISTORY_SORT.col==='library_added' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="library_added" onclick="sortHistory('library_added')">Library Added</th>
           <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
           <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="4" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
+        <tbody>${rows || '<tr><td colspan="7" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
       </table>
     `;
     applySortIndicators('#historyTableWrap table', HISTORY_SORT);
@@ -2789,9 +2874,14 @@ function applySortIndicators(tableSelector, sortState) {
 
 function sortItems(items, col, dir) {
   return [...items].sort((a, b) => {
-    const av = (a[col] || '').toString().toLowerCase();
-    const bv = (b[col] || '').toString().toLowerCase();
-    return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    const av = a[col] ?? '';
+    const bv = b[col] ?? '';
+    if (col === 'search_count') {
+      return dir === 'asc' ? (av - bv) : (bv - av);
+    }
+    const as = av.toString().toLowerCase();
+    const bs = bv.toString().toLowerCase();
+    return dir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
   });
 }
 
@@ -3121,25 +3211,26 @@ async function refreshStatus() {
     el('dot-dryrun').classList.remove('running');
     el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
     updateStatusPill(CFG?.scheduler_enabled);
-
-    // Update instance health dots from last known state
-    const health = st.instance_health || {};
-    Object.entries(health).forEach(([key, state]) => {
-      const [app, ...nameParts] = key.split('|');
-      const name = nameParts.join('|');
-      const inst = ALL_INSTANCES.find(i => i.app === app && i.name === name);
-      if (inst) {
-        const idx = ALL_INSTANCES.indexOf(inst);
-        const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
-        if (cfgIdx >= 0) {
-          const dot = el(`sdot-${app}-${cfgIdx}`);
-          if (dot) {
-            dot.className = 'status-dot ' + (state === 'ok' ? 'ok' : 'bad');
-          }
-        }
-      }
-    });
+    refreshDotsFromStatus(st.instance_health || {});
   } catch(e) {}
+}
+
+function refreshDotsFromStatus(health) {
+  if (!health) return;
+  Object.entries(health).forEach(([key, state]) => {
+    const [app, ...nameParts] = key.split('|');
+    const name = nameParts.join('|');
+    const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
+    if (cfgIdx >= 0) {
+      const dot = el(`sdot-${app}-${cfgIdx}`);
+      if (dot) {
+        if (state === 'ok') dot.className = 'status-dot ok';
+        else if (state === 'bad') dot.className = 'status-dot bad';
+        else if (state === 'disabled') dot.className = 'status-dot disabled';
+        else dot.className = 'status-dot';
+      }
+    }
+  });
 }
 
 let AUTO_REFRESH_LAST = 0;
@@ -3358,6 +3449,39 @@ def api_reset_config():
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     return jsonify({"ok": True})
 
+@app.post("/api/instance/toggle")
+@requires_auth
+def api_instance_toggle():
+    data = request.get_json(force=True, silent=True) or {}
+    kind = data.get("kind", "")
+    idx = data.get("idx", -1)
+    if kind not in ("radarr", "sonarr") or not isinstance(idx, int) or idx < 0:
+        return jsonify({"ok": False, "error": "Invalid kind or idx"}), 400
+    cfg = load_or_init_config()
+    instances = cfg.get("instances", {}).get(kind, [])
+    if idx >= len(instances):
+        return jsonify({"ok": False, "error": "Instance not found"}), 404
+    inst = instances[idx]
+    was_enabled = inst.get("enabled", True)
+    inst["enabled"] = not was_enabled
+    now_enabled = inst["enabled"]
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    name = inst.get("name", "")
+    key = f"{kind}|{name}"
+    if now_enabled:
+        # Trigger a fresh health ping for this instance
+        def _ping():
+            s = requests.Session()
+            try:
+                req(s, "GET", f"{inst['url'].rstrip('/')}/api/v3/system/status", inst["key"], timeout=5)
+                STATUS["instance_health"][key] = "ok"
+            except Exception:
+                STATUS["instance_health"][key] = "bad"
+        threading.Thread(target=_ping, daemon=True).start()
+    else:
+        STATUS["instance_health"][key] = "disabled"
+    return jsonify({"ok": True, "enabled": now_enabled})
+
 @app.post("/api/test")
 @requires_auth
 def api_test():
@@ -3366,6 +3490,10 @@ def api_test():
     results = {"radarr": [], "sonarr": []}
 
     for inst in cfg.get("instances", {}).get("radarr", []):
+        if not inst.get("enabled", True):
+            STATUS["instance_health"][f"radarr|{inst['name']}"] = "disabled"
+            results["radarr"].append({"name": inst["name"], "url": mask_url(inst["url"]), "ok": True, "disabled": True})
+            continue
         try:
             url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
             data = req(session, "GET", url, inst["key"])
@@ -3376,6 +3504,10 @@ def api_test():
             STATUS["instance_health"][f"radarr|{inst.get('name','')}"] = "bad"
 
     for inst in cfg.get("instances", {}).get("sonarr", []):
+        if not inst.get("enabled", True):
+            STATUS["instance_health"][f"sonarr|{inst['name']}"] = "disabled"
+            results["sonarr"].append({"name": inst["name"], "url": mask_url(inst["url"]), "ok": True, "disabled": True})
+            continue
         try:
             url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
             data = req(session, "GET", url, inst["key"])
@@ -3466,6 +3598,12 @@ def api_state_items():
     # Determine which apps to include
     apps_to_scan = [app_name] if app_name else ["radarr", "sonarr"]
 
+    # Build reverse map: bucket_key → instance name
+    bucket_name_map: Dict[str, str] = {}
+    for cur_app in ["radarr", "sonarr"]:
+        for i in cfg.get("instances", {}).get(cur_app, []):
+            bucket_name_map[state_key(i["name"], i["url"])] = i["name"]
+
     items = []
     for cur_app in apps_to_scan:
         valid_keys = set()
@@ -3481,6 +3619,7 @@ def api_state_items():
         for bucket_key, bucket in buckets.items():
             if not isinstance(bucket, dict):
                 continue
+            instance_name = bucket_name_map.get(bucket_key, bucket_key.split("|")[0])
             for k, entry in bucket.items():
                 if not isinstance(k, str):
                     continue
@@ -3488,16 +3627,20 @@ def api_state_items():
                     ts = entry.get("ts", "")
                     title = entry.get("title", "")
                     sweep_type = entry.get("sweep_type", "")
+                    library_added = entry.get("library_added", "")
+                    search_count = entry.get("search_count", 1)
                 else:
                     ts = entry if isinstance(entry, str) else ""
                     title = ""
                     sweep_type = ""
+                    library_added = ""
+                    search_count = 1
                 dt = parse_iso(ts)
                 eligible = ""
                 if dt is not None:
                     eligible_dt = dt + timedelta(hours=cooldown_hours)
                     eligible = iso_z(eligible_dt)
-                items.append({"key": k, "title": title, "last_searched": ts, "eligible_again": eligible, "sweep_type": sweep_type})
+                items.append({"key": k, "title": title, "instance": instance_name, "last_searched": ts, "eligible_again": eligible, "sweep_type": sweep_type, "library_added": library_added, "search_count": search_count})
 
     items.sort(key=lambda x: x.get("last_searched", ""), reverse=True)
     total = len(items)
@@ -3761,9 +3904,15 @@ def main() -> None:
         _session = requests.Session()
         instances = []
         for _inst in cfg.get("instances", {}).get("radarr", []):
-            instances.append(("radarr", _inst))
+            if not _inst.get("enabled", True):
+                STATUS["instance_health"][f"radarr|{_inst['name']}"] = "disabled"
+            else:
+                instances.append(("radarr", _inst))
         for _inst in cfg.get("instances", {}).get("sonarr", []):
-            instances.append(("sonarr", _inst))
+            if not _inst.get("enabled", True):
+                STATUS["instance_health"][f"sonarr|{_inst['name']}"] = "disabled"
+            else:
+                instances.append(("sonarr", _inst))
         def _ping(app, inst):
             try:
                 _url = f"{inst['url'].rstrip('/')}/api/v3/system/status"

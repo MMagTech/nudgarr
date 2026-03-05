@@ -55,7 +55,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `dev` · `v2.5.0` · `2.5.0` · `2.5`
+**Tags:** `latest` · `dev` · `v2.6.0` · `2.6.0` · `2.6`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -159,6 +159,11 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 ---
 
 ## Upgrade notes
+
+**v2.6.0**
+Per-instance enable/disable toggle — disabled instances are skipped in sweeps and health checks, dot goes grey, card dims, re-enabling triggers an immediate ping. Per-app sample mode — Radarr and Sonarr each have their own mode, independently configurable. Library Added column in History — shows when each item was added to your library, sortable. Search Count column in History — tracks how many times each item has been searched.
+
+Upgrading from v2.5.0: two new config keys (`radarr_sample_mode`, `sonarr_sample_mode`) default to your existing `sample_mode` value automatically — no manual changes needed.
 
 **v2.5.0**
 Four sample modes — Random, Alphabetical, Oldest Added, Newest Added. Instance health dots now pulse amber on page load and resolve within ~1 second via parallel background pings. Last Run and Next Run pills populate immediately on startup. Visual hierarchy corrected throughout — section headers, field labels, and help text now cascade correctly. Danger zone consolidated to one row. Clear History no longer shows a second popup. Testing checklists added to `assets/` for community validation.

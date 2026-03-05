@@ -3226,8 +3226,8 @@ function nextPage() { PAGE++; refreshHistory(); }
 
 // ── Page size memory (shared across History and Stats) ──
 function syncPageSize(source) {
-  const val = el(source === 'history' ? 'historyLimit' : 'statsLimit').value;
-  const other = el(source === 'history' ? 'statsLimit' : 'historyLimit');
+  const val = el(source === 'history' ? 'historyLimit' : 'importsLimit').value;
+  const other = el(source === 'history' ? 'importsLimit' : 'historyLimit');
   if (other && other.value !== val) other.value = val;
 }
 
@@ -3352,7 +3352,7 @@ async function refreshImports() {
         <tbody>${rows}</tbody>
       </table>
     `;
-    applySortIndicators('#statsTableWrap table', IMPORTS_SORT);
+    applySortIndicators('#importsTableWrap table', IMPORTS_SORT);
   } catch(e) {
     el('importsTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load stats: ${escapeHtml(e.message)}</p>`;
   }

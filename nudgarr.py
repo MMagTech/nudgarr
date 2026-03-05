@@ -1578,6 +1578,7 @@ UI_HTML = r"""
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
       <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
+      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;white-space:nowrap;padding:7px 14px;font-size:13px" title="Buy Me a Coffee">🍺 Donate</a>
     </div>
   </div>
 
@@ -1589,7 +1590,6 @@ UI_HTML = r"""
     <div class="tab" data-tab="stats" onclick="showTab('stats')">Stats</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
-    <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;margin-left:auto;align-self:center;white-space:nowrap;padding:7px 14px;font-size:13px" title="Buy Me a Coffee">🍺 Donate</a>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -1752,8 +1752,7 @@ UI_HTML = r"""
       </div>
 
       <div class="card amber-warn">
-        <p class="amber-warn-title">INDEXER LIMITS</p>
-        <p class="help amber-warn-body">Nudgarr instructs your Radarr and Sonarr instances to search using your configured indexers. Be mindful of their rate limits — aggressive search behaviour can result in temporary or permanent bans.</p>
+        <p class="help amber-warn-body">⚠️ Nudgarr searches through your configured indexers. Aggressive settings can trigger rate limits or bans — start low and increase gradually.</p>
       </div>
 
       <div class="row" style="margin-top:16px">
@@ -2067,10 +2066,9 @@ UI_HTML = r"""
 
       <div class="card">
         <p class="section-label">Support &amp; Diagnostics</p>
-        <p class="help" style="margin:0 0 12px">Backup your data or grab a diagnostic to share on GitHub.</p>
+        <p class="help" style="margin:0 0 12px">Back up your data or grab a diagnostic to share on GitHub.</p>
         <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
-          <button class="btn sm" onclick="downloadFile('config')">Download Config</button>
-          <button class="btn sm" onclick="downloadFile('state')">Download History</button>
+          <button class="btn sm" onclick="backupAll()">Backup All</button>
           <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
           <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
         </div>
@@ -2551,16 +2549,28 @@ async function toggleInstance(kind, idx) {
     // Update CFG locally so re-render is immediate
     CFG.instances[kind][idx].enabled = enabled;
     renderInstances(kind);
-    // Update dot state
-    const name = CFG.instances[kind][idx].name;
+    // Set dot directly — do not rely on poll cycle to avoid cross-instance flicker
     const dot = el(`sdot-${kind}-${idx}`);
     if (dot) {
       if (!enabled) {
         dot.className = 'status-dot disabled';
       } else {
         dot.className = 'status-dot checking';
-        // Dot will resolve when the background ping completes — poll status
-        setTimeout(() => refreshDotsFromStatus(), 1200);
+        // After backend ping completes (~1s) fetch status for just this instance's dot
+        setTimeout(async () => {
+          try {
+            const st = await api('/api/status');
+            const health = st.instance_health || {};
+            const name = CFG.instances[kind][idx]?.name;
+            const state = health[`${kind}|${name}`];
+            const d = el(`sdot-${kind}-${idx}`);
+            if (d && name) {
+              if (state === 'ok') d.className = 'status-dot ok';
+              else if (state === 'bad') d.className = 'status-dot bad';
+              else if (state === 'disabled') d.className = 'status-dot disabled';
+            }
+          } catch(e) {}
+        }, 1400);
       }
     }
   } catch(e) {
@@ -2962,7 +2972,7 @@ async function pruneState() {
 }
 
 async function clearState() {
-  if (!await showConfirm('Clear History', 'Clear all search history? Cooldown records will be reset — every item becomes eligible for search immediately. This cannot be undone.', 'Clear', true)) return;
+  if (!await showConfirm('Clear History', 'This will permanently delete all search history. Cooldown records will be reset — every item becomes eligible immediately. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
   await api('/api/state/clear', {method:'POST'});
   PAGE = 0; refreshHistory();
 }
@@ -3050,7 +3060,7 @@ async function checkImportsNow() {
 }
 
 async function clearStats() {
-  if (!await showConfirm('Clear Stats', 'Clear all confirmed import entries? Lifetime Movies and Shows totals are preserved. This cannot be undone.', 'Clear', true)) return;
+  if (!await showConfirm('Clear Stats', 'This will permanently clear all import records from the Stats tab. Lifetime totals are preserved. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
   await api('/api/stats/clear', {method:'POST'});
   refreshStats();
 }
@@ -3186,10 +3196,21 @@ async function logout() {
 }
 
 async function resetConfig() {
-  if (!await showConfirm('Reset Config', 'Reset config to defaults? All instances and settings will be lost.', 'Reset', true)) return;
+  if (!await showConfirm('Reset Config', 'This will reset all settings to defaults — all instances and configuration will be lost. Consider using Backup All in Support & Diagnostics first.', 'Reset', true)) return;
   await api('/api/config/reset', {method:'POST'});
   showAlert('Config reset to defaults.');
   await loadAll();
+}
+
+async function backupAll() {
+  try {
+    const a = document.createElement('a');
+    a.href = '/api/file/backup';
+    a.download = 'nudgarr-backup.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch(e) {
+    showAlert('Backup failed: ' + e.message);
+  }
 }
 
 function downloadFile(which) {
@@ -3238,12 +3259,14 @@ function refreshDotsFromStatus(health) {
     const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
     if (cfgIdx >= 0) {
       const dot = el(`sdot-${app}-${cfgIdx}`);
-      if (dot) {
-        if (state === 'ok') dot.className = 'status-dot ok';
-        else if (state === 'bad') dot.className = 'status-dot bad';
-        else if (state === 'disabled') dot.className = 'status-dot disabled';
-        else dot.className = 'status-dot';
-      }
+      if (!dot) return;
+      // Don't let the poll cycle overwrite a dot that's mid-transition (checking set by toggle)
+      // Only skip if checking AND the instance is enabled — means toggle just fired
+      if (dot.className.includes('checking') && state !== 'disabled') return;
+      if (state === 'ok') dot.className = 'status-dot ok';
+      else if (state === 'bad') dot.className = 'status-dot bad';
+      else if (state === 'disabled') dot.className = 'status-dot disabled';
+      else dot.className = 'status-dot';
     }
   });
 }
@@ -3712,8 +3735,26 @@ def api_file_config():
 def api_file_state():
     cfg = load_or_init_config()
     st = ensure_state_structure(load_state(), cfg)
-    pretty = True
-    return Response(json.dumps(st, indent=2 if pretty else None), mimetype="application/json")
+    return Response(json.dumps(st, indent=2), mimetype="application/json")
+
+@app.get("/api/file/backup")
+@requires_auth
+def api_file_backup():
+    import zipfile, io as _io
+    cfg = load_or_init_config()
+    st = ensure_state_structure(load_state(), cfg)
+    stats = load_stats()
+    buf = _io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("nudgarr-config.json", json.dumps(cfg, indent=2))
+        zf.writestr("nudgarr-state.json", json.dumps(st, indent=2))
+        zf.writestr("nudgarr-stats.json", json.dumps(stats, indent=2))
+    buf.seek(0)
+    return Response(
+        buf.read(),
+        mimetype="application/zip",
+        headers={"Content-Disposition": "attachment; filename=nudgarr-backup.zip"}
+    )
 
 # Run-now endpoint
 RUN_LOCK = threading.Lock()

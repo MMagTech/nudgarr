@@ -1,0 +1,114 @@
+# Changelog
+
+All notable changes to Nudgarr are documented here.
+
+---
+
+## v2.5.0
+
+**Sample modes**
+- Four sample modes — Random, Alphabetical, Oldest Added, Newest Added
+- `added` date extracted from Radarr and Sonarr Cutoff Unmet and Missing endpoints to support sort modes
+- Newest Added warning — amber notice on Settings and Advanced tabs when Newest Added is selected with backlog enabled and Missing Added Days > 0
+- Warning fades on save only, not on appear
+
+**UI**
+- What's New modal — shown once per version upgrade, never on fresh install
+- Stats tab — Lifetime Confirmed pill above Movies and Shows cards
+- Support link pill (🍺 Donate) in header — toggleable in Advanced → UI Preferences
+- Onboarding updated — all four sample modes described in step 3
+
+**Startup**
+- Last Run persisted to state file — populates immediately on restart
+- Next Run calculated from config on startup — no waiting for first scheduler cycle
+- Instance health dots pulse amber immediately on page load via parallel background ping — resolves within ~1 second
+
+**Bug fixes**
+- Visual hierarchy corrected — section headers (13px/600) now outrank field labels (12px/500) and help text (12px/400)
+- Tooltip text weight fixed — was inheriting bold from parent
+- Sample mode tooltip widened to 360px — was riding off screen
+- Newest Added warning gap fixed — `visible` class now removed after fade so no empty space remains
+- Newest Added warning condition fixed — was checking `missing_max` instead of `missing_added_days`
+- Test connection amber pulse fixed — was resolving too fast
+- Test connection error fixed — was showing raw Python exception instead of friendly message
+- Danger zone buttons consolidated to one row
+- Clear History no longer shows second OK popup after confirm — clears quietly like Clear Stats
+- Stats tab Movies card colour fixed — was green, now matches Shows (purple)
+- Stats tab number sizing fixed — was 20px, now 15px
+- Support pill sizing fixed — now matches tab padding
+- Save button spacing fixed across Notifications and Settings tabs
+- History KPI pill numbers — weight reduced to 400, size relationship between label and number corrected
+- Import Check help text shortened to one line
+- Settings second field row excess margin removed
+
+---
+
+## v2.4.0
+
+- Title search on History and Stats tabs — inline with filters, ✕ to clear, resets on tab switch
+- Pagination memory — page size shared across History and Stats for the session
+- Data Retention — renamed from History Size; stats entries pruned alongside history on each sweep, lifetime totals unaffected
+- Retry logic — one retry per instance per sweep with 15 second wait, marks bad and moves on
+- Instance error notifications — fires per failed instance with friendly unreachable message
+- Error notification fix — now correctly fires on individual instance failures
+- Max Per Run labels updated to Per Instance throughout Settings and Advanced
+
+---
+
+## v2.3.0
+
+- Apprise notifications — sweep complete, import confirmed, and error triggers
+- Universal docker-compose with `.env` support
+- PUID/PGID startup fix — graceful chown fallback, cap_add CHOWN/SETUID/SETGID
+- Open Issue button added to Diagnostics
+- apk upgrade at build time for latest Alpine security patches
+
+---
+
+## v2.2.0
+
+- First-run onboarding walkthrough — 8-step guided setup for new users
+- Safe defaults — scheduler off, max per run 1, batch size 1 on fresh installs
+- Password hashing upgraded to PBKDF2-HMAC-SHA256 with unique random salt, replacing unsalted SHA256
+- Existing passwords migrate automatically on next successful login — no action required
+- Progressive brute force lockout — 3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr
+- Login countdown timer — button disables and counts down during lockout
+- PUID/PGID support — container runs as specified UID/GID
+- Lifetime Movies/Shows import totals persist through Clear Stats
+- Clear Stats backend endpoint fixed
+- Advanced tab reordered — History → Stats → Security
+
+---
+
+## v2.1.2
+
+- Lifetime Movies/Shows import totals — persist through Clear Stats, seeded from existing confirmed entries on first run after upgrade
+- Clear Stats backend endpoint fixed — was missing entirely
+- Save transition fixed — Unsaved Changes → Saved visible and unhurried
+- Sort indicators on all columns immediately on tab open
+- Tab fade transition on switch
+- Page size 10 added to History and Stats
+- Docker resource limits right-sized for actual usage
+- CI workflow — flake8 lint and syntax check on every push and PR
+
+---
+
+## v2.1.0
+
+- Stats tab with confirmed import tracking
+- Per-app Backlog Nudge toggles with age and cap controls
+- Instance health dots — updated on every sweep and on add/edit
+- Unsaved Changes notices across all tabs
+- Import check delay in minutes, Check Now bypasses delay
+- Non-root container user, read-only filesystem
+- Multi-arch Docker images (amd64/arm64)
+- Import check delay unit change — config key `import_check_hours` renamed to `import_check_minutes`, defaults to 120 minutes
+
+---
+
+## v2.0.0
+
+- Authentication — first run setup screen, hashed password, session timeout
+- Require Login toggle in Advanced (default on)
+- Login page styled to match UI
+- Lockout recovery — delete config and restart

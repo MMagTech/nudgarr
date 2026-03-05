@@ -9,55 +9,59 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 
 ## What it does
 
-- **Cutoff Unmet sweeps** — searches items in Radarr and Sonarr's Wanted → Cutoff Unmet queue for better quality versions
-- **Backlog Nudges** — searches missing movies and episodes that haven't been grabbed yet
-- **Import tracking** — confirms which searches resulted in a successful download and shows them in the Stats tab
-- **Multiple instances** — supports multiple Radarr and Sonarr instances independently
+- **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted → Cutoff Unmet queue and triggers a search for a better quality version
+- **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering and per-app caps
+- **Import tracking** — polls Radarr and Sonarr after each sweep to confirm which searches resulted in a successful download
+- **Multiple instances** — supports multiple Radarr and Sonarr instances independently, each with their own health status
 
 ---
 
 ## Features
 
+**Core behaviour**
+- Scheduler with configurable run interval, or manual-only mode
+- Four sample modes — Random, Alphabetical, Oldest Added, Newest Added
+- Configurable cooldown to avoid hammering indexers between runs
+- Batch size, sleep, and jitter controls for indexer rate limit compliance
+- One retry per instance per sweep before marking bad and continuing
+- Per-app Backlog Nudge toggles with Missing Added Days age filter and per-instance caps
+
+**UI & history**
 - Web UI with Instances, Settings, History, Stats, Notifications, and Advanced tabs
-- Scheduler with configurable run interval
-- Configurable cooldown period to avoid hammering indexers
-- **Four sample modes** — Random, Alphabetical, Oldest Added, Newest Added
-- Batch size and sleep controls for indexer rate limit compliance
-- Per-app Backlog Nudge toggles with age and cap controls
-- Search history with sweep type labels, sortable columns, title search, and pagination
+- Search history with sweep type, sortable columns, title search, and pagination
 - Confirmed import tracking with lifetime Movies/Shows totals, type filtering, and title search
-- Apprise notifications — sweep complete, import confirmed, and error triggers
-- Instance health dots — updated on every sweep and on add/edit
-- Unsaved Changes notices across all tabs
-- What's New modal — shown once on version upgrade, never on fresh install
-- Support link toggle in Advanced → UI Preferences
-- UI login with configurable session timeout
-- Download Diagnostic for troubleshooting
+- Apprise notifications — sweep complete, import confirmed, and error triggers per instance
+- Instance health dots — live status updated on every sweep, test connection, and page load
+- First-run onboarding walkthrough — guided setup before the first sweep runs
+- What's New modal — shown once per version upgrade, never on fresh install
+
+**Security & operations**
+- UI login with PBKDF2-HMAC-SHA256 password hashing and configurable session timeout
+- Progressive brute force lockout — 3 failures → 30s, up to 1hr at 15+ failures
+- Non-root container execution via PUID/PGID with su-exec privilege drop
+- Read-only container filesystem with restricted tmpfs at `/tmp`
+- `cap_drop: ALL` with only CHOWN, SETUID, SETGID added back
+- Resource limits — 128MB RAM, 0.5 CPU, 50 PIDs
 - Multi-arch Docker images — `linux/amd64` and `linux/arm64`
 
 ---
 
-## Docker Compose
+## Quick start
 
-Images are available on both **Docker Hub** and **GitHub Container Registry (GHCR)**. Either works — use whichever your platform prefers.
+Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 
 | Registry | Image |
 |----------|-------|
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Available tags:**
-- `latest` — current stable release from main
-- `dev` — development branch, may be unstable
-- `v2.5.0`, `2.5.0`, `2.5` — pinned version tags
-
-**Setup**
+**Tags:** `latest` · `dev` · `v2.5.0` · `2.5.0` · `2.5`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
+3. Open `http://<your-host>:8085`
 
 ```env
-# .env
 PUID=1000
 PGID=1000
 PORT=8085
@@ -92,9 +96,9 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - CHOWN      # required to set /config ownership on startup
-      - SETUID     # required for su-exec to drop privileges
-      - SETGID     # required for su-exec to drop privileges
+      - CHOWN
+      - SETUID
+      - SETGID
     pids_limit: 50
     mem_limit: 128m
     cpus: 0.5
@@ -105,29 +109,19 @@ services:
         max-file: "3"
 ```
 
-Open the UI at `http://<your-host>:8085`
-
 ---
 
-## User and Group ID (PUID / PGID)
+## PUID / PGID
 
-Nudgarr supports `PUID` and `PGID` environment variables so the container runs as the correct user on your system — no permission issues with your `/config` volume.
+Nudgarr runs as the user you specify — no permission issues with your `/config` volume.
 
 | Platform | Typical values |
 |----------|---------------|
 | Unraid | `PUID=99` `PGID=100` (nobody:users) |
 | Linux | `PUID=1000` `PGID=1000` |
-| Synology | Match your DSM user — check with `id` in SSH |
+| Synology | Match your DSM user — check with `id` over SSH |
 
-If `PUID` and `PGID` are not set, the container defaults to `1000:1000`.
-
----
-
-## Supported platforms
-
-Any host running Docker — Unraid, Synology, TrueNAS SCALE, CasaOS, Portainer, or a plain Linux server.
-
-Supports `linux/amd64` and `linux/arm64`.
+Defaults to `1000:1000` if not set. Supported on any host running Docker — Unraid, Synology, TrueNAS SCALE, CasaOS, Portainer, or a plain Linux server.
 
 ---
 
@@ -146,62 +140,41 @@ Supports `linux/amd64` and `linux/arm64`.
 Nudgarr is a local network tool. Understanding what it does and doesn't protect is important before deploying it.
 
 **What the built-in login does**
-The login screen prevents someone on your network from accessing the UI and changing your configuration. It is not a hardened security layer — it is a basic access control for your local network.
-
-Passwords are stored using PBKDF2-HMAC-SHA256 with a unique random salt. Failed login attempts trigger a progressive lockout to protect against brute force. Timing-safe comparison is used throughout.
+The login screen prevents someone on your network from accessing the UI and changing your configuration. It is not a hardened security layer — it is basic access control for your local network. Passwords are stored using PBKDF2-HMAC-SHA256 with a unique random salt. Failed login attempts trigger a progressive lockout. Timing-safe comparison is used throughout.
 
 **What it does not protect**
-- Your Radarr and Sonarr API keys are stored in plaintext in the config file. Anyone with access to your server's filesystem can read them.
-- The login does not encrypt traffic. Credentials are sent over plain HTTP unless you put Nudgarr behind a reverse proxy with HTTPS.
-- If someone has SSH or physical access to your server, they have access to everything regardless of the login.
-
-**Our approach**
-Nudgarr intentionally avoids features that introduce unnecessary attack surface. It does not execute arbitrary code, does not accept external input beyond its own UI, and does not make outbound connections to anything other than your configured Radarr and Sonarr instances.
+- Radarr and Sonarr API keys are stored in plaintext in the config file
+- Credentials are sent over plain HTTP unless behind a reverse proxy with HTTPS
+- SSH or physical access to your server bypasses all of this regardless
 
 **Recommendations**
-- Run Nudgarr on your LAN only — do not expose port 8085 to the internet
-- If you need remote access, use a VPN or a reverse proxy with proper authentication and HTTPS
+- Run on your LAN only — do not expose port 8085 to the internet
+- For remote access use a VPN (Tailscale, WireGuard) or a reverse proxy with HTTPS
 - Enable the built-in login as a basic layer of protection on your local network
 
-**If you expose Nudgarr to the public internet**
-The built-in login is designed for local network use and should not be considered sufficient protection for a publicly accessible instance. If you need to access Nudgarr remotely, the strongly recommended approach is to place it behind a reverse proxy such as NGINX Proxy Manager, Caddy, or Traefik with HTTPS and its own authentication layer — or use a VPN such as Tailscale or WireGuard to access your home network securely. This keeps Nudgarr off the public internet entirely and removes the need to rely solely on the built-in login for security.
-
-**Container hardening (implemented in v2.0.0)**
-The provided `docker-compose.yml` includes the following hardening settings out of the box:
-- `no-new-privileges` — prevents the container from elevating privileges after start
-- `cap_drop: ALL` — removes all Linux capabilities; three are added back explicitly: `CHOWN` (to set /config ownership on startup), `SETUID` and `SETGID` (required for su-exec to drop to your PUID/PGID)
-- `pids_limit`, `mem_limit`, `cpus` — limits resource consumption to protect the host
-- `tty: false`, `stdin_open: false` — disables unnecessary input channels
-- Logging limits — prevents log files from consuming unbounded disk space
-
-**Additional hardening (implemented in v2.1.0)**
-- Non-root container user — the container runs as the UID/GID you specify via `PUID` and `PGID`. The entrypoint briefly runs as root to set ownership of `/config`, then immediately drops to your specified user before the app starts. Defaults to `1000:1000` if not set.
-- Read-only filesystem — the container filesystem is mounted read-only with a restricted `/tmp` tmpfs (`noexec,nosuid,nodev`), so any payload written inside the container cannot be executed.
-
-These are standard Docker settings and work on any platform.
+Nudgarr intentionally avoids features that introduce unnecessary attack surface. It does not execute arbitrary code, does not accept external input beyond its own UI, and does not make outbound connections to anything other than your configured Radarr and Sonarr instances.
 
 Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
 
 ---
 
-## Upgrade Notes
+## Upgrade notes
 
 **v2.5.0**
-Four sample modes are now available: Random, Alphabetical, Oldest Added, and Newest Added. The `added` date is now extracted from the Radarr and Sonarr Cutoff Unmet endpoints to support the new sort modes. A What's New modal fires once on version upgrade and never on fresh install — it is dismissed and recorded per version so it won't reappear. A 🍺 Buy Me a Coffee support link appears in the header and can be hidden permanently in Advanced → UI Preferences. The Stats tab now shows a combined Lifetime Confirmed total above the Movies and Shows cards. Confirm dialog copy for Prune Expired, Clear History, and Clear Stats has been clarified. Onboarding step 3 now describes all four sample modes.
+Four sample modes — Random, Alphabetical, Oldest Added, Newest Added. Instance health dots now pulse amber on page load and resolve within ~1 second via parallel background pings. Last Run and Next Run pills populate immediately on startup. Visual hierarchy corrected throughout — section headers, field labels, and help text now cascade correctly. Danger zone consolidated to one row. Clear History no longer shows a second popup. Testing checklists added to `assets/` for community validation.
 
-Upgrading users: `sample_mode` values of `random` and `first` from v2.4.0 are still accepted. `first` will fall through to the default API order behaviour. Two new config keys are added automatically on first load: `last_seen_version` and `show_support_link` — no manual config changes needed.
+Upgrading from v2.4.0: `sample_mode` values of `random` and `first` are still accepted. Two new config keys (`last_seen_version`, `show_support_link`) are added automatically — no manual changes needed.
 
 **v2.4.0**
-Title search was added to the History and Stats tabs. Pagination page size is now shared between both tabs for the session. History Size was renamed to Data Retention — stats entries are now pruned alongside history on each sweep, with lifetime totals unaffected. A retry mechanism was added: one retry per instance per sweep with a 15 second wait before marking an instance as bad. Instance error notifications now fire per failed instance with a friendly unreachable message. Max Per Run labels were updated to Per Instance throughout.
+Title search on History and Stats tabs. Pagination page size shared across both tabs. History Size renamed to Data Retention — stats entries pruned alongside history. Retry logic — one retry per instance with 15 second wait before marking bad. Instance error notifications fire per failed instance.
 
-**v2.3.0 — Major feature and security release**
-First-run onboarding walkthrough guides new users through every setting before their first run. Safe defaults ensure fresh installs do nothing until the user deliberately enables them. Passwords are now stored using PBKDF2-HMAC-SHA256 with a unique random salt per password, replacing the previous unsalted SHA256 hash. Existing passwords automatically migrate to the new format on next successful login — no action required. A progressive lockout is applied to failed login attempts (3 failures → 30s, 6 → 5min, 10 → 30min, 15+ → 1hr) to protect against brute force attacks.
+For full version history see [CHANGELOG.md](CHANGELOG.md).
 
-**v2.1.1 — Lifetime import totals**
-The Stats tab now tracks lifetime Movies and Shows totals that persist through Clear Stats. On first run after upgrading, existing confirmed entries are automatically counted and the totals are seeded. This is a one-way migration — downgrading to an earlier version will show zeros on the pills. The stats file itself is not corrupted by downgrading, but the lifetime keys will be ignored by older versions.
+---
 
-**v2.1.0 — Import check delay unit change**
-The config key `import_check_hours` was renamed to `import_check_minutes`. The value defaults to 120 minutes (2 hours) if not set. Your config will auto-migrate on next save.
+## Testing
+
+If you'd like to help validate stable releases, testing checklists are available in the `assets/` directory.
 
 ---
 
@@ -210,6 +183,8 @@ The config key `import_check_hours` was renamed to `import_check_minutes`. The v
 Nudgarr is a community-welcome project. Whether you want to fix a bug, improve the code quality, add a feature, or just give feedback — all of it is appreciated.
 
 If you have design skills and want to help with a proper icon or branding, that's something the project genuinely needs. Open an issue or a PR and let's talk.
+
+See [ROADMAP.md](ROADMAP.md) for planned features.
 
 ---
 

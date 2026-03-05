@@ -1580,7 +1580,7 @@ UI_HTML = r"""
       <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
       <button class="btn run-now" onclick="runNow()">Run Now</button>
       <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
-      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none;white-space:nowrap;padding:7px 14px;font-size:13px" title="Buy Me a Coffee">🍺 Donate</a>
+      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Donate</a>
     </div>
   </div>
 
@@ -1754,7 +1754,8 @@ UI_HTML = r"""
       </div>
 
       <div class="card amber-warn">
-        <p class="help amber-warn-body">⚠️ Nudgarr searches through your configured indexers. Aggressive settings can trigger rate limits or bans — start low and increase gradually.</p>
+        <p class="amber-warn-title">⚠️ INDEXER RATE LIMITS</p>
+        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard.</p>
       </div>
 
       <div class="row" style="margin-top:16px">
@@ -2545,37 +2546,38 @@ function editInstance(kind, idx) {
 }
 
 async function toggleInstance(kind, idx) {
+  const dotKey = `${kind}-${idx}`;
   try {
     const out = await api('/api/instance/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kind, idx})});
     const enabled = out.enabled;
-    // Update CFG locally so re-render is immediate
     CFG.instances[kind][idx].enabled = enabled;
     renderInstances(kind);
-    // Set dot directly — do not rely on poll cycle to avoid cross-instance flicker
-    const dot = el(`sdot-${kind}-${idx}`);
+    const dot = el(`sdot-${dotKey}`);
     if (dot) {
       if (!enabled) {
         dot.className = 'status-dot disabled';
       } else {
+        TOGGLE_IN_PROGRESS.add(dotKey);
         dot.className = 'status-dot checking';
-        // After backend ping completes (~1s) fetch status for just this instance's dot
         setTimeout(async () => {
           try {
             const st = await api('/api/status');
             const health = st.instance_health || {};
             const name = CFG.instances[kind][idx]?.name;
             const state = health[`${kind}|${name}`];
-            const d = el(`sdot-${kind}-${idx}`);
-            if (d && name) {
+            const d = el(`sdot-${dotKey}`);
+            if (d) {
               if (state === 'ok') d.className = 'status-dot ok';
               else if (state === 'bad') d.className = 'status-dot bad';
-              else if (state === 'disabled') d.className = 'status-dot disabled';
+              else d.className = 'status-dot';
             }
           } catch(e) {}
+          finally { TOGGLE_IN_PROGRESS.delete(dotKey); }
         }, 1400);
       }
     }
   } catch(e) {
+    TOGGLE_IN_PROGRESS.delete(dotKey);
     showAlert('Toggle failed: ' + e.message);
   }
 }
@@ -3247,6 +3249,9 @@ async function refreshStatus() {
   } catch(e) {}
 }
 
+// Tracks instances mid-toggle so poll doesn't race their dot
+const TOGGLE_IN_PROGRESS = new Set();
+
 function refreshDotsFromStatus(health) {
   if (!health) return;
   Object.entries(health).forEach(([key, state]) => {
@@ -3254,11 +3259,11 @@ function refreshDotsFromStatus(health) {
     const name = nameParts.join('|');
     const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
     if (cfgIdx >= 0) {
-      const dot = el(`sdot-${app}-${cfgIdx}`);
+      const dotKey = `${app}-${cfgIdx}`;
+      // Skip dots that are mid-toggle — toggleInstance manages those directly
+      if (TOGGLE_IN_PROGRESS.has(dotKey)) return;
+      const dot = el(`sdot-${dotKey}`);
       if (!dot) return;
-      // Don't let the poll cycle overwrite a dot that's mid-transition (checking set by toggle)
-      // Only skip if checking AND the instance is enabled — means toggle just fired
-      if (dot.className.includes('checking') && state !== 'disabled') return;
       if (state === 'ok') dot.className = 'status-dot ok';
       else if (state === 'bad') dot.className = 'status-dot bad';
       else if (state === 'disabled') dot.className = 'status-dot disabled';

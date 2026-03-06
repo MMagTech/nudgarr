@@ -1519,19 +1519,6 @@ UI_HTML = r"""
     tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
     tr.row-excluded .excl-btn { opacity: 1 !important; }
     .excl-col { overflow: visible !important; }
-    .excl-btn[data-tip]::after {
-      content: attr(data-tip);
-      position: fixed;
-      background: #242640; border: 1px solid var(--accent-border);
-      border-radius: 8px; padding: 6px 10px;
-      font-size: 12px; color: var(--text-dim); line-height: 1.4;
-      white-space: nowrap; z-index: 200;
-      pointer-events: none; opacity: 0; transition: opacity .15s;
-      transform: translateX(-50%) translateY(-110%);
-      left: 50%; top: 0;
-      box-shadow: 0 8px 24px rgba(0,0,0,.5);
-    }
-    .excl-btn[data-tip]:hover::after { opacity: 1; }
 
     /* ── Test result cards ── */
     .test-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -1713,7 +1700,7 @@ UI_HTML = r"""
         <div class="row" style="margin-bottom:4px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Radarr</span>
-            <span class="tooltip-icon">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
+            <span class="tooltip-icon">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 12px">Movie sweep activity — last run and lifetime totals.</p>
@@ -1723,7 +1710,7 @@ UI_HTML = r"""
         <div class="row" style="margin-bottom:4px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Sonarr</span>
-            <span class="tooltip-icon tip-left">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
+            <span class="tooltip-icon tip-left">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 12px">Episode sweep activity — last run and lifetime totals.</p>
@@ -2541,7 +2528,7 @@ async function refreshSweep() {
       const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
       const mode = cfg[modeKey] || legacyMode || 'random';
 
-      // Lifetime stats — must be before lastRun which references lf
+      // Lifetime stats no longer shown on card but last_run_utc still used
       const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
       const lf = lk ? lifetime[lk] : null;
 
@@ -2554,6 +2541,8 @@ async function refreshSweep() {
       const eligible = sw ? (sw.eligible || 0) + (sw.eligible_missing || 0) : null;
       const skipped = sw ? (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0) : null;
       const searched = sw ? (sw.searched || 0) + (sw.searched_missing || 0) : null;
+      const cutoffUnmet = sw ? (sw.cutoff_unmet_total ?? '—') : null;
+      const backfill = sw ? (sw.missing_total ?? '—') : null;
       const hasData = sw != null;
 
       const dimStyle = disabled ? 'opacity:0.45;' : '';
@@ -2574,8 +2563,24 @@ async function refreshSweep() {
           <div class="inst-row2" style="${dimStyle}">
             <div style="display:flex;gap:20px;align-items:center">
               <div class="sweep-stat">
+                <span class="sweep-stat-label">Cutoff Unmet</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Backfill</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
+              </div>
+              <div class="sweep-stat">
                 <span class="sweep-stat-label">Eligible</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="inst-row2" style="${dimStyle}">
+            <div style="display:flex;gap:20px;align-items:center">
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Exclusions</span>
+                <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Skipped</span>
@@ -2584,20 +2589,6 @@ async function refreshSweep() {
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Searched</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Exclusions</span>
-                <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
-              </div>
-            </div>
-            <div style="display:flex;gap:20px;align-items:center;border-left:1px solid var(--border);padding-left:20px">
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">↑ Runs</span>
-                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.runs : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">↑ Searched</span>
-                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.searched : '—'}</span>
               </div>
             </div>
           </div>
@@ -3120,11 +3111,11 @@ async function refreshHistory() {
       const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
       const rowClass = isExcl && !showExclFilter ? 'row-excluded' : '';
       const exclClass = isExcl ? 'excl-btn excluded' : 'excl-btn';
-      const exclTipText = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
+      const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
       return `
       <tr class="${rowClass}">
         <td>${escapeHtml(title)}</td>
-        <td class="excl-col"><button class="${exclClass}" data-tip="${exclTipText}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
+        <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td>${escapeHtml(it.instance || '')}</td>
         <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>

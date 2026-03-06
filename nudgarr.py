@@ -1687,7 +1687,7 @@ UI_HTML = r"""
             <span class="tooltip-icon">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
           </div>
         </div>
-        <p class="help" style="margin:0 0 10px">Per-instance sweep activity — last run and lifetime totals.</p>
+        <p class="help" style="margin:0 0 12px">Movie sweep activity — last run and lifetime totals.</p>
         <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
       <div class="card">
@@ -1697,7 +1697,7 @@ UI_HTML = r"""
             <span class="tooltip-icon">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
           </div>
         </div>
-        <p class="help" style="margin:0 0 10px">Per-instance sweep activity — last run and lifetime totals.</p>
+        <p class="help" style="margin:0 0 12px">Episode sweep activity — last run and lifetime totals.</p>
         <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
     </div>
@@ -2531,9 +2531,12 @@ async function refreshSweep() {
             <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
             <div class="inst-info">
               <div class="inst-name">${escapeHtml(inst.name)}</div>
-              <div class="inst-meta">${escapeHtml(inst.url || '')} &nbsp;·&nbsp; ${fmtMode(mode)}${disabled ? ' &nbsp;·&nbsp; <span style="color:var(--text-dim);font-weight:600">Disabled</span>' : ''}</div>
+              <div class="inst-meta">Sweep Mode: ${fmtMode(mode)}</div>
             </div>
-            <div class="inst-meta" style="flex-shrink:0;text-align:right;font-size:11px">${lastRun}</div>
+            <div style="flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+              ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text-dim)">Disabled</span>' : ''}
+              <div class="inst-meta" style="font-size:11px">Last Run: ${lastRun}</div>
+            </div>
           </div>
           <div class="inst-row2" style="${dimStyle}">
             <div style="display:flex;gap:20px;align-items:center">
@@ -2548,6 +2551,10 @@ async function refreshSweep() {
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Searched</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Exclusions</span>
+                <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
               </div>
             </div>
             <div style="display:flex;gap:20px;align-items:center;border-left:1px solid var(--border);padding-left:20px">
@@ -3084,7 +3091,7 @@ async function refreshHistory() {
       return `
       <tr class="${rowClass}">
         <td>${escapeHtml(title)}</td>
-        <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" onclick="toggleExclusion(${JSON.stringify(title)})">\u2298</button></td>
+        <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td>${escapeHtml(it.instance || '')}</td>
         <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>

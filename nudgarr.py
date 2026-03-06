@@ -1509,6 +1509,17 @@ UI_HTML = r"""
     .sweep-stat-value { font-size: 13px; color: var(--text); font-weight: 500; }
     .sweep-stat-value.dim { color: var(--text-dim); }
     .sweep-card.disabled-card { opacity: 0.45; }
+    /* Sweep stats grid — two rows, three columns, vertically aligned */
+    .sweep-stats-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 8px 0; padding: 10px 12px;
+      background: var(--surface); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    /* Right side of inst-row1 on sweep cards — pill and last run on same baseline */
+    .sweep-card-right {
+      flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    }
 
     /* ── Exclusion icon ── */
     .excl-col { width: 28px; text-align: center; }
@@ -1586,6 +1597,9 @@ UI_HTML = r"""
     }
     .tooltip-icon.tip-left .tooltip-box {
       left: auto; right: calc(100% + 3px);
+    }
+    .tooltip-icon.tip-down .tooltip-box {
+      top: calc(100% + 3px); bottom: auto; left: 0;
     }
 
     /* ── Cooldown warning flash ── */
@@ -1697,23 +1711,23 @@ UI_HTML = r"""
   <div class="section" id="tab-sweep">
     <div class="grid cols2">
       <div class="card">
-        <div class="row" style="margin-bottom:4px">
+        <div class="row" style="margin-bottom:12px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Radarr</span>
-            <span class="tooltip-icon">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
-        <p class="help" style="margin:0 0 12px">Movie sweep activity — last run and lifetime totals.</p>
+        <p class="help" style="margin:0 0 8px">Movie sweep activity — last run and lifetime totals.</p>
         <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
       <div class="card">
-        <div class="row" style="margin-bottom:4px">
+        <div class="row" style="margin-bottom:12px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Sonarr</span>
-            <span class="tooltip-icon tip-left">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
-        <p class="help" style="margin:0 0 12px">Episode sweep activity — last run and lifetime totals.</p>
+        <p class="help" style="margin:0 0 8px">Episode sweep activity — last run and lifetime totals.</p>
         <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
     </div>
@@ -2553,46 +2567,40 @@ async function refreshSweep() {
             <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
             <div class="inst-info">
               <div class="inst-name">${escapeHtml(inst.name)}</div>
-              <div class="inst-meta">Sweep Mode: ${fmtMode(mode)}</div>
+              <div class="inst-meta" style="margin-top:0">Sweep Mode: ${fmtMode(mode)}</div>
             </div>
-            <div style="flex-shrink:0;text-align:right;display:flex;align-items:center;gap:8px">
+            <div class="sweep-card-right">
               ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text-dim);opacity:1">Disabled</span>' : ''}
-              <div class="inst-meta" style="font-size:11px;white-space:nowrap">Last Run: ${lastRun}</div>
+              <span class="inst-meta" style="font-size:11px;white-space:nowrap;margin-top:0">Last Run: ${lastRun}</span>
             </div>
           </div>
-          <div class="inst-row2" style="${dimStyle}">
-            <div style="display:flex;gap:20px;align-items:center">
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Cutoff Unmet</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Backfill</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Eligible</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
-              </div>
+          <div class="sweep-stats-grid" style="${dimStyle}">
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Cutoff Unmet</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
             </div>
-          </div>
-          <div class="inst-row2" style="${dimStyle}">
-            <div style="display:flex;gap:20px;align-items:center">
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Exclusions</span>
-                <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Skipped</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Searched</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
-              </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Backfill</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
             </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Eligible</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Exclusions</span>
+              <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Skipped</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat-label">Searched</span>
+              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
+            </div>
+            ${!hasData ? `<div style="grid-column:1/-1"><p class="help" style="margin:4px 0 0;font-size:11px">Waiting for first sweep.</p></div>` : ''}
           </div>
-          ${!hasData ? `<p class="help" style="margin:2px 0 0;font-size:11px;${dimStyle}">Waiting for first sweep.</p>` : ''}
         </div>`;
     }).join('');
   }

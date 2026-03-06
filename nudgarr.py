@@ -2512,6 +2512,9 @@ function el(id) { return document.getElementById(id); }
 
 // ── Sweep tab ──────────────────────────────────────────────────────────────
 
+// Cache last known sweep stats per instance so disabled instances retain their values
+const SWEEP_DATA_CACHE = {};
+
 async function refreshSweep() {
   const status = await api('/api/status');
   const cfg = await api('/api/config');
@@ -2551,55 +2554,66 @@ async function refreshSweep() {
         ? (lf?.last_run_utc ? fmtTime(lf.last_run_utc) : '—')
         : (status.last_run_utc ? fmtTime(status.last_run_utc) : '—');
 
-      // Last run stats
-      const eligible = sw ? (sw.eligible || 0) + (sw.eligible_missing || 0) : null;
-      const skipped = sw ? (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0) : null;
-      const searched = sw ? (sw.searched || 0) + (sw.searched_missing || 0) : null;
-      const cutoffUnmet = sw ? (sw.cutoff_unmet_total ?? '—') : null;
-      const backfill = sw ? (sw.missing_total ?? '—') : null;
-      const hasData = sw != null;
+      // Last run stats — use cache if instance absent from this sweep (disabled)
+      const cacheKey = `${kind}|${inst.name}`;
+      if (sw) {
+        // Instance ran this sweep — update cache
+        SWEEP_DATA_CACHE[cacheKey] = {
+          eligible: (sw.eligible || 0) + (sw.eligible_missing || 0),
+          skipped: (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
+          searched: (sw.searched || 0) + (sw.searched_missing || 0),
+          cutoffUnmet: sw.cutoff_unmet_total ?? '—',
+          backfill: sw.missing_total ?? '—',
+        };
+      }
+      const cached = SWEEP_DATA_CACHE[cacheKey] || null;
+      const eligible = cached ? cached.eligible : null;
+      const skipped = cached ? cached.skipped : null;
+      const searched = cached ? cached.searched : null;
+      const cutoffUnmet = cached ? cached.cutoffUnmet : null;
+      const backfill = cached ? cached.backfill : null;
+      const hasData = cached != null;
 
       const dimStyle = disabled ? 'opacity:0.45;' : '';
 
       return `
         <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
-          <div class="inst-row1" style="${dimStyle}">
-            <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
-            <div class="inst-info">
-              <div class="inst-name">${escapeHtml(inst.name)}</div>
-              <div class="inst-meta" style="margin-top:0">Sweep Mode: ${fmtMode(mode)}</div>
+          ${disabled ? '<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--muted);opacity:1">Disabled</span></div>' : ''}
+          <div style="${dimStyle}">
+            <div class="inst-row1" style="align-items:baseline">
+              <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}" style="align-self:center"></span>
+              <div class="inst-info">
+                <div class="inst-name">${escapeHtml(inst.name)}</div>
+                <div class="inst-meta" style="margin-top:2px">Sweep Mode: ${fmtMode(mode)}</div>
+              </div>
+              <span class="inst-meta" style="font-size:11px;white-space:nowrap;margin-top:2px;flex-shrink:0">Last Run: ${lastRun}</span>
             </div>
-            <div class="sweep-card-right">
-              ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text-dim);opacity:1">Disabled</span>' : ''}
-              <span class="inst-meta" style="font-size:11px;white-space:nowrap;margin-top:0">Last Run: ${lastRun}</span>
+            <div class="sweep-stats-grid">
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Cutoff Unmet</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Backfill</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Eligible</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Exclusions</span>
+                <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Skipped</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Searched</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
+              </div>
             </div>
-          </div>
-          <div class="sweep-stats-grid" style="${dimStyle}">
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Cutoff Unmet</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Backfill</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Eligible</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Exclusions</span>
-              <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Skipped</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Searched</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
-            </div>
-            ${!hasData ? `<div style="grid-column:1/-1"><p class="help" style="margin:4px 0 0;font-size:11px">Waiting for first sweep.</p></div>` : ''}
           </div>
         </div>`;
     }).join('');

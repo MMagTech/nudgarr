@@ -2540,7 +2540,12 @@ async function refreshSweep() {
       const sw = summaryInsts.find(s => s.name === inst.name);
       const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
       const mode = cfg[modeKey] || legacyMode || 'random';
-      // Per-instance last run — use stored per-instance time; disabled instances show their last actual run
+
+      // Lifetime stats — must be before lastRun which references lf
+      const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
+      const lf = lk ? lifetime[lk] : null;
+
+      // Per-instance last run — disabled instances show their last actual run time
       const lastRun = disabled
         ? (lf?.last_run_utc ? fmtTime(lf.last_run_utc) : '—')
         : (status.last_run_utc ? fmtTime(status.last_run_utc) : '—');
@@ -2550,10 +2555,6 @@ async function refreshSweep() {
       const skipped = sw ? (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0) : null;
       const searched = sw ? (sw.searched || 0) + (sw.searched_missing || 0) : null;
       const hasData = sw != null;
-
-      // Lifetime stats — find by matching name prefix in lifetime keys
-      const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
-      const lf = lk ? lifetime[lk] : null;
 
       const dimStyle = disabled ? 'opacity:0.45;' : '';
 

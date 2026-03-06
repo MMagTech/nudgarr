@@ -2528,7 +2528,7 @@ async function refreshSweep() {
       const lifetimeRowBg = 'background:var(--bg);border-radius:8px;padding:10px 12px;border:1px solid var(--border);';
 
       return `
-        <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\\s+/g,'_')}">
+        <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
           <div class="inst-row1" style="${dimStyle}">
             <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
             <div class="inst-info">

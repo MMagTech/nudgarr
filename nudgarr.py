@@ -2524,8 +2524,6 @@ async function refreshSweep() {
       const lf = lk ? lifetime[lk] : null;
 
       const dimStyle = disabled ? 'opacity:0.45;' : '';
-      const statsRowBg = 'background:var(--card);border-radius:8px;padding:10px 12px;margin-top:2px;';
-      const lifetimeRowBg = 'background:var(--bg);border-radius:8px;padding:10px 12px;border:1px solid var(--border);';
 
       return `
         <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
@@ -2535,11 +2533,10 @@ async function refreshSweep() {
               <div class="inst-name">${escapeHtml(inst.name)}</div>
               <div class="inst-meta">${escapeHtml(inst.url || '')} &nbsp;·&nbsp; ${fmtMode(mode)}${disabled ? ' &nbsp;·&nbsp; <span style="color:var(--text-dim);font-weight:600">Disabled</span>' : ''}</div>
             </div>
-            <div class="inst-meta" style="flex-shrink:0;text-align:right">${lastRun}</div>
+            <div class="inst-meta" style="flex-shrink:0;text-align:right;font-size:11px">${lastRun}</div>
           </div>
-          <div style="${statsRowBg}${dimStyle}">
-            <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Last Sweep</div>
-            <div class="sweep-stats">
+          <div class="inst-row2" style="${dimStyle}">
+            <div style="display:flex;gap:20px;align-items:center">
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Eligible</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
@@ -2553,29 +2550,18 @@ async function refreshSweep() {
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
               </div>
             </div>
-            ${!hasData ? '<p class="help" style="margin:6px 0 0;font-size:11px">Waiting for first sweep.</p>' : ''}
-          </div>
-          <div style="${lifetimeRowBg}${dimStyle}">
-            <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Lifetime</div>
-            <div class="sweep-stats">
+            <div style="display:flex;gap:20px;align-items:center;border-left:1px solid var(--border);padding-left:20px">
               <div class="sweep-stat">
-                <span class="sweep-stat-label">Runs</span>
+                <span class="sweep-stat-label">↑ Runs</span>
                 <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.runs : '—'}</span>
               </div>
               <div class="sweep-stat">
-                <span class="sweep-stat-label">Eligible</span>
-                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.eligible : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Skipped</span>
-                <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.skipped : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Searched</span>
+                <span class="sweep-stat-label">↑ Searched</span>
                 <span class="sweep-stat-value ${lf ? '' : 'dim'}">${lf ? lf.searched : '—'}</span>
               </div>
             </div>
           </div>
+          ${!hasData ? `<p class="help" style="margin:2px 0 0;font-size:11px;${dimStyle}">Waiting for first sweep.</p>` : ''}
         </div>`;
     }).join('');
   }

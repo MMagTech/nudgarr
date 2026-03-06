@@ -2578,15 +2578,16 @@ async function refreshSweep() {
 
       return `
         <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
-          ${disabled ? '<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--muted);opacity:1">Disabled</span></div>' : ''}
           <div style="${dimStyle}">
-            <div class="inst-row1" style="align-items:baseline">
-              <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}" style="align-self:center"></span>
+            <div class="inst-row1">
+              <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
               <div class="inst-info">
                 <div class="inst-name">${escapeHtml(inst.name)}</div>
-                <div class="inst-meta" style="margin-top:2px">Sweep Mode: ${fmtMode(mode)}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+                  <span class="inst-meta">Sweep Mode: ${fmtMode(mode)}</span>
+                  <span class="inst-meta" style="font-size:11px;white-space:nowrap;flex-shrink:0">Last Run: ${lastRun}</span>
+                </div>
               </div>
-              <span class="inst-meta" style="font-size:11px;white-space:nowrap;margin-top:2px;flex-shrink:0">Last Run: ${lastRun}</span>
             </div>
             <div class="sweep-stats-grid">
               <div class="sweep-stat">
@@ -2599,7 +2600,10 @@ async function refreshSweep() {
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Eligible</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+                  ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text);opacity:1">Disabled</span>' : ''}
+                </div>
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Exclusions</span>

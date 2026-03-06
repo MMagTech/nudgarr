@@ -189,13 +189,22 @@ def load_json(path: str, default: Any) -> Any:
 
 def save_json_atomic(path: str, data: Any, *, pretty: bool) -> None:
     ensure_dir(path)
+    # Write tmp file in the same directory as target to ensure os.replace works
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        if pretty:
-            json.dump(data, f, indent=2, sort_keys=True)
-        else:
-            json.dump(data, f, separators=(",", ":"), sort_keys=True)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            if pretty:
+                json.dump(data, f, indent=2, sort_keys=True)
+            else:
+                json.dump(data, f, separators=(",", ":"), sort_keys=True)
+        os.replace(tmp, path)
+    except Exception:
+        # Clean up tmp if replace failed
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 def mask_url(url: str) -> str:
     try:
@@ -296,8 +305,9 @@ def load_or_init_config() -> Dict[str, Any]:
             print(f"  - {e}")
         return deep_copy(DEFAULT_CONFIG)
 
-    # Normalize & persist
-    save_json_atomic(CONFIG_FILE, merged, pretty=True)
+    # Only persist if merged differs from what was on disk (e.g. new default keys added)
+    if merged != cfg:
+        save_json_atomic(CONFIG_FILE, merged, pretty=True)
     return merged
 
 def state_key(name: str, url: str) -> str:
@@ -889,6 +899,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             lf["eligible"] += eligible + eligible_missing
             lf["skipped"] += skipped + skipped_missing
             lf["searched"] += searched + searched_missing
+            lf["last_run_utc"] = iso_z(utcnow())
         except Exception as e:
             print(f"[Radarr:{name}] ERROR: {e} — retrying in 15s")
             time.sleep(15)
@@ -981,6 +992,7 @@ def run_sweep(cfg: Dict[str, Any], state: Dict[str, Any], session: requests.Sess
             lf["eligible"] += eligible + eligible_missing
             lf["skipped"] += skipped + skipped_missing
             lf["searched"] += searched + searched_missing
+            lf["last_run_utc"] = iso_z(utcnow())
         except Exception as e:
             print(f"[Sonarr:{name}] ERROR: {e} — retrying in 15s")
             time.sleep(15)
@@ -1479,7 +1491,7 @@ UI_HTML = r"""
     .status-dot.ok { background: var(--ok); }
     .status-dot.bad { background: var(--bad); }
     .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
-    .status-dot.disabled { background: var(--border); opacity: 0.4; }
+    .status-dot.disabled { background: #4b5563; opacity: 1; }
     .dot.running { background: var(--warn) !important; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     #pill-lastrun { min-width: 185px; }
@@ -1500,12 +1512,26 @@ UI_HTML = r"""
 
     /* ── Exclusion icon ── */
     .excl-col { width: 28px; text-align: center; }
-    .excl-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; opacity: 0; transition: opacity .15s, color .15s; padding: 0; line-height: 1; }
+    .excl-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; opacity: 0; transition: opacity .15s, color .15s; padding: 0; line-height: 1; position: relative; }
     .excl-btn:hover { color: var(--bad); }
     .excl-btn.excluded { opacity: 1 !important; color: #f87171; }
     tr:hover .excl-btn { opacity: 1; }
     tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
     tr.row-excluded .excl-btn { opacity: 1 !important; }
+    .excl-col { overflow: visible !important; }
+    .excl-btn[data-tip]::after {
+      content: attr(data-tip);
+      position: fixed;
+      background: #242640; border: 1px solid var(--accent-border);
+      border-radius: 8px; padding: 6px 10px;
+      font-size: 12px; color: var(--text-dim); line-height: 1.4;
+      white-space: nowrap; z-index: 200;
+      pointer-events: none; opacity: 0; transition: opacity .15s;
+      transform: translateX(-50%) translateY(-110%);
+      left: 50%; top: 0;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .excl-btn[data-tip]:hover::after { opacity: 1; }
 
     /* ── Test result cards ── */
     .test-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -1566,10 +1592,13 @@ UI_HTML = r"""
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; font-weight: 400; font-style: normal;
       color: var(--text-dim); line-height: 1.5;
-      width: 360px; z-index: 100;
+      width: 300px; z-index: 100;
       opacity: 0; pointer-events: none;
       transition: opacity .2s;
       box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(99,120,255,.08);
+    }
+    .tooltip-icon.tip-left .tooltip-box {
+      left: auto; right: calc(100% + 3px);
     }
 
     /* ── Cooldown warning flash ── */
@@ -1694,7 +1723,7 @@ UI_HTML = r"""
         <div class="row" style="margin-bottom:4px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Sonarr</span>
-            <span class="tooltip-icon">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
+            <span class="tooltip-icon tip-left">i<div class="tooltip-box">Per-instance sweep activity from the last run. Eligible is the count of items that passed cooldown before the per-instance cap was applied. Lifetime totals persist across history clears.</div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 12px">Episode sweep activity — last run and lifetime totals.</p>
@@ -2511,7 +2540,10 @@ async function refreshSweep() {
       const sw = summaryInsts.find(s => s.name === inst.name);
       const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
       const mode = cfg[modeKey] || legacyMode || 'random';
-      const lastRun = status.last_run_utc ? fmtTime(status.last_run_utc) : '—';
+      // Per-instance last run — use stored per-instance time; disabled instances show their last actual run
+      const lastRun = disabled
+        ? (lf?.last_run_utc ? fmtTime(lf.last_run_utc) : '—')
+        : (status.last_run_utc ? fmtTime(status.last_run_utc) : '—');
 
       // Last run stats
       const eligible = sw ? (sw.eligible || 0) + (sw.eligible_missing || 0) : null;
@@ -2533,9 +2565,9 @@ async function refreshSweep() {
               <div class="inst-name">${escapeHtml(inst.name)}</div>
               <div class="inst-meta">Sweep Mode: ${fmtMode(mode)}</div>
             </div>
-            <div style="flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-              ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text-dim)">Disabled</span>' : ''}
-              <div class="inst-meta" style="font-size:11px">Last Run: ${lastRun}</div>
+            <div style="flex-shrink:0;text-align:right;display:flex;align-items:center;gap:8px">
+              ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text-dim);opacity:1">Disabled</span>' : ''}
+              <div class="inst-meta" style="font-size:11px;white-space:nowrap">Last Run: ${lastRun}</div>
             </div>
           </div>
           <div class="inst-row2" style="${dimStyle}">
@@ -3087,11 +3119,11 @@ async function refreshHistory() {
       const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
       const rowClass = isExcl && !showExclFilter ? 'row-excluded' : '';
       const exclClass = isExcl ? 'excl-btn excluded' : 'excl-btn';
-      const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
+      const exclTipText = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
       return `
       <tr class="${rowClass}">
         <td>${escapeHtml(title)}</td>
-        <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
+        <td class="excl-col"><button class="${exclClass}" data-tip="${exclTipText}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td>${escapeHtml(it.instance || '')}</td>
         <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>

@@ -2505,7 +2505,7 @@ async function refreshSweep() {
     const summaryInsts = summary[kind] || [];
     listEl.innerHTML = insts.map(inst => {
       const instKey = `${kind}|${inst.name}`;
-      const sk = `${kind}|${inst.name}|${(inst.url || '').replace(/\\/+$/, '')}`;
+      const sk = `${kind}|${inst.name}|${(inst.url || '').replace(/\/+$/, '')}`;
       const dotState = health[instKey] || 'checking';
       const disabled = inst.enabled === false;
       const sw = summaryInsts.find(s => s.name === inst.name);
@@ -2580,54 +2580,6 @@ async function refreshSweep() {
     }).join('');
   }
 }
-    if (!insts.length) {
-      listEl.innerHTML = `<p class="help" style="margin:4px 0">No ${kind} instances configured.</p>`;
-      continue;
-    }
-    const summaryInsts = summary[kind] || [];
-    listEl.innerHTML = insts.map(inst => {
-      const instKey = `${kind}|${inst.name}`;
-      const dotState = health[instKey] || 'checking';
-      const disabled = !inst.enabled && inst.enabled !== undefined ? inst.enabled === false : false;
-      const sw = summaryInsts.find(s => s.name === inst.name);
-      const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
-      const mode = cfg[modeKey] || legacyMode || 'random';
-      const lastRun = status.last_run_utc ? fmtTime(status.last_run_utc) : '—';
-      const eligible = sw ? (sw.eligible ?? sw.eligible_missing ?? '—') : '—';
-      const skipped = sw ? ((sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0) || '—') : '—';
-      const searched = sw ? ((sw.searched || 0) + (sw.searched_missing || 0) || '—') : '—';
-      const hasData = !!sw;
-      const dimClass = disabled ? 'sweep-card disabled-card' : 'sweep-card';
-      return `
-        <div class="${dimClass}" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
-          <div class="inst-row1">
-            <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
-            <div class="inst-info">
-              <div class="inst-name">${escapeHtml(inst.name)}</div>
-              <div class="inst-meta">${escapeHtml(inst.url || '')}</div>
-            </div>
-          </div>
-          <div class="sweep-stats">
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Last Run</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${lastRun}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Eligible</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Skipped</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Searched</span>
-              <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
-            </div>
-            <div class="sweep-stat">
-              <span class="sweep-stat-label">Mode</span>
-              <span class="sweep-stat-value">${escapeHtml(mode.replace('_',' '))}</span>
-            </div>
 function showSweepNoInstancesModal() {
   el('sweepNoInstancesModal').style.display = 'flex';
 }

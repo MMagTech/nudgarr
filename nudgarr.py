@@ -2589,7 +2589,8 @@ async function refreshSweep() {
                 </div>
               </div>
             </div>
-            <div class="sweep-stats-grid">
+            <div class="sweep-stats-grid" style="position:relative">
+              ${disabled ? '<span style="position:absolute;top:8px;right:10px;font-size:10px;padding:2px 7px;background:rgba(99,120,255,.15);color:#6378ff;border:1px solid rgba(99,120,255,.3);border-radius:4px;font-weight:600;letter-spacing:.04em;opacity:1">Disabled</span>' : ''}
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Cutoff Unmet</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
@@ -2600,10 +2601,7 @@ async function refreshSweep() {
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Eligible</span>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
-                  ${disabled ? '<span class="pill" style="font-size:10px;padding:2px 7px;background:var(--surface2);color:var(--text);opacity:1">Disabled</span>' : ''}
-                </div>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Exclusions</span>

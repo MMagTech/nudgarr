@@ -519,11 +519,11 @@
     .m-page-info { font-size: 12px; color: var(--muted); }
 
     /* ── Media query activation ── */
-    @media screen and (max-width: 480px) and (orientation: portrait) {
+    @media screen and (max-width: 500px) and (orientation: portrait) {
       .wrap { display: none !important; }
       #mobile-ui { display: flex !important; }
     }
-    @media screen and (max-width: 480px) and (orientation: landscape) {
+    @media screen and (max-width: 500px) and (orientation: landscape) {
       .wrap { display: none !important; }
       #mobile-ui { display: none !important; }
       #mobile-rotate { display: flex !important; }
@@ -1296,7 +1296,8 @@
 </div>
 
 <script>
-const MOBILE = window.matchMedia('(max-width: 480px)').matches;
+const MOBILE = window.matchMedia('(max-width: 500px) and (orientation: portrait)').matches
+            || window.matchMedia('(max-width: 500px) and (orientation: landscape)').matches;
 let CFG = null;
 let PAGE = 0;
 let IMPORTS_PAGE = 0;

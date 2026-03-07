@@ -3,14 +3,15 @@ nudgarr/routes/sweep.py
 
 Sweep control and instance connection testing.
 
-  GET  /api/status  -- current scheduler status and last summary
-  POST /api/run-now -- request an immediate sweep
-  POST /api/test    -- test connections to all configured instances
+  GET  /api/status        -- current scheduler status and last summary
+  POST /api/run-now       -- request an immediate sweep
+  POST /api/test          -- test connections to all configured instances (from disk)
+  POST /api/test-instance -- test a single instance against in-memory values
 """
 
 import requests as req_lib
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
@@ -103,4 +104,63 @@ def api_test():
             })
             STATUS["instance_health"][f"sonarr|{inst.get('name', '')}"] = "bad"
 
+    return jsonify({"ok": True, "results": results})
+
+
+def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> None:
+    """Test one instance and append result. Updates STATUS health in place."""
+    name = inst.get("name", "")
+    key = inst.get("key", "")
+    if not inst.get("enabled", True):
+        STATUS["instance_health"][f"{app_name}|{name}"] = "disabled"
+        results[app_name].append({
+            "name": name, "url": mask_url(inst.get("url", "")), "ok": True, "disabled": True
+        })
+        return
+    try:
+        if not is_safe_url(inst.get("url", "")):
+            results[app_name].append({
+                "name": name, "url": mask_url(inst.get("url", "")),
+                "ok": False, "error": "Invalid or disallowed URL",
+            })
+            STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
+            return
+        url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
+        data = req(session, "GET", url, key)
+        results[app_name].append({
+            "name": name, "url": mask_url(inst["url"]), "ok": True,
+            "version": data.get("version") if isinstance(data, dict) else None,
+        })
+        STATUS["instance_health"][f"{app_name}|{name}"] = "ok"
+    except Exception:
+        results[app_name].append({
+            "name": name, "url": mask_url(inst.get("url", "")),
+            "ok": False, "error": "Connection failed — check URL and API key",
+        })
+        STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
+
+
+@bp.post("/api/test-instance")
+@requires_auth
+def api_test_instance():
+    """Test a single instance against caller-supplied values (in-memory, not disk)."""
+    data = request.get_json(force=True, silent=True) or {}
+    kind = data.get("kind", "")
+    instances = data.get("instances", {})
+    if kind not in ("radarr", "sonarr"):
+        return jsonify({"ok": False, "error": "Invalid kind"}), 400
+    # Load stored config to resolve any masked keys
+    stored = load_or_init_config()
+    stored_insts = {i.get("name", ""): i for i in stored.get("instances", {}).get(kind, [])}
+    session = req_lib.Session()
+    results = {kind: []}
+    for inst in instances.get(kind, []):
+        key = inst.get("key", "")
+        # If key is masked, substitute the real stored key
+        if key.startswith("••••••••"):
+            real = stored_insts.get(inst.get("name", ""), {}).get("key", "")
+            if real:
+                inst = dict(inst)
+                inst["key"] = real
+        _test_single_instance(session, kind, inst, results)
     return jsonify({"ok": True, "results": results})

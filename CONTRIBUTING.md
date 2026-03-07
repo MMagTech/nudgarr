@@ -14,21 +14,21 @@ As of v2.8.0, Nudgarr is organised as a Python package rather than a single file
 nudgarr/                    ← Python package
   __init__.py               ← package metadata, exposes __version__
   constants.py              ← VERSION, file paths, DEFAULT_CONFIG
-  utils.py                  ← shared helpers: time, file I/O, HTTP, jitter
+  utils.py                  ← shared helpers: time, file I/O, HTTP, URL validation, jitter
   config.py                 ← load, validate, and deep-copy config
   state.py                  ← state/stats/exclusions persistence
   auth.py                   ← password hashing, lockout, session checks
   notifications.py          ← Apprise wrappers (sweep complete, import, error)
   arr_clients.py            ← Radarr and Sonarr API calls
   stats.py                  ← import tracking, cooldown logic, stat recording
-  globals.py                ← Flask app instance, STATUS dict, RUN_LOCK
+  globals.py                ← Flask app instance, STATUS dict, RUN_LOCK, security headers, persistent secret key
   sweep.py                  ← run_sweep orchestrator + per-instance helpers
   scheduler.py              ← scheduler loop, banner, Flask server starter
   routes/                   ← Flask blueprints (one file per domain)
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup
     config.py               ← /api/config, /api/instance/toggle, onboarding
-    sweep.py                ← /api/status, /api/run-now, /api/test
+    sweep.py                ← /api/status, /api/run-now, /api/test, /api/test-instance
     state.py                ← /api/state/*, /api/file/*, /api/exclusions*
     stats.py                ← /api/stats, /api/stats/clear, check-imports
     notifications.py        ← /api/notifications/test
@@ -82,7 +82,7 @@ main.py  ←─ imports from routes, scheduler, globals
 
 1. `main.py` calls `register_blueprints()` which registers all 7 route blueprints with the Flask app
 2. A request arrives at one of the 31 endpoints
-3. The `@requires_auth` decorator in `auth.py` checks session validity before the handler runs
+3. The `@requires_auth` decorator in `auth.py` checks session validity and runs a CSRF origin check on POST requests before the handler runs
 4. The handler reads/writes state via `state.py`, config via `config.py`, and updates `STATUS` in `globals.py`
 5. Flask serialises the response as JSON (most endpoints) or renders a template
 
@@ -150,7 +150,9 @@ When adding new HTML elements that are referenced by `el('some-id')` in JS, make
 
 ### Changing authentication
 
-Auth logic — hashing, lockout, session checks, the `@requires_auth` decorator — is in `nudgarr/auth.py`. Session cookie settings (SameSite, HttpOnly) are in `nudgarr/globals.py`.
+Auth logic — hashing, lockout, session checks, the `@requires_auth` decorator — is in `nudgarr/auth.py`. The decorator also runs `_csrf_origin_ok()` on every POST request, which validates the Origin or Referer header to reject cross-origin requests. Session cookie settings (HttpOnly) are in `nudgarr/globals.py`.
+
+The session secret key is managed by `_load_or_create_secret_key()` in `nudgarr/globals.py`. It checks for a `SECRET_KEY` env var first, then reads or creates `/config/nudgarr-secret.key` for persistence across restarts. Avoid moving this logic outside `globals.py` — it must run before any route is registered.
 
 ---
 

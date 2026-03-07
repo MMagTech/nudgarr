@@ -92,7 +92,7 @@
 
 ## Positive Security Findings
 
-- **Strong password hashing:** PBKDF2-HMAC-SHA256 with 260,000 iterations and a random salt — `nudgarr/auth.py`. Significantly stronger than the SHA-256 used in the Huntarr codebase this project replaces.
+- **Strong password hashing:** PBKDF2-HMAC-SHA256 with 260,000 iterations and a random salt — `nudgarr/auth.py`.
 - **Constant-time password comparison:** `hmac.compare_digest()` used for hash comparison in `nudgarr/auth.py`, preventing timing attacks.
 - **Progressive brute force lockout:** Failed login attempts trigger escalating lockouts (30s → 5m → 30m → 1h) tracked per IP in `nudgarr/auth.py`.
 - **Session timeout:** Configurable session expiry (default 30 minutes) implemented in `nudgarr/auth.py` and enforced via `@requires_auth` on all authenticated routes.

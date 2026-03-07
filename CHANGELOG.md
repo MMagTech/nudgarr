@@ -14,6 +14,11 @@ All notable changes to Nudgarr are documented here.
 - M1: Secret key now persisted to `/config/nudgarr-secret.key` on first start — sessions survive container restarts without requiring `SECRET_KEY` env var. Falls back to ephemeral key if config directory is not writable.
 - L2: Raw exception strings removed from API error responses — generic messages returned to client, full detail logged server-side.
 
+**Instance modal improvements**
+- API Key label updated dynamically — shows `API Key (Masked After Save)` when adding a new instance, `API Key (Masked)` when editing an existing one
+- Connection test on modal save now fires against in-memory values rather than disk — a bad key goes red immediately without needing to hit Save Changes first
+- New `POST /api/test-instance` endpoint accepts caller-supplied instance data directly; resolves masked keys against stored config before testing
+
 ---
 
 ## v2.8.0

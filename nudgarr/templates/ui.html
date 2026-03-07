@@ -348,6 +348,186 @@
       font-size: 12px; color: var(--text-dim); white-space: pre-wrap;
       line-height: 1.6; margin-top: 10px;
     }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       MOBILE UI  — portrait ≤480px
+       Desktop .wrap is hidden; #mobile-ui shown instead.
+       Landscape ≤480px → rotate overlay only.
+       ≥600px any orientation → desktop always (mobile never loads).
+    ══════════════════════════════════════════════════════════════════════ */
+
+    /* Rotate lock overlay */
+    #mobile-rotate {
+      display: none;
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; text-align: center; padding: 32px;
+    }
+    #mobile-rotate .rotate-icon { font-size: 48px; }
+    #mobile-rotate p { color: var(--muted); font-size: 14px; max-width: 260px; line-height: 1.5; }
+
+    /* Mobile shell */
+    #mobile-ui {
+      display: none;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* Mobile tab content */
+    .m-tab { display: none; flex: 1; overflow-y: auto; padding: 18px 16px 12px; scrollbar-width: none; }
+    .m-tab::-webkit-scrollbar { display: none; }
+    .m-tab.m-active { display: block; }
+
+    /* Bottom nav */
+    #m-nav {
+      height: 64px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .m-nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; padding: 4px 16px; border-radius: 12px;
+      transition: background .15s; flex: 1; user-select: none;
+    }
+    .m-nav-item:active { background: var(--card); }
+    .m-nav-item .m-nav-icon { font-size: 20px; color: var(--muted); transition: color .15s; }
+    .m-nav-item .m-nav-label { font-size: 10px; color: var(--muted); font-weight: 500; transition: color .15s; }
+    .m-nav-item.m-active .m-nav-icon,
+    .m-nav-item.m-active .m-nav-label { color: var(--accent); }
+
+    /* Home tab */
+    .m-home-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+    .m-home-header h1 { font-size: 26px; font-weight: 700; color: var(--text); margin: 0; }
+    .m-home-header span { font-size: 12px; color: var(--muted); }
+    .m-tagline { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
+    .m-run-btn {
+      width: 100%; padding: 14px;
+      background: rgba(99,120,255,.2); border: 1px solid var(--accent-border);
+      border-radius: 14px; color: #c0caff; font-size: 16px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-bottom: 16px; transition: background .15s;
+    }
+    .m-run-btn:active { background: rgba(99,120,255,.35); }
+    .m-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .m-time-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px;
+    }
+    .m-time-card .m-tc-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .m-time-card .m-tc-value { font-size: 13px; color: var(--text); font-weight: 500; }
+    .m-sweep-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--ok-dim); border: 1px solid rgba(34,197,94,.3);
+      border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--ok);
+      margin-bottom: 20px;
+    }
+    .m-sweep-pill.hidden { display: none; }
+    .m-divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
+    .m-toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 0; border-bottom: 1px solid var(--border);
+    }
+    .m-toggle-row:last-of-type { border-bottom: none; }
+    .m-toggle-label { font-size: 14px; color: var(--text); }
+    .m-toggle-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .m-toggle {
+      width: 44px; height: 26px; background: var(--card);
+      border-radius: 999px; border: 1px solid var(--border);
+      cursor: pointer; position: relative; transition: background .2s, border-color .2s;
+      flex-shrink: 0;
+    }
+    .m-toggle.m-on { background: var(--accent); border-color: var(--accent); }
+    .m-toggle::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 18px; height: 18px; background: white; border-radius: 50%;
+      transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+    .m-toggle.m-on::after { transform: translateX(18px); }
+    .m-desktop-note {
+      text-align: center; font-size: 11px; color: var(--muted);
+      padding: 16px 0 4px; opacity: .55;
+    }
+
+    /* Instances tab */
+    .m-inst-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px; margin-bottom: 10px;
+    }
+    .m-inst-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .m-inst-name { font-size: 15px; font-weight: 600; color: var(--text); }
+    .m-inst-url { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .m-inst-btn {
+      width: 100%; padding: 9px; background: transparent;
+      border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text-dim); font-size: 13px; cursor: pointer;
+      transition: background .15s;
+    }
+    .m-inst-btn:active { background: var(--card); }
+    .m-inst-btn.m-inst-disable { color: var(--bad); border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.05); }
+
+    /* Sweep tab */
+    .m-sweep-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; margin-bottom: 10px; overflow: hidden;
+    }
+    .m-sweep-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px; cursor: pointer; user-select: none;
+    }
+    .m-sweep-hdr:active { background: var(--card-hover); }
+    .m-sweep-hdr-left { display: flex; align-items: center; gap: 8px; }
+    .m-sweep-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .m-sweep-chevron { color: var(--muted); font-size: 11px; transition: transform .2s; }
+    .m-sweep-card.m-open .m-sweep-chevron { transform: rotate(180deg); }
+    .m-sweep-body { display: none; padding: 0 14px 14px; }
+    .m-sweep-card.m-open .m-sweep-body { display: block; }
+    .m-sweep-meta { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+    .m-stat-section { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--accent); margin-bottom: 8px; }
+    .m-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .m-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .m-stat-value { font-size: 20px; font-weight: 700; color: var(--text); }
+    .m-stat-value.m-dim { color: var(--text-dim); font-size: 16px; }
+
+    /* Imports tab */
+    .m-lifetime-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .m-lifetime-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; text-align: center;
+    }
+    .m-lifetime-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    .m-lifetime-value { font-size: 32px; font-weight: 700; color: var(--text); }
+    .m-import-item {
+      padding: 11px 0; border-bottom: 1px solid var(--border);
+      font-size: 13px; color: var(--text-dim);
+    }
+    .m-import-item:last-child { border-bottom: none; }
+    .m-page-row {
+      display: flex; align-items: center; justify-content: space-between; padding-top: 14px;
+    }
+    .m-page-btn {
+      padding: 8px 16px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text-dim); font-size: 13px; cursor: pointer;
+    }
+    .m-page-btn:disabled { opacity: .3; cursor: default; }
+    .m-page-info { font-size: 12px; color: var(--muted); }
+
+    /* ── Media query activation ── */
+    @media screen and (max-width: 480px) and (orientation: portrait) {
+      .wrap { display: none !important; }
+      #mobile-ui { display: flex !important; }
+    }
+    @media screen and (max-width: 480px) and (orientation: landscape) {
+      .wrap { display: none !important; }
+      #mobile-ui { display: none !important; }
+      #mobile-rotate { display: flex !important; }
+    }
   </style>
 </head>
 <body>
@@ -997,7 +1177,126 @@
     </div>
   </div>
 
+
+<!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
+
+<!-- Rotate lock -->
+<div id="mobile-rotate">
+  <div class="rotate-icon">⟳</div>
+  <p>Nudgarr is portrait-only on mobile. Please rotate your device.</p>
+</div>
+
+<!-- Mobile shell -->
+<div id="mobile-ui">
+
+  <!-- Home tab -->
+  <div class="m-tab m-active" id="m-home">
+    <div class="m-home-header">
+      <h1>Nudgarr</h1>
+      <span>v<span id="m-ver"></span></span>
+    </div>
+    <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
+
+    <button class="m-run-btn" onclick="mRunNow()">▶ Run Now</button>
+
+    <div class="m-time-row">
+      <div class="m-time-card">
+        <div class="m-tc-label">Last Run</div>
+        <div class="m-tc-value" id="m-last-run">—</div>
+      </div>
+      <div class="m-time-card">
+        <div class="m-tc-label">Next Run</div>
+        <div class="m-tc-value" id="m-next-run">—</div>
+      </div>
+    </div>
+
+    <div class="m-sweep-pill hidden" id="m-running-pill">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.5s ease-in-out infinite;display:inline-block;flex-shrink:0"></span>
+      Sweep in progress…
+    </div>
+
+    <div class="m-divider"></div>
+
+    <div class="m-toggle-row">
+      <div>
+        <div class="m-toggle-label">Automatic Sweeps</div>
+        <div class="m-toggle-sub" id="m-auto-sub">—</div>
+      </div>
+      <div class="m-toggle" id="m-toggle-auto" onclick="mToggleAuto()"></div>
+    </div>
+
+    <div class="m-toggle-row">
+      <div>
+        <div class="m-toggle-label">Notifications</div>
+        <div class="m-toggle-sub">Apprise alerts</div>
+      </div>
+      <div class="m-toggle" id="m-toggle-notify" onclick="mToggleNotify()"></div>
+    </div>
+
+    <div class="m-toggle-row">
+      <div>
+        <div class="m-toggle-label">Backlog Nudges</div>
+        <div class="m-toggle-sub">Search missing content</div>
+      </div>
+      <div class="m-toggle" id="m-toggle-backlog" onclick="mToggleBacklog()"></div>
+    </div>
+
+    <p class="m-desktop-note">Full configuration available on desktop</p>
+  </div>
+
+  <!-- Instances tab -->
+  <div class="m-tab" id="m-instances">
+    <div id="m-inst-list"></div>
+  </div>
+
+  <!-- Sweep tab -->
+  <div class="m-tab" id="m-sweep">
+    <div id="m-sweep-list"></div>
+  </div>
+
+  <!-- Imports tab -->
+  <div class="m-tab" id="m-imports">
+    <div class="m-lifetime-row">
+      <div class="m-lifetime-card">
+        <div class="m-lifetime-label">🎬 Movies</div>
+        <div class="m-lifetime-value" id="m-movies-total">—</div>
+      </div>
+      <div class="m-lifetime-card">
+        <div class="m-lifetime-label">📺 Shows</div>
+        <div class="m-lifetime-value" id="m-shows-total">—</div>
+      </div>
+    </div>
+    <div id="m-imports-list"></div>
+    <div class="m-page-row">
+      <button class="m-page-btn" id="m-prev-btn" onclick="mImportsPage(-1)" disabled>◀ Prev</button>
+      <span class="m-page-info" id="m-page-info">—</span>
+      <button class="m-page-btn" id="m-next-btn" onclick="mImportsPage(1)">Next ▶</button>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav id="m-nav">
+    <div class="m-nav-item m-active" id="m-nav-home" onclick="mSwitchTab('home')">
+      <span class="m-nav-icon">⌂</span>
+      <span class="m-nav-label">Home</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-instances" onclick="mSwitchTab('instances')">
+      <span class="m-nav-icon">⬡</span>
+      <span class="m-nav-label">Instances</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-sweep" onclick="mSwitchTab('sweep')">
+      <span class="m-nav-icon">↻</span>
+      <span class="m-nav-label">Sweep</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-imports" onclick="mSwitchTab('imports')">
+      <span class="m-nav-icon">✓</span>
+      <span class="m-nav-label">Imports</span>
+    </div>
+  </nav>
+</div>
+
 <script>
+const MOBILE = window.matchMedia('(max-width: 480px)').matches;
 let CFG = null;
 let PAGE = 0;
 let IMPORTS_PAGE = 0;
@@ -2351,24 +2650,302 @@ async function pollCycle() {
   }
 }
 
-loadAll().then(() => {
-  // Only pulse checking on enabled instances — disabled stay grey
-  (CFG?.instances?.radarr || []).forEach((inst, idx) => {
-    if (inst.enabled !== false) {
-      const d = el(`sdot-radarr-${idx}`);
-      if (d) d.className = 'status-dot checking';
-    }
+if (!MOBILE) {
+  loadAll().then(() => {
+    // Only pulse checking on enabled instances — disabled stay grey
+    (CFG?.instances?.radarr || []).forEach((inst, idx) => {
+      if (inst.enabled !== false) {
+        const d = el(`sdot-radarr-${idx}`);
+        if (d) d.className = 'status-dot checking';
+      }
+    });
+    (CFG?.instances?.sonarr || []).forEach((inst, idx) => {
+      if (inst.enabled !== false) {
+        const d = el(`sdot-sonarr-${idx}`);
+        if (d) d.className = 'status-dot checking';
+      }
+    });
+    maybeShowOnboarding();
+    if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
   });
-  (CFG?.instances?.sonarr || []).forEach((inst, idx) => {
-    if (inst.enabled !== false) {
-      const d = el(`sdot-sonarr-${idx}`);
-      if (d) d.className = 'status-dot checking';
+  setInterval(pollCycle, 5000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MOBILE UI
+// ══════════════════════════════════════════════════════════════════════════
+
+let M_TAB = 'home';
+let M_IMPORTS_PAGE = 0;
+const M_IMPORTS_PER_PAGE = 10;
+let M_IMPORTS_TOTAL = 0;
+let M_OPEN_SWEEP = null; // key of currently open accordion card
+
+function mSwitchTab(name) {
+  document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('m-active'));
+  document.querySelectorAll('.m-nav-item').forEach(n => n.classList.remove('m-active'));
+  const tab = document.getElementById('m-' + name);
+  const nav = document.getElementById('m-nav-' + name);
+  if (tab) tab.classList.add('m-active');
+  if (nav) nav.classList.add('m-active');
+  M_TAB = name;
+  if (name === 'sweep') mRenderSweep();
+  if (name === 'imports') mRefreshImports();
+  if (name === 'instances') mRenderInstances();
+}
+
+// ── Home ──
+
+function mUpdateHome(cfg, st) {
+  const verEl = document.getElementById('m-ver');
+  if (verEl) verEl.textContent = st.version || '';
+
+  const lastEl = document.getElementById('m-last-run');
+  if (lastEl) lastEl.textContent = fmtTime(st.last_run_utc);
+
+  const nextEl = document.getElementById('m-next-run');
+  if (nextEl) nextEl.textContent = cfg.scheduler_enabled ? fmtTime(st.next_run_utc) : 'Manual';
+
+  const pill = document.getElementById('m-running-pill');
+  if (pill) pill.classList.toggle('hidden', !st.run_in_progress);
+
+  const autoSub = document.getElementById('m-auto-sub');
+  if (autoSub) autoSub.textContent = cfg.scheduler_enabled ? 'Auto' : 'Manual';
+
+  const tAuto = document.getElementById('m-toggle-auto');
+  if (tAuto) tAuto.classList.toggle('m-on', !!cfg.scheduler_enabled);
+
+  const tNotify = document.getElementById('m-toggle-notify');
+  if (tNotify) tNotify.classList.toggle('m-on', !!cfg.notify_enabled);
+
+  const backlogOn = !!(cfg.radarr_backlog_enabled || cfg.sonarr_backlog_enabled);
+  const tBacklog = document.getElementById('m-toggle-backlog');
+  if (tBacklog) tBacklog.classList.toggle('m-on', backlogOn);
+}
+
+async function mRunNow() {
+  try {
+    await api('/api/run-now', {method:'POST'});
+    const lastEl = document.getElementById('m-last-run');
+    if (lastEl) lastEl.textContent = 'Running…';
+    const pill = document.getElementById('m-running-pill');
+    if (pill) pill.classList.remove('hidden');
+  } catch(e) {}
+}
+
+async function mSaveCfgKey(updates) {
+  try {
+    const cfg = await api('/api/config');
+    Object.assign(cfg, updates);
+    await api('/api/config', {method:'POST', body: JSON.stringify(cfg)});
+    Object.assign(CFG, updates);
+    mUpdateHome(CFG, {
+      version: CFG.version,
+      last_run_utc: null,
+      next_run_utc: null,
+      run_in_progress: false,
+    });
+    // Re-read status for accurate times
+    const st = await api('/api/status');
+    mUpdateHome(CFG, st);
+  } catch(e) {}
+}
+
+function mToggleAuto() {
+  const newVal = !CFG.scheduler_enabled;
+  mSaveCfgKey({scheduler_enabled: newVal});
+}
+
+function mToggleNotify() {
+  const newVal = !CFG.notify_enabled;
+  mSaveCfgKey({notify_enabled: newVal});
+}
+
+function mToggleBacklog() {
+  const current = !!(CFG.radarr_backlog_enabled || CFG.sonarr_backlog_enabled);
+  const newVal = !current;
+  mSaveCfgKey({radarr_backlog_enabled: newVal, sonarr_backlog_enabled: newVal});
+}
+
+// ── Instances ──
+
+function mRenderInstances() {
+  const list = document.getElementById('m-inst-list');
+  if (!list || !CFG) return;
+  const cards = [];
+  for (const kind of ['radarr', 'sonarr']) {
+    (CFG.instances?.[kind] || []).forEach((inst, idx) => {
+      const enabled = inst.enabled !== false;
+      const healthKey = `${kind}|${inst.name}`;
+      const health = (STATUS_CACHE && STATUS_CACHE[healthKey]) || 'checking';
+      const dotClass = health === 'ok' ? 'ok' : health === 'bad' ? 'bad' : health === 'disabled' ? 'disabled' : '';
+      cards.push(`
+        <div class="m-inst-card">
+          <div class="m-inst-name-row">
+            <span class="status-dot ${dotClass}" id="m-dot-${kind}-${idx}"></span>
+            <span class="m-inst-name">${escapeHtml(inst.name)}</span>
+          </div>
+          <div class="m-inst-url">${escapeHtml((inst.url || '').replace(/\/$/, ''))}</div>
+          <button class="m-inst-btn ${enabled ? 'm-inst-disable' : ''}"
+            onclick="mToggleInstance('${kind}', ${idx})">
+            ${enabled ? 'Disable' : 'Enable'}
+          </button>
+        </div>`);
+    });
+  }
+  list.innerHTML = cards.join('') || '<p class="help" style="text-align:center;padding:24px 0">No instances configured.</p>';
+}
+
+let STATUS_CACHE = {};
+
+async function mToggleInstance(kind, idx) {
+  try {
+    await api('/api/instance/toggle', {method:'POST', body: JSON.stringify({kind, idx})});
+    await loadAll();
+    mRenderInstances();
+  } catch(e) {}
+}
+
+// ── Sweep ──
+
+function mRenderSweep() {
+  const list = document.getElementById('m-sweep-list');
+  if (!list || !CFG) return;
+  const cards = [];
+  const legacyMode = CFG.sample_mode || 'random';
+  function fmtMode(m) {
+    return (m || 'random').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  for (const kind of ['radarr', 'sonarr']) {
+    (CFG.instances?.[kind] || []).forEach((inst) => {
+      const key = `${kind}|${inst.name}`;
+      const disabled = inst.enabled === false;
+      const cached = SWEEP_DATA_CACHE[key] || null;
+      const hasData = cached != null;
+      const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
+      const mode = CFG[modeKey] || legacyMode;
+      const isOpen = (M_OPEN_SWEEP === null && cards.length === 0) || M_OPEN_SWEEP === key;
+      cards.push(`
+        <div class="m-sweep-card ${isOpen ? 'm-open' : ''}" data-key="${key}" onclick="mAccordion(this)">
+          <div class="m-sweep-hdr">
+            <div class="m-sweep-hdr-left">
+              <span class="status-dot ${disabled ? 'disabled' : 'ok'}" id="m-sdot-${key}"></span>
+              <span class="m-sweep-name">${escapeHtml(inst.name)}</span>
+            </div>
+            <span class="m-sweep-chevron">▼</span>
+          </div>
+          <div class="m-sweep-body">
+            ${disabled ? '<p class="m-sweep-meta">Disabled</p>' : `
+            <div class="m-sweep-meta">${fmtMode(mode)}</div>
+            <div class="m-stat-section">LIBRARY STATE</div>
+            <div class="m-stat-grid">
+              <div><div class="m-stat-label">Cutoff Unmet</div><div class="m-stat-value ${hasData ? '' : 'm-dim'}">${hasData ? (cached.cutoffUnmet ?? '—') : '—'}</div></div>
+              <div><div class="m-stat-label">Backfill</div><div class="m-stat-value ${hasData ? '' : 'm-dim'}">${hasData ? (cached.backfill ?? '—') : '—'}</div></div>
+            </div>
+            <div class="m-stat-section">THIS RUN</div>
+            <div class="m-stat-grid">
+              <div><div class="m-stat-label">Eligible</div><div class="m-stat-value ${hasData ? '' : 'm-dim'}">${hasData ? cached.eligible : '—'}</div></div>
+              <div><div class="m-stat-label">On Cooldown</div><div class="m-stat-value ${hasData ? '' : 'm-dim'}">${hasData ? cached.onCooldown : '—'}</div></div>
+              <div><div class="m-stat-label">Capped</div><div class="m-stat-value ${hasData ? '' : 'm-dim'}">${hasData ? cached.capped : '—'}</div></div>
+              <div><div class="m-stat-label">Searched</div><div class="m-stat-value ${hasData ? '' : 'm-dim'}">${hasData ? cached.searched : '—'}</div></div>
+            </div>`}
+          </div>
+        </div>`);
+    });
+  }
+  list.innerHTML = cards.join('') || '<p class="help" style="text-align:center;padding:24px 0">No instances configured.</p>';
+}
+
+function mAccordion(card) {
+  const key = card.dataset.key;
+  const wasOpen = card.classList.contains('m-open');
+  // Close all
+  document.querySelectorAll('#m-sweep-list .m-sweep-card').forEach(c => c.classList.remove('m-open'));
+  // Open tapped unless it was already open — but always keep one open
+  if (!wasOpen) {
+    card.classList.add('m-open');
+    M_OPEN_SWEEP = key;
+  } else {
+    // Re-open first card since we can't have none open
+    const first = document.querySelector('#m-sweep-list .m-sweep-card');
+    if (first) { first.classList.add('m-open'); M_OPEN_SWEEP = first.dataset.key; }
+  }
+}
+
+// ── Imports ──
+
+async function mRefreshImports() {
+  try {
+    const offset = M_IMPORTS_PAGE * M_IMPORTS_PER_PAGE;
+    const data = await api(`/api/stats?offset=${offset}&limit=${M_IMPORTS_PER_PAGE}`);
+    M_IMPORTS_TOTAL = data.total || 0;
+
+    const movEl = document.getElementById('m-movies-total');
+    const showEl = document.getElementById('m-shows-total');
+    if (movEl) movEl.textContent = data.movies_total ?? '—';
+    if (showEl) showEl.textContent = data.shows_total ?? '—';
+
+    const listEl = document.getElementById('m-imports-list');
+    if (listEl) {
+      if (!data.entries || !data.entries.length) {
+        listEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 0">No confirmed imports yet.</p>';
+      } else {
+        listEl.innerHTML = data.entries.map(e =>
+          `<div class="m-import-item">${escapeHtml(e.title || e.item_id || '—')}</div>`
+        ).join('');
+      }
     }
+
+    const totalPages = Math.max(1, Math.ceil(M_IMPORTS_TOTAL / M_IMPORTS_PER_PAGE));
+    const pageInfo = document.getElementById('m-page-info');
+    if (pageInfo) pageInfo.textContent = `Page ${M_IMPORTS_PAGE + 1} of ${totalPages}`;
+
+    const prevBtn = document.getElementById('m-prev-btn');
+    const nextBtn = document.getElementById('m-next-btn');
+    if (prevBtn) prevBtn.disabled = M_IMPORTS_PAGE === 0;
+    if (nextBtn) nextBtn.disabled = M_IMPORTS_PAGE >= totalPages - 1;
+  } catch(e) {}
+}
+
+function mImportsPage(dir) {
+  const totalPages = Math.max(1, Math.ceil(M_IMPORTS_TOTAL / M_IMPORTS_PER_PAGE));
+  M_IMPORTS_PAGE = Math.max(0, Math.min(totalPages - 1, M_IMPORTS_PAGE + dir));
+  mRefreshImports();
+}
+
+// ── Mobile poll ──
+
+async function mPollCycle() {
+  if (!MOBILE) return;
+  try {
+    const st = await api('/api/status');
+    STATUS_CACHE = st.instance_health || {};
+    if (CFG) mUpdateHome(CFG, st);
+    if (M_TAB === 'sweep') {
+      await refreshSweep(); // reuse desktop sweep data loader to populate SWEEP_DATA_CACHE
+      mRenderSweep();
+    }
+    if (M_TAB === 'instances') mRenderInstances();
+  } catch(e) {}
+}
+
+// ── Mobile init ──
+
+if (MOBILE) {
+  loadAll().then(async () => {
+    const st = await api('/api/status');
+    STATUS_CACHE = st.instance_health || {};
+    mUpdateHome(CFG, st);
+    mRenderInstances();
+    await refreshSweep();
+    mRenderSweep();
+    await mRefreshImports();
+    maybeShowOnboarding();
+    if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
   });
-  maybeShowOnboarding();
-  if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
-});
-setInterval(pollCycle, 5000);
+  setInterval(mPollCycle, 5000);
+}
+
 </script>
 </body>
 </html>

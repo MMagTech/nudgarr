@@ -64,8 +64,8 @@
 ### M2: Session Cookie Flags Not Explicitly Set
 
 - **File:** `nudgarr.py` — Flask app configuration (no `SESSION_COOKIE_*` settings found)
-- **Impact:** Flask session cookies are not explicitly configured with `SameSite` flags. Without `SameSite=Lax` the session cookie is sent on cross-site requests, contributing to the CSRF risk identified in H3. Flask defaults `HttpOnly=True` but does not set `SameSite`.
-- **Mitigation:** Add to app configuration: `app.config["SESSION_COOKIE_HTTPONLY"] = True` and `app.config["SESSION_COOKIE_SAMESITE"] = "Lax"`. Do not set `SESSION_COOKIE_SECURE=True` as this would break HTTP deployments. `SameSite=Lax` provides meaningful CSRF protection at no cost to usability.
+- **Impact:** Flask session cookies are not explicitly configured with `SameSite` flags. `SameSite=Lax` breaks POST requests in reverse-proxy and iframe environments (Unraid, Synology), causing auth failures on all save operations. Nudgarr is a LAN-only tool and HTTPS is not on the roadmap — users requiring external access are directed to use an external auth layer.
+- **Resolution (v2.8.0):** `SESSION_COOKIE_HTTPONLY=True` explicitly set. `SESSION_COOKIE_SAMESITE` will not be configured — HTTPS is not planned, making `SameSite=Lax` harmful and `SameSite=None; Secure` unavailable. This item is closed.
 - **Status:** Not addressed — straightforward two-line fix recommended before v2.7.0 release.
 
 ---
@@ -110,7 +110,7 @@
 
 ### Before v2.7.0 Release
 
-1. **M2** — Add `SESSION_COOKIE_SAMESITE="Lax"` and `SESSION_COOKIE_HTTPONLY=True` to Flask app config. Two lines, no functional impact.
+1. **M2** — `SESSION_COOKIE_HTTPONLY=True` added in v2.8.0. `SESSION_COOKIE_SAMESITE` will not be set — Nudgarr is LAN-only, HTTPS is not planned. Closed.
 
 ### v2.8.0 Hardening
 

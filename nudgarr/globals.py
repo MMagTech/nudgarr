@@ -30,7 +30,11 @@ app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 # Note: secret_key is regenerated on restart if not set via env var.
 # Sessions will be invalidated on container restart — expected behaviour for local tool.
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# SESSION_COOKIE_SAMESITE intentionally not set.
+# SameSite=Lax breaks session cookies in reverse-proxy and iframe
+# environments (Unraid, Synology) because POST requests are treated as
+# cross-site. This can be revisited when HTTPS support is added, at
+# which point SameSite=None; Secure becomes viable.
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 # ── Runtime status ────────────────────────────────────────────────────

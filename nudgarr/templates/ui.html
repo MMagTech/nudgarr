@@ -950,28 +950,27 @@
 
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-      <h2 style="margin:0 0 4px">What's New in v2.7.0</h2>
-      <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
-      <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
-        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Sweep Tab</div>
-          <div class="help">A dedicated tab showing per-instance sweep stats — eligible, skipped, searched, last run time, and sample mode. Cards mirror the Instances tab layout and update automatically.</div>
-        </div>
-        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">⊘ Exclusion List</div>
-          <div class="help">Hover any History row to reveal the exclusion icon. Excluding a title prevents Nudgarr from ever searching it again — across all instances and sweep types. Manage exclusions via the Exclusions filter pill.</div>
-        </div>
-        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔖 Favicon</div>
-          <div class="help">Nudgarr now has a favicon — look for the N in your browser tabs and bookmarks bar.</div>
-        </div>
-      </div>
-      <div class="row" style="justify-content:flex-end;margin-top:20px">
-        <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>
-      </div>
-    </div>
-  </div>
+     <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+       <h2 style="margin:0 0 4px">What's New in v2.8.0</h2>
+       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit. v2.7.0 was not released publicly — its features ship here in v2.8.0.</p>
+       <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Sweep Tab <span style="font-weight:400;color:var(--muted);font-size:11px">v2.7.0</span></div>
+           <div class="help">A dedicated tab showing per-instance sweep stats — Library State (Cutoff Unmet, Backfill) and This Run counts (Eligible, On Cooldown, Capped, Searched). Updates automatically after every sweep.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⊘ Exclusion List <span style="font-weight:400;color:var(--muted);font-size:11px">v2.7.0</span></div>
+           <div class="help">Hover any History row to reveal the exclusion icon. Excluding a title prevents Nudgarr from ever searching it again across all instances. Manage exclusions via the filter pill in History.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏗️ Project Restructure <span style="font-weight:400;color:var(--muted);font-size:11px">v2.8.0</span></div>
+           <div class="help">The codebase has been split into a proper Python package — making it easier to read, review, and contribute to. No functional changes, no config changes required.</div>
+         </div>
+       </div>
+       <div class="row" style="justify-content:flex-end;margin-top:20px">
+         <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>
+       </div>
+     </div>
 
   <!-- ══ Sweep No-Instances Modal ══ -->
   <div class="modal-backdrop" id="sweepNoInstancesModal" style="display:none" onclick="el('sweepNoInstancesModal').style.display='none'">
@@ -1212,6 +1211,8 @@ function showTab(name) {
 
 function _onTabShown(name) {
   if (name === 'history') {
+    EXCL_FILTER_ACTIVE = false;
+    const pill = el('exclusionsPill'); if (pill) pill.style.background = '';
     clearHistorySearch();
     if (!el('historyTableWrap').querySelector('table')) {
       el('historyTableWrap').innerHTML = `
@@ -1846,9 +1847,7 @@ async function refreshHistory() {
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
       return `<div class="pill"><span style="color:var(--text-dim);font-size:11px">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:400;font-size:13px">${count}</span></div>`;
     }).join('');
-    el('kpis').innerHTML = instPills +
-      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">History File:</span><span style="color:var(--text);font-weight:400;font-size:13px">${sum.file_size_human}</span></div>` +
-      `<div class="pill"><span style="color:var(--text-dim);font-size:11px">Retention:</span><span style="color:var(--text);font-weight:400;font-size:13px">${sum.retention_days} days</span></div>`;
+    el('kpis').innerHTML = instPills;
 
     // Build instance dropdown from ALL_INSTANCES (has correct app info)
     // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues

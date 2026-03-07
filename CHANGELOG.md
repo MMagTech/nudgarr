@@ -42,8 +42,8 @@ All notable changes to Nudgarr are documented here.
 - Replay Walkthrough button added to Advanced → UI Preferences
 
 **Security**
-- `SESSION_COOKIE_SAMESITE="Lax"` added to Flask app config — reduces CSRF exposure on cross-site requests
-- `SESSION_COOKIE_HTTPONLY=True` explicitly set — confirms Flask default
+- `SESSION_COOKIE_HTTPONLY=True` explicitly set — confirms Flask default, prevents JS cookie access
+- `SESSION_COOKIE_SAMESITE` not set — Nudgarr is LAN-only, HTTPS is not planned; `SameSite=Lax` breaks POST requests through reverse proxies (Unraid, Synology)
 
 ---
 

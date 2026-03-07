@@ -82,7 +82,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `dev` · `v2.7.0` · `2.7.0` · `2.7`
+**Tags:** `latest` · `dev` · `v2.8.0` · `2.8.0` · `2.8`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -187,20 +187,10 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 
 ## Upgrade notes
 
-**v2.7.0**
-Sweep tab — a dedicated view between Instances and Settings showing per-instance Library State (Cutoff Unmet, Backfill) and This Run stats (Eligible, On Cooldown, Capped, Searched) updated after every sweep. Disabled instances retain their last known stats and show a Disabled pill. Exclusion list — exclude titles from future searches via the ⊘ icon in History. Onboarding expanded to 10 steps including a dedicated Sweep Stats walkthrough. Replay Walkthrough added to UI Preferences.
+**v2.8.0** *(first public release)*
+Sweep tab — a dedicated view showing per-instance Library State (Cutoff Unmet, Backfill) and This Run stats (Eligible, On Cooldown, Capped, Searched) updated after every sweep. Disabled instances retain their last known stats and show a Disabled pill. Exclusion list — exclude titles from future searches via the ⊘ icon in History. Onboarding expanded to 10 steps. Replay Walkthrough added to UI Preferences. Codebase restructured into a Python package — no functional changes, no config changes required.
 
-Upgrading from v2.6.0: no config changes required.
-
-**v2.6.0**
-Per-instance enable/disable — disabled instances are skipped in sweeps and health checks, dot goes grey, card dims, re-enabling triggers an immediate ping. Per-app sample mode — Radarr and Sonarr each have their own independently configurable mode. Library Added and Search Count columns added to History. Backup All replaces individual download buttons in Support & Diagnostics.
-
-Upgrading from v2.5.0: two new config keys (`radarr_sample_mode`, `sonarr_sample_mode`) default to your existing `sample_mode` value automatically — no manual changes needed.
-
-**v2.5.0**
-Four sample modes — Random, Alphabetical, Oldest Added, Newest Added. Instance health dots now pulse amber on page load and resolve within ~1 second via parallel background pings. Last Run and Next Run pills populate immediately on startup. Visual hierarchy corrected throughout. Danger zone consolidated to one row. Clear History no longer shows a second popup.
-
-Upgrading from v2.4.0: `sample_mode` values of `random` and `first` are still accepted. Two new config keys (`last_seen_version`, `show_support_link`) are added automatically — no manual changes needed.
+Upgrading from any previous version: no config changes required.
 
 For full version history see [CHANGELOG.md](CHANGELOG.md).
 
@@ -210,9 +200,7 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 
 Nudgarr is a community-welcome project. Whether you want to fix a bug, improve the code quality, add a feature, or just give feedback — all of it is appreciated.
 
-If you have design skills and want to help with a proper icon or branding, that's something the project genuinely needs. Open an issue or a PR and let's talk.
-
-See [ROADMAP.md](ROADMAP.md) for planned features.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide, and [ROADMAP.md](ROADMAP.md) for planned features.
 
 ---
 

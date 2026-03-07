@@ -1864,15 +1864,22 @@ async function refreshHistory() {
     const appName = selected ? selected.app : '';
 
     const limit = parseInt(el('historyLimit').value || '25', 10);
-    const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${PAGE*limit}&limit=${limit}`);
+    // When exclusion filter is active fetch all items so client-side filter
+    // isn't limited to the current page — excluded items may span all pages.
+    const fetchLimit = EXCL_FILTER_ACTIVE ? 9999 : limit;
+    const fetchOffset = EXCL_FILTER_ACTIVE ? 0 : PAGE * limit;
+    const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${fetchOffset}&limit=${fetchLimit}`);
 
     // Apply exclusion filter client-side when active
     if (EXCL_FILTER_ACTIVE) {
       items.items = items.items.filter(it => EXCLUSIONS_SET.has((it.title || it.key || '').toLowerCase()));
+      items.total = items.items.length;
     }
 
-    el('pageInfo').textContent = `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
-    el('historyPagination').style.display = items.total > 0 ? 'flex' : 'none';
+    el('pageInfo').textContent = EXCL_FILTER_ACTIVE
+      ? `${items.items.length} excluded item${items.items.length !== 1 ? 's' : ''}`
+      : `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
+    el('historyPagination').style.display = (!EXCL_FILTER_ACTIVE && items.total > 0) ? 'flex' : 'none';
 
     const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
     const showExclFilter = EXCL_FILTER_ACTIVE;

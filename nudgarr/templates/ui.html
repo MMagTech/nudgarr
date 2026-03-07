@@ -2941,11 +2941,12 @@ if (MOBILE) {
   const mobileUi = document.getElementById('mobile-ui');
   const rotateOverlay = document.getElementById('mobile-rotate');
   if (wrap) wrap.style.display = 'none';
-  if (mobileUi) mobileUi.style.cssText = 'display:flex !important; flex-direction:column; width:100%; height:100vh; position:fixed; top:0; left:0; overflow:hidden;';
+
+  const MOBILE_UI_STYLE = 'display:flex; flex-direction:column; width:100%; height:100vh; position:fixed; top:0; left:0; overflow:hidden;';
 
   function checkOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight;
-    if (mobileUi) mobileUi.style.display = isLandscape ? 'none' : 'flex';
+    if (mobileUi) mobileUi.style.cssText = isLandscape ? 'display:none' : MOBILE_UI_STYLE;
     if (rotateOverlay) rotateOverlay.style.display = isLandscape ? 'flex' : 'none';
   }
   checkOrientation();

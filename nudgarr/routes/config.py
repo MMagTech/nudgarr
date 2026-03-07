@@ -3,8 +3,8 @@ nudgarr/routes/config.py
 
 Configuration management endpoints.
 
-  GET  /api/config               -- return full config
-  POST /api/config               -- save full config
+  GET  /api/config               -- return config with API keys masked
+  POST /api/config               -- save full config (masked keys preserved)
   POST /api/config/reset         -- reset to DEFAULT_CONFIG
   POST /api/onboarding/complete  -- mark onboarding done
   POST /api/whats-new/dismiss    -- dismiss what's new modal
@@ -25,11 +25,44 @@ from nudgarr.utils import req, save_json_atomic
 
 bp = Blueprint("config", __name__)
 
+# Sentinel prefix used to represent a masked but unchanged API key.
+# The last 4 characters of the real key are appended for user reference.
+_KEY_MASK_PREFIX = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"  # ••••••••
+
+
+def _mask_config(cfg: dict) -> dict:
+    """Return a copy of cfg with all instance API keys masked."""
+    import copy
+    out = copy.deepcopy(cfg)
+    for app_name in ("radarr", "sonarr"):
+        for inst in out.get("instances", {}).get(app_name, []):
+            raw = inst.get("key", "")
+            if raw:
+                inst["key"] = _KEY_MASK_PREFIX + raw[-4:]
+    return out
+
+
+def _is_masked(key: str) -> bool:
+    return key.startswith(_KEY_MASK_PREFIX)
+
+
+def _restore_keys(incoming: dict, stored: dict) -> None:
+    """Replace masked keys in incoming with real keys from stored config."""
+    for app_name in ("radarr", "sonarr"):
+        incoming_insts = incoming.get("instances", {}).get(app_name, [])
+        stored_insts = stored.get("instances", {}).get(app_name, [])
+        stored_by_name = {i.get("name", ""): i for i in stored_insts}
+        for inst in incoming_insts:
+            if _is_masked(inst.get("key", "")):
+                real = stored_by_name.get(inst.get("name", ""), {}).get("key", "")
+                if real:
+                    inst["key"] = real
+
 
 @bp.get("/api/config")
 @requires_auth
 def api_get_config():
-    return jsonify(load_or_init_config())
+    return jsonify(_mask_config(load_or_init_config()))
 
 
 @bp.post("/api/config")
@@ -38,6 +71,8 @@ def api_set_config():
     cfg = request.get_json(force=True, silent=True)
     if not isinstance(cfg, dict):
         return jsonify({"ok": False, "error": "Body must be JSON object"}), 400
+    # Restore any masked keys before validation and save
+    _restore_keys(cfg, load_or_init_config())
     ok, errs = validate_config(cfg)
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400

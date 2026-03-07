@@ -4,17 +4,17 @@ Planned features for upcoming releases. Nothing here is guaranteed — prioritie
 
 ---
 
-## v2.8.0
+## v2.8.0 ✓
 
 **Project structure refactor**
-The codebase is currently a single Python file. v2.8.0 will split it into a proper project structure with separate files and folders — making it easier to read, review, and contribute to. No functional changes, no new dependencies. The goal is to make the codebase more accessible for community review ahead of the security hardening pass in v2.9.0.
+Split the monolithic nudgarr.py into a proper Python package — separate modules and a routes layer. No functional changes, no new dependencies.
 
 ---
 
-## v2.9.0
+## v2.9.0 ✓
 
 **Security hardening**
-Addressing findings from the internal security audit — API key masking in config responses, URL validation on test endpoints, CSRF origin header validation, security response headers, persistent secret key, and structured logging with generic client-facing error messages.
+Addressed all findings from the internal security audit — API key masking in config responses, URL validation on test endpoints, CSRF Origin/Referer header validation, security response headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy), persistent secret key surviving container restarts, and generic client-facing error messages with server-side logging.
 
 ---
 

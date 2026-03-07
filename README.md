@@ -82,7 +82,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `dev` · `v2.8.0` · `2.8.0` · `2.8`
+**Tags:** `latest` · `dev` · `v2.9.0` · `2.9.0` · `2.9`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -187,8 +187,11 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 
 ## Upgrade notes
 
-**v2.8.0** *(first public release)*
-Sweep tab — a dedicated view showing per-instance Library State (Cutoff Unmet, Backfill) and This Run stats (Eligible, On Cooldown, Capped, Searched) updated after every sweep. Disabled instances retain their last known stats and show a Disabled pill. Exclusion list — exclude titles from future searches via the ⊘ icon in History. Onboarding expanded to 10 steps. Replay Walkthrough added to UI Preferences. Codebase restructured into a Python package — no functional changes, no config changes required.
+**v2.9.0**
+Security hardening — API keys masked in config responses, URL validation on test endpoints, CSRF origin header protection on all POST routes, security response headers, persistent session key surviving container restarts, and generic error messages replacing raw exception strings.
+
+**v2.8.0**
+Sweep tab — per-instance Library State and This Run stats updated after every sweep. Exclusion list — exclude titles from future searches via the ⊘ icon in History. Onboarding expanded to 10 steps. Codebase restructured into a Python package.
 
 Upgrading from any previous version: no config changes required.
 

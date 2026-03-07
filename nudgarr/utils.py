@@ -80,6 +80,31 @@ def save_json_atomic(path: str, data: Any, *, pretty: bool) -> None:
 
 # ── Network ───────────────────────────────────────────────────────────
 
+def is_safe_url(url: str) -> bool:
+    """
+    Return True if the URL is safe to make an outbound request to.
+    Blocks non-HTTP schemes and link-local addresses (169.254.x.x)
+    to prevent cloud metadata endpoint probing. RFC 1918 private
+    ranges are allowed — arr instances live on the LAN.
+    """
+    import ipaddress
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = parsed.hostname or ""
+        addr = ipaddress.ip_address(host)
+        if addr.is_link_local:  # 169.254.x.x — cloud metadata
+            return False
+        return True
+    except ValueError:
+        # hostname is a domain name, not a bare IP — allow it
+        return True
+    except Exception:
+        return False
+
+
 def mask_url(url: str) -> str:
     try:
         parts = url.split("://", 1)

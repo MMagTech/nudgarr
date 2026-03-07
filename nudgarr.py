@@ -1509,12 +1509,16 @@ UI_HTML = r"""
     .sweep-stat-value { font-size: 13px; color: var(--text); font-weight: 500; }
     .sweep-stat-value.dim { color: var(--text-dim); }
     .sweep-card.disabled-card { opacity: 0.45; }
-    /* Sweep stats grid — two rows, three columns, vertically aligned */
+    /* Sweep stats grid — two rows, two columns, vertically aligned */
     .sweep-stats-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
+      display: grid; grid-template-columns: repeat(2, 1fr);
       gap: 8px 0; padding: 10px 12px;
       background: var(--surface); border-radius: 8px;
       border: 1px solid var(--border);
+    }
+    .sweep-row-divider {
+      grid-column: 1/-1; border: none;
+      border-top: 1px solid var(--border); margin: 2px 0;
     }
     /* Right side of inst-row1 on sweep cards — pill and last run on same baseline */
     .sweep-card-right {
@@ -1714,7 +1718,7 @@ UI_HTML = r"""
         <div class="row" style="margin-bottom:12px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Radarr</span>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 8px">Movie sweep activity — last run and lifetime totals.</p>
@@ -1724,7 +1728,7 @@ UI_HTML = r"""
         <div class="row" style="margin-bottom:12px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Sonarr</span>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong>Cutoff Unmet</strong> — items in your library that don't meet your quality cutoff profile. Controlled via the Max Per Run settings in the Settings tab.<br><br><strong>Backfill</strong> — items missing in your library that are searched via Backlog Nudges. Controlled via the Missing Max in the Advanced tab.<br><br><strong>Eligible</strong> — items that passed cooldown and were available to search this run.<br><br><strong>Exclusions</strong> — items filtered out by your exclusion list. Manage exclusions in the History tab.<br><br><strong>Skipped</strong> — eligible items not searched because the per-run cap was reached.<br><br><strong>Searched</strong> — items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 8px">Episode sweep activity — last run and lifetime totals.</p>
@@ -2154,6 +2158,11 @@ UI_HTML = r"""
             </div>
             <div class="help">Toggle off to hide.</div>
           </div>
+          <div class="field">
+            <label>Onboarding</label>
+            <button class="btn sm" onclick="replayOnboarding()">Replay</button>
+            <div class="help" style="margin-top:6px">Replay the initial walkthrough at any time.</div>
+          </div>
         </div>
       </div>
 
@@ -2392,6 +2401,21 @@ Add your Apprise-compatible URL, choose which events to be notified on, and use 
 ⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`
   },
   {
+    title: "Step 8 — Reading Your Sweep Stats",
+    body: `The Sweep tab is your feedback loop — it shows you exactly what happened each run so you can tune Nudgarr to work best for your setup.
+<br><br>
+<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br>
+Cutoff Unmet and Backfill reflect the current state of your library as reported by your Radarr and Sonarr instances. They update as your library changes — not as a direct result of sweeps.
+<br><br>
+<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br>
+<strong>Eligible</strong> — how many items were ready to search this run. If this is consistently low your cooldown may be too long.<br><br>
+<strong>On Cooldown</strong> — items that were found but aren't ready yet. This is normal and healthy — it means the system is pacing itself.<br><br>
+<strong>Capped</strong> — items that were eligible but didn't get searched because the per-run cap was reached. If this is consistently high consider raising your Max Per Run gradually.<br><br>
+<strong>Searched</strong> — what actually happened this run. This is your output.
+<br><br>
+<span style="color:var(--muted);font-size:12px">The defaults are intentionally conservative. Use these numbers over time to tune gradually — small increases to Max Per Run or small decreases to cooldown can make a meaningful difference.</span>`
+  },
+  {
     title: "You're Ready",
     body: `You're all set. Here's the recommended way to start:
 <br><br>
@@ -2440,6 +2464,12 @@ async function onboardingStep(dir) {
 
 function maybeShowOnboarding() {
   if (!CFG || CFG.onboarding_complete) return;
+  _obStep = 0;
+  renderOnboardingStep();
+  el('onboardingModal').style.display = 'flex';
+}
+
+function replayOnboarding() {
   _obStep = 0;
   renderOnboardingStep();
   el('onboardingModal').style.display = 'flex';
@@ -2558,17 +2588,21 @@ async function refreshSweep() {
       const cacheKey = `${kind}|${inst.name}`;
       if (sw) {
         // Instance ran this sweep — update cache
+        const el_ = (sw.eligible || 0) + (sw.eligible_missing || 0);
+        const sr = (sw.searched || 0) + (sw.searched_missing || 0);
         SWEEP_DATA_CACHE[cacheKey] = {
-          eligible: (sw.eligible || 0) + (sw.eligible_missing || 0),
-          skipped: (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
-          searched: (sw.searched || 0) + (sw.searched_missing || 0),
+          eligible: el_,
+          onCooldown: (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
+          capped: Math.max(0, el_ - sr),
+          searched: sr,
           cutoffUnmet: sw.cutoff_unmet_total ?? '—',
           backfill: sw.missing_total ?? '—',
         };
       }
       const cached = SWEEP_DATA_CACHE[cacheKey] || null;
       const eligible = cached ? cached.eligible : null;
-      const skipped = cached ? cached.skipped : null;
+      const onCooldown = cached ? cached.onCooldown : null;
+      const capped = cached ? cached.capped : null;
       const searched = cached ? cached.searched : null;
       const cutoffUnmet = cached ? cached.cutoffUnmet : null;
       const backfill = cached ? cached.backfill : null;
@@ -2590,7 +2624,10 @@ async function refreshSweep() {
               </div>
             </div>
             <div class="sweep-stats-grid" style="position:relative">
-              ${disabled ? '<span style="position:absolute;top:8px;right:10px;font-size:10px;padding:2px 7px;background:rgba(99,120,255,.15);color:#6378ff;border:1px solid rgba(99,120,255,.3);border-radius:4px;font-weight:600;letter-spacing:.04em;opacity:1">Disabled</span>' : ''}
+              <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding-bottom:4px">
+                <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff">Library State</span>
+                ${disabled ? '<span style="font-size:10px;padding:2px 7px;background:rgba(99,120,255,.15);color:#6378ff;border:1px solid rgba(99,120,255,.3);border-radius:4px;font-weight:600;letter-spacing:.04em;opacity:1">Disabled</span>' : ''}
+              </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Cutoff Unmet</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
@@ -2599,17 +2636,20 @@ async function refreshSweep() {
                 <span class="sweep-stat-label">Backfill</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
               </div>
+              <hr class="sweep-row-divider">
+              <span style="grid-column:1/-1;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff;padding-bottom:4px;padding-top:2px">This Run</span>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Eligible</span>
                 <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
               </div>
               <div class="sweep-stat">
-                <span class="sweep-stat-label">Exclusions</span>
-                <span class="sweep-stat-value">${EXCLUSIONS_SET.size}</span>
+                <span class="sweep-stat-label">On Cooldown</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? onCooldown : '—'}</span>
               </div>
+              <hr class="sweep-row-divider">
               <div class="sweep-stat">
-                <span class="sweep-stat-label">Skipped</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? skipped : '—'}</span>
+                <span class="sweep-stat-label">Capped</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? capped : '—'}</span>
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Searched</span>

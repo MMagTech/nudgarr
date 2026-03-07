@@ -2147,6 +2147,11 @@ UI_HTML = r"""
           <div class="hr"></div>
           <p class="section-label">UI Preferences</p>
           <div class="field">
+            <label>Onboarding</label>
+            <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
+            <div class="help" style="margin-top:6px">View the initial walkthrough at any time.</div>
+          </div>
+          <div class="field" style="margin-top:14px">
             <label>Show Support Link</label>
             <div class="toggle-wrap">
               <label class="toggle">
@@ -2157,11 +2162,6 @@ UI_HTML = r"""
               <span class="help" id="support_link_label">Shown</span>
             </div>
             <div class="help">Toggle off to hide.</div>
-          </div>
-          <div class="field">
-            <label>Onboarding</label>
-            <button class="btn sm" onclick="replayOnboarding()">Replay</button>
-            <div class="help" style="margin-top:6px">Replay the initial walkthrough at any time.</div>
           </div>
         </div>
       </div>

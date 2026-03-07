@@ -19,14 +19,20 @@ jobs:
           python-version: "3.12"
 
       - name: Check Python syntax
-        run: python -m py_compile nudgarr.py && echo "Python syntax OK"
+        run: |
+          python -m py_compile main.py
+          python -m py_compile nudgarr/__init__.py
+          for f in nudgarr/*.py nudgarr/routes/*.py; do
+            python -m py_compile "$f"
+          done
+          echo "Python syntax OK"
 
       - name: Install flake8
         run: pip install flake8
 
       - name: Lint
         run: |
-          flake8 nudgarr.py \
+          flake8 main.py nudgarr/ \
             --max-line-length=120 \
             --ignore=E122,E226,E231,E302,E303,E305,E306,E402,E501,W503 \
             --count \
@@ -41,17 +47,8 @@ jobs:
         run: |
           python3 - << 'EOF'
           import re, sys
-          with open('nudgarr.py') as f:
-              content = f.read()
-          # Extract UI_HTML raw string
-          start = content.find('UI_HTML = r"""')
-          if start < 0:
-              print("UI_HTML not found")
-              sys.exit(1)
-          start += len('UI_HTML = r"""')
-          end = content.find('"""\n', start)
-          html = content[start:end]
-          # Extract script block
+          with open('nudgarr/templates/ui.html') as f:
+              html = f.read()
           m = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
           if not m:
               print("No script block found")
@@ -66,12 +63,8 @@ jobs:
         run: |
           python3 - << 'EOF'
           import re, sys
-          with open('nudgarr.py') as f:
-              content = f.read()
-          # Extract UI_HTML
-          start = content.find('UI_HTML = r"""') + len('UI_HTML = r"""')
-          end = content.find('"""\n', start)
-          html = content[start:end]
+          with open('nudgarr/templates/ui.html') as f:
+              html = f.read()
           # Find all el('id') calls
           el_calls = set(re.findall(r"el\(['\"]([^'\"]+)['\"]\)", html))
           # Find all id="..." attributes

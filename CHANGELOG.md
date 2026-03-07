@@ -4,6 +4,49 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v2.8.0
+
+**Internal restructure — package layout (no behaviour changes)**
+- `nudgarr.py` split into a proper Python package under `nudgarr/`
+- Modules: `constants`, `utils`, `config`, `state`, `auth`, `notifications`, `arr_clients`, `stats`, `globals`, `sweep`, `scheduler`
+- Flask routes split into 7 blueprints under `nudgarr/routes/`
+- HTML templates extracted to real files under `nudgarr/templates/` — served via `render_template()` instead of inline Python strings
+- Entry point is now `main.py` — `nudgarr.py` retained as a deprecation shim for source runners
+- CI updated — syntax check, flake8, JS check, and element ID check all target the new structure
+- Docker users: no changes required — image behaviour is identical
+- Source runners: update start command from `python nudgarr.py` to `python main.py`
+
+---
+
+## v2.7.0
+
+**Sweep tab**
+- Dedicated Sweep tab between Instances and Settings
+- Per-instance cards showing Sweep Mode and Last Run time independently
+- Library State section — Cutoff Unmet and Backfill counts reflecting current library state
+- This Run section — Eligible, On Cooldown, Capped, and Searched counts from the last sweep
+- Disabled instances retain last known stats and show a Disabled pill — dimmed but not blank
+- Tooltip on Radarr and Sonarr headings explains each stat with tuning guidance
+- Cache persists last known stats across sweeps for disabled instances
+
+**Exclusion list**
+- ⊘ icon appears on History rows on hover — clicking adds the title to `nudgarr-exclusions.json`
+- Exclusions filter pill appears in History only when exclusions exist
+- Selecting the filter shows excluded items only — icon becomes Unexclude action for that row
+- Excluded items remain visible in History as a log of past searches
+
+**Onboarding**
+- Expanded from 8 to 10 steps
+- Step 8 — Reading Your Sweep Stats — covers Library State and This Run with tuning guidance
+- Informational note added: gradual tuning recommended, Nudgarr has no visibility into indexer limits
+- Replay Walkthrough button added to Advanced → UI Preferences
+
+**Security**
+- `SESSION_COOKIE_HTTPONLY=True` explicitly set — confirms Flask default, prevents JS cookie access
+- `SESSION_COOKIE_SAMESITE` not set — Nudgarr is LAN-only, HTTPS is not planned; `SameSite=Lax` breaks POST requests through reverse proxies (Unraid, Synology)
+
+---
+
 ## v2.6.0
 
 **Per-instance enable/disable**

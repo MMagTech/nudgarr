@@ -18,4 +18,4 @@ if ! chown -R "${PUID}:${PGID}" /config 2>/dev/null; then
 fi
 
 # Drop to the requested UID/GID using numeric values directly
-exec su-exec "${PUID}:${PGID}" python /app/nudgarr.py
+exec su-exec "${PUID}:${PGID}" python /app/main.py

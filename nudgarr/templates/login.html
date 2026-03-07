@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nudgarr — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #11131f; color: #e8eaf0; font-size: 14px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #1e2030; border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 32px; width: 100%; max-width: 360px; }
+    h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .sub { color: #7c8494; font-size: 13px; margin: 0 0 24px; }
+    label { font-size: 12px; color: #7c8494; font-weight: 500; display: block; margin-bottom: 5px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.10);
+      background: #181a28; color: #e8eaf0; font-size: 13px; outline: none; margin-bottom: 14px; }
+    input:focus { border-color: rgba(99,120,255,.6); }
+    button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(99,120,255,.35);
+      background: rgba(99,120,255,.2); color: #a8b4ff; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:hover:not(:disabled) { background: rgba(99,120,255,.32); color: #c0caff; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .err { color: #fca5a5; font-size: 12px; margin-bottom: 14px; display: none; }
+    .err.show { display: block; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Nudgarr</h1>
+  <p class="sub">Sign in to continue</p>
+  <div class="err" id="err"></div>
+  <label>Username</label>
+  <input type="text" id="usr" autocomplete="username" autofocus/>
+  <label>Password</label>
+  <input type="password" id="pwd" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
+  <button id="btn" onclick="login()">Sign In</button>
+</div>
+<script>
+let _countdown = null;
+
+function startCountdown(seconds) {
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  btn.disabled = true;
+  if (_countdown) clearInterval(_countdown);
+  let remaining = seconds;
+  function tick() {
+    if (remaining <= 0) {
+      clearInterval(_countdown);
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      err.textContent = 'You may try again.';
+      return;
+    }
+    btn.textContent = `Try again in ${remaining}s`;
+    remaining--;
+  }
+  tick();
+  _countdown = setInterval(tick, 1000);
+}
+
+async function login() {
+  const r = await fetch('/api/auth/login', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username: document.getElementById('usr').value, password: document.getElementById('pwd').value})
+  });
+  if (r.ok) { window.location.href = '/'; }
+  else {
+    const d = await r.json();
+    const err = document.getElementById('err');
+    err.textContent = d.error || 'Invalid username or password.';
+    err.classList.add('show');
+    // Parse seconds from lockout message and start countdown
+    const match = d.error && d.error.match(/Try again in (\d+)s/);
+    if (match) {
+      err.textContent = 'Too many failed attempts.';
+      startCountdown(parseInt(match[1]));
+    }
+  }
+}
+</script>
+</body>
+</html>

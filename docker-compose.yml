@@ -1,14 +1,38 @@
 version: "3.8"
 services:
   nudgarr:
-    image: ghcr.io/mmagtech/nudgarr:latest
+    image: mmagtech/nudgarr:latest
     container_name: nudgarr
     restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "${PORT:-8085}:${PORT:-8085}"
     volumes:
-      - /mnt/user/appdata/nudgarr:/config
+      - ${CONFIG_PATH:-./config}:/config
     environment:
-      - PORT=8085
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
+      - STATS_FILE=/config/nudgarr-stats.json
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    tty: false
+    stdin_open: false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN      # required to set /config ownership on startup
+      - SETUID     # required for su-exec to drop privileges
+      - SETGID     # required for su-exec to drop privileges
+    pids_limit: 50
+    mem_limit: 128m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

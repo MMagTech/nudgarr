@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Nudgarr</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2311131f'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%236366f1'%3EN%3C/text%3E%3C/svg%3E"/>
   <style>
@@ -427,13 +427,14 @@
     }
     .m-time-card .m-tc-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
     .m-time-card .m-tc-value { font-size: 13px; color: var(--text); font-weight: 500; }
-    .m-sweep-pill {
-      display: inline-flex; align-items: center; gap: 6px;
+    .m-sweep-banner {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 10px;
       background: var(--ok-dim); border: 1px solid rgba(34,197,94,.3);
-      border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--ok);
-      margin-bottom: 20px;
+      border-radius: 12px; font-size: 13px; color: var(--ok);
+      margin-bottom: 20px; text-align: center;
     }
-    .m-sweep-pill.hidden { display: none; }
+    .m-sweep-banner.hidden { display: none; }
     .m-divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
     .m-toggle-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -1217,7 +1218,7 @@
       </div>
     </div>
 
-    <div class="m-sweep-pill hidden" id="m-running-pill">
+    <div class="m-sweep-banner hidden" id="m-running-pill">
       <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.5s ease-in-out infinite;display:inline-block;flex-shrink:0"></span>
       Sweep in progress…
     </div>
@@ -1242,10 +1243,18 @@
 
     <div class="m-toggle-row">
       <div>
-        <div class="m-toggle-label">Backlog Nudges</div>
-        <div class="m-toggle-sub">Search missing content</div>
+        <div class="m-toggle-label">Radarr Backlog</div>
+        <div class="m-toggle-sub">Search missing movies</div>
       </div>
-      <div class="m-toggle" id="m-toggle-backlog" onclick="mToggleBacklog()"></div>
+      <div class="m-toggle" id="m-toggle-radarr-backlog" onclick="mToggleRadarrBacklog()"></div>
+    </div>
+
+    <div class="m-toggle-row">
+      <div>
+        <div class="m-toggle-label">Sonarr Backlog</div>
+        <div class="m-toggle-sub">Search missing episodes</div>
+      </div>
+      <div class="m-toggle" id="m-toggle-sonarr-backlog" onclick="mToggleSonarrBacklog()"></div>
     </div>
 
     <p class="m-desktop-note">Full configuration available on desktop</p>
@@ -1548,8 +1557,14 @@ function _onTabShown(name) {
   }
   if (name === 'sweep') refreshSweep();
   if (name === 'history') { loadExclusions(); }
-  if (name === 'advanced') fillAdvanced();
-  if (name === 'notifications') fillNotifications();
+  if (name === 'advanced') {
+    const msg = el('advMsg');
+    if (!msg || !msg.textContent.includes('Unsaved')) fillAdvanced();
+  }
+  if (name === 'notifications') {
+    const msg = el('notifyMsg');
+    if (!msg || !msg.textContent.includes('Unsaved')) fillNotifications();
+  }
 }
 
 function el(id) { return document.getElementById(id); }
@@ -2684,7 +2699,7 @@ if (!MOBILE) {
 
 let M_TAB = 'home';
 let M_IMPORTS_PAGE = 0;
-const M_IMPORTS_PER_PAGE = 10;
+const M_IMPORTS_PER_PAGE = 15;
 let M_IMPORTS_TOTAL = 0;
 let M_OPEN_SWEEP = null; // key of currently open accordion card
 
@@ -2725,9 +2740,11 @@ function mUpdateHome(cfg, st) {
   const tNotify = document.getElementById('m-toggle-notify');
   if (tNotify) tNotify.classList.toggle('m-on', !!cfg.notify_enabled);
 
-  const backlogOn = !!(cfg.radarr_backlog_enabled || cfg.sonarr_backlog_enabled);
-  const tBacklog = document.getElementById('m-toggle-backlog');
-  if (tBacklog) tBacklog.classList.toggle('m-on', backlogOn);
+  const tRadarrBacklog = document.getElementById('m-toggle-radarr-backlog');
+  if (tRadarrBacklog) tRadarrBacklog.classList.toggle('m-on', !!cfg.radarr_backlog_enabled);
+
+  const tSonarrBacklog = document.getElementById('m-toggle-sonarr-backlog');
+  if (tSonarrBacklog) tSonarrBacklog.classList.toggle('m-on', !!cfg.sonarr_backlog_enabled);
 }
 
 async function mRunNow() {
@@ -2768,10 +2785,12 @@ function mToggleNotify() {
   mSaveCfgKey({notify_enabled: newVal});
 }
 
-function mToggleBacklog() {
-  const current = !!(CFG.radarr_backlog_enabled || CFG.sonarr_backlog_enabled);
-  const newVal = !current;
-  mSaveCfgKey({radarr_backlog_enabled: newVal, sonarr_backlog_enabled: newVal});
+function mToggleRadarrBacklog() {
+  mSaveCfgKey({radarr_backlog_enabled: !CFG.radarr_backlog_enabled});
+}
+
+function mToggleSonarrBacklog() {
+  mSaveCfgKey({sonarr_backlog_enabled: !CFG.sonarr_backlog_enabled});
 }
 
 // ── Instances ──

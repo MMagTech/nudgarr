@@ -19,23 +19,56 @@ import secrets
 import threading
 from typing import Any, Dict
 
-from flask import Flask
+from flask import Flask, Response
 
 from nudgarr.constants import VERSION
 
 # ── Flask app ─────────────────────────────────────────────────────────
 
 app = Flask(__name__, template_folder="templates")
-app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
-# Note: secret_key is regenerated on restart if not set via env var.
-# Sessions will be invalidated on container restart — expected behaviour for local tool.
+
+# ── M1: Persistent secret key ─────────────────────────────────────────
+# Load from /config/nudgarr-secret.key if present, otherwise generate
+# and persist it so sessions survive container restarts. Falls back to
+# a random ephemeral key if the config directory isn't writable.
+def _load_or_create_secret_key() -> str:
+    env_key = os.getenv("SECRET_KEY")
+    if env_key:
+        return env_key
+    config_dir = os.path.dirname(
+        os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
+    )
+    key_path = os.path.join(config_dir, "nudgarr-secret.key")
+    try:
+        if os.path.exists(key_path):
+            key = open(key_path).read().strip()
+            if len(key) >= 32:
+                return key
+        key = secrets.token_hex(32)
+        os.makedirs(config_dir, exist_ok=True)
+        with open(key_path, "w") as f:
+            f.write(key)
+        return key
+    except Exception:
+        # Config dir not writable — fall back to ephemeral key.
+        # Sessions will be invalidated on container restart.
+        return secrets.token_hex(32)
+
+app.secret_key = _load_or_create_secret_key()
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 # SESSION_COOKIE_SAMESITE intentionally not set.
 # SameSite=Lax breaks session cookies in reverse-proxy and iframe
 # environments (Unraid, Synology) because POST requests are treated as
-# cross-site. This can be revisited when HTTPS support is added, at
-# which point SameSite=None; Secure becomes viable.
+# cross-site. HTTPS is not planned for this LAN-only tool.
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+# ── L1: Security response headers ─────────────────────────────────────
+@app.after_request
+def _security_headers(response: Response) -> Response:
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # ── Runtime status ────────────────────────────────────────────────────
 

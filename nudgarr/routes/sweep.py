@@ -16,7 +16,7 @@ from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import RUN_LOCK, STATUS
 from nudgarr.state import load_state
-from nudgarr.utils import mask_url, req
+from nudgarr.utils import mask_url, req, is_safe_url
 
 bp = Blueprint("sweep", __name__)
 
@@ -53,6 +53,13 @@ def api_test():
             })
             continue
         try:
+            if not is_safe_url(inst["url"]):
+                results["radarr"].append({
+                    "name": inst["name"], "url": mask_url(inst["url"]),
+                    "ok": False, "error": "Invalid or disallowed URL",
+                })
+                STATUS["instance_health"][f"radarr|{inst['name']}"] = "bad"
+                continue
             url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
             data = req(session, "GET", url, inst["key"])
             results["radarr"].append({
@@ -60,10 +67,10 @@ def api_test():
                 "version": data.get("version") if isinstance(data, dict) else None,
             })
             STATUS["instance_health"][f"radarr|{inst['name']}"] = "ok"
-        except Exception as e:
+        except Exception:
             results["radarr"].append({
                 "name": inst.get("name"), "url": mask_url(inst.get("url", "")),
-                "ok": False, "error": str(e),
+                "ok": False, "error": "Connection failed — check URL and API key",
             })
             STATUS["instance_health"][f"radarr|{inst.get('name', '')}"] = "bad"
 
@@ -75,6 +82,13 @@ def api_test():
             })
             continue
         try:
+            if not is_safe_url(inst["url"]):
+                results["sonarr"].append({
+                    "name": inst["name"], "url": mask_url(inst["url"]),
+                    "ok": False, "error": "Invalid or disallowed URL",
+                })
+                STATUS["instance_health"][f"sonarr|{inst['name']}"] = "bad"
+                continue
             url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
             data = req(session, "GET", url, inst["key"])
             results["sonarr"].append({
@@ -82,10 +96,10 @@ def api_test():
                 "version": data.get("version") if isinstance(data, dict) else None,
             })
             STATUS["instance_health"][f"sonarr|{inst['name']}"] = "ok"
-        except Exception as e:
+        except Exception:
             results["sonarr"].append({
                 "name": inst.get("name"), "url": mask_url(inst.get("url", "")),
-                "ok": False, "error": str(e),
+                "ok": False, "error": "Connection failed — check URL and API key",
             })
             STATUS["instance_health"][f"sonarr|{inst.get('name', '')}"] = "bad"
 

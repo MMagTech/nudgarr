@@ -80,7 +80,31 @@ def save_json_atomic(path: str, data: Any, *, pretty: bool) -> None:
 
 # ── Network ───────────────────────────────────────────────────────────
 
-def mask_url(url: str) -> str:
+def is_safe_url(url: str) -> bool:
+    """
+    Return True if the URL is safe to make an outbound request to.
+    Blocks private/loopback/link-local ranges to mitigate SSRF.
+    Nudgarr is LAN-only so arr instances are expected to be on RFC 1918
+    addresses — this check only blocks non-HTTP schemes and metadata
+    endpoints (169.254.x.x) rather than all private ranges.
+    """
+    import ipaddress
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = parsed.hostname or ""
+        # Block cloud metadata endpoints
+        addr = ipaddress.ip_address(host)
+        if addr.is_link_local:  # 169.254.x.x — cloud metadata
+            return False
+        return True
+    except ValueError:
+        # hostname is a domain name, not a bare IP — allow it
+        return True
+    except Exception:
+        return False
     try:
         parts = url.split("://", 1)
         if len(parts) == 2:

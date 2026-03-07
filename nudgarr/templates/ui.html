@@ -951,20 +951,16 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v2.8.0</h2>
-       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit. v2.7.0 was not released publicly — its features ship here in v2.8.0.</p>
+       <h2 style="margin:0 0 4px">What's New in v2.9.0</h2>
+       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Sweep Tab <span style="font-weight:400;color:var(--muted);font-size:11px">v2.7.0</span></div>
-           <div class="help">A dedicated tab showing per-instance sweep stats — Library State (Cutoff Unmet, Backfill) and This Run counts (Eligible, On Cooldown, Capped, Searched). Updates automatically after every sweep.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔑 API Key Masking <span style="font-weight:400;color:var(--muted);font-size:11px">v2.9.0</span></div>
+           <div class="help">API keys are no longer returned in full from the server. The UI shows the last 4 characters only — the full key is never sent back to the browser after saving.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⊘ Exclusion List <span style="font-weight:400;color:var(--muted);font-size:11px">v2.7.0</span></div>
-           <div class="help">Hover any History row to reveal the exclusion icon. Excluding a title prevents Nudgarr from ever searching it again across all instances. Manage exclusions via the filter pill in History.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏗️ Project Restructure <span style="font-weight:400;color:var(--muted);font-size:11px">v2.8.0</span></div>
-           <div class="help">The codebase has been split into a proper Python package — making it easier to read, review, and contribute to. No functional changes, no config changes required.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔒 Security Hardening <span style="font-weight:400;color:var(--muted);font-size:11px">v2.9.0</span></div>
+           <div class="help">URL validation on test endpoints, Origin/Referer CSRF protection on all POST routes, security response headers, and persistent session key surviving container restarts.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -1504,7 +1500,9 @@ function openModal(kind, idx) {
   const it = isEdit ? CFG.instances[kind][idx] : {name:'', url:'http://', key:''};
   el('modalName').value = it.name || '';
   el('modalUrl').value = it.url || '';
+  const isMasked = (it.key || '').startsWith('••••••••');
   el('modalKey').value = it.key || '';
+  el('modalKey').placeholder = isMasked ? 'Leave unchanged or enter a new key' : 'Your API key';
   el('modalKey').type = 'password';
   el('keyToggleBtn').textContent = 'Show';
   el('instModal').style.display = 'flex';
@@ -1530,7 +1528,9 @@ async function saveModal() {
   const name = el('modalName').value.trim();
   const url = el('modalUrl').value.trim();
   const key = el('modalKey').value.trim();
-  if (!name || !url || !key) { showAlert('All fields are required.'); return; }
+  const keyIsMasked = key.startsWith('••••••••');
+  if (!name || !url || (!key && MODAL_IDX < 0)) { showAlert('All fields are required.'); return; }
+  if (!key && MODAL_IDX >= 0) { showAlert('API key is required.'); return; }
   CFG.instances = CFG.instances || {radarr:[], sonarr:[]};
   if (MODAL_IDX >= 0) {
     CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key};

@@ -78,6 +78,6 @@ def api_check_imports_now():
     cfg_override["import_check_minutes"] = 0
     try:
         check_imports(session, cfg_override)
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)})
+    except Exception:
+        return jsonify({"ok": False, "error": "Import check failed — check logs for details"})
     return jsonify({"ok": True})

@@ -36,21 +36,21 @@
 - **File:** `nudgarr/routes/config.py:31` — `api_get_config()` → `return jsonify(load_or_init_config())`
 - **Impact:** The `GET /api/config` endpoint returns the full config dict including Radarr and Sonarr API keys in plaintext. Any authenticated session can retrieve these keys via the browser, browser history, or any network inspection tool. In a shared household or compromised session scenario this exposes credentials to downstream arr instances.
 - **Mitigation:** Mask API keys in the GET response — return only the last 4 characters (e.g. `••••••••a1b2`). The full key should only travel from client to server on save, never back. The frontend already renders `Key: ••••••••` in the instance card but the underlying `/api/config` call returns the real value.
-- **Status:** Not yet addressed — planned for v2.9.0.
+- **Status:** ✅ Closed — v2.9.0.
 
 ### H2: SSRF via Instance URL and Notification URL Fields
 
 - **File:** `nudgarr/routes/sweep.py:43` — `api_test()` and `nudgarr/routes/notifications.py:19` — `api_test_notification()`
 - **Impact:** Both the Test Connections endpoint (`/api/test`) and the notification test endpoint (`/api/notifications/test`) make outbound HTTP requests to user-supplied URLs without validating the target. An authenticated user — or an attacker who has obtained a session — could supply internal network addresses (e.g. `http://192.168.1.1`, `http://169.254.169.254`) to probe the internal network or cloud metadata services.
 - **Mitigation:** Validate supplied URLs against an allowlist of expected patterns before making outbound requests. For instance URLs, verify the host is not a private IP range (RFC 1918 / link-local). For notification URLs, Apprise handles schema validation but does not block internal network targets.
-- **Status:** Partially mitigated — both endpoints require authentication. Full URL validation planned for v2.9.0.
+- **Status:** ✅ Closed — v2.9.0. URL validation added; link-local addresses blocked.
 
 ### H3: No CSRF Protection on State-Changing Endpoints
 
 - **File:** `nudgarr/routes/*.py` — all 17 `@bp.post` routes across config, state, stats, sweep, notifications, and auth blueprints
 - **Impact:** No CSRF tokens are implemented on any POST endpoint. An attacker who can get an authenticated user to visit a malicious page could submit cross-origin requests to `/api/config`, `/api/state/clear`, `/api/config/reset`, or `/api/run-now`. Because the session cookie is sent automatically by the browser, the requests would succeed. In practice this risk is low for a local-only tool since the attacker must know the instance URL and port.
 - **Mitigation:** Add CSRF token validation (Flask-WTF or a custom double-submit cookie pattern). At minimum, verify the `Origin` or `Referer` header on all state-changing POST routes.
-- **Status:** Not addressed — acceptable risk for local deployment. Planned for v2.9.0.
+- **Status:** ✅ Closed — v2.9.0. Origin/Referer header validation added to all authenticated POST routes.
 
 ---
 
@@ -61,7 +61,7 @@
 - **File:** `nudgarr/globals.py:29` — `app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)`
 - **Impact:** If `SECRET_KEY` is not set as an environment variable, a new random key is generated on every container start. This invalidates all existing sessions on restart — expected behaviour for a local tool but can cause unreliable sessions for users who restart frequently.
 - **Mitigation:** Auto-generate a persistent key at first startup and write it to `/config/nudgarr-secret.key`, then load it on subsequent starts. This preserves session continuity without requiring the user to set an environment variable.
-- **Status:** Low risk in practice. Enhancement planned for v2.9.0.
+- **Status:** ✅ Closed — v2.9.0. Key persisted to `/config/nudgarr-secret.key` on first start.
 
 ### M2: Session Cookie Flags Not Explicitly Set
 
@@ -79,14 +79,14 @@
 - **File:** `nudgarr/globals.py` — no `after_request` security header middleware present
 - **Impact:** The application does not set `X-Content-Type-Options`, `X-Frame-Options`, or `Referrer-Policy` headers. Without these, browsers apply permissive defaults that marginally increase XSS and clickjacking exposure.
 - **Mitigation:** Add an `after_request` hook in `nudgarr/globals.py` that sets: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`. CSP would require significant refactoring to accommodate inline scripts and is optional.
-- **Status:** Not addressed — planned for v2.9.0.
+- **Status:** ✅ Closed — v2.9.0. `after_request` hook added.
 
 ### L2: Verbose Exception Messages Returned to Client
 
 - **File:** `nudgarr/routes/sweep.py:66,88`, `nudgarr/routes/notifications.py:39`, `nudgarr/routes/stats.py:82` — multiple `except` blocks returning `str(e)` in JSON responses
 - **Impact:** Several API endpoints return raw exception strings to the client. In the notification test and connection test endpoints this could expose internal paths, library versions, or network topology details to the browser.
 - **Mitigation:** Log the full exception server-side and return a generic user-facing message. Reserve detailed error strings for the diagnostic download, not inline API responses.
-- **Status:** Low impact for single-user local tool. Planned cleanup for v2.9.0.
+- **Status:** ✅ Closed — v2.9.0. Generic messages returned to client; full detail logged server-side.
 
 ---
 
@@ -112,40 +112,19 @@
 
 ### Closed
 
-1. **M2** — `SESSION_COOKIE_HTTPONLY=True` added in v2.8.0. `SESSION_COOKIE_SAMESITE` will not be set — Nudgarr is LAN-only, HTTPS is not planned. ✅ Closed v2.8.0.
-
-### v2.9.0 Hardening
-
-1. **H1** — Mask API keys in `/api/config` GET response (`nudgarr/routes/config.py`). Return only last 4 characters.
-2. **H2** — Add URL validation to `api_test()` (`nudgarr/routes/sweep.py`) and `api_test_notification()` (`nudgarr/routes/notifications.py`). Block private IP ranges.
-3. **H3** — Add `Origin`/`Referer` header validation on state-changing POST routes as minimum CSRF mitigation.
-4. **L1** — Add `after_request` security header middleware to `nudgarr/globals.py`.
-5. **M1** — Persist auto-generated `SECRET_KEY` to `/config/nudgarr-secret.key` (`nudgarr/globals.py`) rather than regenerating on restart.
-6. **L2** — Replace raw `str(e)` in `nudgarr/routes/sweep.py`, `nudgarr/routes/notifications.py`, and `nudgarr/routes/stats.py` with generic messages; log full detail server-side.
+1. **M2** — `SESSION_COOKIE_HTTPONLY=True` added. `SESSION_COOKIE_SAMESITE` not set — LAN-only, HTTPS not planned. ✅ Closed v2.8.0.
+2. **H1** — API keys masked in `GET /api/config` response (`nudgarr/routes/config.py`). ✅ Closed v2.9.0.
+3. **H2** — URL validation added to `api_test()` and `api_test_notification()`. Link-local addresses blocked. ✅ Closed v2.9.0.
+4. **H3** — Origin/Referer header validation on all authenticated POST routes (`nudgarr/auth.py`). ✅ Closed v2.9.0.
+5. **L1** — Security response headers via `after_request` hook in `nudgarr/globals.py`. ✅ Closed v2.9.0.
+6. **M1** — Secret key persisted to `/config/nudgarr-secret.key` (`nudgarr/globals.py`). ✅ Closed v2.9.0.
+7. **L2** — Raw `str(e)` removed from all route error responses. ✅ Closed v2.9.0.
 
 ### Documentation
 
 - Document that the `/config` volume should have restrictive filesystem permissions.
 - Add a redaction reminder to the diagnostic output header before sharing publicly.
 
----
-
-## Comparison to NewtArr/Huntarr Audit
-
-The NewtArr security audit of the Huntarr v6.6.3 codebase identified 5 CRITICAL findings. Nudgarr has 0 CRITICAL findings. Key differences:
-
-| Issue | Huntarr/NewtArr | Nudgarr |
-|:------|:----------------|:--------|
-| Password hashing | SHA-256 (CRITICAL) | PBKDF2-HMAC-SHA256 / 260k rounds |
-| Timing attack protection | Not implemented | `hmac.compare_digest()` |
-| Brute force protection | Not implemented | Progressive lockout per IP |
-| Secret key | Hardcoded fallback (CRITICAL) | Random per restart or env var |
-| Runs as root | Yes (MEDIUM) | `su-exec` drops to PUID/PGID |
-| XSS prevention | `innerHTML` without escaping (CRITICAL) | `escapeHtml()` consistently applied |
-| CSRF protection | Not implemented (HIGH) | Not implemented (LOW for local tool) |
-| API key masking | Not implemented (HIGH) | UI masked; `/api/config` returns full key (H1) |
-| Telemetry | Present in upstream | None |
-| Code obfuscation | Present in upstream | None — fully readable package |
 
 ---
 

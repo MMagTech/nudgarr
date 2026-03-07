@@ -4,23 +4,31 @@ Planned features for upcoming releases. Nothing here is guaranteed — prioritie
 
 ---
 
-## v2.7.0
+## v2.8.0
 
-**Sweep tab**
-A dedicated Sweep tab between Instances and History. One card per instance in the same style as the Instances tab — showing last run time for that instance independently (disabled instances retain their last run time), eligible/skipped/searched counts from the last sweep, and the sample mode in use. Reads from existing sweep summary data — no new backend storage needed.
-
-**Exclusion list**
-Exclude specific titles from ever being searched. The ⊘ icon appears on History rows on hover — clicking it adds the item to a separate `nudgarr-exclusions.json` file. A filter pill appears in the History instance filter area only when exclusions exist. Selecting it shows excluded items only, where the icon becomes an Unexclude action for that row. Excluded items remain visible in History as a log of past searches.
-
-**Favicon**
-A favicon so Nudgarr has a recognisable identity in your browser tabs and bookmarks bar.
+**Project structure refactor**
+The codebase is currently a single Python file. v2.8.0 will split it into a proper project structure with separate files and folders — making it easier to read, review, and contribute to. No functional changes, no new dependencies. The goal is to make the codebase more accessible for community review ahead of the security hardening pass in v2.9.0.
 
 ---
 
-Items not on the roadmap by design: additional arr support (Readarr, Lidarr) — the codebase is open source and welcomes forks for this. Webhook trigger endpoint — Nudgarr is intentionally one-directional. Dashboard charts — keeps the single-file approach lean.
+## v2.9.0
+
+**Security hardening**
+Addressing findings from the internal security audit — API key masking in config responses, URL validation on test endpoints, CSRF origin header validation, security response headers, persistent secret key, and structured logging with generic client-facing error messages.
 
 ---
 
-## v3.0 — Maybe, someday
+## v3.0
 
-A proper mobile layout — same backend, same logic, just a UI built for smaller screens. Realistically, vibe coded projects don't exactly have a track record of setting the world on fire, but if this one somehow finds its audience, a mobile UI would be the natural next step.
+**Database migration**
+Replace JSON file storage with SQLite for history, state, and stats. Enables better querying, filtering, and pagination performance as history grows. Will include a migration path from existing JSON files — no data loss on upgrade.
+
+---
+
+## Future considerations
+
+A proper mobile layout — same backend, same logic, just a UI built for smaller screens. If the project finds its audience, this would be the natural next step.
+
+---
+
+Items not on the roadmap by design: additional arr support (Readarr, Lidarr) — the codebase is open source and welcomes forks for this. Webhook trigger endpoint — Nudgarr is intentionally one-directional. Dashboard charts — keeps the approach lean.

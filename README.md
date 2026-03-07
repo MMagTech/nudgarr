@@ -1,9 +1,32 @@
 # Nudgarr
 ### Because RSS sometimes needs a nudge.
 
-> **A note from the creator:** I'm not a developer — I'm a tech enthusiast and a fan of the *arr stack who wanted to build something useful. Nudgarr is vibe coded, built through curiosity, community tools, and a lot of learning along the way. If you're a developer and want to contribute, improve the code, or help with branding and design, I'd genuinely welcome it. This is as much a learning experience as it is a project.
+Nudgarr keeps your Radarr and Sonarr libraries improving automatically — scheduling searches for missing content and quality upgrades so you don't have to.
 
-Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonarr. It runs on a schedule, finds items in your Wanted lists, and instructs your instances to search — so you don't have to.
+---
+
+## Screenshots
+
+Click any screenshot to view full size.
+
+<table>
+  <tr>
+    <td align="center"><a href="docs/screenshots/instances.png"><img src="docs/screenshots/instances.png" width="400" alt="Instances"/></a><br/><sub>Instances</sub></td>
+    <td align="center"><a href="docs/screenshots/sweep.png"><img src="docs/screenshots/sweep.png" width="400" alt="Sweep"/></a><br/><sub>Sweep</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/screenshots/history.png"><img src="docs/screenshots/history.png" width="400" alt="History"/></a><br/><sub>History</sub></td>
+    <td align="center"><a href="docs/screenshots/imports.png"><img src="docs/screenshots/imports.png" width="400" alt="Imports"/></a><br/><sub>Imports</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" width="400" alt="Settings"/></a><br/><sub>Settings</sub></td>
+    <td align="center"><a href="docs/screenshots/notifications.png"><img src="docs/screenshots/notifications.png" width="400" alt="Notifications"/></a><br/><sub>Notifications</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/screenshots/advanced.png"><img src="docs/screenshots/advanced.png" width="400" alt="Advanced"/></a><br/><sub>Advanced</sub></td>
+    <td align="center"><a href="docs/screenshots/onboard.png"><img src="docs/screenshots/onboard.png" width="400" alt="Onboarding"/></a><br/><sub>Onboarding</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -28,12 +51,14 @@ Nudgarr is a lightweight upgrade sweeper and backlog nudger for Radarr and Sonar
 - Per-app Backlog Nudge toggles with Missing Added Days age filter and per-instance caps
 
 **UI & history**
-- Web UI with Instances, Settings, History, Stats, Notifications, and Advanced tabs
+- Web UI with Instances, Sweep, Settings, History, Imports, Notifications, and Advanced tabs
+- Sweep tab — per-instance Library State (Cutoff Unmet, Backfill) and This Run stats (Eligible, On Cooldown, Capped, Searched) updated after every sweep
 - Search history with sweep type, instance, library added date, search count, sortable columns, title search, and pagination
+- Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
 - Confirmed import tracking with lifetime Movies/Shows totals, type filtering, and title search
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
 - Instance health dots — live status updated on every sweep, test connection, and page load
-- First-run onboarding walkthrough — guided setup before the first sweep runs
+- First-run onboarding walkthrough — 10-step guided setup before the first sweep runs
 - What's New modal — shown once per version upgrade, never on fresh install
 - Backup All — single download of config, state, and stats as a zip
 
@@ -57,7 +82,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `dev` · `v2.6.0` · `2.6.0` · `2.6`
+**Tags:** `latest` · `dev` · `v2.8.0` · `2.8.0` · `2.8`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -162,23 +187,12 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 
 ## Upgrade notes
 
-**v2.6.0**
-Per-instance enable/disable — disabled instances are skipped in sweeps and health checks, dot goes grey, card dims, re-enabling triggers an immediate ping. Per-app sample mode — Radarr and Sonarr each have their own independently configurable mode. Library Added and Search Count columns added to History. Backup All replaces individual download buttons in Support & Diagnostics.
+**v2.8.0** *(first public release)*
+Sweep tab — a dedicated view showing per-instance Library State (Cutoff Unmet, Backfill) and This Run stats (Eligible, On Cooldown, Capped, Searched) updated after every sweep. Disabled instances retain their last known stats and show a Disabled pill. Exclusion list — exclude titles from future searches via the ⊘ icon in History. Onboarding expanded to 10 steps. Replay Walkthrough added to UI Preferences. Codebase restructured into a Python package — no functional changes, no config changes required.
 
-Upgrading from v2.5.0: two new config keys (`radarr_sample_mode`, `sonarr_sample_mode`) default to your existing `sample_mode` value automatically — no manual changes needed.
-
-**v2.5.0**
-Four sample modes — Random, Alphabetical, Oldest Added, Newest Added. Instance health dots now pulse amber on page load and resolve within ~1 second via parallel background pings. Last Run and Next Run pills populate immediately on startup. Visual hierarchy corrected throughout — section headers, field labels, and help text now cascade correctly. Danger zone consolidated to one row. Clear History no longer shows a second popup. Testing checklists added to `assets/` for community validation.
-
-Upgrading from v2.4.0: `sample_mode` values of `random` and `first` are still accepted. Two new config keys (`last_seen_version`, `show_support_link`) are added automatically — no manual changes needed.
+Upgrading from any previous version: no config changes required.
 
 For full version history see [CHANGELOG.md](CHANGELOG.md).
-
----
-
-## Testing
-
-If you'd like to help validate stable releases, testing checklists are available in the `assets/` directory.
 
 ---
 
@@ -186,9 +200,7 @@ If you'd like to help validate stable releases, testing checklists are available
 
 Nudgarr is a community-welcome project. Whether you want to fix a bug, improve the code quality, add a feature, or just give feedback — all of it is appreciated.
 
-If you have design skills and want to help with a proper icon or branding, that's something the project genuinely needs. Open an issue or a PR and let's talk.
-
-See [ROADMAP.md](ROADMAP.md) for planned features.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide, and [ROADMAP.md](ROADMAP.md) for planned features.
 
 ---
 

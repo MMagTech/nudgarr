@@ -1,0 +1,2368 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nudgarr</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2311131f'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%236366f1'%3EN%3C/text%3E%3C/svg%3E"/>
+  <style>
+    :root {
+      --bg: #11131f;
+      --surface: #181a28;
+      --card: #1e2030;
+      --card-hover: #22253a;
+      --border: rgba(255,255,255,.10);
+      --border-focus: rgba(99,120,255,.6);
+      --muted: #7c8494;
+      --text: #e8eaf0;
+      --text-dim: #a0a8b8;
+      --accent: #6378ff;
+      --accent-dim: rgba(99,120,255,.15);
+      --accent-border: rgba(99,120,255,.35);
+      --ok: #22c55e;
+      --ok-dim: rgba(34,197,94,.15);
+      --warn: #f59e0b;
+      --warn-dim: rgba(245,158,11,.15);
+      --bad: #ef4444;
+      --bad-dim: rgba(239,68,68,.15);
+      --bad-border: rgba(239,68,68,.35);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 18px; }
+
+    /* ── Header ── */
+    .header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; }
+    .brand h1 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -.3px; }
+    .brand p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    /* ── Pills ── */
+    .pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 12px; border: 1px solid var(--border);
+      border-radius: 999px; background: var(--surface);
+      font-size: 12px; color: var(--text-dim);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .pill.clickable { cursor: pointer; transition: border-color .15s, background .15s; }
+    .pill.clickable:hover { border-color: var(--border-focus); background: var(--card); }
+
+    /* ── Buttons ── */
+    .btn {
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); padding: 8px 14px; border-radius: 10px;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: background .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--card-hover); border-color: rgba(255,255,255,.15); }
+    .btn.primary {
+      background: rgba(99,120,255,.2); border-color: var(--accent-border);
+      color: #a8b4ff;
+    }
+    .btn.primary:hover { background: rgba(99,120,255,.32); border-color: var(--accent); color: #c0caff; }
+    .btn.danger { background: var(--bad-dim); border-color: var(--bad-border); color: #fca5a5; }
+    .btn.danger:hover { background: rgba(239,68,68,.25); }
+    .btn.sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
+    .btn.run-now {
+      background: rgba(99,120,255,.25); border-color: var(--accent);
+      color: #c0caff; font-weight: 600;
+      padding: 6px 12px; font-size: 12px; border-radius: 999px;
+    }
+    .btn.run-now:hover { background: rgba(99,120,255,.4); color: #fff; }
+    .btn.sign-out {
+      padding: 6px 12px; font-size: 12px; border-radius: 999px;
+    }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; backdrop-filter: blur(4px);
+    }
+    .modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px; padding: 24px; width: 100%; max-width: 440px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    }
+    .modal h2 { font-size: 16px; font-weight: 700; margin: 0 0 18px; }
+    .modal .field { margin-bottom: 14px; }
+    .modal .row { margin-top: 20px; justify-content: flex-end; }
+    .key-wrap { position: relative; }
+    .key-wrap input { padding-right: 70px; }
+    .key-toggle {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; color: var(--muted); cursor: pointer;
+      background: none; border: none; padding: 2px 6px;
+    }
+    .key-toggle:hover { color: var(--text); }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .tab {
+      padding: 7px 14px; border: 1px solid var(--border);
+      border-radius: 999px; cursor: pointer; font-size: 13px;
+      color: var(--muted); background: var(--surface);
+      transition: all .15s;
+    }
+    .tab:hover { color: var(--text); border-color: rgba(255,255,255,.15); }
+    .tab.active { color: var(--text); background: var(--card); border-color: rgba(255,255,255,.18); }
+    .section { display: none; opacity: 0; }
+    .section.active { display: block; animation: tabFadeIn 0.18s ease forwards; }
+    .section.leaving { animation: tabFadeOut 0.1s ease forwards; }
+    @keyframes tabFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes tabFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+    /* ── Cards & Grid ── */
+    .grid { display: grid; gap: 12px; }
+    .cols2 { grid-template-columns: 1fr 1fr; }
+    @media(max-width: 720px) { .cols2 { grid-template-columns: 1fr; } }
+    .card {
+      border: 1px solid var(--border); background: var(--card);
+      border-radius: 16px; padding: 18px;
+    }
+    .card-title { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text); }
+    .full { grid-column: 1 / -1; }
+
+    /* ── Form elements ── */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label { font-size: 12px; color: var(--text-dim); font-weight: 500; }
+    input, select {
+      padding: 9px 11px; border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--surface); color: var(--text);
+      outline: none; font-size: 13px; width: 100%;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus { border-color: var(--border-focus); }
+    input:disabled { opacity: .5; cursor: not-allowed; }
+    .help { font-size: 12px; color: var(--muted); line-height: 1.4; }
+    .hr { height: 1px; background: var(--border); margin: 16px 0; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .msg { font-size: 12px; color: var(--muted); transition: opacity 0.5s ease; }
+    .msg.ok { color: var(--ok); }
+    .msg.err { color: var(--bad); }
+    .msg.unsaved { color: #fbbf24; }
+    .msg.fade { opacity: 0; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text); }
+    th.sortable::after { content: ' ↕'; opacity: 0.25; font-size: 10px; }
+    th.sort-asc::after { content: ' ↑'; opacity: 1; }
+    th.sort-desc::after { content: ' ↓'; opacity: 1; }
+
+    /* ── Toggle switch ── */
+    .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+    .toggle {
+      position: relative; width: 36px; height: 20px;
+      flex-shrink: 0; cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: var(--surface); border: 1px solid var(--border);
+      transition: background .2s, border-color .2s;
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--accent); border-color: var(--accent); }
+    .toggle input.warn:checked ~ .toggle-track { background: var(--warn); border-color: var(--warn); }
+    .toggle-thumb {
+      position: absolute; top: 50%; left: 3px;
+      transform: translateY(-50%);
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--muted); transition: left .2s, background .2s;
+    }
+    .toggle input:checked ~ .toggle-thumb { left: 19px; background: #fff; transform: translateY(-50%); }
+
+    /* ── Instance cards ── */
+    .inst-card {
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 13px 14px; margin-top: 8px; background: var(--surface);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .inst-card .inst-row1 { display: flex; align-items: center; gap: 10px; }
+    .inst-card .inst-row2 { display: flex; align-items: center; justify-content: space-between; }
+    .inst-card .inst-info { flex: 1; min-width: 0; }
+    .inst-card .inst-name { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+    .inst-card .inst-meta { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inst-card .inst-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .3s; }
+    .status-dot.ok { background: var(--ok); }
+    .status-dot.bad { background: var(--bad); }
+    .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
+    .status-dot.disabled { background: #4b5563; opacity: 1; }
+    .dot.running { background: var(--warn) !important; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    #pill-lastrun { min-width: 185px; }
+
+    /* ── Sweep cards ── */
+    .sweep-card {
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 13px 14px; margin-top: 8px; background: var(--surface);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .sweep-card .inst-row1 { display: flex; align-items: center; gap: 10px; }
+    .sweep-card .sweep-stats { display: flex; gap: 16px; flex-wrap: wrap; padding-top: 2px; }
+    .sweep-stat { display: flex; flex-direction: column; gap: 2px; }
+    .sweep-stat-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .sweep-stat-value { font-size: 13px; color: var(--text); font-weight: 500; }
+    .sweep-stat-value.dim { color: var(--text-dim); }
+    .sweep-card.disabled-card { opacity: 0.45; }
+    /* Sweep stats grid — two rows, two columns, vertically aligned */
+    .sweep-stats-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 8px 0; padding: 10px 12px;
+      background: var(--surface); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .sweep-row-divider {
+      grid-column: 1/-1; border: none;
+      border-top: 1px solid var(--border); margin: 2px 0;
+    }
+    /* Right side of inst-row1 on sweep cards — pill and last run on same baseline */
+    .sweep-card-right {
+      flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Exclusion icon ── */
+    .excl-col { width: 28px; text-align: center; }
+    .excl-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; opacity: 0; transition: opacity .15s, color .15s; padding: 0; line-height: 1; position: relative; }
+    .excl-btn:hover { color: var(--bad); }
+    .excl-btn.excluded { opacity: 1 !important; color: #f87171; }
+    tr:hover .excl-btn { opacity: 1; }
+    tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
+    tr.row-excluded .excl-btn { opacity: 1 !important; }
+    .excl-col { overflow: visible !important; }
+
+    /* ── Test result cards ── */
+    .test-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .test-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .test-card.ok { border-color: rgba(34,197,94,.25); background: var(--ok-dim); }
+    .test-card.bad { border-color: var(--bad-border); background: var(--bad-dim); }
+    .test-card .tc-name { font-weight: 600; font-size: 13px; }
+    .test-card .tc-detail { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .test-card.ok .tc-detail { color: rgba(34,197,94,.8); }
+    .test-card.bad .tc-detail { color: #fca5a5; }
+    .test-icon { font-size: 16px; flex-shrink: 0; }
+
+    /* ── Settings section headers ── */
+    .section-label {
+      font-size: 13px; font-weight: 600; letter-spacing: .04em;
+      color: var(--text);
+      margin: 0 0 10px;
+    }
+
+    /* ── History table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    td { color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+    /* ── KPI pills row ── */
+    .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .import-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .import-stat-card { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 20px; border: 1px solid; font-size: 13px; }
+    .import-stat-card.movies { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.3); }
+    .import-stat-card.shows { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.3); }
+    .import-stat-label { font-weight: 500; color: rgba(99,102,241,0.7); }
+    .import-stat-value { font-weight: 700; font-size: 15px; color: #6366f1; text-shadow: 0 0 16px rgba(99,102,241,0.4); }
+
+
+    /* ── Tooltips ── */
+    .tooltip-wrap { position: relative; display: inline-flex; align-items: center; gap: 5px; }
+    .tooltip-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid var(--accent-border); color: var(--accent);
+      font-size: 9px; font-style: italic; font-weight: 700;
+      cursor: default; flex-shrink: 0; line-height: 1;
+      user-select: none; transition: background .15s, border-color .15s;
+      position: relative;
+    }
+    .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
+    .tooltip-wrap:hover .tooltip-icon .tooltip-box { opacity: 1; pointer-events: auto; }
+    .tooltip-box {
+      position: absolute; left: calc(100% + 3px); bottom: 0; top: auto;
+      background: #242640; border: 1px solid var(--accent-border);
+      border-radius: 10px; padding: 10px 12px;
+      font-size: 12px; font-weight: 400; font-style: normal;
+      color: var(--text-dim); line-height: 1.5;
+      width: 300px; z-index: 100;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+      box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(99,120,255,.08);
+    }
+    .tooltip-icon.tip-left .tooltip-box {
+      left: auto; right: calc(100% + 3px);
+    }
+    .tooltip-icon.tip-down .tooltip-box {
+      top: calc(100% + 3px); bottom: auto; left: 0;
+    }
+
+    /* ── Cooldown warning flash ── */
+    @keyframes warnFlash {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .warn-flash { animation: warnFlash 1s ease 3; color: var(--warn); font-size: 12px; }
+    .warn-steady { color: var(--warn); font-size: 12px; }
+    /* ── Amber warning boxes ── */
+    .amber-warn {
+      padding: 12px; border-radius: 12px;
+      background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.2);
+    }
+    .amber-warn-title { font-size: 12px; color: #fbbf24; font-weight: 600; margin: 0 0 4px; }
+    .amber-warn-body { margin: 0; }
+    .amber-warn-collapsible {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.35s ease;
+      margin-top: 0;
+    }
+    .amber-warn-collapsible.visible {
+      max-height: 120px;
+      opacity: 1;
+      margin-top: 6px;
+    }
+
+    /* ── Danger zone ── */
+    .danger-section { border: 1px solid var(--bad-border); border-radius: 12px; padding: 14px; background: var(--bad-dim); }
+
+    /* ── Diag box ── */
+    .diag-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px; color: var(--text-dim); white-space: pre-wrap;
+      line-height: 1.6; margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <h1><span style="font-style:italic; letter-spacing:0.03em">Nudgarr</span> <span style="font-weight:400; font-size:13px; color:var(--muted)">v<span id="ver"></span></span></h1>
+      <p>Sweeping your library, one nudge at a time.</p>
+    </div>
+    <div class="header-right">
+      <div class="pill" id="pill-dryrun"><span class="dot" id="dot-dryrun"></span><span id="txt-dryrun">Loading…</span></div>
+      <div class="pill" id="pill-lastrun"><span>Last: <span id="lastRun">—</span></span></div>
+      <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
+      <button class="btn run-now" onclick="runNow()">Run Now</button>
+      <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
+      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Donate</a>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
+    <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
+    <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
+    <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
+    <div class="tab" data-tab="imports" onclick="showTab('imports')">Imports</div>
+    <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
+    <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
+  </div>
+
+  <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
+  <div class="section active" id="tab-instances">
+    <div class="grid cols2">
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <span class="section-label" style="margin:0">Radarr Instances</span>
+          <button class="btn sm" style="margin-left:auto" onclick="addInstance('radarr')">+ Add</button>
+        </div>
+        <p class="help" style="margin:0 0 8px">Add one or more Radarr instances.</p>
+        <div id="radarrList"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <span class="section-label" style="margin:0">Sonarr Instances</span>
+          <button class="btn sm" style="margin-left:auto" onclick="addInstance('sonarr')">+ Add</button>
+        </div>
+        <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances.</p>
+        <div id="sonarrList"></div>
+      </div>
+
+      <div class="card full">
+        <div class="row">
+          <button class="btn primary" onclick="saveAll()">Save Changes</button>
+          <button class="btn" onclick="testConnections()">Test Connections</button>
+          <span class="msg" id="saveMsg"></span>
+        </div>
+        <div class="help" style="margin-top:8px">Connection status updates automatically on each sweep.</div>
+        <div id="testResults" style="display:none">
+          <div class="hr"></div>
+          <div class="test-results" id="testResultsInner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ SWEEP ══════════════════════════════ -->
+  <div class="section" id="tab-sweep">
+    <div class="grid cols2">
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="tooltip-wrap">
+            <span class="section-label" style="margin:0">Radarr</span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+          </div>
+        </div>
+        <p class="help" style="margin:0 0 8px">Movie sweep activity — last run and lifetime totals.</p>
+        <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
+      </div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="tooltip-wrap">
+            <span class="section-label" style="margin:0">Sonarr</span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+          </div>
+        </div>
+        <p class="help" style="margin:0 0 8px">Episode sweep activity — last run and lifetime totals.</p>
+        <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ SETTINGS ══════════════════════════════ -->
+  <div class="section" id="tab-settings">
+    <div class="grid" style="max-width:600px">
+
+      <div class="card">
+        <p class="section-label">Scheduler</p>
+        <div class="row" style="gap:16px; flex-wrap:nowrap; align-items:flex-start">
+          <div class="field" style="flex:1">
+            <label>Automatic Sweeps</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="scheduler_label">Enabled</span>
+            </div>
+            <div class="help">When disabled, only sweeps when you click <b>Run Now</b>.</div>
+          </div>
+          <div class="field" style="max-width:160px">
+            <div class="tooltip-wrap">
+              <label>Run Interval (Hours)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div></span>
+            </div>
+            <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
+            <div class="help">How often sweeps run.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p><span id="cooldownWarnMsg"></span></div>
+        <div class="grid cols1" style="gap:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Cooldown (Hours)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
+            </div>
+            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
+            <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Max Movies (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+            </div>
+            <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Radarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end. Missing Added Days sets the eligible pool — set to 0 to search all missing items newest-first with no age filter.</div></span>
+            </div>
+            <select id="radarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Radarr items to search each run.</div>
+            <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
+              <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Max Episodes (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+            </div>
+            <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sonarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+            </div>
+            <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Sonarr items to search each run.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-label">Throttling</p>
+        <div class="grid cols2" style="gap:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Batch Size</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many search commands are sent to your indexer at once per batch. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously which can overwhelm indexers and trigger rate limiting. Keep this at 1 unless you have a specific reason to increase it.</div></span>
+            </div>
+            <input id="batch_size" type="number" min="1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sleep Seconds</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div></span>
+            </div>
+            <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Jitter Seconds</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div></span>
+            </div>
+            <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card amber-warn">
+        <p class="amber-warn-title">⚠️ INDEXER RATE LIMITS</p>
+        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits when using this app.</p>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <button class="btn primary" onclick="saveSettings()">Save Changes</button>
+        <span class="msg" id="setMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ HISTORY ══════════════════════════════ -->
+  <div class="section" id="tab-history">
+    <div class="card">
+      <div class="kpis" id="kpis"></div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="refreshHistory()">Refresh</button>
+        <button class="btn sm" onclick="pruneState()">Prune Expired</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="historyInstance" onchange="PAGE=0; refreshHistory()"></select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="historyLimit" onchange="syncPageSize('history'); PAGE=0; refreshHistory()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="historySearch" placeholder="Search title…" oninput="filterHistorySearch()" style="padding-right:28px"/>
+            <button id="historySearchClear" onclick="clearHistorySearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+          </div>
+          <span id="exclusionsPill" onclick="toggleExclusionsFilter()" class="pill clickable" style="display:none;cursor:pointer;white-space:nowrap">Exclusions</span>
+        </div>
+      </div>
+      <p id="exclusionsHint" class="help" style="margin:0 0 10px;display:block">Hover over any row to access exclusion options.</p>
+      <div id="historyTableWrap"></div>
+      <div id="historyNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div class="row" style="margin-top:12px" id="historyPagination">
+        <button class="btn sm" onclick="prevPage()">Prev</button>
+        <button class="btn sm" onclick="nextPage()">Next</button>
+        <span class="msg" id="pageInfo"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
+  <div class="section" id="tab-imports">
+    <div class="card">
+      <div style="display:flex;justify-content:center;margin-bottom:14px">
+        <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase">
+          Lifetime Confirmed
+        </div>
+      </div>
+      <div class="import-stats">
+        <div class="import-stat-card movies">
+          <span class="import-stat-label">Movies:</span>
+          <span class="import-stat-value" id="statMoviesTotal">—</span>
+        </div>
+        <div class="import-stat-card shows">
+          <span class="import-stat-label">Shows:</span>
+          <span class="import-stat-value" id="statShowsTotal">—</span>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="importsInstance" onchange="IMPORTS_PAGE=0; refreshImports()">
+              <option value="">All Instances</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:150px">
+            <select id="importsType" onchange="IMPORTS_PAGE=0; refreshImports()">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="importsLimit" onchange="syncPageSize('imports'); IMPORTS_PAGE=0; refreshImports()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="importsSearch" placeholder="Search title…" oninput="filterImportsSearch()" style="padding-right:28px"/>
+            <button id="importsSearchClear" onclick="clearImportsSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+          </div>
+        </div>
+      </div>
+      <div id="importsTableWrap"></div>
+      <div id="importsNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div class="row" style="margin-top:12px" id="statsPagination">
+        <button class="btn sm" onclick="prevStatsPage()">Prev</button>
+        <button class="btn sm" onclick="nextStatsPage()">Next</button>
+        <span class="msg" id="importsPageInfo"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ NOTIFICATIONS ══════════════════════════════ -->
+  <div class="section" id="tab-notifications">
+    <div class="grid cols2">
+      <div class="card">
+        <p class="section-label">Notifications</p>
+        <div class="field">
+          <label>Enable Notifications</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_enabled" onchange="syncNotifyUi(); markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="help" id="notify_label">Disabled</span>
+          </div>
+          <div class="help">Send notifications via any Apprise-compatible service — Discord, Gotify, Ntfy, Pushover, Slack, and many more.</div>
+        </div>
+        <div class="field" id="notify_url_field" style="margin-top:12px">
+          <label>Notification URL</label>
+          <div class="key-wrap">
+            <input type="password" id="notify_url" placeholder="e.g. discord://webhookid/token" oninput="markUnsaved('notifyMsg')"/>
+            <button class="key-toggle" onclick="toggleNotifyUrl()" id="notifyUrlToggleBtn">Show</button>
+          </div>
+          <div class="help">Enter your Apprise-compatible notification URL. See <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--accent)">Apprise docs</a> for supported services and URL formats.</div>
+        </div>
+        <div id="notify_test_row" style="margin-top:12px;display:none">
+          <button class="btn sm" onclick="testNotification()">Send Test</button>
+          <span class="msg" id="notifyTestMsg" style="margin-left:8px"></span>
+        </div>
+      </div>
+
+      <div class="card" id="notify_events_card">
+        <p class="section-label">Notify On</p>
+        <div class="field">
+          <label>Sweep Complete</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_sweep_complete" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep finishes — includes items searched and skipped.</div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Import Confirmed</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_import" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a searched item is confirmed imported into your library.</div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Error</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_error" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep fails or an instance becomes unreachable.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
+      <span class="msg" id="notifyMsg"></span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ ADVANCED ══════════════════════════════ -->
+  <div class="section" id="tab-advanced">
+    <div class="grid">
+      <div class="grid cols2">
+        <div class="card">
+          <p class="section-label">Backlog Nudges</p>
+          <div class="help" style="margin-bottom:12px">Searches movies and episodes identified as missing. These searches are on top of your Max Per Run caps.</div>
+          <p class="section-label" style="margin:0 0 8px">Radarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); checkNewestAddedWarning(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="radarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="radarr_backlog_fields" style="opacity:0.35;pointer-events:none">
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Radarr Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
+              </div>
+              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <div class="help">Maximum missing movies searched per instance per run.</div>
+            </div>
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Radarr Missing Added Days</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div></span>
+              </div>
+              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <div class="help">Only search missing items added more than this many days ago.</div>
+            </div>
+          </div>
+          </div>
+          <div style="margin-top:14px">
+          <p class="section-label" style="margin:0 0 8px">Sonarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="sonarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="sonarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="sonarr_backlog_fields" style="opacity:0.35;pointer-events:none">
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Sonarr Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
+              </div>
+              <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Maximum missing episodes searched per instance per run.</div>
+            </div>
+          </div>
+          </div>
+          </div>
+          <div class="amber-warn" style="margin-top:16px">
+            <p class="amber-warn-title">USE WITH CAUTION</p>
+            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+          </div>
+          <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
+            <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="section-label">Data Retention</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Days to Keep</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Shows totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
+            </div>
+            <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Prunes history and stats entries older than this. Lifetime totals are not affected. 0 disables.</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Stats</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Import Check (Minutes)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. Setting this too low may miss slow downloads — 120 minutes is a safe default. Confirmed imports appear in the Stats tab.</div></span>
+            </div>
+            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">How often Nudgarr checks for confirmed imports.</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Security</p>
+          <div class="field">
+            <label>Require Login</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="auth_enabled" onchange="syncAuthUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="auth_label">Enabled</span>
+            </div>
+            <div class="help">When disabled, anyone on your network can access the UI.</div>
+          </div>
+          <div class="field" style="margin-top:16px">
+            <label>Session Timeout (Minutes)</label>
+            <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Minutes of inactivity before requiring re-login.</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">UI Preferences</p>
+          <div class="field">
+            <label>Onboarding</label>
+            <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
+            <div class="help" style="margin-top:6px">View the initial walkthrough at any time.</div>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>Show Support Link</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="show_support_link" onchange="syncSupportLinkUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="support_link_label">Shown</span>
+            </div>
+            <div class="help">Toggle off to hide.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
+        <span class="msg" id="advMsg"></span>
+      </div>
+
+      <div class="card danger-section" style="margin-bottom:12px">
+        <p class="section-label" style="color:#fca5a5">Danger Zone</p>
+        <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
+          <button class="btn sm danger" onclick="clearState()">Clear History</button>
+          <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-label">Support &amp; Diagnostics</p>
+        <p class="help" style="margin:0 0 12px">Back up your data or grab a diagnostic to share on GitHub.</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <button class="btn sm" onclick="backupAll()">Backup All</button>
+          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+          <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
+        </div>
+        <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
+        <div id="diagBox" class="diag-box" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Instance Modal ══ -->
+  <div class="modal-backdrop" id="instModal" style="display:none" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h2 id="modalTitle">Add Instance</h2>
+      <div class="field">
+        <label>Name</label>
+        <input id="modalName" type="text" placeholder="e.g. radarr-4k"/>
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <input id="modalUrl" type="text" placeholder="http://192.168.1.10:7878"/>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <div class="key-wrap">
+          <input id="modalKey" type="password" placeholder="Your API key"/>
+          <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
+        <button class="btn sm primary" onclick="saveModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Confirm Modal ══ -->
+  <div class="modal-backdrop" id="confirmModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+      <h2 id="confirmTitle">Confirm</h2>
+      <p class="help" id="confirmMsg" style="margin:0 0 20px"></p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm" onclick="confirmResolve(false)">Cancel</button>
+        <button class="btn sm primary" id="confirmOkBtn" onclick="confirmResolve(true)">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Alert Modal ══ -->
+  <div class="modal-backdrop" id="alertModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+      <p class="help" id="alertMsg" style="margin:0 0 20px"></p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm primary" onclick="el('alertModal').style.display='none'">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ What's New Modal ══ -->
+  <div class="modal-backdrop" id="whatsNewModal" style="display:none">
+     <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+       <h2 style="margin:0 0 4px">What's New in v2.8.0</h2>
+       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit. v2.7.0 was not released publicly — its features ship here in v2.8.0.</p>
+       <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Sweep Tab <span style="font-weight:400;color:var(--muted);font-size:11px">v2.7.0</span></div>
+           <div class="help">A dedicated tab showing per-instance sweep stats — Library State (Cutoff Unmet, Backfill) and This Run counts (Eligible, On Cooldown, Capped, Searched). Updates automatically after every sweep.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⊘ Exclusion List <span style="font-weight:400;color:var(--muted);font-size:11px">v2.7.0</span></div>
+           <div class="help">Hover any History row to reveal the exclusion icon. Excluding a title prevents Nudgarr from ever searching it again across all instances. Manage exclusions via the filter pill in History.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏗️ Project Restructure <span style="font-weight:400;color:var(--muted);font-size:11px">v2.8.0</span></div>
+           <div class="help">The codebase has been split into a proper Python package — making it easier to read, review, and contribute to. No functional changes, no config changes required.</div>
+         </div>
+       </div>
+       <div class="row" style="justify-content:flex-end;margin-top:20px">
+         <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>
+       </div>
+     </div>
+
+  <!-- ══ Sweep No-Instances Modal ══ -->
+  <div class="modal-backdrop" id="sweepNoInstancesModal" style="display:none" onclick="el('sweepNoInstancesModal').style.display='none'">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px">
+      <h2 style="margin:0 0 8px">No Instances Configured</h2>
+      <p class="help" style="margin:0 0 20px">Add a Radarr or Sonarr instance to get started. The Sweep tab will populate automatically once an instance is added.</p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm primary" onclick="el('sweepNoInstancesModal').style.display='none'; showTab('instances')">Go to Instances</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Onboarding Modal ══ -->
+  <div class="modal-backdrop" id="onboardingModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+      <div id="onboardingContent"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px">
+        <div style="display:flex; gap:6px" id="onboardingDots"></div>
+        <div style="display:flex; gap:8px">
+          <button class="btn sm" id="onboardingPrev" onclick="onboardingStep(-1)">Back</button>
+          <button class="btn sm primary" id="onboardingNext" onclick="onboardingStep(1)">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let CFG = null;
+let PAGE = 0;
+let IMPORTS_PAGE = 0;
+let ALL_INSTANCES = [];
+let confirmResolve = null;
+let ACTIVE_TAB = 'instances';
+let HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
+let IMPORTS_SORT = { col: 'imported_ts', dir: 'desc' };
+let EXCLUSIONS_SET = new Set();
+let EXCL_FILTER_ACTIVE = false;
+
+async function showConfirm(title, msg, okLabel = 'Confirm', danger = false) {
+  el('confirmTitle').textContent = title;
+  el('confirmMsg').textContent = msg;
+  el('confirmOkBtn').textContent = okLabel;
+  el('confirmOkBtn').className = danger ? 'btn sm danger' : 'btn sm primary';
+  el('confirmModal').style.display = 'flex';
+  return new Promise(resolve => { confirmResolve = (v) => { el('confirmModal').style.display = 'none'; resolve(v); }; });
+}
+
+function showAlert(msg) {
+  el('alertMsg').textContent = msg;
+  el('alertModal').style.display = 'flex';
+}
+
+// ── Onboarding Walkthrough ──
+const ONBOARDING_STEPS = [
+  {
+    title: "Welcome to Nudgarr",
+    body: `Nudgarr searches your Radarr and Sonarr Wanted lists automatically — finding items that need a quality upgrade or haven't been grabbed yet — so you don't have to.
+<br><br>
+This quick walkthrough covers the key things to know before your first run. It is key to understand these settings to prevent an indexer ban.`
+  },
+  {
+    title: "Step 1 — Add Your Instances",
+    body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
+<br><br>
+You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+  },
+  {
+    title: "Step 2 — Scheduler",
+    body: `The Scheduler controls when Nudgarr automatically runs sweeps.
+<br><br>
+<strong>Automatic Sweeps</strong><br>
+Off by default — Nudgarr will not run until you enable it. You can still trigger a sweep at any time by clicking <strong>Run Now</strong>. This is the recommended approach until you are confident in your settings.
+<br><br>
+<strong>Run Interval</strong><br>
+How often the scheduler fires when enabled. Default is every 6 hours. Start conservative and adjust based on the size of your library and how active your indexers are.`
+  },
+  {
+    title: "Step 3 — Search Behavior",
+    body: `These settings control what gets searched and how often.
+<br><br>
+<strong>Max Per Run</strong><br>
+How many items are searched <strong>per instance</strong> each run. If you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Starts at 1 — increase slowly as you get comfortable with how Nudgarr behaves.
+<br><br>
+<strong>Cooldown</strong><br>
+How long Nudgarr waits before searching the same item again. Default is 48 hours. Do not lower this aggressively — repeated searches for the same item in a short window is one of the fastest ways to get banned from an indexer.
+<br><br>
+<strong>Sample Mode</strong><br>
+Controls which eligible items are picked each run. <strong>Random</strong> gives even library coverage. <strong>Alphabetical</strong> works through your library from A to Z. <strong>Oldest Added</strong> prioritises items you've had longest. <strong>Newest Added</strong> targets recently added items — use with caution if backlog nudges are enabled.`
+  },
+  {
+    title: "Step 4 — Throttling",
+    body: `These settings control how fast Nudgarr communicates with your Radarr and Sonarr instances during a run.
+<br><br>
+<strong>Batch Size</strong><br>
+How many search commands are sent at once. Default is 1. Keeping this low reduces the chance of overwhelming your indexer.
+<br><br>
+<strong>Sleep</strong><br>
+How long Nudgarr pauses between batches. Default is 5 seconds. A longer pause is more respectful of your indexer's rate limits.
+<br><br>
+<strong>Jitter</strong><br>
+Adds a small random delay on top of the sleep time to make search patterns less predictable. Helps avoid triggering automated rate limit detection.`
+  },
+  {
+    title: "Step 5 — History & Stats",
+    body: `Nudgarr keeps track of everything it does so you can see exactly what's happening.
+<br><br>
+<strong>History</strong><br>
+A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
+<br><br>
+<strong>Stats</strong><br>
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Shows totals are lifetime counters that persist even if you clear the stats table.
+<br><br>
+Both tabs support <strong>title search</strong> — type a show or movie name to filter the table instantly. Use the instance dropdown alongside it to narrow results further.`
+  },
+  {
+    title: "Step 6 — Notifications",
+    body: `Nudgarr can notify you when sweeps complete, imports are confirmed, or an instance becomes unreachable.
+<br><br>
+Add your Apprise-compatible URL, choose which events to be notified on, and use <strong>Send Test</strong> to confirm it's working before enabling. Supports Discord, Gotify, Ntfy, Pushover, Slack, and more.`
+  },
+  {
+    title: "Step 7 — Advanced & Backlog Nudges",
+    body: `The <strong>Advanced tab</strong> contains settings for backlog nudges, data retention, and security.
+<br><br>
+<strong>Backlog Nudges</strong> — Off by default. When enabled, searches for missing movies and episodes that have never been grabbed, going beyond just cutoff upgrades.<br><br>
+<strong>Missing Max (Per Instance)</strong> — How many missing items to search per instance per run. Keep this low.<br><br>
+<strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.<br><br>
+<strong>Data Retention</strong> — How many days Nudgarr keeps history and stats entries before pruning. Lifetime totals are never affected. Default is 180 days.<br><br>
+<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen. Default is every 120 minutes.<br><br>
+<strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.
+<br><br>
+⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`
+  },
+  {
+    title: "Step 8 — Reading Your Sweep Stats",
+    body: `The Sweep tab is your feedback loop — it shows you exactly what happened each run so you can tune Nudgarr to work best for your setup.
+<br><br>
+<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br>
+Cutoff Unmet and Backfill reflect the current state of your library as reported by your Radarr and Sonarr instances. They update as your library changes — not as a direct result of sweeps.
+<br><br>
+<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br>
+<strong>Eligible</strong> — how many items were ready to search this run. If this is consistently low your cooldown may be too long.<br><br>
+<strong>On Cooldown</strong> — items that were found but aren't ready yet. This is normal and healthy — it means the system is pacing itself.<br><br>
+<strong>Capped</strong> — items that were eligible but didn't get searched because the per-run cap was reached. If this is consistently high consider raising your Max Per Run gradually.<br><br>
+<strong>Searched</strong> — what actually happened this run. This is your output.
+<br><br>
+<span style="color:var(--muted);font-size:12px">The defaults are intentionally conservative. Use these numbers over time to tune gradually — small increases to Max Per Run or small decreases to cooldown can make a meaningful difference.</span>
+<br><br>
+<span style="color:var(--muted);font-size:12px;font-style:italic">These numbers are informational. If you increase Max Per Run or reduce cooldown, do so gradually and monitor your indexer activity closely. Nudgarr has no visibility into your indexer's limits.</span>`
+  },
+  {
+    title: "You're Ready",
+    body: `You're all set. Here's the recommended way to start:
+<br><br>
+1. Add your instances and test connections<br>
+2. Review your settings — keep them conservative to start<br>
+3. Hit <strong>Run Now</strong> to trigger your first sweep manually<br>
+4. Check the <strong>History tab</strong> to see what was searched<br>
+5. If everything looks right, enable the scheduler<br>
+6. Gradually increase Max Per Run as you get comfortable
+<br><br>
+Nudgarr is designed to work quietly in the background — not to hammer your indexers. Start slow and let it earn your trust.
+<br><br>
+<span style="color:var(--muted);font-size:12px">If Nudgarr is useful to you, the 🍺 support link in the header is a nice way to say thanks. You can hide it anytime in Advanced → UI Preferences.</span>`
+  }
+];
+
+let _obStep = 0;
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[_obStep];
+  const total = ONBOARDING_STEPS.length;
+  el('onboardingContent').innerHTML = `
+    <h2 style="font-size:16px;font-weight:700;margin:0 0 12px">${step.title}</h2>
+    <p class="help" style="line-height:1.7;margin:0">${step.body}</p>
+  `;
+  // Dots
+  el('onboardingDots').innerHTML = ONBOARDING_STEPS.map((_, i) =>
+    `<div style="width:7px;height:7px;border-radius:50%;background:${i===_obStep ? 'var(--accent)' : 'var(--border)'}"></div>`
+  ).join('');
+  el('onboardingPrev').style.display = _obStep === 0 ? 'none' : '';
+  el('onboardingNext').textContent = _obStep === total - 1 ? 'Got it' : 'Next';
+}
+
+async function onboardingStep(dir) {
+  const total = ONBOARDING_STEPS.length;
+  if (dir === 1 && _obStep === total - 1) {
+    // Finished
+    el('onboardingModal').style.display = 'none';
+    await api('/api/onboarding/complete', {method: 'POST'});
+    if (CFG) { CFG.onboarding_complete = true; CFG.last_seen_version = el('ver').textContent; }
+    return;
+  }
+  _obStep = Math.max(0, Math.min(total - 1, _obStep + dir));
+  renderOnboardingStep();
+}
+
+function maybeShowOnboarding() {
+  if (!CFG || CFG.onboarding_complete) return;
+  _obStep = 0;
+  renderOnboardingStep();
+  el('onboardingModal').style.display = 'flex';
+}
+
+function replayOnboarding() {
+  _obStep = 0;
+  renderOnboardingStep();
+  el('onboardingModal').style.display = 'flex';
+}
+
+function showTab(name) {
+  // Sweep tab — if no instances configured, show modal instead
+  if (name === 'sweep') {
+    const radarr = CFG?.instances?.radarr || [];
+    const sonarr = CFG?.instances?.sonarr || [];
+    if (!radarr.length && !sonarr.length) {
+      showSweepNoInstancesModal();
+      return;
+    }
+  }
+  ACTIVE_TAB = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  const current = document.querySelector('.section.active');
+  const next = document.getElementById('tab-' + name);
+  if (current && current !== next) {
+    current.classList.add('leaving');
+    setTimeout(() => {
+      current.classList.remove('active', 'leaving');
+      next.classList.add('active');
+      _onTabShown(name);
+    }, 100);
+  } else {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    next.classList.add('active');
+    _onTabShown(name);
+  }
+}
+
+function _onTabShown(name) {
+  if (name === 'history') {
+    EXCL_FILTER_ACTIVE = false;
+    const pill = el('exclusionsPill'); if (pill) pill.style.background = '';
+    clearHistorySearch();
+    if (!el('historyTableWrap').querySelector('table')) {
+      el('historyTableWrap').innerHTML = `
+        <table><thead><tr>
+          <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="excl-col"></th>
+          <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
+        </tr></thead><tbody></tbody></table>`;
+    }
+    refreshHistory();
+  }
+  if (name === 'imports') {
+    clearImportsSearch();
+    if (!el('importsTableWrap').querySelector('table')) {
+      el('importsTableWrap').innerHTML = `
+        <table><thead><tr>
+          <th class="sortable ${IMPORTS_SORT.col==='title' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="title" onclick="sortImports('title')">Title</th>
+          <th class="sortable ${IMPORTS_SORT.col==='instance' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="instance" onclick="sortImports('instance')">Instance</th>
+          <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
+          <th class="sortable ${IMPORTS_SORT.col==='searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="searched_ts" onclick="sortImports('searched_ts')">Searched</th>
+          <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
+        </tr></thead><tbody></tbody></table>`;
+    }
+    refreshImports();
+  }
+  if (name === 'sweep') refreshSweep();
+  if (name === 'history') { loadExclusions(); }
+  if (name === 'advanced') fillAdvanced();
+  if (name === 'notifications') fillNotifications();
+}
+
+function el(id) { return document.getElementById(id); }
+
+// ── Sweep tab ──────────────────────────────────────────────────────────────
+
+// Cache last known sweep stats per instance so disabled instances retain their values
+const SWEEP_DATA_CACHE = {};
+
+async function refreshSweep() {
+  const status = await api('/api/status');
+  const cfg = await api('/api/config');
+  const summary = status.last_summary || {};
+  const health = status.instance_health || {};
+  const lifetime = status.sweep_lifetime || {};
+  const instances = cfg.instances || {};
+  const legacyMode = cfg.sample_mode || 'random';
+
+  function fmtMode(m) {
+    return (m || 'random').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  for (const kind of ['radarr', 'sonarr']) {
+    const listEl = el('sweep' + kind.charAt(0).toUpperCase() + kind.slice(1) + 'List');
+    const insts = instances[kind] || [];
+    if (!insts.length) {
+      listEl.innerHTML = `<p class="help" style="margin:4px 0">No ${kind} instances configured.</p>`;
+      continue;
+    }
+    const summaryInsts = summary[kind] || [];
+    listEl.innerHTML = insts.map(inst => {
+      const instKey = `${kind}|${inst.name}`;
+      const sk = `${kind}|${inst.name}|${(inst.url || '').replace(/\/+$/, '')}`;
+      const dotState = health[instKey] || 'checking';
+      const disabled = inst.enabled === false;
+      const sw = summaryInsts.find(s => s.name === inst.name);
+      const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
+      const mode = cfg[modeKey] || legacyMode || 'random';
+
+      // Lifetime stats no longer shown on card but last_run_utc still used
+      const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
+      const lf = lk ? lifetime[lk] : null;
+
+      // Per-instance last run — disabled instances show their last actual run time
+      const lastRun = disabled
+        ? (lf?.last_run_utc ? fmtTime(lf.last_run_utc) : '—')
+        : (status.last_run_utc ? fmtTime(status.last_run_utc) : '—');
+
+      // Last run stats — use cache if instance absent from this sweep (disabled)
+      const cacheKey = `${kind}|${inst.name}`;
+      if (sw) {
+        // Instance ran this sweep — update cache
+        const el_ = (sw.eligible || 0) + (sw.eligible_missing || 0);
+        const sr = (sw.searched || 0) + (sw.searched_missing || 0);
+        SWEEP_DATA_CACHE[cacheKey] = {
+          eligible: el_,
+          onCooldown: (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
+          capped: Math.max(0, el_ - sr),
+          searched: sr,
+          cutoffUnmet: sw.cutoff_unmet_total ?? '—',
+          backfill: sw.missing_total ?? '—',
+        };
+      }
+      const cached = SWEEP_DATA_CACHE[cacheKey] || null;
+      const eligible = cached ? cached.eligible : null;
+      const onCooldown = cached ? cached.onCooldown : null;
+      const capped = cached ? cached.capped : null;
+      const searched = cached ? cached.searched : null;
+      const cutoffUnmet = cached ? cached.cutoffUnmet : null;
+      const backfill = cached ? cached.backfill : null;
+      const hasData = cached != null;
+
+      const dimStyle = disabled ? 'opacity:0.45;' : '';
+
+      return `
+        <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
+          <div style="${dimStyle}">
+            <div class="inst-row1">
+              <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
+              <div class="inst-info">
+                <div class="inst-name">${escapeHtml(inst.name)}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+                  <span class="inst-meta">Sweep Mode: ${fmtMode(mode)}</span>
+                  <span class="inst-meta" style="font-size:11px;white-space:nowrap;flex-shrink:0">Last Run: ${lastRun}</span>
+                </div>
+              </div>
+            </div>
+            <div class="sweep-stats-grid" style="position:relative">
+              <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding-bottom:4px">
+                <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff">Library State</span>
+                ${disabled ? '<span style="font-size:10px;padding:2px 7px;background:rgba(99,120,255,.15);color:#6378ff;border:1px solid rgba(99,120,255,.3);border-radius:4px;font-weight:600;letter-spacing:.04em;opacity:1">Disabled</span>' : ''}
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Cutoff Unmet</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Backfill</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
+              </div>
+              <hr class="sweep-row-divider">
+              <span style="grid-column:1/-1;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff;padding-bottom:4px;padding-top:2px">This Run</span>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Eligible</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">On Cooldown</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? onCooldown : '—'}</span>
+              </div>
+              <hr class="sweep-row-divider">
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Capped</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? capped : '—'}</span>
+              </div>
+              <div class="sweep-stat">
+                <span class="sweep-stat-label">Searched</span>
+                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
+function showSweepNoInstancesModal() {
+  el('sweepNoInstancesModal').style.display = 'flex';
+}
+
+// ── Exclusions ─────────────────────────────────────────────────────────────
+
+async function loadExclusions() {
+  try {
+    const data = await api('/api/exclusions');
+    EXCLUSIONS_SET = new Set((data || []).map(e => (e.title || '').toLowerCase()));
+    const pill = el('exclusionsPill');
+    if (pill) pill.style.display = EXCLUSIONS_SET.size > 0 ? '' : 'none';
+    const hint = el('exclusionsHint');
+    if (hint) hint.style.display = EXCLUSIONS_SET.size > 0 ? 'none' : 'block';
+  } catch(e) { /* silent */ }
+}
+
+async function toggleExclusion(title) {
+  const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
+  const endpoint = isExcl ? '/api/exclusions/remove' : '/api/exclusions/add';
+  await api(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
+  await loadExclusions();
+  refreshHistory();
+}
+
+function toggleExclusionsFilter() {
+  EXCL_FILTER_ACTIVE = !EXCL_FILTER_ACTIVE;
+  const pill = el('exclusionsPill');
+  if (pill) pill.style.background = EXCL_FILTER_ACTIVE ? 'var(--accent)' : '';
+  PAGE = 0;
+  refreshHistory();
+}
+
+function escapeHtml(s) {
+  return (s || '').toString()
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+}
+
+function fmtTime(s) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleString(); } catch(e) { return s; }
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts || {});
+  const ct = r.headers.get('content-type') || '';
+  const data = ct.includes('application/json') ? await r.json() : await r.text();
+  if (!r.ok) throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
+  return data;
+}
+
+function updateStatusPill(schedulerEnabled) {
+  if (schedulerEnabled) {
+    el('dot-dryrun').style.background = 'var(--ok)';
+    el('txt-dryrun').textContent = 'AUTO';
+  } else {
+    el('dot-dryrun').style.background = '#a78bfa';
+    el('txt-dryrun').textContent = 'MANUAL';
+  }
+}
+
+async function loadAll() {
+  CFG = await api('/api/config');
+  const st = await api('/api/status');
+  el('ver').textContent = st.version;
+  el('lastRun').textContent = fmtTime(st.last_run_utc);
+  el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
+  updateStatusPill(CFG.scheduler_enabled);
+  await loadExclusions();
+
+  // Show logout button when auth is enabled
+  const lb = el('logoutBtn');
+  if (lb) lb.style.display = CFG.auth_enabled !== false ? 'inline-flex' : 'none';
+
+  // Support link
+  const sl = el('supportLink');
+  if (sl) sl.style.display = CFG.show_support_link !== false ? 'inline-flex' : 'none';
+
+  // Build instance list
+  ALL_INSTANCES = [];
+  (CFG.instances?.radarr || []).forEach(i => ALL_INSTANCES.push({key: i.name+'|'+i.url.replace(/\/$/,''), name: i.name, app:'radarr'}));
+  (CFG.instances?.sonarr || []).forEach(i => ALL_INSTANCES.push({key: i.name+'|'+i.url.replace(/\/$/,''), name: i.name, app:'sonarr'}));
+
+  renderInstances('radarr');
+  renderInstances('sonarr');
+  fillSettings();
+  fillAdvanced();
+  fillNotifications();
+}
+
+// ── Instances tab ──
+function renderInstances(kind) {
+  const box = el(kind + 'List');
+  const list = CFG?.instances?.[kind] || [];
+  if (!list.length) {
+    box.innerHTML = '<p class="help" style="margin:8px 0 0">No instances yet. Click <b>+ Add</b>.</p>';
+    return;
+  }
+  box.innerHTML = list.map((it, idx) => {
+    const enabled = it.enabled !== false;
+    const contentDim = enabled ? '' : 'opacity:0.45;';
+    const toggleLabel = enabled ? 'Disable' : 'Enable';
+    const toggleClass = enabled ? 'btn sm' : 'btn sm primary';
+    return `
+    <div class="inst-card" id="instcard-${kind}-${idx}">
+      <div class="inst-row1" style="${contentDim}">
+        <span class="status-dot" id="sdot-${kind}-${idx}"></span>
+        <div class="inst-info">
+          <div class="inst-name">${escapeHtml(it.name || '(unnamed)')}</div>
+          <div class="inst-meta">${escapeHtml(it.url || '')} &nbsp;·&nbsp; Key: ••••••••</div>
+        </div>
+      </div>
+      <div class="inst-row2">
+        <button class="${toggleClass}" onclick="toggleInstance('${kind}', ${idx})">${toggleLabel}</button>
+        <div class="inst-actions" style="${contentDim}">
+          <button class="btn sm" onclick="editInstance('${kind}', ${idx})">Edit</button>
+          <button class="btn sm danger" onclick="deleteInstance('${kind}', ${idx})">Delete</button>
+        </div>
+      </div>
+    </div>
+  `}).join('');
+}
+
+let MODAL_KIND = '';
+let MODAL_IDX = -1;
+
+function openModal(kind, idx) {
+  MODAL_KIND = kind;
+  MODAL_IDX = idx;
+  const isEdit = idx >= 0;
+  el('modalTitle').textContent = (isEdit ? 'Edit ' : 'Add ') + (kind === 'radarr' ? 'Radarr' : 'Sonarr') + ' Instance';
+  const it = isEdit ? CFG.instances[kind][idx] : {name:'', url:'http://', key:''};
+  el('modalName').value = it.name || '';
+  el('modalUrl').value = it.url || '';
+  el('modalKey').value = it.key || '';
+  el('modalKey').type = 'password';
+  el('keyToggleBtn').textContent = 'Show';
+  el('instModal').style.display = 'flex';
+  setTimeout(() => el('modalName').focus(), 50);
+}
+
+function closeModal(e) {
+  if (e.target === el('instModal')) closeModalDirect();
+}
+
+function closeModalDirect() {
+  el('instModal').style.display = 'none';
+}
+
+function toggleKeyVis() {
+  const inp = el('modalKey');
+  const btn = el('keyToggleBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+async function saveModal() {
+  const name = el('modalName').value.trim();
+  const url = el('modalUrl').value.trim();
+  const key = el('modalKey').value.trim();
+  if (!name || !url || !key) { showAlert('All fields are required.'); return; }
+  CFG.instances = CFG.instances || {radarr:[], sonarr:[]};
+  if (MODAL_IDX >= 0) {
+    CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key};
+  } else {
+    CFG.instances[MODAL_KIND].push({name, url, key});
+  }
+  closeModalDirect();
+  renderInstances(MODAL_KIND);
+  el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Unsaved Changes' : 'Unsaved Changes';
+  el('saveMsg').className = 'msg unsaved';
+
+  // Silently test the new/edited instance and update its dot
+  const idx = MODAL_IDX >= 0 ? MODAL_IDX : CFG.instances[MODAL_KIND].length - 1;
+  const dot = el(`sdot-${MODAL_KIND}-${idx}`);
+  if (dot) dot.className = 'status-dot checking';
+  try {
+    const out = await api('/api/test', {method:'POST'});
+    const results = out.results[MODAL_KIND] || [];
+    const match = results.find(r => r.name === name);
+    if (dot && match) dot.className = 'status-dot ' + (match.ok ? 'ok' : 'bad');
+  } catch(e) {
+    if (dot) dot.className = 'status-dot bad';
+  }
+}
+
+function addInstance(kind) {
+  openModal(kind, -1);
+}
+
+function editInstance(kind, idx) {
+  openModal(kind, idx);
+}
+
+async function toggleInstance(kind, idx) {
+  const dotKey = `${kind}-${idx}`;
+  try {
+    const out = await api('/api/instance/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kind, idx})});
+    const enabled = out.enabled;
+    CFG.instances[kind][idx].enabled = enabled;
+
+    // Surgical update — only touch the card that was toggled, never rebuild the list
+    const card = el(`instcard-${kind}-${idx}`);
+    if (card) {
+      const row1 = card.querySelector('.inst-row1');
+      const actions = card.querySelector('.inst-actions');
+      const toggleBtn = card.querySelector('.inst-row2 button');
+      const dim = enabled ? '' : 'opacity:0.45;';
+      if (row1) row1.style.opacity = enabled ? '' : '0.45';
+      if (actions) actions.style.opacity = enabled ? '' : '0.45';
+      if (toggleBtn) {
+        toggleBtn.textContent = enabled ? 'Disable' : 'Enable';
+        toggleBtn.className = enabled ? 'btn sm' : 'btn sm primary';
+      }
+    }
+
+    const dot = el(`sdot-${dotKey}`);
+    if (dot) {
+      if (!enabled) {
+        dot.className = 'status-dot disabled';
+      } else {
+        TOGGLE_IN_PROGRESS.add(dotKey);
+        dot.className = 'status-dot checking';
+        setTimeout(async () => {
+          try {
+            const st = await api('/api/status');
+            const health = st.instance_health || {};
+            const name = CFG.instances[kind][idx]?.name;
+            const state = health[`${kind}|${name}`];
+            const d = el(`sdot-${dotKey}`);
+            if (d) {
+              if (state === 'ok') d.className = 'status-dot ok';
+              else if (state === 'bad') d.className = 'status-dot bad';
+              else d.className = 'status-dot';
+            }
+          } catch(e) {}
+          finally { TOGGLE_IN_PROGRESS.delete(dotKey); }
+        }, 1400);
+      }
+    }
+  } catch(e) {
+    TOGGLE_IN_PROGRESS.delete(dotKey);
+    showAlert('Toggle failed: ' + e.message);
+  }
+}
+
+async function deleteInstance(kind, idx) {
+  if (!await showConfirm('Delete Instance', 'Are you sure you want to delete this instance?', 'Delete', true)) return;
+  CFG.instances[kind].splice(idx, 1);
+  renderInstances(kind);
+  el('saveMsg').textContent = 'Unsaved Changes';
+  el('saveMsg').className = 'msg unsaved';
+}
+
+function fadeMsg(id) {
+  const el_ = el(id);
+  clearTimeout(el_._fadeTimer);
+  el_.classList.remove('fade');
+  el_._fadeTimer = setTimeout(() => el_.classList.add('fade'), 4000);
+}
+
+async function saveAll() {
+  try {
+    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    await loadAll();
+    await new Promise(r => setTimeout(r, 400));
+    el('saveMsg').textContent = 'Saved'; el('saveMsg').className = 'msg ok'; fadeMsg('saveMsg');
+  } catch(e) {
+    el('saveMsg').textContent = 'Save failed: ' + e.message; el('saveMsg').className = 'msg err';
+  }
+}
+
+async function testConnections() {
+  el('testResults').style.display = 'none';
+  el('testResultsInner').innerHTML = '';
+
+  // Only pulse checking on enabled instances
+  ['radarr','sonarr'].forEach(kind => {
+    (CFG?.instances?.[kind] || []).forEach((inst, idx) => {
+      const dot = el(`sdot-${kind}-${idx}`);
+      if (!dot) return;
+      dot.className = inst.enabled !== false ? 'status-dot checking' : 'status-dot disabled';
+    });
+  });
+
+  try {
+    const [out] = await Promise.all([
+      api('/api/test', {method:'POST'}),
+      new Promise(r => setTimeout(r, 2000))
+    ]);
+    const allResults = [...(out.results.radarr||[]), ...(out.results.sonarr||[])];
+
+    ['radarr','sonarr'].forEach(kind => {
+      (out.results[kind]||[]).forEach((r, idx) => {
+        const dot = el(`sdot-${kind}-${idx}`);
+        if (!dot) return;
+        if (r.disabled) { dot.className = 'status-dot disabled'; return; }
+        dot.className = 'status-dot ' + (r.ok ? 'ok' : 'bad');
+      });
+    });
+
+    const failures = allResults.filter(r => !r.ok);
+    if (failures.length > 0) {
+      el('testResultsInner').innerHTML = failures.map(r => `
+        <div class="test-card bad">
+          <span class="test-icon">✗</span>
+          <div>
+            <div class="tc-name">${escapeHtml(r.name)}</div>
+            <div class="tc-detail">${r.error && r.error.length < 80 ? escapeHtml(r.error) : 'Could not connect — check the URL and API key'}</div>
+          </div>
+        </div>
+      `).join('');
+      el('testResults').style.display = 'block';
+      el('testResults').style.opacity = '1';
+      setTimeout(() => {
+        el('testResults').style.transition = 'opacity 0.8s ease';
+        el('testResults').style.opacity = '0';
+        setTimeout(() => {
+          el('testResults').style.display = 'none';
+          el('testResults').style.transition = '';
+          el('testResults').style.opacity = '1';
+        }, 800);
+      }, 4000);
+    }
+
+  } catch(e) {
+    el('testResultsInner').innerHTML = `<p class="help" style="color:var(--bad)">Test failed: ${escapeHtml(e.message)}</p>`;
+    el('testResults').style.display = 'block';
+    document.querySelectorAll('.status-dot').forEach(d => { d.className = 'status-dot bad'; });
+  }
+}
+
+// ── Settings tab ──
+function syncSchedulerUi() {
+  const enabled = el('scheduler_enabled').checked;
+  el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual only';
+  el('run_interval_minutes').disabled = !enabled;
+}
+
+function fillSettings() {
+  el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
+  el('run_interval_minutes').value = Math.round((CFG.run_interval_minutes || 360) / 60);
+  el('cooldown_hours').value = CFG.cooldown_hours;
+  const legacyMode = CFG.sample_mode || 'random';
+  el('radarr_sample_mode').value = CFG.radarr_sample_mode || legacyMode;
+  el('sonarr_sample_mode').value = CFG.sonarr_sample_mode || legacyMode;
+  el('radarr_max_movies_per_run').value = CFG.radarr_max_movies_per_run;
+  el('sonarr_max_episodes_per_run').value = CFG.sonarr_max_episodes_per_run;
+  el('batch_size').value = CFG.batch_size;
+  el('sleep_seconds').value = CFG.sleep_seconds;
+  el('jitter_seconds').value = CFG.jitter_seconds;
+  syncSchedulerUi();
+  el('setMsg').textContent = ''; el('setMsg').className = 'msg';
+  checkCooldownWarning();
+  checkNewestAddedWarning();
+}
+
+async function saveSettings() {
+  try {
+    CFG.scheduler_enabled = el('scheduler_enabled').checked;
+    CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '6', 10) * 60;
+    CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
+    CFG.radarr_sample_mode = el('radarr_sample_mode').value;
+    CFG.sonarr_sample_mode = el('sonarr_sample_mode').value;
+    CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
+    CFG.sonarr_max_episodes_per_run = parseInt(el('sonarr_max_episodes_per_run').value || '25', 10);
+    CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
+    CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
+    CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
+    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    await loadAll();
+    await new Promise(r => setTimeout(r, 400));
+    el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
+    fadeNewestAddedWarnings();
+  } catch(e) {
+    el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
+  }
+}
+
+// ── Cooldown warning ──
+let _warnFlashTimer = null;
+function checkCooldownWarning() {
+  const intervalHours = parseFloat(el('run_interval_minutes').value || '6');
+  const cooldown = parseFloat(el('cooldown_hours').value || '48');
+  const warn = el('cooldownWarnMsg');
+  if (!warn) return;
+  const shouldWarn = cooldown > 0 && cooldown < intervalHours;
+  if (shouldWarn) {
+    if (warn.textContent === '') {
+      warn.textContent = '⚠️ Cooldown < run interval — repeated searches likely';
+      warn.className = 'warn-flash';
+      if (_warnFlashTimer) clearTimeout(_warnFlashTimer);
+      _warnFlashTimer = setTimeout(() => { warn.className = 'warn-steady'; }, 3000);
+    }
+  } else {
+    warn.textContent = '';
+    warn.className = '';
+    if (_warnFlashTimer) { clearTimeout(_warnFlashTimer); _warnFlashTimer = null; }
+  }
+}
+
+// ── Newest Added warning ──
+function checkNewestAddedWarning() {
+  const radarrMode = el('radarr_sample_mode') ? el('radarr_sample_mode').value : (CFG ? CFG.radarr_sample_mode || CFG.sample_mode : 'random');
+  const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
+  const missingDaysEl = el('radarr_missing_added_days');
+  const missingDays = missingDaysEl ? parseInt(missingDaysEl.value || '0', 10) : (CFG ? (CFG.radarr_missing_added_days ?? 0) : 0);
+  const showWarn = radarrMode === 'newest_added' && radarrBacklog && missingDays > 0;
+  const warnSettings = el('newestAddedWarnSettings');
+  const warnAdv = el('newestAddedWarnAdvanced');
+  [warnSettings, warnAdv].forEach(w => {
+    if (!w) return;
+    clearTimeout(w._warnFade);
+    if (showWarn) {
+      w.style.opacity = '';
+      w.style.transition = '';
+      w.classList.add('visible');
+    } else {
+      w.style.opacity = '';
+      w.style.transition = '';
+      w.classList.remove('visible');
+    }
+  });
+
+}
+
+function fadeNewestAddedWarnings() {
+  [el('newestAddedWarnSettings'), el('newestAddedWarnAdvanced')].forEach(w => {
+    if (!w || !w.classList.contains('visible')) return;
+    clearTimeout(w._warnFade);
+    w.style.transition = 'opacity 0.5s ease';
+    w.style.opacity = '0';
+    w._warnFade = setTimeout(() => {
+      w.style.opacity = '';
+      w.style.transition = '';
+      w.classList.remove('visible');
+    }, 500);
+  });
+}
+
+// ── What's New modal ──
+async function dismissWhatsNew() {
+  el('whatsNewModal').style.display = 'none';
+  await api('/api/whats-new/dismiss', {method: 'POST'});
+  if (CFG) CFG.last_seen_version = el('ver').textContent;
+}
+
+function maybeShowWhatsNew() {
+  if (!CFG) return;
+  if (!CFG.onboarding_complete) return;
+  const lastSeen = CFG.last_seen_version || '';
+  const current = el('ver').textContent || '';
+  if (current && lastSeen !== current) {
+    el('whatsNewModal').style.display = 'flex';
+  }
+}
+
+// ── Support link UI ──
+function syncSupportLinkUi() {
+  const show = el('show_support_link') ? el('show_support_link').checked : true;
+  const sl = el('supportLink');
+  if (sl) sl.style.display = show ? 'inline-flex' : 'none';
+  const lbl = el('support_link_label');
+  if (lbl) lbl.textContent = show ? 'Shown' : 'Hidden';
+}
+
+// ── History tab ──
+async function refreshHistory() {
+  try {
+    const sum = await api('/api/state/summary');
+
+    // KPI pills — per instance counts
+    const instPills = ALL_INSTANCES.map(inst => {
+      const appSt = sum.per_instance || {};
+      const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
+      return `<div class="pill"><span style="color:var(--text-dim);font-size:11px">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:400;font-size:13px">${count}</span></div>`;
+    }).join('');
+    el('kpis').innerHTML = instPills;
+
+    // Build instance dropdown from ALL_INSTANCES (has correct app info)
+    // Store index into ALL_INSTANCES as the option value to avoid any key parsing issues
+    const sel = el('historyInstance');
+    const prevIdx = sel.value;
+    sel.innerHTML = '<option value="">All Instances</option>' + ALL_INSTANCES.map((inst, idx) =>
+      `<option value="${idx}">${escapeHtml(inst.name)}</option>`
+    ).join('');
+    if (prevIdx && (prevIdx === '' || parseInt(prevIdx) < ALL_INSTANCES.length)) sel.value = prevIdx;
+
+    const selVal = sel.value;
+    const selected = selVal !== '' ? ALL_INSTANCES[parseInt(selVal)] : null;
+    const instKey = selected ? selected.key : '';
+    const appName = selected ? selected.app : '';
+
+    const limit = parseInt(el('historyLimit').value || '25', 10);
+    // When exclusion filter is active fetch all items so client-side filter
+    // isn't limited to the current page — excluded items may span all pages.
+    const fetchLimit = EXCL_FILTER_ACTIVE ? 9999 : limit;
+    const fetchOffset = EXCL_FILTER_ACTIVE ? 0 : PAGE * limit;
+    const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${fetchOffset}&limit=${fetchLimit}`);
+
+    // Apply exclusion filter client-side when active
+    if (EXCL_FILTER_ACTIVE) {
+      items.items = items.items.filter(it => EXCLUSIONS_SET.has((it.title || it.key || '').toLowerCase()));
+      items.total = items.items.length;
+    }
+
+    el('pageInfo').textContent = EXCL_FILTER_ACTIVE
+      ? `${items.items.length} excluded item${items.items.length !== 1 ? 's' : ''}`
+      : `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
+    el('historyPagination').style.display = (!EXCL_FILTER_ACTIVE && items.total > 0) ? 'flex' : 'none';
+
+    const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
+    const showExclFilter = EXCL_FILTER_ACTIVE;
+    const rows = sorted.map(it => {
+      const title = it.title || it.key;
+      const isExcl = EXCLUSIONS_SET.has(title.toLowerCase());
+      const rowClass = isExcl && !showExclFilter ? 'row-excluded' : '';
+      const exclClass = isExcl ? 'excl-btn excluded' : 'excl-btn';
+      const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
+      return `
+      <tr class="${rowClass}">
+        <td>${escapeHtml(title)}</td>
+        <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
+        <td>${escapeHtml(it.instance || '')}</td>
+        <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
+        <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>
+        <td>${escapeHtml(fmtTime(it.library_added))}</td>
+        <td>${escapeHtml(fmtTime(it.last_searched))}</td>
+        <td>${escapeHtml(fmtTime(it.eligible_again))}</td>
+      </tr>
+    `}).join('');
+
+    el('historyTableWrap').innerHTML = `
+      <table>
+        <thead><tr>
+          <th class="sortable ${HISTORY_SORT.col==='title' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="title" onclick="sortHistory('title')">Title</th>
+          <th class="excl-col"></th>
+          <th class="sortable ${HISTORY_SORT.col==='instance' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="instance" onclick="sortHistory('instance')">Instance</th>
+          <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
+          <th class="sortable ${HISTORY_SORT.col==='search_count' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="search_count" onclick="sortHistory('search_count')">Count</th>
+          <th class="sortable ${HISTORY_SORT.col==='library_added' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="library_added" onclick="sortHistory('library_added')">Library Added</th>
+          <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
+          <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
+      </table>
+    `;
+    applySortIndicators('#historyTableWrap table', HISTORY_SORT);
+  } catch(e) {
+    el('historyTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load history: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+function sortHistory(col) {
+  if (HISTORY_SORT.col === col) {
+    HISTORY_SORT.dir = HISTORY_SORT.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    HISTORY_SORT.col = col;
+    HISTORY_SORT.dir = 'asc';
+  }
+  PAGE = 0;
+  refreshHistory();
+}
+
+function sortImports(col) {
+  if (IMPORTS_SORT.col === col) {
+    IMPORTS_SORT.dir = IMPORTS_SORT.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    IMPORTS_SORT.col = col;
+    IMPORTS_SORT.dir = 'asc';
+  }
+  IMPORTS_PAGE = 0;
+  refreshImports();
+}
+
+function applySortIndicators(tableSelector, sortState) {
+  document.querySelectorAll(`${tableSelector} th.sortable`).forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === sortState.col) {
+      th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+}
+
+function sortItems(items, col, dir) {
+  return [...items].sort((a, b) => {
+    const av = a[col] ?? '';
+    const bv = b[col] ?? '';
+    if (col === 'search_count') {
+      return dir === 'asc' ? (av - bv) : (bv - av);
+    }
+    const as = av.toString().toLowerCase();
+    const bs = bv.toString().toLowerCase();
+    return dir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
+  });
+}
+
+function prevPage() { if (PAGE > 0) { PAGE--; refreshHistory(); } }
+function nextPage() { PAGE++; refreshHistory(); }
+
+// ── Page size memory (shared across History and Stats) ──
+function syncPageSize(source) {
+  const val = el(source === 'history' ? 'historyLimit' : 'importsLimit').value;
+  const other = el(source === 'history' ? 'importsLimit' : 'historyLimit');
+  if (other && other.value !== val) other.value = val;
+}
+
+// ── History search ──
+function filterHistorySearch() {
+  const q = el('historySearch').value.trim().toLowerCase();
+  el('historySearchClear').style.display = q ? '' : 'none';
+  const rows = el('historyTableWrap').querySelectorAll('tbody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const title = row.cells[0]?.textContent.toLowerCase() || '';
+    const show = !q || title.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const noRes = el('historyNoResults');
+  if (noRes) noRes.style.display = (!visible && q) ? '' : 'none';
+}
+
+function clearHistorySearch() {
+  el('historySearch').value = '';
+  el('historySearchClear').style.display = 'none';
+  filterHistorySearch();
+}
+
+// ── Stats search ──
+function filterImportsSearch() {
+  const q = el('importsSearch').value.trim().toLowerCase();
+  el('importsSearchClear').style.display = q ? '' : 'none';
+  const rows = el('importsTableWrap').querySelectorAll('tbody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const title = row.cells[0]?.textContent.toLowerCase() || '';
+    const show = !q || title.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const noRes = el('importsNoResults');
+  if (noRes) noRes.style.display = (!visible && q) ? '' : 'none';
+}
+
+function clearImportsSearch() {
+  el('importsSearch').value = '';
+  el('importsSearchClear').style.display = 'none';
+  filterImportsSearch();
+}
+
+async function pruneState() {
+  if (!await showConfirm('Prune Expired', 'Remove history entries that have passed your retention window? This does not affect cooldowns on items still within the retention period.', 'Prune')) return;
+  const out = await api('/api/state/prune', {method:'POST'});
+  showAlert(`Pruned ${out.removed} entries.`);
+  PAGE = 0; refreshHistory();
+}
+
+async function clearState() {
+  if (!await showConfirm('Clear History', 'This will permanently delete all search history. Cooldown records will be reset — every item becomes eligible immediately. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
+  await api('/api/state/clear', {method:'POST'});
+  PAGE = 0; refreshHistory();
+}
+
+// ── Stats tab ──
+async function refreshImports() {
+  try {
+    const inst = el('importsInstance') ? el('importsInstance').value : '';
+    const type = el('importsType') ? el('importsType').value : '';
+    const limit = parseInt(el('importsLimit')?.value || '25', 10);
+    let url = `/api/stats?offset=${IMPORTS_PAGE * limit}&limit=${limit}`;
+    if (inst) url += `&instance=${encodeURIComponent(inst)}`;
+    if (type) url += `&type=${encodeURIComponent(type)}`;
+    const data = await api(url);
+
+    // Populate instance dropdown
+    const sel = el('importsInstance');
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">All Instances</option>' +
+        data.instances.map(i => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
+      if (prev) sel.value = prev;
+    }
+
+    // Populate type dropdown dynamically from available types
+    const typeSel = el('importsType');
+    if (typeSel) {
+      const prevType = typeSel.value;
+      typeSel.innerHTML = '<option value="">All Types</option>' +
+        (data.types || []).map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      if (prevType && (data.types || []).includes(prevType)) typeSel.value = prevType;
+    }
+
+    el('importsPageInfo').textContent = `Page ${IMPORTS_PAGE+1} · ${data.entries.length} of ${data.total}`;
+    el('statsPagination').style.display = data.total > 0 ? 'flex' : 'none';
+
+    // Update grand total cards
+    el('statMoviesTotal').textContent = data.movies_total ?? 0;
+    el('statShowsTotal').textContent = data.shows_total ?? 0;
+
+    if (!data.entries.length && IMPORTS_PAGE === 0) {
+      el('importsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';
+      return;
+    }
+
+    const sorted = sortItems(data.entries, IMPORTS_SORT.col, IMPORTS_SORT.dir);
+    const rows = sorted.map(e => `
+      <tr>
+        <td>${escapeHtml(e.title || e.item_id)}</td>
+        <td>${escapeHtml(e.instance)}</td>
+        <td><span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(e.type)}</span></td>
+        <td>${escapeHtml(fmtTime(e.searched_ts))}</td>
+        <td>${escapeHtml(fmtTime(e.imported_ts))}</td>
+      </tr>
+    `).join('');
+
+    el('importsTableWrap').innerHTML = `
+      <table>
+        <thead><tr>
+          <th class="sortable ${IMPORTS_SORT.col==='title' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="title" onclick="sortImports('title')">Title</th>
+          <th class="sortable ${IMPORTS_SORT.col==='instance' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="instance" onclick="sortImports('instance')">Instance</th>
+          <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
+          <th class="sortable ${IMPORTS_SORT.col==='searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="searched_ts" onclick="sortImports('searched_ts')">Searched</th>
+          <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+    applySortIndicators('#importsTableWrap table', IMPORTS_SORT);
+  } catch(e) {
+    el('importsTableWrap').innerHTML = `<p class="help" style="color:var(--bad)">Failed to load stats: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+function prevStatsPage() { if (IMPORTS_PAGE > 0) { IMPORTS_PAGE--; refreshImports(); } }
+function nextStatsPage() { IMPORTS_PAGE++; refreshImports(); }
+
+async function checkImportsNow() {
+  try {
+    await api('/api/stats/check-imports', {method:'POST'});
+    await refreshImports();
+  } catch(e) {
+    console.error('Import check failed:', e);
+  }
+}
+
+async function clearStats() {
+  if (!await showConfirm('Clear Stats', 'This will permanently clear all import records from the Stats tab. Lifetime totals are preserved. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
+  await api('/api/stats/clear', {method:'POST'});
+  refreshImports();
+}
+
+// ── Advanced tab ──
+// ── Notifications tab ──
+function fillNotifications() {
+  if (!CFG) return;
+  el('notify_enabled').checked = !!CFG.notify_enabled;
+  el('notify_url').value = CFG.notify_url || '';
+  el('notify_on_sweep_complete').checked = CFG.notify_on_sweep_complete !== false;
+  el('notify_on_import').checked = CFG.notify_on_import !== false;
+  el('notify_on_error').checked = CFG.notify_on_error !== false;
+  syncNotifyUi();
+}
+
+function syncNotifyUi() {
+  const enabled = el('notify_enabled').checked;
+  el('notify_label').textContent = enabled ? 'Enabled' : 'Disabled';
+  el('notify_url_field').style.opacity = enabled ? '1' : '0.5';
+  el('notify_url_field').style.pointerEvents = enabled ? '' : 'none';
+  el('notify_events_card').style.opacity = enabled ? '1' : '0.5';
+  el('notify_events_card').style.pointerEvents = enabled ? '' : 'none';
+  el('notify_test_row').style.display = enabled ? '' : 'none';
+}
+
+function toggleNotifyUrl() {
+  const inp = el('notify_url');
+  const btn = el('notifyUrlToggleBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+async function testNotification() {
+  const url = el('notify_url').value.trim();
+  const msg = el('notifyTestMsg');
+  if (!url) { msg.textContent = 'Enter a URL first.'; msg.className = 'msg err'; return; }
+  msg.textContent = 'Sending…'; msg.className = 'msg';
+  const r = await api('/api/notifications/test', {method: 'POST', body: JSON.stringify({url})});
+  if (r && r.ok) {
+    msg.textContent = '✓ Notification sent successfully';
+    msg.className = 'msg ok';
+  } else {
+    msg.textContent = '✗ ' + (r?.error || 'Failed — check your URL');
+    msg.className = 'msg err';
+  }
+  setTimeout(() => { msg.textContent = ''; msg.className = 'msg'; }, 5000);
+}
+
+async function saveNotifications() {
+  CFG.notify_enabled = el('notify_enabled').checked;
+  CFG.notify_url = el('notify_url').value.trim();
+  CFG.notify_on_sweep_complete = el('notify_on_sweep_complete').checked;
+  CFG.notify_on_import = el('notify_on_import').checked;
+  CFG.notify_on_error = el('notify_on_error').checked;
+  const r = await api('/api/config', {method: 'POST', body: JSON.stringify(CFG)});
+  if (r && r.ok) {
+    await loadAll();
+    await new Promise(res => setTimeout(res, 400));
+    el('notifyMsg').textContent = 'Saved'; el('notifyMsg').className = 'msg ok'; fadeMsg('notifyMsg');
+  }
+}
+
+function fillAdvanced() {
+  if (!CFG) return;
+  el('radarr_backlog_enabled').checked = !!CFG.radarr_backlog_enabled;
+  el('radarr_missing_max').value = CFG.radarr_missing_max ?? 1;
+  el('radarr_missing_added_days').value = CFG.radarr_missing_added_days ?? 14;
+  el('sonarr_backlog_enabled').checked = !!CFG.sonarr_backlog_enabled;
+  el('sonarr_missing_max').value = CFG.sonarr_missing_max ?? 1;
+  el('state_retention_days').value = CFG.state_retention_days ?? 180;
+  el('auth_enabled').checked = CFG.auth_enabled !== false;
+  el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
+  el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
+  if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
+  syncAuthUi();
+  syncBacklogUi();
+  syncSupportLinkUi();
+  el('advMsg').textContent = ''; el('advMsg').className = 'msg';
+}
+
+function syncAuthUi() {
+  const enabled = el('auth_enabled').checked;
+  el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled — anyone on your network can access the UI';
+}
+
+function markUnsaved(msgId) {
+  const m = el(msgId);
+  if (!m) return;
+  clearTimeout(m._fadeTimer);
+  m.classList.remove('fade');
+  m.style.opacity = '';
+  m.textContent = 'Unsaved Changes';
+  m.className = 'msg unsaved';
+}
+
+function syncBacklogUi() {
+  const radarrOn = el('radarr_backlog_enabled').checked;
+  const sonarrOn = el('sonarr_backlog_enabled').checked;
+  el('radarr_backlog_label').textContent = radarrOn ? 'Enabled' : 'Disabled';
+  el('sonarr_backlog_label').textContent = sonarrOn ? 'Enabled' : 'Disabled';
+  el('radarr_backlog_fields').style.opacity = radarrOn ? '1' : '0.35';
+  el('radarr_backlog_fields').style.pointerEvents = radarrOn ? '' : 'none';
+  el('sonarr_backlog_fields').style.opacity = sonarrOn ? '1' : '0.35';
+  el('sonarr_backlog_fields').style.pointerEvents = sonarrOn ? '' : 'none';
+}
+
+async function saveAdvanced() {
+  try {
+    CFG.radarr_backlog_enabled = el('radarr_backlog_enabled').checked;
+    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value !== '' ? el('radarr_missing_max').value : '1', 10);
+    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value !== '' ? el('radarr_missing_added_days').value : '14', 10);
+    CFG.sonarr_backlog_enabled = el('sonarr_backlog_enabled').checked;
+    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value !== '' ? el('sonarr_missing_max').value : '1', 10);
+    CFG.state_retention_days = parseInt(el('state_retention_days').value !== '' ? el('state_retention_days').value : '180', 10);
+    CFG.auth_enabled = el('auth_enabled').checked;
+    CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
+    CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
+    if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
+    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    await loadAll();
+    await new Promise(r => setTimeout(r, 400));
+    el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
+    fadeNewestAddedWarnings();
+  } catch(e) {
+    el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
+  }
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', {method:'POST'});
+  window.location.href = '/login';
+}
+
+async function resetConfig() {
+  if (!await showConfirm('Reset Config', 'This will reset all settings to defaults — all instances and configuration will be lost. Consider using Backup All in Support & Diagnostics first.', 'Reset', true)) return;
+  await api('/api/config/reset', {method:'POST'});
+  showAlert('Config reset to defaults.');
+  await loadAll();
+}
+
+async function backupAll() {
+  try {
+    const a = document.createElement('a');
+    a.href = '/api/file/backup';
+    a.download = 'nudgarr-backup.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch(e) {
+    showAlert('Backup failed: ' + e.message);
+  }
+}
+
+
+function downloadDiagnostic() {
+  const a = document.createElement('a');
+  a.href = '/api/diagnostic';
+  a.download = 'nudgarr-diagnostic.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ── Run Now ──
+async function runNow() {
+  try {
+    await api('/api/run-now', {method:'POST'});
+    el('lastRun').textContent = 'Running…';
+    el('dot-dryrun').classList.add('running');
+  } catch(e) {
+    showAlert('Run request failed: ' + e.message);
+  }
+}
+
+// ── Status polling ──
+async function refreshStatus() {
+  try {
+    const st = await api('/api/status');
+    el('ver').textContent = st.version;
+    el('lastRun').textContent = fmtTime(st.last_run_utc);
+    el('dot-dryrun').classList.remove('running');
+    el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
+    updateStatusPill(CFG?.scheduler_enabled);
+    refreshDotsFromStatus(st.instance_health || {});
+  } catch(e) {}
+}
+
+// Tracks instances mid-toggle so poll doesn't race their dot
+const TOGGLE_IN_PROGRESS = new Set();
+
+function refreshDotsFromStatus(health) {
+  if (!health) return;
+  Object.entries(health).forEach(([key, state]) => {
+    const [app, ...nameParts] = key.split('|');
+    const name = nameParts.join('|');
+    const cfgIdx = (CFG?.instances?.[app] || []).findIndex(i => i.name === name);
+    if (cfgIdx >= 0) {
+      const dotKey = `${app}-${cfgIdx}`;
+      // Skip dots that are mid-toggle — toggleInstance manages those directly
+      if (TOGGLE_IN_PROGRESS.has(dotKey)) return;
+      const dot = el(`sdot-${dotKey}`);
+      if (!dot) return;
+      if (state === 'ok') dot.className = 'status-dot ok';
+      else if (state === 'bad') dot.className = 'status-dot bad';
+      else if (state === 'disabled') dot.className = 'status-dot disabled';
+      else dot.className = 'status-dot';
+    }
+    // Mirror dot state to Sweep tab card if present
+    const sweepDot = el(`sdot-sweep-${key}`);
+    if (sweepDot) {
+      if (state === 'ok') sweepDot.className = 'status-dot ok';
+      else if (state === 'bad') sweepDot.className = 'status-dot bad';
+      else if (state === 'disabled') sweepDot.className = 'status-dot disabled';
+      else sweepDot.className = 'status-dot';
+    }
+  });
+}
+
+let AUTO_REFRESH_LAST = 0;
+async function pollCycle() {
+  await refreshStatus();
+  const now = Date.now();
+  if (now - AUTO_REFRESH_LAST >= 30000) {
+    AUTO_REFRESH_LAST = now;
+    if (ACTIVE_TAB === 'history') refreshHistory();
+    if (ACTIVE_TAB === 'imports') refreshImports();
+    if (ACTIVE_TAB === 'sweep') refreshSweep();
+  }
+}
+
+loadAll().then(() => {
+  // Only pulse checking on enabled instances — disabled stay grey
+  (CFG?.instances?.radarr || []).forEach((inst, idx) => {
+    if (inst.enabled !== false) {
+      const d = el(`sdot-radarr-${idx}`);
+      if (d) d.className = 'status-dot checking';
+    }
+  });
+  (CFG?.instances?.sonarr || []).forEach((inst, idx) => {
+    if (inst.enabled !== false) {
+      const d = el(`sdot-sonarr-${idx}`);
+      if (d) d.className = 'status-dot checking';
+    }
+  });
+  maybeShowOnboarding();
+  if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
+});
+setInterval(pollCycle, 5000);
+</script>
+</body>
+</html>

@@ -8,7 +8,8 @@ RUN pip install --no-cache-dir --no-compile requests flask apprise \
     && apk add --no-cache su-exec
 
 WORKDIR /app
-COPY nudgarr.py /app/nudgarr.py
+COPY main.py /app/main.py
+COPY nudgarr/ /app/nudgarr/
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

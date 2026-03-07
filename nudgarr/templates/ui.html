@@ -2936,6 +2936,21 @@ async function mPollCycle() {
 // ── Mobile init ──
 
 if (MOBILE) {
+  // Force layout via JS — don't rely on CSS media query alone
+  const wrap = document.querySelector('.wrap');
+  const mobileUi = document.getElementById('mobile-ui');
+  const rotateOverlay = document.getElementById('mobile-rotate');
+  if (wrap) wrap.style.display = 'none';
+  if (mobileUi) mobileUi.style.cssText = 'display:flex !important; flex-direction:column; width:100%; height:100vh; position:fixed; top:0; left:0; overflow:hidden;';
+
+  function checkOrientation() {
+    const isLandscape = window.innerWidth > window.innerHeight;
+    if (mobileUi) mobileUi.style.display = isLandscape ? 'none' : 'flex';
+    if (rotateOverlay) rotateOverlay.style.display = isLandscape ? 'flex' : 'none';
+  }
+  checkOrientation();
+  window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 100));
+  window.addEventListener('resize', checkOrientation);
   loadAll().then(async () => {
     const st = await api('/api/status');
     STATUS_CACHE = st.instance_health || {};

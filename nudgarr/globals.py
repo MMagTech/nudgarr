@@ -82,6 +82,7 @@ STATUS: Dict[str, Any] = {
     "run_requested": False,
     "last_error": None,
     "instance_health": {},  # {"radarr|name": "ok"|"bad"|"disabled", ...}
+    "instance_queue_count": {},  # {"radarr|name": <int>, ...} — populated on queue_full
 }
 
 # ── Sweep lock ────────────────────────────────────────────────────────

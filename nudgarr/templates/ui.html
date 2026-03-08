@@ -1066,16 +1066,16 @@
           </div>
           <div class="help">Fires when a sweep fails or an instance becomes unreachable.</div>
         </div>
-        <div class="setting-row">
-           <label>Queue Threshold</label>
-           <div class="toggle-wrap">
-             <label class="toggle">
-               <input type="checkbox" id="notify_on_queue_threshold" onchange="markUnsaved('notifyMsg')"/>
-               <span class="toggle-track"></span>
-               <span class="toggle-thumb"></span>
-             </label>
-           </div>
-           <div class="help">Fires when an instance is skipped because its download queue exceeded the threshold.</div>
+        <div class="field" style="margin-top:12px">
+          <label>Queue Threshold</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_queue_threshold" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when an instance is skipped because its download queue exceeded the threshold.</div>
         </div>
       </div>
     </div>
@@ -1268,8 +1268,11 @@
         </div>
       </div>
       <div class="field">
-        <label>Queue Threshold <span class="tooltip-icon" title="Skip this instance if its download queue exceeds this number. Set to 0 to disable. Helps avoid unnecessary indexer load and strain on slower connections or high I/O systems.">ⓘ</span></label>
-        <input id="modalQueueThreshold" type="number" min="0" placeholder="0 (disabled)"/>
+        <div class="tooltip-wrap">
+          <label>Queue Threshold</label>
+          <span class="tooltip-icon">i<div class="tooltip-box">Skip this instance if its download queue exceeds this number. Set to 0 to disable. Helps avoid unnecessary indexer load and strain on slower connections or high I/O systems.</div></span>
+        </div>
+        <input id="modalQueueThreshold" type="text" placeholder="0 (disabled)"/>
       </div>
       <div class="row">
         <button class="btn sm" onclick="closeModalDirect()">Cancel</button>

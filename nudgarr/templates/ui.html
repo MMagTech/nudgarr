@@ -479,7 +479,7 @@
       color: var(--text-dim); font-size: 20px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
-    .m-stepper-btn:active { background: rgba(255,255,255,.06); }
+    .m-stepper-btn:active { background: rgba(255,255,255,.12); transform: scale(1.15); }
     .m-stepper-val {
       min-width: 44px; text-align: center;
       font-size: 15px; font-weight: 600; color: var(--text);
@@ -505,7 +505,14 @@
     .m-run-hint-wrap.m-hint-gone { max-height: 0; opacity: 0; }
     .m-run-hint {
       text-align: center; font-size: 11px; color: var(--muted);
-      padding: 0 0 10px; letter-spacing: .03em;
+      padding: 5px 14px 10px; letter-spacing: .03em;
+      display: inline-block; width: 100%;
+    }
+    .m-run-hint span {
+      display: inline-block;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px 12px;
+      color: var(--muted); font-size: 11px;
     }
 
     /* Instances tab */
@@ -587,9 +594,14 @@
     }
     .m-sheet.m-sheet-auto { height: auto; max-height: 75%; }
     .m-sheet-handle {
-      width: 36px; height: 4px; background: rgba(255,255,255,.12);
-      border-radius: 999px; margin: 12px auto 0; flex-shrink: 0;
+      width: 100%; padding: 14px 0 10px; margin: 0; flex-shrink: 0;
       cursor: grab; touch-action: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .m-sheet-handle::after {
+      content: ''; display: block;
+      width: 36px; height: 4px; background: rgba(255,255,255,.12);
+      border-radius: 999px;
     }
     .m-sheet-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -1341,7 +1353,7 @@
 
     <button class="m-run-btn" id="m-run-btn">▶ Run Now</button>
     <div class="m-run-hint-wrap" id="m-run-hint-wrap">
-      <div class="m-run-hint">↑ Hold to Configure ↑</div>
+      <div class="m-run-hint"><span>↑ Hold to Configure ↑</span></div>
     </div>
 
     <div class="m-time-row">
@@ -1364,7 +1376,7 @@
       <div class="m-import-pill" onclick="mOpenImports('shows')">
         <span class="m-import-pill-icon">📺</span>
         <div class="m-import-pill-info">
-          <div class="m-import-pill-label">Shows</div>
+          <div class="m-import-pill-label">Episodes</div>
           <div class="m-import-pill-value" id="m-shows-total">—</div>
         </div>
         <span class="m-import-pill-chevron">›</span>
@@ -3289,6 +3301,26 @@ async function mOpenExclusions() {
   await mLoadExclusions();
   mSheetOpen('m-excl-sheet');
   mSheetDrag('m-excl-handle', 'm-excl-sheet', mCloseExclusions);
+  mExclBindEvents();
+}
+
+function mExclBindEvents() {
+  const listEl = document.getElementById('m-excl-list');
+  const histEl = document.getElementById('m-excl-hist');
+  if (listEl && !listEl._bound) {
+    listEl._bound = true;
+    listEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-title]');
+      if (btn && btn.classList.contains('m-excl-remove')) mExclRemove(btn.dataset.title);
+    });
+  }
+  if (histEl && !histEl._bound) {
+    histEl._bound = true;
+    histEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-title]');
+      if (btn && btn.classList.contains('m-hist-add')) mExclAdd(btn.dataset.title);
+    });
+  }
 }
 
 
@@ -3334,7 +3366,7 @@ async function mLoadExclusions() {
       const title = escapeHtml(e.title || '');
       return `<div class="m-excl-row">
         <span class="m-excl-title">${title}</span>
-        <button class="m-excl-remove" onclick="mExclRemove(${JSON.stringify(e.title || '')})">Remove</button>
+        <button class="m-excl-remove" data-title="${escapeHtml(e.title || '')}">Remove</button>
       </div>`;
     }).join('');
   } catch(err) {
@@ -3358,11 +3390,13 @@ async function mLoadExclHistory() {
   if (!histEl) return;
   histEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 18px;color:var(--muted)">Loading…</p>';
   try {
-    const items = await api('/api/state/items?app=&instance=&offset=0&limit=100');
+    const items = await api('/api/state/items?app=&instance=&offset=0&limit=500');
     M_EXCL_HIST_DATA = (items.items || []);
-    // Filter out already-excluded titles
     const exclSet = new Set(M_EXCL_DATA.map(e => (e.title || '').toLowerCase()));
-    const filtered = M_EXCL_HIST_DATA.filter(it => !exclSet.has((it.title || it.key || '').toLowerCase()));
+    const filtered = M_EXCL_HIST_DATA.filter(it => {
+      const t = (it.title || it.key || '').toLowerCase();
+      return t && !exclSet.has(t);
+    });
     if (!filtered.length) {
       histEl.innerHTML = '<p class="help" style="text-align:center;padding:32px 18px">No search history yet.</p>';
       return;
@@ -3375,9 +3409,9 @@ async function mLoadExclHistory() {
       return `<div class="m-hist-row">
         <div class="m-hist-info">
           <div class="m-hist-title">${escapeHtml(title)}</div>
-          <div class="m-hist-meta">${escapeHtml(inst.slice(3))}${count}${last}</div>
+          <div class="m-hist-meta">${escapeHtml(it.instance || '')}${count}${last}</div>
         </div>
-        <span class="m-hist-add" onclick="mExclAdd(${JSON.stringify(title)})">+ Exclude</span>
+        <span class="m-hist-add" data-title="${escapeHtml(title)}">+ Exclude</span>
       </div>`;
     }).join('');
   } catch(err) {
@@ -3390,7 +3424,6 @@ async function mExclAdd(title) {
   try {
     await api('/api/exclusions/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
     await mLoadExclusions();
-    // Refresh history pane to remove newly excluded item
     await mLoadExclHistory();
   } catch(e) {
     const histEl = document.getElementById('m-excl-hist');
@@ -3403,7 +3436,7 @@ async function mExclAdd(title) {
 async function mOpenImports(type) {
   const titleEl = document.getElementById('m-imports-sheet-title');
   const bodyEl = document.getElementById('m-imports-sheet-body');
-  if (titleEl) titleEl.textContent = type === 'movies' ? 'Movies' : 'Shows';
+  if (titleEl) titleEl.textContent = type === 'movies' ? 'Movies (Imports)' : 'Episodes (Imports)';
   if (bodyEl) bodyEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 18px;color:var(--muted)">Loading…</p>';
   mSheetOpen('m-imports-sheet');
   mSheetDrag('m-imports-handle', 'm-imports-sheet', mCloseImports);

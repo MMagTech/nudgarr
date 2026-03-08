@@ -397,6 +397,7 @@
       justify-content: space-around;
       flex-shrink: 0;
       padding-bottom: env(safe-area-inset-bottom, 0px);
+      box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface);
     }
     .m-nav-item {
       display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -498,13 +499,12 @@
     .m-run-hint-wrap.m-hint-gone { max-height: 0; opacity: 0; }
     .m-run-hint {
       text-align: center; font-size: 11px; color: var(--muted);
-      padding: 5px 14px 10px; letter-spacing: .03em;
-      display: inline-block; width: 100%;
+      padding: 8px 16px; letter-spacing: .03em;
     }
     .m-run-hint span {
-      display: inline-block;
+      display: block;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 4px 12px;
+      border-radius: 8px; padding: 6px 12px;
       color: var(--muted); font-size: 11px;
     }
 
@@ -630,8 +630,11 @@
     .m-excl-row {
       display: flex; align-items: center; padding: 12px 18px;
       border-bottom: 1px solid var(--border); gap: 12px;
+      transition: opacity .25s ease, max-height .3s ease, padding .3s ease;
+      overflow: hidden; max-height: 80px;
     }
     .m-excl-row:last-child { border-bottom: none; }
+    .m-excl-row.m-fading { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
     .m-excl-title { font-size: 13px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .m-excl-remove {
       flex-shrink: 0; padding: 5px 10px;
@@ -645,8 +648,11 @@
     .m-hist-row {
       display: flex; align-items: center; padding: 12px 18px;
       border-bottom: 1px solid var(--border); gap: 12px;
+      transition: opacity .25s ease, max-height .3s ease, padding .3s ease;
+      overflow: hidden; max-height: 80px;
     }
     .m-hist-row:last-child { border-bottom: none; }
+    .m-hist-row.m-fading { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
     .m-hist-info { flex: 1; overflow: hidden; }
     .m-hist-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .m-hist-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -3378,11 +3384,20 @@ async function mLoadExclusions() {
 
 async function mExclRemove(title) {
   mHaptic(60);
+  // Fade out the row first
+  const listEl = document.getElementById('m-excl-list');
+  if (listEl) {
+    const rows = listEl.querySelectorAll('.m-excl-row');
+    for (const row of rows) {
+      const t = row.querySelector('.m-excl-title');
+      if (t && t.textContent.trim() === title) { row.classList.add('m-fading'); break; }
+    }
+  }
+  await new Promise(r => setTimeout(r, 300));
   try {
     await api('/api/exclusions/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
     await mLoadExclusions();
   } catch(e) {
-    const listEl = document.getElementById('m-excl-list');
     if (listEl) listEl.insertAdjacentHTML('afterbegin', `<p class="help" style="color:var(--bad);padding:8px 18px">Remove failed: ${e.message}</p>`);
   }
 }
@@ -3423,12 +3438,21 @@ async function mLoadExclHistory() {
 
 async function mExclAdd(title) {
   mHaptic(60);
+  // Fade out the history row first
+  const histEl = document.getElementById('m-excl-hist');
+  if (histEl) {
+    const rows = histEl.querySelectorAll('.m-hist-row');
+    for (const row of rows) {
+      const t = row.querySelector('.m-hist-title');
+      if (t && t.textContent.trim() === title) { row.classList.add('m-fading'); break; }
+    }
+  }
+  await new Promise(r => setTimeout(r, 300));
   try {
     await api('/api/exclusions/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
     await mLoadExclusions();
     await mLoadExclHistory();
   } catch(e) {
-    const histEl = document.getElementById('m-excl-hist');
     if (histEl) histEl.insertAdjacentHTML('afterbegin', `<p class="help" style="color:var(--bad);padding:8px 18px">Add failed: ${e.message}</p>`);
   }
 }

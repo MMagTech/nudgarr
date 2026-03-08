@@ -479,7 +479,8 @@
       color: var(--text-dim); font-size: 20px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
-    .m-stepper-btn:active { background: rgba(255,255,255,.12); transform: scale(1.15); }
+    .m-stepper-btn { transition: background .05s, transform .05s; }
+    .m-stepper-btn.m-pressed { background: rgba(255,255,255,.18); transform: scale(1.2); }
     .m-stepper-val {
       min-width: 44px; text-align: center;
       font-size: 15px; font-weight: 600; color: var(--text);
@@ -488,14 +489,6 @@
     }
     .m-stepper-val.m-zero { color: var(--muted); }
     .m-stepper-row.m-qs-disabled { opacity: .38; transition: opacity .2s ease; pointer-events: none; }
-    .m-qs-run-btn {
-      margin: 12px 18px 16px; padding: 13px;
-      background: rgba(99,120,255,.2); border: 1px solid var(--accent-border);
-      border-radius: 14px; color: #c0caff; font-size: 15px; font-weight: 600;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-      width: calc(100% - 36px);
-    }
-
     /* Run Now hint */
     .m-run-hint-wrap {
       overflow: hidden;
@@ -644,7 +637,9 @@
       flex-shrink: 0; padding: 5px 10px;
       background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
       border-radius: 8px; color: var(--bad); font-size: 11px; font-weight: 500; cursor: pointer;
+      transition: transform .15s ease, background .15s ease;
     }
+    .m-excl-remove.m-pressed { transform: scale(1.12); background: rgba(239,68,68,.22); }
 
     /* Add from History rows */
     .m-hist-row {
@@ -659,7 +654,9 @@
       flex-shrink: 0; padding: 5px 10px;
       background: var(--accent-dim); border: 1px solid var(--accent-border);
       border-radius: 8px; color: #c0caff; font-size: 11px; font-weight: 500; cursor: pointer;
+      transition: transform .15s ease, background .15s ease;
     }
+    .m-hist-add.m-pressed { transform: scale(1.12); background: rgba(99,120,255,.3); }
 
     /* Import list rows */
     .m-import-row {
@@ -1504,9 +1501,9 @@
             <div class="m-stepper-sub">hours</div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('interval',-1)">−</button>
+            <button class="m-stepper-btn" onclick="mQSStep('interval',-1);mBtnPress(this)">−</button>
             <div class="m-stepper-val" id="m-qs-interval">6</div>
-            <button class="m-stepper-btn" onclick="mQSStep('interval',1)">+</button>
+            <button class="m-stepper-btn" onclick="mQSStep('interval',1);mBtnPress(this)">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -1515,9 +1512,9 @@
             <div class="m-stepper-sub">hours</div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('cooldown',-1)">−</button>
+            <button class="m-stepper-btn" onclick="mQSStep('cooldown',-1);mBtnPress(this)">−</button>
             <div class="m-stepper-val" id="m-qs-cooldown">48</div>
-            <button class="m-stepper-btn" onclick="mQSStep('cooldown',1)">+</button>
+            <button class="m-stepper-btn" onclick="mQSStep('cooldown',1);mBtnPress(this)">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -1526,9 +1523,9 @@
             <div class="m-stepper-sub">per run · 0 disables</div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('movies',-1)">−</button>
+            <button class="m-stepper-btn" onclick="mQSStep('movies',-1);mBtnPress(this)">−</button>
             <div class="m-stepper-val" id="m-qs-movies">1</div>
-            <button class="m-stepper-btn" onclick="mQSStep('movies',1)">+</button>
+            <button class="m-stepper-btn" onclick="mQSStep('movies',1);mBtnPress(this)">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -1537,13 +1534,13 @@
             <div class="m-stepper-sub">per run · 0 disables</div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('episodes',-1)">−</button>
+            <button class="m-stepper-btn" onclick="mQSStep('episodes',-1);mBtnPress(this)">−</button>
             <div class="m-stepper-val" id="m-qs-episodes">1</div>
-            <button class="m-stepper-btn" onclick="mQSStep('episodes',1)">+</button>
+            <button class="m-stepper-btn" onclick="mQSStep('episodes',1);mBtnPress(this)">+</button>
           </div>
         </div>
       </div>
-      <button class="m-qs-run-btn" onclick="mQSRunNow()">▶ Run Now</button>
+      <div style="padding:12px 18px 18px;text-align:center;border-top:1px solid rgba(255,255,255,.06)"><span style="font-size:11px;color:#3d4558;letter-spacing:.03em">Full Settings on Desktop View</span></div>
     </div>
   </div>
 </div>
@@ -3112,6 +3109,11 @@ if (!MOBILE) {
     row.classList.toggle('m-qs-disabled', !!(CFG && !CFG.scheduler_enabled));
   }
 
+  function mBtnPress(el) {
+    el.classList.add('m-pressed');
+    setTimeout(() => el.classList.remove('m-pressed'), 150);
+  }
+
   function mQSStep(key, dir) {
     mHaptic(20);
     M_QS_VALS[key] = Math.max(M_QS_MINS[key], M_QS_VALS[key] + dir);
@@ -3311,14 +3313,14 @@ function mExclBindEvents() {
     listEl._bound = true;
     listEl.addEventListener('click', e => {
       const btn = e.target.closest('[data-title]');
-      if (btn && btn.classList.contains('m-excl-remove')) mExclRemove(btn.dataset.title);
+      if (btn && btn.classList.contains('m-excl-remove')) { mBtnPress(btn); mExclRemove(btn.dataset.title); }
     });
   }
   if (histEl && !histEl._bound) {
     histEl._bound = true;
     histEl.addEventListener('click', e => {
       const btn = e.target.closest('[data-title]');
-      if (btn && btn.classList.contains('m-hist-add')) mExclAdd(btn.dataset.title);
+      if (btn && btn.classList.contains('m-hist-add')) { mBtnPress(btn); mExclAdd(btn.dataset.title); }
     });
   }
 }
@@ -3436,7 +3438,7 @@ async function mExclAdd(title) {
 async function mOpenImports(type) {
   const titleEl = document.getElementById('m-imports-sheet-title');
   const bodyEl = document.getElementById('m-imports-sheet-body');
-  if (titleEl) titleEl.textContent = type === 'movies' ? 'Movies (Imports)' : 'Episodes (Imports)';
+  if (titleEl) titleEl.textContent = type === 'movies' ? 'Movies (Imported)' : 'Episodes (Imported)';
   if (bodyEl) bodyEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 18px;color:var(--muted)">Loading…</p>';
   mSheetOpen('m-imports-sheet');
   mSheetDrag('m-imports-handle', 'm-imports-sheet', mCloseImports);

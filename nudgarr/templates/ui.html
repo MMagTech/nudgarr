@@ -458,9 +458,54 @@
       transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
     }
     .m-toggle.m-on::after { transform: translateX(18px); }
-    .m-desktop-note {
+
+    /* Quick Settings sheet */
+    .m-qs-sheet { height: auto; max-height: 70%; }
+    .m-qs-sheet-body { padding: 0; }
+    .m-stepper-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 18px; border-bottom: 1px solid var(--border);
+    }
+    .m-stepper-row:last-child { border-bottom: none; }
+    .m-stepper-label { font-size: 14px; color: var(--text); }
+    .m-stepper-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .m-stepper {
+      display: flex; align-items: center;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; flex-shrink: 0;
+    }
+    .m-stepper-btn {
+      width: 40px; height: 40px; background: transparent; border: none;
+      color: var(--text-dim); font-size: 20px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .m-stepper-btn:active { background: rgba(255,255,255,.06); }
+    .m-stepper-val {
+      min-width: 44px; text-align: center;
+      font-size: 15px; font-weight: 600; color: var(--text);
+      border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      line-height: 40px; user-select: none;
+    }
+    .m-stepper-val.m-zero { color: var(--muted); }
+    .m-stepper-row.m-qs-disabled { opacity: .38; transition: opacity .2s ease; pointer-events: none; }
+    .m-qs-run-btn {
+      margin: 12px 18px 16px; padding: 13px;
+      background: rgba(99,120,255,.2); border: 1px solid var(--accent-border);
+      border-radius: 14px; color: #c0caff; font-size: 15px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: calc(100% - 36px);
+    }
+
+    /* Run Now hint */
+    .m-run-hint-wrap {
+      overflow: hidden;
+      transition: max-height .3s ease, opacity .25s ease;
+      max-height: 32px; opacity: 1;
+    }
+    .m-run-hint-wrap.m-hint-gone { max-height: 0; opacity: 0; }
+    .m-run-hint {
       text-align: center; font-size: 11px; color: var(--muted);
-      padding: 16px 0 4px; opacity: .55;
+      padding: 0 0 10px; letter-spacing: .03em;
     }
 
     /* Instances tab */
@@ -478,7 +523,8 @@
       transition: background .15s;
     }
     .m-inst-btn:active { background: var(--card); }
-    .m-inst-btn.m-inst-disable { color: var(--bad); border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.05); }
+    .m-inst-btn.m-inst-disable { color: var(--muted); border-color: var(--border); background: transparent; }
+    .m-inst-btn.m-inst-enable { color: #c0caff; border-color: var(--accent-border); background: var(--accent-dim); }
 
     /* Sweep tab */
     .m-sweep-card {
@@ -522,16 +568,28 @@
       position: absolute; inset: 0; z-index: 200;
       background: rgba(10,11,20,.75); backdrop-filter: blur(4px);
       display: flex; flex-direction: column; justify-content: flex-end;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s ease;
     }
-    .m-sheet-backdrop.m-hidden { display: none; }
+    .m-sheet-backdrop.m-visible {
+      opacity: 1; pointer-events: all;
+    }
     .m-sheet {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 24px 24px 0 0;
       height: 86%; display: flex; flex-direction: column; overflow: hidden;
+      transform: translateY(100%);
+      transition: transform .3s ease-out;
+      will-change: transform;
     }
+    .m-sheet-backdrop.m-visible .m-sheet {
+      transform: translateY(0);
+    }
+    .m-sheet.m-sheet-auto { height: auto; max-height: 75%; }
     .m-sheet-handle {
       width: 36px; height: 4px; background: rgba(255,255,255,.12);
       border-radius: 999px; margin: 12px auto 0; flex-shrink: 0;
+      cursor: grab; touch-action: none;
     }
     .m-sheet-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -1281,7 +1339,10 @@
     </div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
 
-    <button class="m-run-btn" onclick="mRunNow()">▶ Run Now</button>
+    <button class="m-run-btn" id="m-run-btn">▶ Run Now</button>
+    <div class="m-run-hint-wrap" id="m-run-hint-wrap">
+      <div class="m-run-hint">↑ Hold to Configure ↑</div>
+    </div>
 
     <div class="m-time-row">
       <div class="m-time-card">
@@ -1349,7 +1410,6 @@
       <div class="m-toggle" id="m-toggle-sonarr-backlog" onclick="mToggleSonarrBacklog()"></div>
     </div>
 
-    <p class="m-desktop-note">Full configuration available on desktop</p>
   </div>
 
   <!-- Instances tab -->
@@ -1383,9 +1443,9 @@
   </nav>
 
   <!-- Exclusions bottom sheet -->
-  <div class="m-sheet-backdrop m-hidden" id="m-excl-sheet">
+  <div class="m-sheet-backdrop" id="m-excl-sheet">
     <div class="m-sheet">
-      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-handle" id="m-excl-handle"></div>
       <div class="m-sheet-header">
         <span class="m-sheet-title">Exclusions</span>
         <div class="m-sheet-close" onclick="mCloseExclusions()">✕</div>
@@ -1406,14 +1466,72 @@
   </div>
 
   <!-- Imports bottom sheet -->
-  <div class="m-sheet-backdrop m-hidden" id="m-imports-sheet">
+  <div class="m-sheet-backdrop" id="m-imports-sheet">
     <div class="m-sheet">
-      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-handle" id="m-imports-handle"></div>
       <div class="m-sheet-header">
         <span class="m-sheet-title" id="m-imports-sheet-title">Movies</span>
         <div class="m-sheet-close" onclick="mCloseImports()">✕</div>
       </div>
       <div class="m-sheet-body" id="m-imports-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- Quick Settings bottom sheet -->
+  <div class="m-sheet-backdrop" id="m-qs-sheet">
+    <div class="m-sheet m-qs-sheet">
+      <div class="m-sheet-handle" id="m-qs-handle"></div>
+      <div class="m-sheet-header">
+        <span class="m-sheet-title">Quick Settings</span>
+        <div class="m-sheet-close" onclick="mCloseQS()">✕</div>
+      </div>
+      <div class="m-sheet-body m-qs-sheet-body">
+        <div class="m-stepper-row" id="m-qs-interval-row">
+          <div>
+            <div class="m-stepper-label">Run Interval</div>
+            <div class="m-stepper-sub">hours</div>
+          </div>
+          <div class="m-stepper">
+            <button class="m-stepper-btn" onclick="mQSStep('interval',-1)">−</button>
+            <div class="m-stepper-val" id="m-qs-interval">6</div>
+            <button class="m-stepper-btn" onclick="mQSStep('interval',1)">+</button>
+          </div>
+        </div>
+        <div class="m-stepper-row">
+          <div>
+            <div class="m-stepper-label">Cooldown</div>
+            <div class="m-stepper-sub">hours</div>
+          </div>
+          <div class="m-stepper">
+            <button class="m-stepper-btn" onclick="mQSStep('cooldown',-1)">−</button>
+            <div class="m-stepper-val" id="m-qs-cooldown">48</div>
+            <button class="m-stepper-btn" onclick="mQSStep('cooldown',1)">+</button>
+          </div>
+        </div>
+        <div class="m-stepper-row">
+          <div>
+            <div class="m-stepper-label">Max Movies</div>
+            <div class="m-stepper-sub">per run · 0 disables</div>
+          </div>
+          <div class="m-stepper">
+            <button class="m-stepper-btn" onclick="mQSStep('movies',-1)">−</button>
+            <div class="m-stepper-val" id="m-qs-movies">1</div>
+            <button class="m-stepper-btn" onclick="mQSStep('movies',1)">+</button>
+          </div>
+        </div>
+        <div class="m-stepper-row">
+          <div>
+            <div class="m-stepper-label">Max Episodes</div>
+            <div class="m-stepper-sub">per run · 0 disables</div>
+          </div>
+          <div class="m-stepper">
+            <button class="m-stepper-btn" onclick="mQSStep('episodes',-1)">−</button>
+            <div class="m-stepper-val" id="m-qs-episodes">1</div>
+            <button class="m-stepper-btn" onclick="mQSStep('episodes',1)">+</button>
+          </div>
+        </div>
+      </div>
+      <button class="m-qs-run-btn" onclick="mQSRunNow()">▶ Run Now</button>
     </div>
   </div>
 </div>
@@ -1886,6 +2004,7 @@ async function loadAll() {
   fillSettings();
   fillAdvanced();
   fillNotifications();
+  mInitRunBtn();
 }
 
 // ── Instances tab ──
@@ -2804,61 +2923,215 @@ if (!MOBILE) {
 // MOBILE UI
 // ══════════════════════════════════════════════════════════════════════════
 
-let M_TAB = 'home';
-let M_OPEN_SWEEP = null; // key of currently open accordion card
+  let M_TAB = 'home';
+  let M_OPEN_SWEEP = null;
 
-function mSwitchTab(name) {
-  document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('m-active'));
-  document.querySelectorAll('.m-nav-item').forEach(n => n.classList.remove('m-active'));
-  const tab = document.getElementById('m-' + name);
-  const nav = document.getElementById('m-nav-' + name);
-  if (tab) tab.classList.add('m-active');
-  if (nav) nav.classList.add('m-active');
-  M_TAB = name;
-  if (name === 'sweep') mRenderSweep();
-  if (name === 'instances') mRenderInstances();
-}
+  // ── Haptics ──
 
-// ── Home ──
+  function mHaptic(ms) {
+    if (navigator.vibrate) navigator.vibrate(ms || 40);
+  }
 
-function mUpdateHome(cfg, st) {
-  const verEl = document.getElementById('m-ver');
-  if (verEl) verEl.textContent = st.version || '';
+  // ── Sheet helpers ──
 
-  const lastEl = document.getElementById('m-last-run');
-  if (lastEl) lastEl.textContent = fmtTime(st.last_run_utc);
+  function mSheetOpen(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('m-visible');
+  }
 
-  const nextEl = document.getElementById('m-next-run');
-  if (nextEl) nextEl.textContent = cfg.scheduler_enabled ? fmtTime(st.next_run_utc) : 'Manual';
+  function mSheetClose(id, cb) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const sheet = el.querySelector('.m-sheet');
+    if (sheet) { sheet.style.transition = 'transform .3s ease-in'; sheet.style.transform = 'translateY(100%)'; }
+    el.style.transition = 'opacity .3s ease'; el.style.opacity = '0';
+    setTimeout(() => {
+      el.classList.remove('m-visible');
+      if (sheet) { sheet.style.transition = ''; sheet.style.transform = ''; }
+      el.style.transition = ''; el.style.opacity = '';
+      if (cb) cb();
+    }, 300);
+  }
 
-  const pill = document.getElementById('m-running-pill');
-  if (pill) pill.classList.toggle('hidden', !st.run_in_progress);
+  function mSheetDrag(handleId, backdropId, closeFn) {
+    const handle = document.getElementById(handleId);
+    if (!handle) return;
+    let startY = 0, curY = 0, dragging = false;
+    const backdrop = document.getElementById(backdropId);
+    const sheet = backdrop ? backdrop.querySelector('.m-sheet') : null;
+    handle.addEventListener('touchstart', e => {
+      startY = e.touches[0].clientY; curY = 0; dragging = true;
+      if (sheet) sheet.style.transition = 'none';
+    }, {passive: true});
+    handle.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      curY = Math.max(0, e.touches[0].clientY - startY);
+      if (sheet) sheet.style.transform = 'translateY(' + curY + 'px)';
+    }, {passive: true});
+    handle.addEventListener('touchend', () => {
+      if (!dragging) return; dragging = false;
+      if (curY > 80) { closeFn(); }
+      else { if (sheet) { sheet.style.transition = 'transform .2s ease-out'; sheet.style.transform = 'translateY(0)'; } }
+    });
+  }
 
-  const autoSub = document.getElementById('m-auto-sub');
-  if (autoSub) autoSub.textContent = cfg.scheduler_enabled ? 'Auto' : 'Manual';
+  function mSwitchTab(name) {
+    document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('m-active'));
+    document.querySelectorAll('.m-nav-item').forEach(n => n.classList.remove('m-active'));
+    const tab = document.getElementById('m-' + name);
+    const nav = document.getElementById('m-nav-' + name);
+    if (tab) tab.classList.add('m-active');
+    if (nav) nav.classList.add('m-active');
+    M_TAB = name;
+    if (name === 'sweep') mRenderSweep();
+    if (name === 'instances') mRenderInstances();
+  }
 
-  const tAuto = document.getElementById('m-toggle-auto');
-  if (tAuto) tAuto.classList.toggle('m-on', !!cfg.scheduler_enabled);
+  // ── Home ──
 
-  const tNotify = document.getElementById('m-toggle-notify');
-  if (tNotify) tNotify.classList.toggle('m-on', !!cfg.notify_enabled);
-
-  const tRadarrBacklog = document.getElementById('m-toggle-radarr-backlog');
-  if (tRadarrBacklog) tRadarrBacklog.classList.toggle('m-on', !!cfg.radarr_backlog_enabled);
-
-  const tSonarrBacklog = document.getElementById('m-toggle-sonarr-backlog');
-  if (tSonarrBacklog) tSonarrBacklog.classList.toggle('m-on', !!cfg.sonarr_backlog_enabled);
-}
-
-async function mRunNow() {
-  try {
-    await api('/api/run-now', {method:'POST'});
+  function mUpdateHome(cfg, st) {
+    const verEl = document.getElementById('m-ver');
+    if (verEl) verEl.textContent = st.version || '';
     const lastEl = document.getElementById('m-last-run');
-    if (lastEl) lastEl.textContent = 'Running…';
+    if (lastEl) lastEl.textContent = fmtTime(st.last_run_utc);
+    const nextEl = document.getElementById('m-next-run');
+    if (nextEl) nextEl.textContent = cfg.scheduler_enabled ? fmtTime(st.next_run_utc) : 'Manual';
     const pill = document.getElementById('m-running-pill');
-    if (pill) pill.classList.remove('hidden');
-  } catch(e) {}
-}
+    if (pill) pill.classList.toggle('hidden', !st.run_in_progress);
+    const autoSub = document.getElementById('m-auto-sub');
+    if (autoSub) autoSub.textContent = cfg.scheduler_enabled ? 'Auto' : 'Manual';
+    const tAuto = document.getElementById('m-toggle-auto');
+    if (tAuto) tAuto.classList.toggle('m-on', !!cfg.scheduler_enabled);
+    const tNotify = document.getElementById('m-toggle-notify');
+    if (tNotify) tNotify.classList.toggle('m-on', !!cfg.notify_enabled);
+    const tRadarrBacklog = document.getElementById('m-toggle-radarr-backlog');
+    if (tRadarrBacklog) tRadarrBacklog.classList.toggle('m-on', !!cfg.radarr_backlog_enabled);
+    const tSonarrBacklog = document.getElementById('m-toggle-sonarr-backlog');
+    if (tSonarrBacklog) tSonarrBacklog.classList.toggle('m-on', !!cfg.sonarr_backlog_enabled);
+    mQSUpdateIntervalDim();
+  }
+
+  // ── Run Now long press ──
+
+  let M_LONGPRESS_TIMER = null;
+
+  function mInitRunBtn() {
+    const btn = document.getElementById('m-run-btn');
+    if (!btn) return;
+    if (localStorage.getItem('nudgarr_hint_dismissed')) {
+      const wrap = document.getElementById('m-run-hint-wrap');
+      if (wrap) wrap.classList.add('m-hint-gone');
+    }
+    btn.addEventListener('mousedown', () => mStartLongPress());
+    btn.addEventListener('touchstart', e => { e.preventDefault(); mStartLongPress(); }, {passive: false});
+    btn.addEventListener('mouseup', () => mCancelLongPress(true));
+    btn.addEventListener('mouseleave', () => mCancelLongPress(false));
+    btn.addEventListener('touchend', () => mCancelLongPress(true));
+    btn.addEventListener('touchcancel', () => mCancelLongPress(false));
+  }
+
+  function mStartLongPress() {
+    const btn = document.getElementById('m-run-btn');
+    if (btn) { btn.style.transition = 'opacity .15s ease'; btn.style.opacity = '0.6'; }
+    M_LONGPRESS_TIMER = setTimeout(() => {
+      M_LONGPRESS_TIMER = null;
+      mHaptic(40);
+      const btn2 = document.getElementById('m-run-btn');
+      if (btn2) { btn2.style.opacity = ''; btn2.style.transition = ''; }
+      mDismissHint();
+      mOpenQS();
+    }, 500);
+  }
+
+  function mCancelLongPress(doRun) {
+    if (M_LONGPRESS_TIMER) {
+      clearTimeout(M_LONGPRESS_TIMER);
+      M_LONGPRESS_TIMER = null;
+      const btn = document.getElementById('m-run-btn');
+      if (btn) { btn.style.opacity = ''; btn.style.transition = ''; }
+      if (doRun) { mDismissHint(); mRunNow(); }
+    }
+  }
+
+  function mDismissHint() {
+    if (localStorage.getItem('nudgarr_hint_dismissed')) return;
+    localStorage.setItem('nudgarr_hint_dismissed', '1');
+    const wrap = document.getElementById('m-run-hint-wrap');
+    if (wrap) wrap.classList.add('m-hint-gone');
+  }
+
+  async function mRunNow() {
+    mHaptic(40);
+    try {
+      await api('/api/run-now', {method:'POST'});
+      const lastEl = document.getElementById('m-last-run');
+      if (lastEl) lastEl.textContent = 'Running…';
+      const pill = document.getElementById('m-running-pill');
+      if (pill) pill.classList.remove('hidden');
+    } catch(e) {}
+  }
+
+  // ── Quick Settings sheet ──
+
+  const M_QS_VALS = {interval: 6, cooldown: 48, movies: 1, episodes: 1};
+  const M_QS_MINS = {interval: 1, cooldown: 0, movies: 0, episodes: 0};
+  let M_QS_SAVE_TIMER = null;
+
+  function mOpenQS() {
+    M_QS_VALS.interval = Math.round((CFG.run_interval_minutes || 360) / 60);
+    M_QS_VALS.cooldown = CFG.cooldown_hours || 48;
+    M_QS_VALS.movies = CFG.radarr_max_movies_per_run || 1;
+    M_QS_VALS.episodes = CFG.sonarr_max_episodes_per_run || 1;
+    ['interval','cooldown','movies','episodes'].forEach(k => {
+      const el = document.getElementById('m-qs-' + k);
+      if (el) { el.textContent = M_QS_VALS[k]; el.classList.toggle('m-zero', M_QS_VALS[k] === 0); }
+    });
+    mQSUpdateIntervalDim();
+    mSheetOpen('m-qs-sheet');
+    mSheetDrag('m-qs-handle', 'm-qs-sheet', mCloseQS);
+  }
+
+  function mCloseQS() { mSheetClose('m-qs-sheet'); }
+
+  function mQSUpdateIntervalDim() {
+    const row = document.getElementById('m-qs-interval-row');
+    if (!row) return;
+    row.classList.toggle('m-qs-disabled', !!(CFG && !CFG.scheduler_enabled));
+  }
+
+  function mQSStep(key, dir) {
+    mHaptic(20);
+    M_QS_VALS[key] = Math.max(M_QS_MINS[key], M_QS_VALS[key] + dir);
+    const el = document.getElementById('m-qs-' + key);
+    if (el) { el.textContent = M_QS_VALS[key]; el.classList.toggle('m-zero', M_QS_VALS[key] === 0); }
+    clearTimeout(M_QS_SAVE_TIMER);
+    M_QS_SAVE_TIMER = setTimeout(mQSSave, 800);
+  }
+
+  async function mQSSave() {
+    const updates = {
+      run_interval_minutes: M_QS_VALS.interval * 60,
+      cooldown_hours: M_QS_VALS.cooldown,
+      radarr_max_movies_per_run: M_QS_VALS.movies,
+      sonarr_max_episodes_per_run: M_QS_VALS.episodes,
+    };
+    try {
+      const cfg = await api('/api/config');
+      Object.assign(cfg, updates);
+      await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+      Object.assign(CFG, updates);
+    } catch(e) {}
+  }
+
+  async function mQSRunNow() {
+    mHaptic(40);
+    clearTimeout(M_QS_SAVE_TIMER);
+    await mQSSave();
+    mCloseQS();
+    await mRunNow();
+  }
+
 
 async function mSaveCfgKey(updates) {
   try {
@@ -2879,20 +3152,24 @@ async function mSaveCfgKey(updates) {
 }
 
 function mToggleAuto() {
+  mHaptic(40);
   const newVal = !CFG.scheduler_enabled;
   mSaveCfgKey({scheduler_enabled: newVal});
 }
 
 function mToggleNotify() {
+  mHaptic(40);
   const newVal = !CFG.notify_enabled;
   mSaveCfgKey({notify_enabled: newVal});
 }
 
 function mToggleRadarrBacklog() {
+  mHaptic(40);
   mSaveCfgKey({radarr_backlog_enabled: !CFG.radarr_backlog_enabled});
 }
 
 function mToggleSonarrBacklog() {
+  mHaptic(40);
   mSaveCfgKey({sonarr_backlog_enabled: !CFG.sonarr_backlog_enabled});
 }
 
@@ -2915,7 +3192,7 @@ function mRenderInstances() {
             <span class="m-inst-name">${escapeHtml(inst.name)}</span>
           </div>
           <div class="m-inst-url">${escapeHtml((inst.url || '').replace(/\/$/, ''))}</div>
-          <button class="m-inst-btn ${enabled ? 'm-inst-disable' : ''}"
+          <button class="m-inst-btn ${enabled ? 'm-inst-disable' : 'm-inst-enable'}"
             onclick="mToggleInstance('${kind}', ${idx})">
             ${enabled ? 'Disable' : 'Enable'}
           </button>
@@ -2929,6 +3206,7 @@ let STATUS_CACHE = {};
 
 async function mToggleInstance(kind, idx) {
   try {
+  mHaptic(40);
     await api('/api/instance/toggle', {method:'POST', body: JSON.stringify({kind, idx})});
     await loadAll();
     mRenderInstances();
@@ -3007,20 +3285,18 @@ let M_EXCL_DATA = [];
 let M_EXCL_HIST_DATA = [];
 
 async function mOpenExclusions() {
-  const sheet = document.getElementById('m-excl-sheet');
-  if (!sheet) return;
-  sheet.classList.remove('m-hidden');
-  // Always reset to Excluded tab
   mSwitchExclTab('excl');
   await mLoadExclusions();
+  mSheetOpen('m-excl-sheet');
+  mSheetDrag('m-excl-handle', 'm-excl-sheet', mCloseExclusions);
 }
 
+
 function mCloseExclusions() {
-  const sheet = document.getElementById('m-excl-sheet');
-  if (sheet) sheet.classList.add('m-hidden');
-  // Remove active state from nav exclusions item
-  const navItem = document.getElementById('m-nav-exclusions');
-  if (navItem) navItem.classList.remove('m-active');
+  mSheetClose('m-excl-sheet', () => {
+    const navItem = document.getElementById('m-nav-exclusions');
+    if (navItem) navItem.classList.remove('m-active');
+  });
 }
 
 function mSwitchExclTab(tab) {
@@ -3067,10 +3343,14 @@ async function mLoadExclusions() {
 }
 
 async function mExclRemove(title) {
+  mHaptic(60);
   try {
     await api('/api/exclusions/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
     await mLoadExclusions();
-  } catch(e) {}
+  } catch(e) {
+    const listEl = document.getElementById('m-excl-list');
+    if (listEl) listEl.insertAdjacentHTML('afterbegin', `<p class="help" style="color:var(--bad);padding:8px 18px">Remove failed: ${e.message}</p>`);
+  }
 }
 
 async function mLoadExclHistory() {
@@ -3106,31 +3386,35 @@ async function mLoadExclHistory() {
 }
 
 async function mExclAdd(title) {
+  mHaptic(60);
   try {
     await api('/api/exclusions/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
     await mLoadExclusions();
     // Refresh history pane to remove newly excluded item
     await mLoadExclHistory();
-  } catch(e) {}
+  } catch(e) {
+    const histEl = document.getElementById('m-excl-hist');
+    if (histEl) histEl.insertAdjacentHTML('afterbegin', `<p class="help" style="color:var(--bad);padding:8px 18px">Add failed: ${e.message}</p>`);
+  }
 }
 
 // ── Imports sheet ──
 
 async function mOpenImports(type) {
-  const sheet = document.getElementById('m-imports-sheet');
   const titleEl = document.getElementById('m-imports-sheet-title');
   const bodyEl = document.getElementById('m-imports-sheet-body');
-  if (!sheet) return;
   if (titleEl) titleEl.textContent = type === 'movies' ? 'Movies' : 'Shows';
   if (bodyEl) bodyEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 18px;color:var(--muted)">Loading…</p>';
-  sheet.classList.remove('m-hidden');
+  mSheetOpen('m-imports-sheet');
+  mSheetDrag('m-imports-handle', 'm-imports-sheet', mCloseImports);
   await mLoadImports(type);
 }
 
+
 function mCloseImports() {
-  const sheet = document.getElementById('m-imports-sheet');
-  if (sheet) sheet.classList.add('m-hidden');
+  mSheetClose('m-imports-sheet');
 }
+
 
 async function mLoadImports(type) {
   const bodyEl = document.getElementById('m-imports-sheet-body');

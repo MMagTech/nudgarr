@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -64,6 +64,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "notify_on_sweep_complete": True,
     "notify_on_import": True,
     "notify_on_error": True,
+    "notify_on_queue_threshold": False,
 
     # Onboarding
     "onboarding_complete": False,

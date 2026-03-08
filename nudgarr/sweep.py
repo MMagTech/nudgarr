@@ -23,9 +23,11 @@ import requests
 from nudgarr.arr_clients import (
     radarr_get_cutoff_unmet_movies,
     radarr_get_missing_movies,
+    radarr_get_queue_count,
     radarr_search_movies,
     sonarr_get_cutoff_unmet_episodes,
     sonarr_get_missing_episodes,
+    sonarr_get_queue_count,
     sonarr_search_episodes,
 )
 from nudgarr.constants import STATE_FILE
@@ -68,6 +70,17 @@ def _sweep_radarr_instance(
     Raises on unrecoverable error (caller handles retry).
     """
     name, url, key = inst["name"], inst["url"], inst["key"]
+
+    # Queue threshold check
+    queue_threshold = int(inst.get("queue_threshold", 0))
+    if queue_threshold > 0:
+        queue_count = radarr_get_queue_count(session, url, key)
+        if queue_count > queue_threshold:
+            print(f"[Radarr:{name}] queue={queue_count} exceeds threshold={queue_threshold} — skipping")
+            STATUS["instance_health"][f"radarr|{name}"] = "queue_full"
+            STATUS.setdefault("instance_queue_count", {})[f"radarr|{name}"] = queue_count
+            return {"name": name, "url": mask_url(url), "skipped_queue_threshold": True,
+                    "queue_count": queue_count, "queue_threshold": queue_threshold}
 
     all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
     all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
@@ -177,6 +190,16 @@ def _sweep_sonarr_instance(
     """
     name, url, key = inst["name"], inst["url"], inst["key"]
 
+    # Queue threshold check
+    queue_threshold = int(inst.get("queue_threshold", 0))
+    if queue_threshold > 0:
+        queue_count = sonarr_get_queue_count(session, url, key)
+        if queue_count > queue_threshold:
+            print(f"[Sonarr:{name}] queue={queue_count} exceeds threshold={queue_threshold} — skipping")
+            STATUS["instance_health"][f"sonarr|{name}"] = "queue_full"
+            STATUS.setdefault("instance_queue_count", {})[f"sonarr|{name}"] = queue_count
+            return {"name": name, "url": mask_url(url), "skipped_queue_threshold": True,
+                    "queue_count": queue_count, "queue_threshold": queue_threshold}
     all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key)
     all_episodes = [e for e in all_episodes if (e.get("title") or "").lower() not in excluded_titles]
     STATUS["instance_health"][f"sonarr|{name}"] = "ok"

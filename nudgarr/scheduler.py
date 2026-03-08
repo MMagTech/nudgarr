@@ -17,7 +17,7 @@ import requests
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, PORT, STATE_FILE, STATS_FILE, VERSION
 from nudgarr.globals import RUN_LOCK, STATUS, app
-from nudgarr.notifications import notify_error, notify_sweep_complete
+from nudgarr.notifications import notify_error, notify_queue_threshold, notify_sweep_complete
 from nudgarr.state import ensure_state_structure, load_state, save_state
 from nudgarr.stats import check_imports
 from nudgarr.sweep import run_sweep
@@ -81,11 +81,18 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 st["last_run_utc"] = STATUS["last_run_utc"]
                 save_state(st, cfg)
                 notify_sweep_complete(summary, cfg)
-                # Notify on any instance-level errors within the sweep
+                # Notify on any instance-level errors or queue threshold skips
                 for app_name in ("radarr", "sonarr"):
                     for inst in summary.get(app_name, []):
                         if "error" in inst:
                             notify_error(f"'{inst['name']}' is unreachable.", cfg)
+                        if inst.get("skipped_queue_threshold"):
+                            notify_queue_threshold(
+                                inst["name"],
+                                inst.get("queue_count", 0),
+                                inst.get("queue_threshold", 0),
+                                cfg,
+                            )
                 # Check for confirmed imports from previous searches
                 try:
                     check_imports(session, cfg)

@@ -89,3 +89,15 @@ def notify_error(message: str, cfg: Optional[Dict[str, Any]] = None) -> None:
         body=message,
         cfg=cfg
     )
+
+
+def notify_queue_threshold(instance_name: str, queue_count: int, threshold: int, cfg: Optional[Dict[str, Any]] = None) -> None:
+    if cfg is None:
+        cfg = load_or_init_config()
+    if not cfg.get("notify_on_queue_threshold", False):
+        return
+    send_notification(
+        title="Nudgarr — Queue Threshold Exceeded",
+        body=f"'{instance_name}' was skipped. Queue size: {queue_count} / Threshold: {threshold}.",
+        cfg=cfg
+    )

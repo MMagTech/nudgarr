@@ -147,6 +147,29 @@ def is_authenticated() -> bool:
 
 # ── Decorator ─────────────────────────────────────────────────────────
 
+def _csrf_origin_ok() -> bool:
+    """
+    Basic CSRF mitigation for POST requests — verify Origin or Referer
+    header originates from the same host that served the page.
+    Allows requests with no origin header (curl, direct API calls from
+    the same machine) and same-host browser requests.
+    Returns True if the request appears legitimate, False if it looks
+    like a cross-origin POST from a third-party page.
+    """
+    if request.method != "POST":
+        return True
+    origin = request.headers.get("Origin", "")
+    referer = request.headers.get("Referer", "")
+    check = origin or referer
+    if not check:
+        # No origin headers — CLI / curl / same-machine request, allow.
+        return True
+    host = request.host  # e.g. "192.168.1.10:8085"
+    from urllib.parse import urlparse
+    parsed_host = urlparse(check).netloc
+    return parsed_host == host
+
+
 def requires_auth(f):
     """Decorator for routes that need authentication."""
     @wraps(f)
@@ -159,5 +182,8 @@ def requires_auth(f):
                 if request.path.startswith("/api/"):
                     return jsonify({"ok": False, "error": "Unauthorized"}), 401
                 return redirect("/login")
+        # H3: CSRF origin check on authenticated POST routes
+        if not _csrf_origin_ok():
+            return jsonify({"ok": False, "error": "Forbidden"}), 403
         return f(*args, **kwargs)
     return decorated

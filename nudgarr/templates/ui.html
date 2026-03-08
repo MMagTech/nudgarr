@@ -503,6 +503,7 @@
     .m-stat-value { font-size: 20px; font-weight: 700; color: var(--text); }
     .m-stat-value.m-dim { color: var(--text-dim); font-size: 16px; }
 
+<<<<<<< Updated upstream
     /* Imports tab */
     .m-lifetime-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .m-lifetime-card {
@@ -525,6 +526,104 @@
     }
     .m-page-btn:disabled { opacity: .3; cursor: default; }
     .m-page-info { font-size: 12px; color: var(--muted); }
+=======
+    /* Import pills on Home tab */
+    .m-import-pill {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; transition: background .15s; user-select: none;
+    }
+    .m-import-pill:active { background: var(--card); }
+    .m-import-pill-icon { font-size: 15px; flex-shrink: 0; }
+    .m-import-pill-info { flex: 1; }
+    .m-import-pill-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+    .m-import-pill-value { font-size: 18px; font-weight: 700; color: var(--text); }
+    .m-import-pill-chevron { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+
+    /* Bottom sheets */
+    .m-sheet-backdrop {
+      position: absolute; inset: 0; z-index: 200;
+      background: rgba(10,11,20,.75); backdrop-filter: blur(4px);
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .m-sheet-backdrop.m-hidden { display: none; }
+    .m-sheet {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px 24px 0 0;
+      height: 86%; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .m-sheet-handle {
+      width: 36px; height: 4px; background: rgba(255,255,255,.12);
+      border-radius: 999px; margin: 12px auto 0; flex-shrink: 0;
+    }
+    .m-sheet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px 0; flex-shrink: 0;
+    }
+    .m-sheet-title { font-size: 16px; font-weight: 700; color: var(--text); }
+    .m-sheet-close {
+      width: 28px; height: 28px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 50%; color: var(--muted); font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .m-inner-tabs {
+      display: flex; margin: 12px 18px 0; background: var(--card);
+      border-radius: 10px; padding: 3px; flex-shrink: 0;
+    }
+    .m-inner-tab {
+      flex: 1; text-align: center; padding: 7px 0; font-size: 13px; font-weight: 600;
+      color: var(--muted); border-radius: 8px; cursor: pointer; transition: background .15s, color .15s;
+    }
+    .m-inner-tab.m-active { background: var(--surface); color: var(--text); }
+    .m-count-badge {
+      display: inline-block; background: var(--accent-dim); color: var(--accent);
+      font-size: 10px; font-weight: 700; border-radius: 999px;
+      padding: 1px 6px; margin-left: 5px; vertical-align: middle;
+    }
+    .m-sheet-body {
+      overflow-y: auto; flex: 1; margin-top: 10px;
+      border-top: 1px solid var(--border); scrollbar-width: none;
+    }
+    .m-sheet-body::-webkit-scrollbar { display: none; }
+
+    /* Exclusion rows */
+    .m-excl-row {
+      display: flex; align-items: center; padding: 12px 18px;
+      border-bottom: 1px solid var(--border); gap: 12px;
+    }
+    .m-excl-row:last-child { border-bottom: none; }
+    .m-excl-title { font-size: 13px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .m-excl-remove {
+      flex-shrink: 0; padding: 5px 10px;
+      background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
+      border-radius: 8px; color: var(--bad); font-size: 11px; font-weight: 500; cursor: pointer;
+    }
+
+    /* Add from History rows */
+    .m-hist-row {
+      display: flex; align-items: center; padding: 12px 18px;
+      border-bottom: 1px solid var(--border); gap: 12px;
+    }
+    .m-hist-row:last-child { border-bottom: none; }
+    .m-hist-info { flex: 1; overflow: hidden; }
+    .m-hist-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .m-hist-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .m-hist-add {
+      flex-shrink: 0; padding: 5px 10px;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      border-radius: 8px; color: #c0caff; font-size: 11px; font-weight: 500; cursor: pointer;
+    }
+
+    /* Import list rows */
+    .m-import-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; border-bottom: 1px solid var(--border);
+    }
+    .m-import-row:last-child { border-bottom: none; }
+    .m-import-row-title { font-size: 13px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 12px; }
+    .m-import-row-date { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+>>>>>>> Stashed changes
 
     /* ── Media query activation ── */
     @media screen and (max-width: 500px) {
@@ -1218,6 +1317,25 @@
         <div class="m-tc-label">Next Run</div>
         <div class="m-tc-value" id="m-next-run">—</div>
       </div>
+<<<<<<< Updated upstream
+=======
+      <div class="m-import-pill" onclick="mOpenImports('movies')">
+        <span class="m-import-pill-icon">🎬</span>
+        <div class="m-import-pill-info">
+          <div class="m-import-pill-label">Movies</div>
+          <div class="m-import-pill-value" id="m-movies-total">—</div>
+        </div>
+        <span class="m-import-pill-chevron">›</span>
+      </div>
+      <div class="m-import-pill" onclick="mOpenImports('shows')">
+        <span class="m-import-pill-icon">📺</span>
+        <div class="m-import-pill-info">
+          <div class="m-import-pill-label">Shows</div>
+          <div class="m-import-pill-value" id="m-shows-total">—</div>
+        </div>
+        <span class="m-import-pill-chevron">›</span>
+      </div>
+>>>>>>> Stashed changes
     </div>
 
     <div class="m-sweep-banner hidden" id="m-running-pill">
@@ -1272,6 +1390,7 @@
     <div id="m-sweep-list"></div>
   </div>
 
+<<<<<<< Updated upstream
   <!-- Imports tab -->
   <div class="m-tab" id="m-imports">
     <div class="m-lifetime-row">
@@ -1292,6 +1411,8 @@
     </div>
   </div>
 
+=======
+>>>>>>> Stashed changes
   <!-- Bottom nav -->
   <nav id="m-nav">
     <div class="m-nav-item m-active" id="m-nav-home" onclick="mSwitchTab('home')">
@@ -1306,11 +1427,54 @@
       <span class="m-nav-icon">↻</span>
       <span class="m-nav-label">Sweep</span>
     </div>
+<<<<<<< Updated upstream
     <div class="m-nav-item" id="m-nav-imports" onclick="mSwitchTab('imports')">
       <span class="m-nav-icon">✓</span>
       <span class="m-nav-label">Imports</span>
     </div>
   </nav>
+=======
+    <div class="m-nav-item" id="m-nav-exclusions" onclick="mOpenExclusions()">
+      <span class="m-nav-icon">⊘</span>
+      <span class="m-nav-label">Exclusions</span>
+    </div>
+  </nav>
+
+  <!-- Exclusions bottom sheet -->
+  <div class="m-sheet-backdrop m-hidden" id="m-excl-sheet">
+    <div class="m-sheet">
+      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-header">
+        <span class="m-sheet-title">Exclusions</span>
+        <div class="m-sheet-close" onclick="mCloseExclusions()">✕</div>
+      </div>
+      <div class="m-inner-tabs">
+        <div class="m-inner-tab m-active" id="m-excl-tab-excl" onclick="mSwitchExclTab('excl')">
+          Excluded <span class="m-count-badge" id="m-excl-count">0</span>
+        </div>
+        <div class="m-inner-tab" id="m-excl-tab-add" onclick="mSwitchExclTab('add')">
+          Add from History
+        </div>
+      </div>
+      <div class="m-sheet-body">
+        <div id="m-excl-list"></div>
+        <div id="m-excl-hist" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Imports bottom sheet -->
+  <div class="m-sheet-backdrop m-hidden" id="m-imports-sheet">
+    <div class="m-sheet">
+      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-header">
+        <span class="m-sheet-title" id="m-imports-sheet-title">Movies</span>
+        <div class="m-sheet-close" onclick="mCloseImports()">✕</div>
+      </div>
+      <div class="m-sheet-body" id="m-imports-sheet-body"></div>
+    </div>
+  </div>
+>>>>>>> Stashed changes
 </div>
 
 <script>
@@ -2700,9 +2864,12 @@ if (!MOBILE) {
 // ══════════════════════════════════════════════════════════════════════════
 
 let M_TAB = 'home';
+<<<<<<< Updated upstream
 let M_IMPORTS_PAGE = 0;
 const M_IMPORTS_PER_PAGE = 10;
 let M_IMPORTS_TOTAL = 0;
+=======
+>>>>>>> Stashed changes
 let M_OPEN_SWEEP = null; // key of currently open accordion card
 
 function mSwitchTab(name) {
@@ -2714,7 +2881,10 @@ function mSwitchTab(name) {
   if (nav) nav.classList.add('m-active');
   M_TAB = name;
   if (name === 'sweep') mRenderSweep();
+<<<<<<< Updated upstream
   if (name === 'imports') mRefreshImports();
+=======
+>>>>>>> Stashed changes
   if (name === 'instances') mRenderInstances();
 }
 
@@ -2900,6 +3070,7 @@ function mAccordion(card) {
   }
 }
 
+<<<<<<< Updated upstream
 // ── Imports ──
 
 async function mRefreshImports() {
@@ -2941,6 +3112,165 @@ function mImportsPage(dir) {
   mRefreshImports();
 }
 
+=======
+// ── Exclusions sheet ──
+
+let M_EXCL_DATA = [];
+let M_EXCL_HIST_DATA = [];
+
+async function mOpenExclusions() {
+  const sheet = document.getElementById('m-excl-sheet');
+  if (!sheet) return;
+  sheet.classList.remove('m-hidden');
+  // Always reset to Excluded tab
+  mSwitchExclTab('excl');
+  await mLoadExclusions();
+}
+
+function mCloseExclusions() {
+  const sheet = document.getElementById('m-excl-sheet');
+  if (sheet) sheet.classList.add('m-hidden');
+  // Remove active state from nav exclusions item
+  const navItem = document.getElementById('m-nav-exclusions');
+  if (navItem) navItem.classList.remove('m-active');
+}
+
+function mSwitchExclTab(tab) {
+  const listPane = document.getElementById('m-excl-list');
+  const histPane = document.getElementById('m-excl-hist');
+  const tabExcl = document.getElementById('m-excl-tab-excl');
+  const tabAdd = document.getElementById('m-excl-tab-add');
+  if (tab === 'excl') {
+    if (listPane) listPane.style.display = '';
+    if (histPane) histPane.style.display = 'none';
+    if (tabExcl) tabExcl.classList.add('m-active');
+    if (tabAdd) tabAdd.classList.remove('m-active');
+  } else {
+    if (listPane) listPane.style.display = 'none';
+    if (histPane) histPane.style.display = '';
+    if (tabExcl) tabExcl.classList.remove('m-active');
+    if (tabAdd) tabAdd.classList.add('m-active');
+    mLoadExclHistory();
+  }
+}
+
+async function mLoadExclusions() {
+  const listEl = document.getElementById('m-excl-list');
+  const countEl = document.getElementById('m-excl-count');
+  if (!listEl) return;
+  try {
+    const data = await api('/api/exclusions');
+    M_EXCL_DATA = data || [];
+    if (countEl) countEl.textContent = M_EXCL_DATA.length;
+    if (!M_EXCL_DATA.length) {
+      listEl.innerHTML = '<p class="help" style="text-align:center;padding:32px 18px">No exclusions yet.</p>';
+      return;
+    }
+    listEl.innerHTML = M_EXCL_DATA.map(e => {
+      const title = escapeHtml(e.title || '');
+      return `<div class="m-excl-row">
+        <span class="m-excl-title">${title}</span>
+        <button class="m-excl-remove" onclick="mExclRemove(${JSON.stringify(e.title || '')})">Remove</button>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    listEl.innerHTML = '<p class="help" style="color:var(--bad);text-align:center;padding:24px 18px">Failed to load exclusions.</p>';
+  }
+}
+
+async function mExclRemove(title) {
+  try {
+    await api('/api/exclusions/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
+    await mLoadExclusions();
+  } catch(e) {}
+}
+
+async function mLoadExclHistory() {
+  const histEl = document.getElementById('m-excl-hist');
+  if (!histEl) return;
+  histEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 18px;color:var(--muted)">Loading…</p>';
+  try {
+    const items = await api('/api/state/items?app=&instance=&offset=0&limit=100');
+    M_EXCL_HIST_DATA = (items.items || []);
+    // Filter out already-excluded titles
+    const exclSet = new Set(M_EXCL_DATA.map(e => (e.title || '').toLowerCase()));
+    const filtered = M_EXCL_HIST_DATA.filter(it => !exclSet.has((it.title || it.key || '').toLowerCase()));
+    if (!filtered.length) {
+      histEl.innerHTML = '<p class="help" style="text-align:center;padding:32px 18px">No search history yet.</p>';
+      return;
+    }
+    histEl.innerHTML = filtered.map(it => {
+      const title = it.title || it.key || '';
+      const count = it.search_count > 1 ? ` · ×${it.search_count}` : '';
+      const inst = it.instance ? ` · ${escapeHtml(it.instance)}` : '';
+      const last = it.last_searched ? ` · ${fmtTime(it.last_searched)}` : '';
+      return `<div class="m-hist-row">
+        <div class="m-hist-info">
+          <div class="m-hist-title">${escapeHtml(title)}</div>
+          <div class="m-hist-meta">${escapeHtml(inst.slice(3))}${count}${last}</div>
+        </div>
+        <span class="m-hist-add" onclick="mExclAdd(${JSON.stringify(title)})">+ Exclude</span>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    histEl.innerHTML = '<p class="help" style="color:var(--bad);text-align:center;padding:24px 18px">Failed to load history.</p>';
+  }
+}
+
+async function mExclAdd(title) {
+  try {
+    await api('/api/exclusions/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
+    await mLoadExclusions();
+    // Refresh history pane to remove newly excluded item
+    await mLoadExclHistory();
+  } catch(e) {}
+}
+
+// ── Imports sheet ──
+
+async function mOpenImports(type) {
+  const sheet = document.getElementById('m-imports-sheet');
+  const titleEl = document.getElementById('m-imports-sheet-title');
+  const bodyEl = document.getElementById('m-imports-sheet-body');
+  if (!sheet) return;
+  if (titleEl) titleEl.textContent = type === 'movies' ? 'Movies' : 'Shows';
+  if (bodyEl) bodyEl.innerHTML = '<p class="help" style="text-align:center;padding:24px 18px;color:var(--muted)">Loading…</p>';
+  sheet.classList.remove('m-hidden');
+  await mLoadImports(type);
+}
+
+function mCloseImports() {
+  const sheet = document.getElementById('m-imports-sheet');
+  if (sheet) sheet.classList.add('m-hidden');
+}
+
+async function mLoadImports(type) {
+  const bodyEl = document.getElementById('m-imports-sheet-body');
+  if (!bodyEl) return;
+  try {
+    // Fetch a generous page so scrolling works without pagination
+    const data = await api('/api/stats?offset=0&limit=200');
+    const app = type === 'movies' ? 'radarr' : 'sonarr';
+    const entries = (data.entries || []).filter(e => e.app === app);
+    if (!entries.length) {
+      bodyEl.innerHTML = '<p class="help" style="text-align:center;padding:32px 18px">No confirmed imports yet.</p>';
+      return;
+    }
+    bodyEl.innerHTML = entries.map(e => {
+      const title = escapeHtml(e.title || e.item_id || '—');
+      const date = e.imported_ts ? fmtTime(e.imported_ts) : '';
+      return `<div class="m-import-row">
+        <span class="m-import-row-title">${title}</span>
+        <span class="m-import-row-date">${escapeHtml(date)}</span>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    bodyEl.innerHTML = '<p class="help" style="color:var(--bad);text-align:center;padding:24px 18px">Failed to load imports.</p>';
+  }
+}
+
+
+>>>>>>> Stashed changes
 // ── Mobile poll ──
 
 async function mPollCycle() {
@@ -2983,7 +3313,18 @@ if (MOBILE) {
     mRenderInstances();
     await refreshSweep();
     mRenderSweep();
+<<<<<<< Updated upstream
     await mRefreshImports();
+=======
+    // Populate import pill totals on Home tab
+    try {
+      const stats = await api('/api/stats?offset=0&limit=1');
+      const movEl = document.getElementById('m-movies-total');
+      const showEl = document.getElementById('m-shows-total');
+      if (movEl) movEl.textContent = stats.movies_total ?? '—';
+      if (showEl) showEl.textContent = stats.shows_total ?? '—';
+    } catch(e) {}
+>>>>>>> Stashed changes
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
   });

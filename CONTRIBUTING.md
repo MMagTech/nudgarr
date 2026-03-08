@@ -36,7 +36,7 @@ nudgarr/                    ← Python package
   templates/                ← HTML served by Flask render_template()
     login.html              ← login page
     setup.html              ← first-run setup page
-    ui.html                 ← main single-page application (~2400 lines)
+    ui.html                 ← main single-page application (~3200 lines)
 main.py                     ← entry point: signals, startup ping, thread launch
 nudgarr.py                  ← compatibility shim for source runners (deprecated)
 ```

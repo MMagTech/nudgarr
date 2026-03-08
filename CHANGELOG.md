@@ -4,7 +4,26 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
-## v2.9.0
+## v3.0.0
+
+**Mobile UI**
+
+A purpose-built mobile layout — same backend, same logic, just a UI built for smaller screens. On any device under 500px wide (portrait), the desktop UI is swapped out for a native-feeling mobile experience.
+
+- Four-tab bottom nav — Home · Instances · Sweep · Exclusions
+- Home tab — full-width Run Now button, Last Run and Next Run cards, Movies and Shows import pills (tap to browse), and four independent toggles: Automatic Sweeps, Notifications, Radarr Backlog, Sonarr Backlog
+- Import pills — tap Movies or Shows to open a scrollable bottom sheet of all confirmed imports across every Radarr or Sonarr instance combined, most recent first
+- Exclusions — fourth nav item opens a bottom sheet with two inner tabs: Excluded (scrollable list with Remove buttons) and Add from History (recent searched items with + Exclude)
+- Sweep tab — per-instance accordion cards with Library State and This Run stats, same data as desktop
+- Instances tab — per-instance cards with Enable/Disable toggle
+- Sweep in progress indicator — full-width banner on Home tab during active runs
+- iOS safe area support — `viewport-fit=cover` with `env(safe-area-inset-bottom)` on nav
+- Landscape orientation overlay — prompts to rotate to portrait
+- Independent toggles for Radarr Backlog and Sonarr Backlog — previously a shared toggle
+
+---
+
+
 
 **Security hardening**
 - H1: API keys masked in `GET /api/config` response — last 4 characters shown as `••••••••XXXX`. Full key only travels client → server on save. Frontend handles masked keys gracefully — editing an existing instance without changing the key preserves the original.

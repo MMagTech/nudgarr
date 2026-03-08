@@ -18,17 +18,15 @@ Addressed all findings from the internal security audit — API key masking in c
 
 ---
 
-## v3.0
+## v3.0.0 ✓
 
-**Database migration**
-Replace JSON file storage with SQLite for history, state, and stats. Enables better querying, filtering, and pagination performance as history grows. Will include a migration path from existing JSON files — no data loss on upgrade.
+**Mobile UI**
+Purpose-built mobile layout for devices under 500px wide. Four-tab bottom nav (Home, Instances, Sweep, Exclusions), import pills on Home, bottom sheet modals for Exclusions and Imports, iOS safe area support, landscape orientation overlay. Same backend, no new dependencies.
 
 ---
 
 ## Future considerations
 
-A proper mobile layout — same backend, same logic, just a UI built for smaller screens. If the project finds its audience, this would be the natural next step.
-
----
+Items being considered but not yet scheduled: database migration from JSON to SQLite for better querying and pagination at scale, login page improvements for mobile thumb zones.
 
 Items not on the roadmap by design: additional arr support (Readarr, Lidarr) — the codebase is open source and welcomes forks for this. Webhook trigger endpoint — Nudgarr is intentionally one-directional. Dashboard charts — keeps the approach lean.

@@ -62,6 +62,14 @@ Click any screenshot to view full size.
 - What's New modal — shown once per version upgrade, never on fresh install
 - Backup All — single download of config, state, and stats as a zip
 
+**Mobile UI**
+- Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
+- Four-tab bottom nav: Home · Instances · Sweep · Exclusions
+- Home tab — Run Now, Last Run / Next Run, Movies and Shows import totals (tap to browse), and independent toggles for Automatic Sweeps, Notifications, Radarr Backlog, Sonarr Backlog
+- Exclusions bottom sheet — Excluded list with Remove buttons, Add from History tab
+- Imports bottom sheet — tap Movies or Shows pill to browse all confirmed imports combined across instances
+- iOS safe area support, landscape orientation overlay
+
 **Security & operations**
 - UI login with PBKDF2-HMAC-SHA256 password hashing and configurable session timeout
 - Progressive brute force lockout — 3 failures → 30s, up to 1hr at 15+ failures
@@ -82,7 +90,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `dev` · `v2.9.0` · `2.9.0` · `2.9`
+**Tags:** `latest` · `dev` · `v3.0.0` · `3.0.0` · `3.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -186,6 +194,9 @@ Locked out? Delete the config file and restart — Nudgarr will regenerate it wi
 ---
 
 ## Upgrade notes
+
+**v3.0.0**
+Mobile UI — no config changes required. The mobile layout activates automatically on devices under 500px wide. All existing config, state, and stats files are fully compatible.
 
 **v2.9.0**
 Security hardening — API keys masked in config responses, URL validation on test endpoints, CSRF origin header protection on all POST routes, security response headers, persistent session key surviving container restarts, and generic error messages replacing raw exception strings.

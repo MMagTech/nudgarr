@@ -71,25 +71,54 @@ section("Key Mobile Elements")
 for label, pat in {
     '#mobile-rotate':'id="mobile-rotate"', '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
+<<<<<<< Updated upstream
     '#m-sweep':'id="m-sweep"', '#m-imports':'id="m-imports"', '#m-nav':'id="m-nav"'
+=======
+    '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
+    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"'
+>>>>>>> Stashed changes
 }.items():
     if pat not in content: fail(f"Missing element: {label}")
     else: ok(f"Found: {label}")
 
+<<<<<<< Updated upstream
+=======
+# Nav items that open sheets (not tabs) — exclusions opens a bottom sheet
+SHEET_NAV_ITEMS = {'exclusions'}
+>>>>>>> Stashed changes
 nav_ids = re.findall(r'id="m-nav-(\w+)"', content)
 tab_ids = [t for t in re.findall(r'id="m-(\w+)"', content)
            if t not in ('nav','ver','last','next','running','prev')]
 for nav in nav_ids:
+<<<<<<< Updated upstream
     if nav not in tab_ids: fail(f"Nav item m-nav-{nav} has no tab m-{nav}")
     else: ok(f"Nav m-nav-{nav} → tab m-{nav} matched")
+=======
+    if nav in SHEET_NAV_ITEMS:
+        ok(f"Nav m-nav-{nav} → opens sheet (no tab required)")
+    elif nav not in tab_ids:
+        fail(f"Nav item m-nav-{nav} has no tab m-{nav}")
+    else:
+        ok(f"Nav m-nav-{nav} → tab m-{nav} matched")
+>>>>>>> Stashed changes
 
 # ── JavaScript Sanity ─────────────────────────────────────────────────────────
 section("JavaScript Sanity")
 
+<<<<<<< Updated upstream
 for fn in ['mUpdateHome','mRenderSweep','mRenderInstances','mRefreshImports',
            'mRunNow','mToggleAuto','mToggleNotify','mToggleRadarrBacklog',
            'mToggleSonarrBacklog','mToggleInstance',
            'mAccordion','mSwitchTab','mImportsPage','mPollCycle']:
+=======
+for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
+           'mRunNow','mToggleAuto','mToggleNotify','mToggleRadarrBacklog',
+           'mToggleSonarrBacklog','mToggleInstance',
+           'mAccordion','mSwitchTab','mPollCycle',
+           'mOpenExclusions','mCloseExclusions','mSwitchExclTab',
+           'mLoadExclusions','mExclRemove','mLoadExclHistory','mExclAdd',
+           'mOpenImports','mCloseImports','mLoadImports']:
+>>>>>>> Stashed changes
     if f'function {fn}' not in content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 

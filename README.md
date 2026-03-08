@@ -3,6 +3,8 @@
 
 Nudgarr keeps your Radarr and Sonarr libraries improving automatically — scheduling searches for missing content and quality upgrades so you don't have to.
 
+Nudgarr is stable and mature. Thanks to everyone who stuck with the frequent updates to get here. It does what it set out to do, and any new features beyond that will come from the community.
+
 ---
 
 ## Screenshots
@@ -41,43 +43,28 @@ Click any screenshot to view full size.
 
 ## Features
 
-**Core behaviour**
+**Core**
 - Scheduler with configurable run interval, or manual-only mode
 - Per-instance enable/disable — disabled instances skipped in sweeps and health checks
 - Per-app sample modes — Random, Alphabetical, Oldest Added, Newest Added independently for Radarr and Sonarr
-- Configurable cooldown to avoid hammering indexers between runs
-- Batch size, sleep, and jitter controls for indexer rate limit compliance
-- One retry per instance per sweep before marking bad and continuing
+- Configurable cooldown, batch size, sleep, and jitter controls for indexer rate limit compliance
 - Per-app Backlog Nudge toggles with Missing Added Days age filter and per-instance caps
 
-**UI & history**
+**UI**
 - Web UI with Instances, Sweep, Settings, History, Imports, Notifications, and Advanced tabs
-- Sweep tab — per-instance Library State (Cutoff Unmet, Backfill) and This Run stats (Eligible, On Cooldown, Capped, Searched) updated after every sweep
-- Search history with sweep type, instance, library added date, search count, sortable columns, title search, and pagination
+- Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
-- Confirmed import tracking with lifetime Movies/Shows totals, type filtering, and title search
+- Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, and title search
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
-- Instance health dots — live status updated on every sweep, test connection, and page load
-- First-run onboarding walkthrough — 10-step guided setup before the first sweep runs
-- What's New modal — shown once per version upgrade, never on fresh install
+- First-run onboarding walkthrough and What's New modal on upgrade
 - Backup All — single download of config, state, and stats as a zip
 
-**Mobile UI**
+**Mobile**
 - Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
 - Four-tab bottom nav: Home · Instances · Sweep · Exclusions
-- Home tab — Run Now, Last Run / Next Run, Movies and Shows import totals (tap to browse), and independent toggles for Automatic Sweeps, Notifications, Radarr Backlog, Sonarr Backlog
-- Exclusions bottom sheet — Excluded list with Remove buttons, Add from History tab
-- Imports bottom sheet — tap Movies or Shows pill to browse all confirmed imports combined across instances
-- iOS safe area support, landscape orientation overlay
-
-**Security & operations**
-- UI login with PBKDF2-HMAC-SHA256 password hashing and configurable session timeout
-- Progressive brute force lockout — 3 failures → 30s, up to 1hr at 15+ failures
-- Non-root container execution via PUID/PGID with su-exec privilege drop
-- Read-only container filesystem with restricted tmpfs at `/tmp`
-- `cap_drop: ALL` with only CHOWN, SETUID, SETGID added back
-- Resource limits — 128MB RAM, 0.5 CPU, 50 PIDs
-- Multi-arch Docker images — `linux/amd64` and `linux/arm64`
+- Quick Settings — long press Run Now to adjust interval, cooldown, and caps without leaving the home tab
+- Bottom sheets for Exclusions and Imports with haptic feedback and swipe-to-dismiss
+- iOS and Android browser toolbar matches the app via `theme-color`
 
 ---
 
@@ -90,7 +77,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `dev` · `v3.0.0` · `3.0.0` · `3.0`
+**Tags:** `latest` · `v3.0.0` · `3.0.0` · `3.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -101,6 +88,7 @@ PUID=1000
 PGID=1000
 PORT=8085
 CONFIG_PATH=/your/path/to/appdata/nudgarr
+# SECRET_KEY=your-secret-key  # optional, auto-generated if not set
 ```
 
 ```yaml
@@ -121,6 +109,8 @@ services:
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json
+      - EXCLUSIONS_FILE=/config/nudgarr-exclusions.json
+      # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=64m
@@ -156,7 +146,7 @@ Nudgarr runs as the user you specify — no permission issues with your `/config
 | Linux | `PUID=1000` `PGID=1000` |
 | Synology | Match your DSM user — check with `id` over SSH |
 
-Defaults to `1000:1000` if not set. Supported on any host running Docker — Unraid, Synology, TrueNAS SCALE, CasaOS, Portainer, or a plain Linux server.
+Defaults to `1000:1000` if not set.
 
 ---
 
@@ -167,44 +157,23 @@ Defaults to `1000:1000` if not set. Supported on any host running Docker — Unr
 | `/config/nudgarr-config.json` | All settings |
 | `/config/nudgarr-state.json` | Search history and cooldowns |
 | `/config/nudgarr-stats.json` | Confirmed import records |
+| `/config/nudgarr-exclusions.json` | Excluded titles |
 
 ---
 
 ## Security
 
-Nudgarr is a local network tool. Understanding what it does and doesn't protect is important before deploying it.
+Nudgarr is a local network tool. The login screen provides basic access control — it is not a hardened security layer. Passwords use PBKDF2-HMAC-SHA256 with a unique random salt, and failed attempts trigger a progressive lockout.
 
-**What the built-in login does**
-The login screen prevents someone on your network from accessing the UI and changing your configuration. It is not a hardened security layer — it is basic access control for your local network. Passwords are stored using PBKDF2-HMAC-SHA256 with a unique random salt. Failed login attempts trigger a progressive lockout. Timing-safe comparison is used throughout.
+Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a reverse proxy with HTTPS. Do not expose port 8085 to the internet.
 
-**What it does not protect**
-- Radarr and Sonarr API keys are stored in plaintext in the config file
-- Credentials are sent over plain HTTP unless behind a reverse proxy with HTTPS
-- SSH or physical access to your server bypasses all of this regardless
-
-**Recommendations**
-- Run on your LAN only — do not expose port 8085 to the internet
-- For remote access use a VPN (Tailscale, WireGuard) or a reverse proxy with HTTPS
-- Enable the built-in login as a basic layer of protection on your local network
-
-Nudgarr intentionally avoids features that introduce unnecessary attack surface. It does not execute arbitrary code, does not accept external input beyond its own UI, and does not make inbound connections — all outbound connections originate from the app itself to your configured Radarr and Sonarr instances, and optionally to your configured Apprise notification endpoints.
-
-Locked out? Delete the config file and restart — Nudgarr will regenerate it with defaults.
+Locked out? Delete the config file and restart.
 
 ---
 
 ## Upgrade notes
 
-**v3.0.0**
-Mobile UI — no config changes required. The mobile layout activates automatically on devices under 500px wide. All existing config, state, and stats files are fully compatible.
-
-**v2.9.0**
-Security hardening — API keys masked in config responses, URL validation on test endpoints, CSRF origin header protection on all POST routes, security response headers, persistent session key surviving container restarts, and generic error messages replacing raw exception strings.
-
-**v2.8.0**
-Sweep tab — per-instance Library State and This Run stats updated after every sweep. Exclusion list — exclude titles from future searches via the ⊘ icon in History. Onboarding expanded to 10 steps. Codebase restructured into a Python package.
-
-Upgrading from any previous version: no config changes required.
+**v3.0.0** — No config changes required. The mobile layout activates automatically on devices under 500px wide.
 
 For full version history see [CHANGELOG.md](CHANGELOG.md).
 
@@ -212,12 +181,4 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-Nudgarr is a community-welcome project. Whether you want to fix a bug, improve the code quality, add a feature, or just give feedback — all of it is appreciated.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide, and [ROADMAP.md](ROADMAP.md) for planned features.
-
----
-
-## Inspiration
-
-Nudgarr was inspired by the idea behind tools like Huntarr — automating the tedious parts of library management. We took a different approach: keep it small, keep it focused, and be transparent about what it does and doesn't do.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide.

@@ -15,6 +15,8 @@ services:
       - CONFIG_FILE=/config/nudgarr-config.json
       - STATE_FILE=/config/nudgarr-state.json
       - STATS_FILE=/config/nudgarr-stats.json
+      - EXCLUSIONS_FILE=/config/nudgarr-exclusions.json
+      # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=64m

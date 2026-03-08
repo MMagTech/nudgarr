@@ -146,6 +146,8 @@ The sweep logic lives entirely in `sweep.py`. `_sweep_radarr_instance` and `_swe
 
 The frontend is a single-page app in `nudgarr/templates/ui.html`. It's plain HTML, CSS, and vanilla JavaScript — no build step required. The JS communicates with the backend exclusively via the REST API endpoints.
 
+The file has two distinct UI sections. The desktop UI renders on screens 500px and wider. The mobile UI — marked with `<!-- MOBILE UI -->` — renders on screens under 500px and is a separate layout with its own HTML, CSS, and JS functions. Mobile functions are prefixed with `m` (e.g. `mHaptic`, `mSheetOpen`) to avoid collisions with desktop functions.
+
 When adding new HTML elements that are referenced by `el('some-id')` in JS, make sure the `id` attribute exists in the HTML. The CI check will catch mismatches.
 
 ### Changing authentication

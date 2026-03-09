@@ -1,108 +1,101 @@
 """
 nudgarr/state.py
 
-All persistence for the three runtime data files.
+Thin compatibility facade over db.py.
 
-  State      : state_key, load_state, ensure_state_structure, save_state
-  Stats      : load_stats, save_stats
-  Exclusions : load_exclusions, save_exclusions
+All persistence that previously lived in the three JSON runtime files
+now lives in the SQLite database via nudgarr/db.py.  This module keeps
+the same public function signatures that the rest of the package uses
+so that call sites need minimal changes.
+
+  State      : state_key, load_state*, ensure_state_structure*, save_state*
+  Stats      : load_stats*, save_stats*
+  Exclusions : load_exclusions, save_exclusions*
   Pruning    : prune_state_by_retention
 
-State tracks what has been searched and when (nudgarr-state.json).
-Stats tracks confirmed imports (nudgarr-stats.json).
-Exclusions tracks titles excluded from future searches (nudgarr-exclusions.json).
+Functions marked * are stubs or no-ops retained for call-site
+compatibility.  The real work happens inside db.py.
 
-Imports from within the package: constants, utils only.
+Imports from within the package: db, constants, utils only.
 """
 
-from datetime import timedelta
 from typing import Any, Dict, List
 
-from nudgarr.constants import EXCLUSIONS_FILE, STATE_FILE, STATS_FILE
-from nudgarr.utils import load_json, parse_iso, save_json_atomic, utcnow
+from nudgarr import db
 
 
-# ── State ─────────────────────────────────────────────────────────────
+
+# ── Key helper (still used by routes and sweep) ───────────────────────
 
 def state_key(name: str, url: str) -> str:
     return f"{name}|{url.rstrip('/')}"
 
 
+# ── State stubs ───────────────────────────────────────────────────────
+# Routes and scheduler still call load_state / save_state / ensure_state_structure.
+# They now return/accept a minimal dict with only the keys that still matter
+# (last_run_utc).  sweep_lifetime is served directly from the DB.
+
 def load_state() -> Dict[str, Any]:
-    st = load_json(STATE_FILE, {})
-    return st if isinstance(st, dict) else {}
+    """Return a minimal state dict for call-site compatibility."""
+    return {}
 
 
 def ensure_state_structure(state: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
-    state.setdefault("radarr", {})
-    state.setdefault("sonarr", {})
-    for inst in cfg.get("instances", {}).get("radarr", []):
-        ik = state_key(inst["name"], inst["url"])
-        state["radarr"].setdefault(ik, {})
-    for inst in cfg.get("instances", {}).get("sonarr", []):
-        ik = state_key(inst["name"], inst["url"])
-        state["sonarr"].setdefault(ik, {})
+    """No-op: structure is maintained by the DB schema."""
     return state
 
 
 def save_state(state: Dict[str, Any], cfg: Dict[str, Any]) -> None:
-    save_json_atomic(STATE_FILE, state, pretty=True)
+    """No-op: state is persisted immediately in db.py."""
+    pass
 
 
-# ── Stats ─────────────────────────────────────────────────────────────
+# ── Stats stubs ───────────────────────────────────────────────────────
+# sweep.py imports load_stats / save_stats from state for the pruning
+# block.  Those calls are being removed in the sweep.py rewrite, but
+# keeping stubs here prevents import errors during the transition.
 
 def load_stats() -> Dict[str, Any]:
-    st = load_json(STATS_FILE, {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0})
-    if not isinstance(st, dict):
-        return {"entries": [], "lifetime_movies": 0, "lifetime_shows": 0}
-    # Seed lifetime totals from existing confirmed entries if not yet set or uninitialized
-    confirmed = [e for e in st.get("entries", []) if e.get("imported")]
-    if st.get("lifetime_movies", 0) == 0 and st.get("lifetime_shows", 0) == 0 and confirmed:
-        st["lifetime_movies"] = sum(1 for e in confirmed if e.get("app") == "radarr")
-        st["lifetime_shows"] = sum(1 for e in confirmed if e.get("app") == "sonarr")
-        save_json_atomic(STATS_FILE, st, pretty=True)
-    st.setdefault("lifetime_movies", 0)
-    st.setdefault("lifetime_shows", 0)
-    return st
+    totals = db.get_lifetime_totals()
+    return {
+        "entries": [],
+        "lifetime_movies": totals.get("movies", 0),
+        "lifetime_shows": totals.get("shows", 0),
+    }
 
 
 def save_stats(stats: Dict[str, Any]) -> None:
-    save_json_atomic(STATS_FILE, stats, pretty=True)
+    """No-op: stats are persisted immediately in db.py."""
+    pass
 
 
 # ── Exclusions ────────────────────────────────────────────────────────
 
 def load_exclusions() -> List[Dict[str, Any]]:
-    data = load_json(EXCLUSIONS_FILE, [])
-    if not isinstance(data, list):
-        return []
-    return data
+    return db.get_exclusions()
 
 
 def save_exclusions(exclusions: List[Dict[str, Any]]) -> None:
-    save_json_atomic(EXCLUSIONS_FILE, exclusions, pretty=True)
+    """
+    Legacy bulk-save.  Used only by routes that have not yet been
+    migrated to call db.add_exclusion / db.remove_exclusion directly.
+    Syncs the DB to match the supplied list.
+    """
+    existing = {e["title"].lower() for e in db.get_exclusions()}
+    new_titles = {(e.get("title") or "").strip().lower() for e in exclusions if e.get("title")}
+    for e in exclusions:
+        title = (e.get("title") or "").strip()
+        if title and title.lower() not in existing:
+            db.add_exclusion(title)
+    for title_lower in existing - new_titles:
+        db.remove_exclusion(title_lower)
 
 
 # ── Pruning ───────────────────────────────────────────────────────────
 
 def prune_state_by_retention(state: Dict[str, Any], retention_days: int) -> int:
-    """Remove entries older than retention_days. Returns number removed."""
-    if retention_days <= 0:
-        return 0
-    cutoff = utcnow() - timedelta(days=retention_days)
-    removed = 0
-    for app in ("radarr", "sonarr"):
-        app_obj = state.get(app, {})
-        if not isinstance(app_obj, dict):
-            continue
-        for inst_key, bucket in list(app_obj.items()):
-            if not isinstance(bucket, dict):
-                continue
-            for item_key, entry in list(bucket.items()):
-                # Support both old string format and new dict format
-                ts = entry.get("ts") if isinstance(entry, dict) else entry
-                dt = parse_iso(ts) if isinstance(ts, str) else None
-                if dt is not None and dt < cutoff:
-                    bucket.pop(item_key, None)
-                    removed += 1
+    """Prune search_history and unimported stat_entries. Returns rows removed."""
+    removed = db.prune_search_history(retention_days)
+    removed += db.prune_stat_entries(retention_days)
     return removed

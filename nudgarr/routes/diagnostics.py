@@ -8,11 +8,12 @@ Diagnostic download endpoint.
 
 from flask import Blueprint, Response
 
+from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
-from nudgarr.constants import CONFIG_FILE, PORT, STATE_FILE, STATS_FILE, VERSION
+from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import STATUS
-from nudgarr.state import load_state, state_key
+from nudgarr.state import state_key
 
 bp = Blueprint("diagnostics", __name__)
 
@@ -26,9 +27,9 @@ def api_diagnostic():
     radarr_names = [i.get("name") for i in radarr_instances]
     sonarr_names = [i.get("name") for i in sonarr_instances]
 
-    # Build valid key → friendly name map
-    name_map = {}
+    # Per-instance entry counts from DB
     valid_keys = set()
+    name_map = {}
     for inst in radarr_instances:
         sk = state_key(inst["name"], inst["url"])
         name_map[("radarr", sk)] = inst["name"]
@@ -38,24 +39,29 @@ def api_diagnostic():
         name_map[("sonarr", sk)] = inst["name"]
         valid_keys.add(("sonarr", sk))
 
-    # Per-instance state counts with orphan detection
-    st = load_state()
-    instance_counts = []
-    for app_name in ("radarr", "sonarr"):
-        app_obj = st.get(app_name, {})
-        if isinstance(app_obj, dict):
-            for sk, bucket in app_obj.items():
-                count = len(bucket) if isinstance(bucket, dict) else 0
-                key_tuple = (app_name, sk)
-                if key_tuple in valid_keys:
-                    friendly = name_map[key_tuple]
-                    instance_counts.append(f"  {app_name}/{friendly}: {count} entries")
-                else:
-                    instance_counts.append(
-                        f"  {app_name}/{sk}: {count} entries (orphaned — no matching instance)"
-                    )
+    summary_rows = db.get_connection().execute(
+        """
+        SELECT app, instance_name, instance_url, COUNT(*) as cnt
+        FROM search_history
+        GROUP BY app, instance_name, instance_url
+        """
+    ).fetchall()
 
-    # Last run summary with cutoff/backlog breakdown
+    instance_counts = []
+    seen = set()
+    for r in summary_rows:
+        sk = f"{r['instance_name']}|{r['instance_url']}"
+        key_tuple = (r["app"], sk)
+        seen.add(key_tuple)
+        if key_tuple in valid_keys:
+            friendly = name_map[key_tuple]
+            instance_counts.append(f"  {r['app']}/{friendly}: {r['cnt']} entries")
+        else:
+            instance_counts.append(
+                f"  {r['app']}/{sk}: {r['cnt']} entries (orphaned — no matching instance)"
+            )
+
+    # Last run summary
     last_summary = STATUS.get("last_summary") or {}
     summary_lines = []
     for app_name in ("radarr", "sonarr"):
@@ -83,9 +89,8 @@ def api_diagnostic():
         f"Sonarr instances ({len(sonarr_names)}): {', '.join(sonarr_names) or 'none'}",
         f"Radarr cap: {cfg.get('radarr_max_movies_per_run')}/run | Backlog cap: {cfg.get('radarr_missing_max', 0)}/run",
         f"Sonarr cap: {cfg.get('sonarr_max_episodes_per_run')}/run | Backlog cap: {cfg.get('sonarr_missing_max', 0)}/run",
-        f"History file: {STATE_FILE}",
+        f"Database: {DB_FILE}",
         f"Config file: {CONFIG_FILE}",
-        f"Stats file: {STATS_FILE}",
         "",
         "Last run summary:",
     ] + (summary_lines or ["  No runs yet."]) + [

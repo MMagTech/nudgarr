@@ -198,7 +198,6 @@
     .status-dot.bad { background: var(--bad); }
     .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
     .status-dot.disabled { background: #4b5563; opacity: 1; }
-    .status-dot.queue-full { background: #f59e0b; opacity: 1; }
     .dot.running { background: var(--warn) !important; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     #pill-lastrun { min-width: 185px; }
@@ -1070,17 +1069,6 @@
           </div>
           <div class="help">Fires when a sweep fails or an instance becomes unreachable.</div>
         </div>
-        <div class="field" style="margin-top:12px">
-          <label>Queue Threshold</label>
-          <div class="toggle-wrap">
-            <label class="toggle">
-              <input type="checkbox" id="notify_on_queue_threshold" onchange="markUnsaved('notifyMsg')"/>
-              <span class="toggle-track"></span>
-              <span class="toggle-thumb"></span>
-            </label>
-          </div>
-          <div class="help">Fires when an instance is skipped because its download queue exceeded the threshold.</div>
-        </div>
       </div>
     </div>
 
@@ -1271,13 +1259,6 @@
           <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
         </div>
       </div>
-      <div class="field">
-        <div class="tooltip-wrap">
-          <label>Queue Threshold</label>
-          <span class="tooltip-icon">i<div class="tooltip-box">Skip this instance if its download queue exceeds this number. Set to 0 to disable. Helps avoid unnecessary indexer load and strain on slower connections or high I/O systems.</div></span>
-        </div>
-        <input id="modalQueueThreshold" type="text" placeholder="0 (disabled)"/>
-      </div>
       <div class="row">
         <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
         <button class="btn sm primary" onclick="saveModal()">Save</button>
@@ -1375,7 +1356,7 @@
   <!-- Home tab -->
   <div class="m-tab m-active" id="m-home">
     <div class="m-home-header">
-      <h1>Nudgarr</h1>
+      <h1><span style="font-style:italic;letter-spacing:0.03em">Nudgarr</span></h1>
       <span>v<span id="m-ver"></span></span>
     </div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
@@ -1867,7 +1848,6 @@ async function refreshSweep() {
       const sk = `${kind}|${inst.name}|${(inst.url || '').replace(/\/+$/, '')}`;
       const dotState = health[instKey] || 'checking';
       const disabled = inst.enabled === false;
-      const queueFull = !disabled && (health[instKey] === 'queue_full');
       const sw = summaryInsts.find(s => s.name === inst.name);
       const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
       const mode = cfg[modeKey] || legacyMode || 'random';
@@ -1925,7 +1905,6 @@ async function refreshSweep() {
               <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding-bottom:4px">
                 <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff">Library State</span>
                 ${disabled ? '<span style="font-size:10px;padding:2px 7px;background:rgba(99,120,255,.15);color:#6378ff;border:1px solid rgba(99,120,255,.3);border-radius:4px;font-weight:600;letter-spacing:.04em;opacity:1">Disabled</span>' : ''}
-                ${queueFull ? '<span style="font-size:10px;padding:2px 7px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:4px;font-weight:600;letter-spacing:.04em">Queue Full</span>' : ''}
               </div>
               <div class="sweep-stat">
                 <span class="sweep-stat-label">Cutoff Unmet</span>
@@ -2096,7 +2075,6 @@ function openModal(kind, idx) {
   const it = isEdit ? CFG.instances[kind][idx] : {name:'', url:'http://', key:''};
   el('modalName').value = it.name || '';
   el('modalUrl').value = it.url || '';
-  el('modalQueueThreshold').value = it.queue_threshold ?? 0;
   const isMasked = (it.key || '').startsWith('••••••••');
   el('modalKey').value = it.key || '';
   el('modalKey').placeholder = isMasked ? 'Leave unchanged or enter a new key' : 'Your API key';
@@ -2104,7 +2082,6 @@ function openModal(kind, idx) {
   el('keyToggleBtn').textContent = 'Show';
   el('modalKeyLabel').textContent = isEdit ? 'API Key (Masked)' : 'API Key (Masked After Save)';
   el('instModal').style.display = 'flex';
-  if (MODAL_IDX < 0) el('modalQueueThreshold').value = 0;
   setTimeout(() => el('modalName').focus(), 50);
 }
 
@@ -2131,12 +2108,11 @@ async function saveModal() {
   if (!name || !url || (!key && MODAL_IDX < 0)) { showAlert('All fields are required.'); return; }
   if (!key && MODAL_IDX >= 0) { showAlert('API key is required.'); return; }
   CFG.instances = CFG.instances || {radarr:[], sonarr:[]};
-  const queueThreshold = parseInt(el('modalQueueThreshold').value, 10) || 0;
   if (MODAL_IDX >= 0) {
     const existing = CFG.instances[MODAL_KIND][MODAL_IDX];
-    CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key, queue_threshold: queueThreshold, enabled: existing.enabled};
+    CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key, enabled: existing.enabled};
   } else {
-    CFG.instances[MODAL_KIND].push({name, url, key, queue_threshold: queueThreshold});
+    CFG.instances[MODAL_KIND].push({name, url, key});
   }
   closeModalDirect();
   renderInstances(MODAL_KIND);
@@ -2493,14 +2469,14 @@ async function refreshHistory() {
       const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
       return `
       <tr class="${rowClass}">
-        <td>${escapeHtml(title)}</td>
+        <td style="color:var(--text);font-weight:500">${escapeHtml(title)}</td>
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
-        <td>${escapeHtml(it.instance || '')}</td>
-        <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
-        <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:var(--surface2)">×${it.search_count}</span>` : ''}</td>
-        <td>${escapeHtml(fmtTime(it.library_added))}</td>
-        <td>${escapeHtml(fmtTime(it.last_searched))}</td>
-        <td>${escapeHtml(fmtTime(it.eligible_again))}</td>
+        <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
+        <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
+        <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">×${it.search_count}</span>` : ''}</td>
+        <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
+        <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
+        <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(it.eligible_again))}</td>
       </tr>
     `}).join('');
 
@@ -2680,11 +2656,11 @@ async function refreshImports() {
     const sorted = sortItems(data.entries, IMPORTS_SORT.col, IMPORTS_SORT.dir);
     const rows = sorted.map(e => `
       <tr>
-        <td>${escapeHtml(e.title || e.item_id)}</td>
-        <td>${escapeHtml(e.instance)}</td>
-        <td><span class="pill" style="font-size:11px;padding:2px 8px">${escapeHtml(e.type)}</span></td>
-        <td>${escapeHtml(fmtTime(e.searched_ts))}</td>
-        <td>${escapeHtml(fmtTime(e.imported_ts))}</td>
+        <td style="color:var(--text);font-weight:500">${escapeHtml(e.title || e.item_id)}</td>
+        <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
+        <td><span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">${escapeHtml(e.type)}</span></td>
+        <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.searched_ts))}</td>
+        <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(e.imported_ts))}</td>
       </tr>
     `).join('');
 
@@ -2733,7 +2709,6 @@ function fillNotifications() {
   el('notify_on_sweep_complete').checked = CFG.notify_on_sweep_complete !== false;
   el('notify_on_import').checked = CFG.notify_on_import !== false;
   el('notify_on_error').checked = CFG.notify_on_error !== false;
-  el('notify_on_queue_threshold').checked = CFG.notify_on_queue_threshold === true;
   syncNotifyUi();
 }
 
@@ -2776,7 +2751,6 @@ async function saveNotifications() {
   CFG.notify_on_sweep_complete = el('notify_on_sweep_complete').checked;
   CFG.notify_on_import = el('notify_on_import').checked;
   CFG.notify_on_error = el('notify_on_error').checked;
-  CFG.notify_on_queue_threshold = el('notify_on_queue_threshold').checked;
   const r = await api('/api/config', {method: 'POST', body: JSON.stringify(CFG)});
   if (r && r.ok) {
     await loadAll();
@@ -2907,6 +2881,7 @@ async function refreshStatus() {
       el('dot-dryrun').classList.remove('running');
       if (_wasRunning) {
         AUTO_REFRESH_LAST = 0;
+        HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
         if (ACTIVE_TAB === 'history') refreshHistory();
         if (ACTIVE_TAB === 'sweep') refreshSweep();
       }
@@ -3304,7 +3279,6 @@ function mRenderSweep() {
     (CFG.instances?.[kind] || []).forEach((inst) => {
       const key = `${kind}|${inst.name}`;
       const disabled = inst.enabled === false;
-      const queueFull = !disabled && (STATUS_CACHE[key] === 'queue_full');
       const cached = SWEEP_DATA_CACHE[key] || null;
       const hasData = cached != null;
       const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
@@ -3314,13 +3288,13 @@ function mRenderSweep() {
         <div class="m-sweep-card ${isOpen ? 'm-open' : ''}" data-key="${key}" onclick="mAccordion(this)">
           <div class="m-sweep-hdr">
             <div class="m-sweep-hdr-left">
-              <span class="status-dot ${disabled ? 'disabled' : queueFull ? 'queue-full' : 'ok'}" id="m-sdot-${key}"></span>
+              <span class="status-dot ${disabled ? 'disabled' : 'ok'}" id="m-sdot-${key}"></span>
               <span class="m-sweep-name">${escapeHtml(inst.name)}</span>
             </div>
             <span class="m-sweep-chevron">▼</span>
           </div>
           <div class="m-sweep-body">
-            ${disabled ? '<p class="m-sweep-meta">Disabled</p>' : queueFull ? `<p class="m-sweep-meta">Queue Full · Last run: ${SWEEP_LIFETIME_CACHE[key] ? fmtTime(SWEEP_LIFETIME_CACHE[key]) : '—'}</p>` : `
+            ${disabled ? '<p class="m-sweep-meta">Disabled</p>' : `
             <div class="m-sweep-meta">${fmtMode(mode)}</div>
             <div class="m-stat-section">LIBRARY STATE</div>
             <div class="m-stat-grid">

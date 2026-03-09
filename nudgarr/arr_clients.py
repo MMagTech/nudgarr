@@ -202,36 +202,3 @@ def sonarr_search_episodes(
     req(session, "POST", cmd, key, payload)
     print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
 
-
-# ── Queue counts ──────────────────────────────────────────────────────
-
-def radarr_get_queue_count(
-    session: requests.Session,
-    url: str,
-    key: str,
-) -> int:
-    """Returns total number of items currently in the Radarr download queue."""
-    try:
-        endpoint = f"{url.rstrip('/')}/api/v3/queue?pageSize=1"
-        data = req(session, "GET", endpoint, key)
-        if isinstance(data, dict):
-            return int(data.get("totalRecords", 0))
-    except Exception:
-        pass
-    return 0
-
-
-def sonarr_get_queue_count(
-    session: requests.Session,
-    url: str,
-    key: str,
-) -> int:
-    """Returns total number of items currently in the Sonarr download queue."""
-    try:
-        endpoint = f"{url.rstrip('/')}/api/v3/queue?pageSize=1"
-        data = req(session, "GET", endpoint, key)
-        if isinstance(data, dict):
-            return int(data.get("totalRecords", 0))
-    except Exception:
-        pass
-    return 0

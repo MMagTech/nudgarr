@@ -89,4 +89,3 @@ def notify_error(message: str, cfg: Optional[Dict[str, Any]] = None) -> None:
         body=message,
         cfg=cfg
     )
-

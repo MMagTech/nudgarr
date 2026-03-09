@@ -201,4 +201,3 @@ def sonarr_search_episodes(
     payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
     req(session, "POST", cmd, key, payload)
     print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
-

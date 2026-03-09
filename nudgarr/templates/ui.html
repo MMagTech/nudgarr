@@ -439,8 +439,11 @@
       background: var(--ok-dim); border: 1px solid rgba(34,197,94,.3);
       border-radius: 12px; font-size: 13px; color: var(--ok);
       margin-bottom: 20px; text-align: center;
+      max-height: 60px; opacity: 1;
+      overflow: hidden;
+      transition: max-height .35s ease, opacity .3s ease, margin-bottom .35s ease, padding .35s ease;
     }
-    .m-sweep-banner.hidden { display: none; }
+    .m-sweep-banner.hidden { max-height: 0; opacity: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }
     .m-divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
     .m-toggle-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -680,6 +683,7 @@
     @media screen and (max-width: 500px) {
       .wrap { display: none !important; }
       #mobile-ui { display: flex !important; }
+      body { background: var(--surface); }
     }
     @media screen and (max-width: 500px) and (orientation: landscape) {
       #mobile-ui { display: none !important; }
@@ -2890,12 +2894,24 @@ async function runNow() {
 }
 
 // ── Status polling ──
+let _wasRunning = false;
 async function refreshStatus() {
   try {
     const st = await api('/api/status');
     el('ver').textContent = st.version;
-    el('lastRun').textContent = fmtTime(st.last_run_utc);
-    el('dot-dryrun').classList.remove('running');
+    const isRunning = !!st.run_in_progress;
+    if (!isRunning) el('lastRun').textContent = fmtTime(st.last_run_utc);
+    if (isRunning) {
+      el('dot-dryrun').classList.add('running');
+    } else {
+      el('dot-dryrun').classList.remove('running');
+      if (_wasRunning) {
+        AUTO_REFRESH_LAST = 0;
+        if (ACTIVE_TAB === 'history') refreshHistory();
+        if (ACTIVE_TAB === 'sweep') refreshSweep();
+      }
+    }
+    _wasRunning = isRunning;
     el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
     updateStatusPill(CFG?.scheduler_enabled);
     refreshDotsFromStatus(st.instance_health || {});

@@ -740,7 +740,7 @@ def prune_stat_entries(retention_days: int) -> int:
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))
     conn = get_connection()
     cur = conn.execute(
-        "DELETE FROM stat_entries WHERE imported = 0 AND last_searched_ts < ?",
+        "DELETE FROM stat_entries WHERE imported = 1 AND imported_ts < ?",
         (cutoff,)
     )
     conn.commit()

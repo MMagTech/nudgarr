@@ -2004,6 +2004,10 @@ function showSweepNoInstancesModal() {
 // ── Exclusions ─────────────────────────────────────────────────────────────
 
 function showExclusionsPill(pill) {
+  if (pill._hideOnEnd) {
+    pill.removeEventListener('animationend', pill._hideOnEnd);
+    pill._hideOnEnd = null;
+  }
   pill.style.display = '';
   pill.classList.remove('pill-exit');
   void pill.offsetWidth;
@@ -2012,12 +2016,12 @@ function showExclusionsPill(pill) {
 function hideExclusionsPill(pill) {
   pill.classList.remove('pill-enter');
   pill.classList.add('pill-exit');
-  const onEnd = () => {
+  pill._hideOnEnd = () => {
     pill.style.display = 'none';
     pill.classList.remove('pill-exit');
-    pill.removeEventListener('animationend', onEnd);
+    pill._hideOnEnd = null;
   };
-  pill.addEventListener('animationend', onEnd);
+  pill.addEventListener('animationend', pill._hideOnEnd, { once: true });
 }
 
 async function loadExclusions() {
@@ -2389,7 +2393,6 @@ function fillSettings() {
   syncSchedulerUi();
   el('setMsg').textContent = ''; el('setMsg').className = 'msg';
   checkCooldownWarning();
-  checkNewestAddedWarning();
 }
 
 async function saveSettings() {
@@ -2408,7 +2411,7 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
-    if (!_newestAddedWarningActive()) fadeNewestAddedWarnings();
+    fadeNewestAddedWarnings();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2915,7 +2918,7 @@ async function saveAdvanced() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
-    if (!_newestAddedWarningActive()) fadeNewestAddedWarnings();
+    fadeNewestAddedWarnings();
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }

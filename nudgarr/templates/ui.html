@@ -42,7 +42,7 @@
     /* ── Header ── */
     .header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; }
     .brand h1 { font-size: 18px; font-weight: 800; margin: 0; letter-spacing: -.4px; color: #e8eaf0; }
-    .brand p { margin: 3px 0 0; color: #6b778f; font-size: 12px; letter-spacing: .01em; }
+    .brand p { margin: 3px 0 0; font-size: 12px; color: rgba(163,174,255,0.6); font-style: italic; letter-spacing: .03em; }
     .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
     /* ── Pills ── */
@@ -404,7 +404,7 @@
       bottom: 0; left: 0;
       width: 100%; height: 2px;
       border-radius: 2px;
-      background: linear-gradient(90deg, transparent 0%, rgba(99,120,255,0.35) 100%);
+      background: linear-gradient(90deg, rgba(99,120,255,0.4) 0%, rgba(99,120,255,0) 100%);
     }
     @keyframes wordmark-sweep {
       0%   { background-position: 200% center; }
@@ -412,11 +412,11 @@
     }
     .wordmark.sweeping::after {
       background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(99,120,255,0.2) 30%,
-        #c4caff 50%,
-        rgba(99,120,255,0.2) 70%,
-        transparent 100%
+        rgba(99,120,255,0) 0%,
+        rgba(99,120,255,0.15) 25%,
+        rgba(99,120,255,0.5) 50%,
+        rgba(99,120,255,0.15) 75%,
+        rgba(99,120,255,0) 100%
       );
       background-size: 200% auto;
       animation: wordmark-sweep 7s linear infinite;
@@ -484,6 +484,7 @@
       position: fixed;
       top: 0;
       left: 0;
+      background-image: radial-gradient(ellipse 300px 160px at 50% 0%, rgba(99,120,255,0.05) 0%, transparent 100%);
     }
 
     /* Mobile tab content */
@@ -495,13 +496,13 @@
     #m-nav {
       height: 64px;
       background: var(--surface);
-      border-top: 1px solid var(--border);
+      border-top: 1px solid rgba(255,255,255,0.07);
       display: flex;
       align-items: center;
       justify-content: space-around;
       flex-shrink: 0;
       padding-bottom: env(safe-area-inset-bottom, 0px);
-      box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface);
+      box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface), 0 -4px 20px rgba(0,0,0,0.25);
     }
     .m-nav-item {
       display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -517,24 +518,27 @@
 
     /* Home tab */
     .m-home-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
-    .m-home-header h1 { font-size: 26px; font-weight: 700; color: var(--text); margin: 0; font-style: italic; letter-spacing: 0.03em; }
+    .m-home-header h1 { font-size: 26px; font-weight: 700; margin: 0; font-style: italic; letter-spacing: 0.03em; background: linear-gradient(90deg, #a8b4ff 0%, #6378ff 60%, #818cf8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 6px rgba(99,120,255,0.35)); }
     .m-home-header span { font-size: 12px; color: var(--muted); }
-    .m-tagline { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
+    .m-tagline { font-size: 12px; color: rgba(163,174,255,0.6); font-style: italic; letter-spacing: .03em; margin-bottom: 22px; }
     .m-run-btn {
       width: 100%; padding: 14px;
-      background: rgba(99,120,255,.2); border: 1px solid var(--accent-border);
+      background: linear-gradient(135deg, rgba(99,120,255,.22) 0%, rgba(99,120,255,.14) 100%);
+      border: 1px solid var(--accent-border);
       border-radius: 14px; color: #c0caff; font-size: 16px; font-weight: 600;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       gap: 8px; margin-bottom: 10px; transition: background .15s;
+      box-shadow: 0 2px 12px rgba(99,120,255,0.12), inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .m-run-btn:active { background: rgba(99,120,255,.35); }
     .m-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
     .m-time-card {
-      background: var(--surface); border: 1px solid var(--border);
+      background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    .m-time-card .m-tc-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
-    .m-time-card .m-tc-value { font-size: 13px; color: var(--text); font-weight: 500; }
+    .m-time-card .m-tc-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; font-weight: 600; }
+    .m-time-card .m-tc-value { font-size: 13px; color: var(--text); font-weight: 600; }
     .m-sweep-banner {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       width: 100%; padding: 10px;
@@ -546,7 +550,7 @@
       transition: max-height .35s ease, opacity .3s ease, margin-bottom .35s ease, padding .35s ease;
     }
     .m-sweep-banner.hidden { max-height: 0; opacity: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }
-    .m-divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
+    .m-divider { height: 1px; background: linear-gradient(90deg, rgba(99,120,255,0.2) 0%, transparent 100%); margin: 4px 0 16px; }
     .m-toggle-row {
       display: flex; align-items: center; justify-content: space-between;
       padding: 13px 0; border-bottom: 1px solid var(--border);
@@ -555,12 +559,12 @@
     .m-toggle-label { font-size: 14px; color: var(--text); }
     .m-toggle-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .m-toggle {
-      width: 44px; height: 26px; background: var(--card);
-      border-radius: 999px; border: 1px solid var(--border);
+      width: 44px; height: 26px; background: rgba(255,255,255,0.06);
+      border-radius: 999px; border: 1px solid rgba(255,255,255,0.08);
       cursor: pointer; position: relative; transition: background .2s, border-color .2s;
-      flex-shrink: 0;
+      flex-shrink: 0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
     }
-    .m-toggle.m-on { background: var(--accent); border-color: var(--accent); }
+    .m-toggle.m-on { background: var(--accent); border-color: rgba(99,120,255,0.8); box-shadow: 0 0 8px rgba(99,120,255,0.3); }
     .m-toggle::after {
       content: ''; position: absolute; top: 3px; left: 3px;
       width: 18px; height: 18px; background: white; border-radius: 50%;
@@ -618,8 +622,9 @@
 
     /* Instances tab */
     .m-inst-card {
-      background: var(--surface); border: 1px solid var(--border);
+      background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 14px; margin-bottom: 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
     .m-inst-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .m-inst-name { font-size: 15px; font-weight: 600; color: var(--text); }
@@ -636,8 +641,9 @@
 
     /* Sweep tab */
     .m-sweep-card {
-      background: var(--surface); border: 1px solid var(--border);
+      background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; margin-bottom: 10px; overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
     .m-sweep-hdr {
       display: flex; align-items: center; justify-content: space-between;
@@ -659,12 +665,13 @@
 
     /* Import pills on Home tab */
     .m-import-pill {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 10px 12px;
-      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px;
+      display: flex; align-items: center; gap: 10px;
       cursor: pointer; transition: background .15s; user-select: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    .m-import-pill:active { background: var(--card); }
+    .m-import-pill:active { background: var(--card-hover); }
     .m-import-pill-icon { font-size: 15px; flex-shrink: 0; }
     .m-import-pill-info { flex: 1; }
     .m-import-pill-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
@@ -1071,7 +1078,7 @@
           <span class="import-stat-value" id="statMoviesTotal">—</span>
         </div>
         <div class="import-stat-card shows">
-          <span class="import-stat-label">Shows:</span>
+          <span class="import-stat-label">Episodes:</span>
           <span class="import-stat-value" id="statShowsTotal">—</span>
         </div>
       </div>
@@ -1261,7 +1268,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Days to Keep</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Shows totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Episodes totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
             </div>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
             <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed. 0 disables.</div>
@@ -1749,7 +1756,7 @@ Adds a small random delay on top of the sleep time to make search patterns less 
 A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
 <br><br>
 <strong>Stats</strong><br>
-Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Shows totals are lifetime counters that persist even if you clear the stats table.
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Episodes totals are lifetime counters that persist even if you clear the stats table.
 <br><br>
 Both tabs support <strong>title search</strong> — type a show or movie name to filter the table instantly. Use the instance dropdown alongside it to narrow results further.`
   },
@@ -2975,21 +2982,28 @@ async function resetConfig() {
 
 async function backupAll() {
   try {
+    const res = await fetch('/api/file/backup', { credentials: 'same-origin' });
+    if (!res.ok) { showAlert('Backup failed — please try again.'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = '/api/file/backup';
-    a.download = 'nudgarr-backup.zip';
+    a.href = url; a.download = 'nudgarr-backup.zip';
     document.body.appendChild(a); a.click(); a.remove();
-  } catch(e) {
-    showAlert('Backup failed: ' + e.message);
-  }
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch(e) { showAlert('Backup failed: ' + e.message); }
 }
 
-
 function downloadDiagnostic() {
-  const a = document.createElement('a');
-  a.href = '/api/diagnostic';
-  a.download = 'nudgarr-diagnostic.txt';
-  document.body.appendChild(a); a.click(); a.remove();
+  fetch('/api/diagnostic', { credentials: 'same-origin' })
+    .then(res => { if (!res.ok) throw new Error('Request failed'); return res.blob(); })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'nudgarr-diagnostic.txt';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })
+    .catch(e => showAlert('Diagnostic failed: ' + e.message));
 }
 
 // ── Run Now ──
@@ -3014,9 +3028,20 @@ async function refreshStatus() {
     if (isRunning) {
       el('dot-dryrun').classList.add('running');
       el('wordmark').classList.add('sweeping');
+      el('wordmark')._pendingStop = false;
     } else {
       el('dot-dryrun').classList.remove('running');
-      el('wordmark').classList.remove('sweeping');
+      const wm = el('wordmark');
+      if (wm.classList.contains('sweeping')) {
+        wm._pendingStop = true;
+        wm.addEventListener('animationiteration', function done() {
+          if (wm._pendingStop) {
+            wm.classList.remove('sweeping');
+            wm._pendingStop = false;
+          }
+          wm.removeEventListener('animationiteration', done);
+        });
+      }
       if (_wasRunning) {
         AUTO_REFRESH_LAST = 0;
         HISTORY_SORT = { col: 'last_searched', dir: 'desc' };

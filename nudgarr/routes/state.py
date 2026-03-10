@@ -18,6 +18,8 @@ State inspection, file downloads, and exclusion list management.
 
 import io
 import json
+import os
+import zipfile
 
 from flask import Blueprint, Response, jsonify, request
 
@@ -110,15 +112,13 @@ def api_file_state():
 @bp.get("/api/file/backup")
 @requires_auth
 def api_file_backup():
-    cfg = load_or_init_config()
-    export = db.export_as_json_dict()
+    from nudgarr.constants import CONFIG_FILE, DB_FILE
     buf = io.BytesIO()
-    import zipfile
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("nudgarr-config.json", json.dumps(cfg, indent=2))
-        zf.writestr("nudgarr-state.json", json.dumps(export["state"], indent=2))
-        zf.writestr("nudgarr-stats.json", json.dumps(export["stats"], indent=2))
-        zf.writestr("nudgarr-exclusions.json", json.dumps(export["exclusions"], indent=2))
+        if os.path.exists(CONFIG_FILE):
+            zf.write(CONFIG_FILE, "nudgarr-config.json")
+        if os.path.exists(DB_FILE):
+            zf.write(DB_FILE, "nudgarr.db")
     buf.seek(0)
     return Response(
         buf.read(),

@@ -8,6 +8,8 @@ Diagnostic download endpoint.
 
 from flask import Blueprint, Response
 
+import os
+
 from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
@@ -77,6 +79,17 @@ def api_diagnostic():
                     f"(cutoff={cutoff} backlog={backlog}) skipped_cooldown={skipped}"
                 )
 
+    # DB file size
+    try:
+        db_size_bytes = os.path.getsize(DB_FILE)
+        db_size = f"{db_size_bytes / 1024:.1f} KB" if db_size_bytes < 1024 * 1024 else f"{db_size_bytes / 1024 / 1024:.2f} MB"
+    except OSError:
+        db_size = "unavailable"
+
+    # Total history entry count
+    total_history = db.get_connection().execute("SELECT COUNT(*) FROM search_history").fetchone()[0]
+    total_stats = db.get_connection().execute("SELECT COUNT(*) FROM stat_entries WHERE imported = 1").fetchone()[0]
+
     lines = [
         f"Nudgarr v{VERSION}",
         f"Port: {PORT}",
@@ -85,17 +98,20 @@ def api_diagnostic():
         f"Last error: {STATUS.get('last_error') or 'None'}",
         f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, interval: {cfg.get('run_interval_minutes')}min",
         f"Cooldown: {cfg.get('cooldown_hours')}h",
+        f"Session timeout: {cfg.get('auth_session_minutes')}min | Auth: {'enabled' if cfg.get('auth_enabled') else 'disabled'}",
+        f"Import check interval: {cfg.get('import_check_minutes')}min",
         f"Radarr instances ({len(radarr_names)}): {', '.join(radarr_names) or 'none'}",
         f"Sonarr instances ({len(sonarr_names)}): {', '.join(sonarr_names) or 'none'}",
         f"Radarr cap: {cfg.get('radarr_max_movies_per_run')}/run | Backlog cap: {cfg.get('radarr_missing_max', 0)}/run",
         f"Sonarr cap: {cfg.get('sonarr_max_episodes_per_run')}/run | Backlog cap: {cfg.get('sonarr_missing_max', 0)}/run",
-        f"Database: {DB_FILE}",
+        f"Database: {DB_FILE} ({db_size})",
         f"Config file: {CONFIG_FILE}",
+        f"History entries: {total_history} total | Confirmed imports: {total_stats}",
         "",
         "Last run summary:",
     ] + (summary_lines or ["  No runs yet."]) + [
         "",
-        "History entry counts:",
+        "History entry counts by instance:",
     ] + (instance_counts or ["  No entries."])
 
     text = "\n".join(lines)

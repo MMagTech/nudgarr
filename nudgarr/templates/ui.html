@@ -470,7 +470,7 @@
 
     /* Home tab */
     .m-home-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
-    .m-home-header h1 { font-size: 26px; font-weight: 700; color: var(--text); margin: 0; }
+    .m-home-header h1 { font-size: 26px; font-weight: 700; color: var(--text); margin: 0; font-style: italic; letter-spacing: 0.03em; }
     .m-home-header span { font-size: 12px; color: var(--muted); }
     .m-tagline { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
     .m-run-btn {
@@ -731,8 +731,10 @@
       padding: 12px 18px; border-bottom: 1px solid var(--border);
     }
     .m-import-row:last-child { border-bottom: none; }
-    .m-import-row-title { font-size: 13px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 12px; }
+    .m-import-row-left { flex: 1; overflow: hidden; margin-right: 12px; }
+    .m-import-row-title { font-size: 13px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .m-import-row-date { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+    .m-callout { font-size: 12px; font-style: italic; color: var(--muted); line-height: 1.5; text-align: center; padding: 12px 18px 16px; }
 
     /* ── Media query activation ── */
     @media screen and (max-width: 500px) {
@@ -1412,7 +1414,7 @@
   <!-- Home tab -->
   <div class="m-tab m-active" id="m-home">
     <div class="m-home-header">
-      <h1><span style="font-style:italic;letter-spacing:0.03em">Nudgarr</span></h1>
+      <h1>Nudgarr</h1>
       <span>v<span id="m-ver"></span></span>
     </div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
@@ -1609,7 +1611,7 @@
           </div>
         </div>
       </div>
-      <div style="padding:12px 18px 18px;text-align:center;border-top:1px solid rgba(255,255,255,.06)"><span style="font-size:11px;color:#3d4558;letter-spacing:.03em">Full Settings on Desktop View</span></div>
+      <div class="m-callout">Full settings available on desktop</div>
     </div>
   </div>
 </div>
@@ -2019,9 +2021,10 @@ function hideExclusionsPill(pill) {
   pill._hideOnEnd = () => {
     pill.style.display = 'none';
     pill.classList.remove('pill-exit');
+    pill.removeEventListener('animationend', pill._hideOnEnd);
     pill._hideOnEnd = null;
   };
-  pill.addEventListener('animationend', pill._hideOnEnd, { once: true });
+  pill.addEventListener('animationend', pill._hideOnEnd);
 }
 
 async function loadExclusions() {
@@ -3621,8 +3624,13 @@ async function mLoadImports(type) {
     bodyEl.innerHTML = entries.map(e => {
       const title = escapeHtml(e.title || e.item_id || '—');
       const date = e.imported_ts ? fmtTime(e.imported_ts) : '';
+      const tagClass = e.type === 'Acquired' ? 'tag acquired' : 'tag';
+      const tagHtml = e.type ? `<span class="${tagClass}">${escapeHtml(e.type)}</span>` : '';
       return `<div class="m-import-row">
-        <span class="m-import-row-title">${title}</span>
+        <div class="m-import-row-left">
+          <div class="m-import-row-title">${title}</div>
+          ${tagHtml}
+        </div>
         <span class="m-import-row-date">${escapeHtml(date)}</span>
       </div>`;
     }).join('');

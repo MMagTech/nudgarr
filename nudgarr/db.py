@@ -186,6 +186,7 @@ def init_db() -> None:
     ).fetchone()
     if row is not None:
         _run_migration_v2(conn)
+        _run_migration_v3(conn)
         return
 
     state_exists = os.path.exists(STATE_FILE)
@@ -290,19 +291,41 @@ def _run_migration_v2(conn: sqlite3.Connection) -> None:
                 ).fetchall()
                 for r in group_rows[1:]:
                     conn.execute("DELETE FROM stat_entries WHERE id = ?", (r[0],))
-                    deleted += 1
-
-            # Rename sweep_type labels to shorter single-word versions
-            conn.execute("UPDATE search_history SET sweep_type = 'Backlog' WHERE sweep_type = 'Backlog Nudge'")
-            conn.execute("UPDATE search_history SET sweep_type = 'Cutoff' WHERE sweep_type = 'Cutoff Unmet'")
+            deleted += 1
 
             conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, ?)",
                 (iso_z(utcnow()),)
             )
 
         print(f"[Migration v2] Complete — {deleted} duplicate imported rows removed")
     except Exception as exc:
         print(f"[Migration v2] FAILED: {exc}")
+
+
+def _run_migration_v3(conn: sqlite3.Connection) -> None:
+    """
+    Schema v3 — renames sweep_type labels to shorter single-word versions.
+    Backlog Nudge -> Backlog, Cutoff Unmet -> Cutoff.
+    """
+    row = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 3"
+    ).fetchone()
+    if row is not None:
+        return
+
+    print("[Migration v3] Running — renaming sweep_type labels")
+    try:
+        with conn:
+            conn.execute("UPDATE search_history SET sweep_type = 'Backlog' WHERE sweep_type = 'Backlog Nudge'")
+            conn.execute("UPDATE search_history SET sweep_type = 'Cutoff' WHERE sweep_type = 'Cutoff Unmet'")
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, ?)",
+                (iso_z(utcnow()),)
+            )
+        print("[Migration v3] Complete")
+    except Exception as exc:
+        print(f"[Migration v3] FAILED: {exc}")
 
 
 def _migrate_exclusions(conn: sqlite3.Connection) -> None:

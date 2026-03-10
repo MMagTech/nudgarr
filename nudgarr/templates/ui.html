@@ -194,6 +194,14 @@
     }
     input:disabled { opacity: .5; cursor: not-allowed; }
     .help { font-size: 12px; color: #8c96aa; line-height: 1.4; }
+    .callout-text { font-size: 12px; font-style: italic; color: var(--muted); line-height: 1.5; }
+    .tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: .07em; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 6px; vertical-align: middle;
+      background: var(--accent-dim); color: #9ba8ff; border: 1px solid var(--accent-border);
+    }
+    .tag.acquired { background: rgba(34,197,94,.10); color: #4ade80; border-color: rgba(34,197,94,.28); }
     .hr { height: 1px; background: var(--border); margin: 16px 0; }
     .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .msg { font-size: 12px; color: var(--muted); transition: opacity 0.5s ease; }
@@ -1203,7 +1211,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Days to Keep</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps History entries and confirmed Imports before pruning them on the next sweep. Unconfirmed items in the Imports tab — things Nudgarr searched for but hasn't seen arrive yet — are never pruned automatically, so Nudgarr keeps watching for them no matter how long they take. Lifetime Movies and Shows totals are never affected by pruning. Setting to 0 disables pruning entirely.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Shows totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
             </div>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
             <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed. 0 disables.</div>
@@ -1351,7 +1359,7 @@
            <div class="help">Long press Run Now on mobile to adjust Run Interval, Cooldown, Max Movies, and Max Episodes without leaving the home tab. Changes save automatically.</div>
          </div>
        </div>
-       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);font-style:italic;line-height:1.6">
+       <div class="callout-text" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
          <p>Nudgarr does what it set out to do. Thanks for bearing with the constant updates to get here. They'll slow down now.</p>
          <p style="margin-top:10px">Future updates will keep it stable and focused, and any new features will come from the community.</p>
        </div>
@@ -1730,7 +1738,7 @@ Cutoff Unmet and Backfill reflect the current state of your library as reported 
 <br><br>
 <span style="color:var(--muted);font-size:12px">The defaults are intentionally conservative. Use these numbers over time to tune gradually — small increases to Max Per Run or small decreases to cooldown can make a meaningful difference.</span>
 <br><br>
-<span style="color:var(--muted);font-size:12px;font-style:italic">These numbers are informational. If you increase Max Per Run or reduce cooldown, do so gradually and monitor your indexer activity closely. Nudgarr has no visibility into your indexer's limits.</span>`
+<span class="callout-text">These numbers are informational. If you increase Max Per Run or reduce cooldown, do so gradually and monitor your indexer activity closely. Nudgarr has no visibility into your indexer's limits.</span>`
   },
   {
     title: "You're Ready",
@@ -2018,8 +2026,12 @@ async function loadExclusions() {
     EXCLUSIONS_SET = new Set((data || []).map(e => (e.title || '').toLowerCase()));
     const pill = el('exclusionsPill');
     if (pill) {
-      if (EXCLUSIONS_SET.size > 0) showExclusionsPill(pill);
-      else hideExclusionsPill(pill);
+      if (EXCLUSIONS_SET.size > 0) {
+        showExclusionsPill(pill);
+        pill.style.background = EXCL_FILTER_ACTIVE ? 'var(--accent)' : '';
+      } else {
+        hideExclusionsPill(pill);
+      }
     }
     const hint = el('exclusionsHint');
     if (hint) hint.style.display = EXCLUSIONS_SET.size > 0 ? 'none' : 'block';
@@ -2396,7 +2408,7 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
-    fadeNewestAddedWarnings();
+    if (!_newestAddedWarningActive()) fadeNewestAddedWarnings();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
@@ -2425,28 +2437,25 @@ function checkCooldownWarning() {
 }
 
 // ── Newest Added warning ──
+function _newestAddedWarningActive() {
+  const mode = el('radarr_sample_mode') ? el('radarr_sample_mode').value : (CFG ? CFG.radarr_sample_mode || CFG.sample_mode : 'random');
+  const backlog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
+  const days = el('radarr_missing_added_days') ? parseInt(el('radarr_missing_added_days').value || '0', 10) : (CFG ? (CFG.radarr_missing_added_days ?? 0) : 0);
+  return mode === 'newest_added' && backlog && days > 0;
+}
+
 function checkNewestAddedWarning() {
-  const radarrMode = el('radarr_sample_mode') ? el('radarr_sample_mode').value : (CFG ? CFG.radarr_sample_mode || CFG.sample_mode : 'random');
-  const radarrBacklog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
-  const missingDaysEl = el('radarr_missing_added_days');
-  const missingDays = missingDaysEl ? parseInt(missingDaysEl.value || '0', 10) : (CFG ? (CFG.radarr_missing_added_days ?? 0) : 0);
-  const showWarn = radarrMode === 'newest_added' && radarrBacklog && missingDays > 0;
+  const showWarn = _newestAddedWarningActive();
   const warnSettings = el('newestAddedWarnSettings');
   const warnAdv = el('newestAddedWarnAdvanced');
   [warnSettings, warnAdv].forEach(w => {
     if (!w) return;
     clearTimeout(w._warnFade);
-    if (showWarn) {
-      w.style.opacity = '';
-      w.style.transition = '';
-      w.classList.add('visible');
-    } else {
-      w.style.opacity = '';
-      w.style.transition = '';
-      w.classList.remove('visible');
-    }
+    w.style.opacity = '';
+    w.style.transition = '';
+    if (showWarn) { w.classList.add('visible'); }
+    else          { w.classList.remove('visible'); }
   });
-
 }
 
 function fadeNewestAddedWarnings() {
@@ -2532,7 +2541,7 @@ async function refreshHistory() {
 
     el('pageInfo').textContent = EXCL_FILTER_ACTIVE
       ? `${items.items.length} excluded item${items.items.length !== 1 ? 's' : ''}`
-      : `Page ${PAGE+1} · ${items.items.length} of ${items.total}`;
+      : `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${items.total} item${items.total !== 1 ? 's' : ''}`;
     el('historyPagination').style.display = (!EXCL_FILTER_ACTIVE && items.total > 0) ? 'flex' : 'none';
 
     const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
@@ -2722,7 +2731,7 @@ async function refreshImports() {
       if (prevType && (data.types || []).includes(prevType)) typeSel.value = prevType;
     }
 
-    el('importsPageInfo').textContent = `Page ${IMPORTS_PAGE+1} · ${data.entries.length} of ${data.total}`;
+    el('importsPageInfo').textContent = `Page ${IMPORTS_PAGE+1} of ${Math.max(1, Math.ceil(data.total / limit))} · ${data.total} import${data.total !== 1 ? 's' : ''}`;
     IMPORTS_TOTAL = data.total;
     el('statsPagination').style.display = data.total > 0 ? 'flex' : 'none';
 
@@ -2740,7 +2749,7 @@ async function refreshImports() {
       <tr>
         <td style="color:var(--text);font-weight:500">${escapeHtml(e.title || e.item_id)}</td>
         <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
-        <td><span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">${escapeHtml(e.type)}</span></td>
+        <td><span class="tag${e.type === 'Acquired' ? ' acquired' : ''}">${escapeHtml(e.type)}</span></td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.first_searched_ts))}</td>
         <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(e.imported_ts))}</td>
         <td style="color:var(--text-dim);font-size:12px">${escapeHtml(e.turnaround || '—')}</td>
@@ -2906,7 +2915,7 @@ async function saveAdvanced() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
-    fadeNewestAddedWarnings();
+    if (!_newestAddedWarningActive()) fadeNewestAddedWarnings();
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }

@@ -713,19 +713,22 @@ def _calc_turnaround(first_ts: Optional[str], imported_ts: Optional[str]) -> str
     dt_imported = parse_iso(imported_ts)
     if dt_first is None or dt_imported is None:
         return "-"
-    delta_s = int((dt_imported - dt_first).total_seconds())
+    delta_s = (dt_imported - dt_first).total_seconds()
     if delta_s < 0:
         return "-"
-    minutes = delta_s // 60
-    hours = minutes // 60
-    days = hours // 24
-    rem_hours = hours % 24
+    if delta_s < 30:
+        return "<1m"
+    # Round to nearest minute (30s threshold)
+    minutes = int((delta_s + 30) // 60)
+    hours   = minutes // 60
+    days    = hours // 24
+    rem_hours   = hours % 24
     rem_minutes = minutes % 60
     if days > 0:
         return f"{days}d {rem_hours}h" if rem_hours else f"{days}d"
     if hours > 0:
         return f"{hours}h {rem_minutes}m" if rem_minutes else f"{hours}h"
-    return f"{minutes}m" if minutes > 0 else "<1m"
+    return f"{minutes}m"
 
 
 def clear_stat_entries() -> None:

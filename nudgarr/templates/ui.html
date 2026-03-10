@@ -1022,7 +1022,7 @@
       <div style="display:flex;justify-content:center;margin-bottom:14px">
         <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px">
           Lifetime Confirmed
-          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
+          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
         </div>
       </div>
       <div class="import-stats">
@@ -1248,7 +1248,6 @@
               </label>
               <span class="help" id="auth_label">Enabled</span>
             </div>
-            <div class="help">When disabled, anyone on your network can access the UI</div>
           </div>
           <div class="field" style="margin-top:16px">
             <label>Session Timeout (Minutes)</label>
@@ -1272,7 +1271,6 @@
               </label>
               <span class="help" id="support_link_label">Shown</span>
             </div>
-            <div class="help">Toggle off to hide</div>
           </div>
         </div>
       </div>
@@ -3692,6 +3690,24 @@ if (MOBILE) {
   });
   setInterval(mPollCycle, 5000);
 }
+
+// ── Activity ping — updates session last_active on real user interaction only ──
+// Background polling does NOT reset the session timer. Only clicks, keypresses,
+// and scrolls count as activity. Debounced to fire at most once every 15 seconds.
+(function() {
+  let _pingTimer = null;
+  function _ping() {
+    fetch('/api/ping', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+  }
+  function _onActivity() {
+    if (_pingTimer) return;
+    _ping();
+    _pingTimer = setTimeout(() => { _pingTimer = null; }, 15000);
+  }
+  ['click', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+    document.addEventListener(ev, _onActivity, { passive: true })
+  );
+})();
 
 </script>
 </body>

@@ -40,7 +40,36 @@ def start_ui_server() -> None:
     app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
 
 
-def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
+def import_check_loop(stop_flag: Dict[str, bool]) -> None:
+    """
+    Independent import-check timer. Fires check_imports on its own schedule,
+    completely separate from the sweep interval. Wakes every 60 seconds and
+    checks whether import_check_minutes has elapsed since the last check.
+    """
+    session = requests.Session()
+    last_check_ts = utcnow()
+
+    while not stop_flag["stop"]:
+        time.sleep(60)
+        if stop_flag["stop"]:
+            break
+
+        cfg = load_or_init_config()
+        check_minutes = int(cfg.get("import_check_minutes", 120))
+        if check_minutes <= 0:
+            continue
+
+        now = utcnow()
+        elapsed = (now - last_check_ts).total_seconds() / 60
+        if elapsed >= check_minutes:
+            try:
+                check_imports(session, cfg)
+            except Exception as e:
+                print(f"[Stats] Import check error: {e}")
+            last_check_ts = now
+
+
+
     STATUS["scheduler_running"] = True
     session = requests.Session()
     cycle = 0

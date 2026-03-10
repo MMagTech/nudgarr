@@ -20,7 +20,7 @@ from nudgarr import db
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import STATUS
 from nudgarr.routes import register_blueprints
-from nudgarr.scheduler import print_banner, scheduler_loop, start_ui_server
+from nudgarr.scheduler import import_check_loop, print_banner, scheduler_loop, start_ui_server
 from nudgarr.utils import iso_z, req, utcnow
 
 
@@ -79,6 +79,9 @@ def main() -> None:
 
     # Start UI in a daemon thread
     threading.Thread(target=start_ui_server, daemon=True).start()
+
+    # Start import check loop in a daemon thread — independent of sweep schedule
+    threading.Thread(target=import_check_loop, args=(stop_flag,), daemon=True).start()
 
     # Run scheduler loop in main thread
     scheduler_loop(stop_flag)

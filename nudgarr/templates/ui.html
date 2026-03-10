@@ -861,7 +861,7 @@
               </label>
               <span class="help" id="scheduler_label">Enabled</span>
             </div>
-            <div class="help">When disabled, only sweeps when you click <b>Run Now</b>.</div>
+            <div class="help">When disabled, only sweeps when you click <b>Run Now</b></div>
           </div>
           <div class="field" style="max-width:160px">
             <div class="tooltip-wrap">
@@ -869,7 +869,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div></span>
             </div>
             <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
-            <div class="help">How often sweeps run.</div>
+            <div class="help">How often sweeps run</div>
           </div>
         </div>
       </div>
@@ -883,7 +883,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
             </div>
             <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
-            <div class="help">Minimum hours before the same movie or episode can be searched again. 0 disables.</div>
+            <div class="help">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
           </div>
         </div>
         <div class="grid cols2" style="gap:12px;margin-top:12px">
@@ -893,7 +893,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet movies searched per instance per run. 0 disables.</div>
+            <div class="help">Maximum Cutoff Unmet movies searched per instance per run (0 Disables)</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">
@@ -906,7 +906,7 @@
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help">How Nudgarr picks which Radarr items to search each run.</div>
+            <div class="help">How Nudgarr picks which Radarr items to search each run</div>
             <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
               <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
             </div>
@@ -919,7 +919,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run. 0 disables.</div>
+            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run (0 Disables)</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">
@@ -932,7 +932,7 @@
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help">How Nudgarr picks which Sonarr items to search each run.</div>
+            <div class="help">How Nudgarr picks which Sonarr items to search each run</div>
           </div>
         </div>
       </div>
@@ -962,7 +962,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div></span>
             </div>
             <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting.</div>
+            <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting</div>
           </div>
         </div>
       </div>
@@ -1017,8 +1017,9 @@
   <div class="section" id="tab-imports">
     <div class="card">
       <div style="display:flex;justify-content:center;margin-bottom:14px">
-        <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase">
+        <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px">
           Lifetime Confirmed
+          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
         </div>
       </div>
       <div class="import-stats">
@@ -1080,7 +1081,7 @@
             </label>
             <span class="help" id="notify_label">Disabled</span>
           </div>
-          <div class="help">Send notifications via any Apprise-compatible service — Discord, Gotify, Ntfy, Pushover, Slack, and many more.</div>
+          <div class="help">Send notifications via any Apprise-compatible service — Discord, Gotify, Ntfy, Pushover, Slack, and many more</div>
         </div>
         <div class="field" id="notify_url_field" style="margin-top:12px">
           <label>Notification URL</label>
@@ -1107,7 +1108,7 @@
               <span class="toggle-thumb"></span>
             </label>
           </div>
-          <div class="help">Fires when a sweep finishes — includes items searched and skipped.</div>
+          <div class="help">Fires when a sweep finishes — includes items searched and skipped</div>
         </div>
         <div class="field" style="margin-top:12px">
           <label>Import Confirmed</label>
@@ -1118,7 +1119,7 @@
               <span class="toggle-thumb"></span>
             </label>
           </div>
-          <div class="help">Fires when a searched item is confirmed imported into your library.</div>
+          <div class="help">Fires when a searched item is confirmed imported into your library</div>
         </div>
         <div class="field" style="margin-top:12px">
           <label>Error</label>
@@ -1129,7 +1130,7 @@
               <span class="toggle-thumb"></span>
             </label>
           </div>
-          <div class="help">Fires when a sweep fails or an instance becomes unreachable.</div>
+          <div class="help">Fires when a sweep fails or an instance becomes unreachable</div>
         </div>
       </div>
     </div>
@@ -1166,7 +1167,7 @@
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
-              <div class="help">Maximum missing movies searched per instance per run.</div>
+              <div class="help">Maximum missing movies searched per instance per run</div>
             </div>
             <div class="field">
               <div class="tooltip-wrap">
@@ -1174,7 +1175,7 @@
                 <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div></span>
               </div>
               <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
-              <div class="help">Only search missing items added more than this many days ago.</div>
+              <div class="help">Only search missing items added more than this many days ago (0 Disables)</div>
             </div>
           </div>
           </div>
@@ -1198,7 +1199,7 @@
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
               </div>
               <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-              <div class="help">Maximum missing episodes searched per instance per run.</div>
+              <div class="help">Maximum missing episodes searched per instance per run</div>
             </div>
           </div>
           </div>
@@ -1230,7 +1231,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. Setting this too low may miss slow downloads — 120 minutes is a safe default. Confirmed imports appear in the Stats tab.</div></span>
             </div>
             <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-            <div class="help">How often Nudgarr checks for confirmed imports.</div>
+            <div class="help">How often Nudgarr checks for confirmed imports</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Security</p>
@@ -1244,12 +1245,12 @@
               </label>
               <span class="help" id="auth_label">Enabled</span>
             </div>
-            <div class="help">When disabled, anyone on your network can access the UI.</div>
+            <div class="help">When disabled, anyone on your network can access the UI</div>
           </div>
           <div class="field" style="margin-top:16px">
             <label>Session Timeout (Minutes)</label>
             <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Minutes of inactivity before requiring re-login.</div>
+            <div class="help">Minutes of inactivity before requiring re-login</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">UI Preferences</p>
@@ -1268,7 +1269,7 @@
               </label>
               <span class="help" id="support_link_label">Shown</span>
             </div>
-            <div class="help">Toggle off to hide.</div>
+            <div class="help">Toggle off to hide</div>
           </div>
         </div>
       </div>
@@ -1308,7 +1309,7 @@
       <h2 id="modalTitle">Add Instance</h2>
       <div class="field">
         <label>Name</label>
-        <input id="modalName" type="text" placeholder="e.g. radarr-4k"/>
+        <input id="modalName" type="text" placeholder="Example: Radarr"/>
       </div>
       <div class="field">
         <label>URL</label>
@@ -1317,7 +1318,7 @@
       <div class="field">
         <label id="modalKeyLabel">API Key</label>
         <div class="key-wrap">
-          <input id="modalKey" type="password" placeholder="Your API key"/>
+          <input id="modalKey" type="password" placeholder="Instance API Key"/>
           <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
         </div>
       </div>
@@ -1835,6 +1836,10 @@ function showTab(name) {
 }
 
 function _onTabShown(name) {
+  // Reset header support pill to saved state on every tab switch
+  const sl = el('supportLink');
+  if (sl && CFG) sl.style.display = CFG.show_support_link !== false ? 'inline-flex' : 'none';
+
   if (name === 'history') {
     EXCL_FILTER_ACTIVE = false;
     const pill = el('exclusionsPill'); if (pill) pill.classList.remove('active');
@@ -1861,7 +1866,7 @@ function _onTabShown(name) {
           <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
           <th class="sortable ${IMPORTS_SORT.col==='first_searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="first_searched_ts" onclick="sortImports('first_searched_ts')">Last Searched</th>
           <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
-          <th>Turnaround</th>
+          <th>Turnaround <span class="tooltip-icon tip-down">i<div class="tooltip-box">Time from when Nudgarr first searched this item to when it was confirmed imported. Resets if the item is imported again at a higher quality.</div></span></th>
         </tr></thead><tbody></tbody></table>`;
     }
     refreshImports();
@@ -2148,7 +2153,8 @@ function openModal(kind, idx) {
   el('modalUrl').value = it.url || '';
   const isMasked = (it.key || '').startsWith('••••••••');
   el('modalKey').value = it.key || '';
-  el('modalKey').placeholder = isMasked ? 'Leave unchanged or enter a new key' : 'Your API key';
+  el('modalKey').placeholder = isMasked ? 'Leave unchanged or enter a new key' : 'Instance API Key';
+  el('modalName').placeholder = kind === 'radarr' ? 'Example: Radarr' : 'Example: Sonarr';
   el('modalKey').type = 'password';
   el('keyToggleBtn').textContent = 'Show';
   el('modalKeyLabel').textContent = isEdit ? 'API Key (Masked)' : 'API Key (Masked After Save)';
@@ -2540,7 +2546,7 @@ async function refreshHistory() {
         <td style="color:var(--text);font-weight:500">${escapeHtml(title)}</td>
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
-        <td>${it.sweep_type ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
+        <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog Nudge' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">×${it.search_count}</span>` : ''}</td>
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
@@ -2750,7 +2756,7 @@ async function refreshImports() {
           <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
           <th class="sortable ${IMPORTS_SORT.col==='first_searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="first_searched_ts" onclick="sortImports('first_searched_ts')">Last Searched</th>
           <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
-          <th>Turnaround</th>
+          <th>Turnaround <span class="tooltip-icon tip-down">i<div class="tooltip-box">Time from when Nudgarr first searched this item to when it was confirmed imported. Resets if the item is imported again at a higher quality.</div></span></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>

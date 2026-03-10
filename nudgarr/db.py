@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS stat_entries (
     item_id           TEXT NOT NULL,
     title             TEXT NOT NULL DEFAULT '',
     type              TEXT NOT NULL DEFAULT '',
+    iteration         INTEGER NOT NULL DEFAULT 1,
     first_searched_ts TEXT NOT NULL,
     last_searched_ts  TEXT NOT NULL,
     imported          INTEGER NOT NULL DEFAULT 0,
@@ -184,6 +185,7 @@ def init_db() -> None:
         "SELECT version FROM schema_migrations WHERE version = 1"
     ).fetchone()
     if row is not None:
+        _run_migration_v2(conn)
         return
 
     state_exists = os.path.exists(STATE_FILE)
@@ -237,6 +239,67 @@ def _run_migration(conn: sqlite3.Connection) -> None:
                 print(f"[Migration] Warning: could not rename {path}: {rename_err}")
 
     print("[Migration] Complete")
+
+
+def _run_migration_v2(conn: sqlite3.Connection) -> None:
+    """
+    Schema v2 — adds iteration column and deduplicates imported stat rows
+    left over from the JSON migration.
+    Safe to run on every startup when v2 is not yet recorded.
+    """
+    row = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 2"
+    ).fetchone()
+    if row is not None:
+        return
+
+    print("[Migration v2] Running — adding iteration column and deduplicating imports")
+    try:
+        with conn:
+            # Add iteration column if not present (existing installs)
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(stat_entries)").fetchall()]
+            if "iteration" not in cols:
+                conn.execute(
+                    "ALTER TABLE stat_entries ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1"
+                )
+
+            # Deduplicate: find (app, instance, item_id, type) groups
+            # with multiple imported=1 rows — artefacts of the JSON migration
+            # which appended rather than upserted. Keep earliest first_searched_ts
+            # (tiebreak: lowest id), delete the rest.
+            dup_groups = conn.execute(
+                """
+                SELECT app, instance, item_id, type
+                FROM stat_entries
+                WHERE imported = 1
+                GROUP BY app, instance, item_id, type
+                HAVING COUNT(*) > 1
+                """
+            ).fetchall()
+
+            deleted = 0
+            for grp in dup_groups:
+                group_rows = conn.execute(
+                    """
+                    SELECT id FROM stat_entries
+                    WHERE imported = 1
+                      AND app = ? AND instance = ? AND item_id = ? AND type = ?
+                    ORDER BY first_searched_ts ASC, id ASC
+                    """,
+                    (grp[0], grp[1], grp[2], grp[3])
+                ).fetchall()
+                for r in group_rows[1:]:
+                    conn.execute("DELETE FROM stat_entries WHERE id = ?", (r[0],))
+                    deleted += 1
+
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, ?)",
+                (iso_z(utcnow()),)
+            )
+
+        print(f"[Migration v2] Complete — {deleted} duplicate imported rows removed")
+    except Exception as exc:
+        print(f"[Migration v2] FAILED: {exc}")
 
 
 def _migrate_exclusions(conn: sqlite3.Connection) -> None:
@@ -628,10 +691,44 @@ def confirm_stat_entry(
     imported_ts: str,
 ) -> bool:
     conn = get_connection()
+
+    # Check for an existing imported row for this item (any type).
+    # If one exists we update it in place — one row per item, badge reflects
+    # the most recent event, iteration increments when the same type repeats.
+    existing = conn.execute(
+        """
+        SELECT id, type, iteration FROM stat_entries
+        WHERE app = ? AND instance = ? AND item_id = ? AND imported = 1
+        """,
+        (app, instance, item_id)
+    ).fetchone()
+
+    if existing:
+        new_iteration = (existing["iteration"] + 1) if existing["type"] == entry_type else 1
+        conn.execute(
+            """
+            UPDATE stat_entries
+            SET type = ?, imported_ts = ?, iteration = ?
+            WHERE id = ?
+            """,
+            (entry_type, imported_ts, new_iteration, existing["id"])
+        )
+        # Remove the now-confirmed pending row
+        conn.execute(
+            """
+            DELETE FROM stat_entries
+            WHERE app = ? AND instance = ? AND item_id = ? AND type = ? AND imported = 0
+            """,
+            (app, instance, item_id, entry_type)
+        )
+        conn.commit()
+        return True
+
+    # No prior imported row — mark the pending row as imported
     cur = conn.execute(
         """
         UPDATE stat_entries
-        SET imported = 1, imported_ts = ?
+        SET imported = 1, imported_ts = ?, iteration = 1
         WHERE app = ? AND instance = ? AND item_id = ? AND type = ? AND imported = 0
         """,
         (imported_ts, app, instance, item_id, entry_type)
@@ -688,7 +785,7 @@ def get_confirmed_entries(
 
     rows = conn.execute(
         f"""
-        SELECT app, instance, item_id, title, type,
+        SELECT app, instance, item_id, title, type, iteration,
                first_searched_ts, last_searched_ts, imported_ts
         FROM stat_entries {where_sql}
         ORDER BY imported_ts DESC
@@ -722,11 +819,18 @@ def _calc_turnaround(first_ts: Optional[str], imported_ts: Optional[str]) -> str
     minutes = int((delta_s + 30) // 60)
     hours = minutes // 60
     days = hours // 24
-    rem_hours = hours % 24
-    rem_minutes = minutes % 60
+    if days >= 56:
+        months = days // 30
+        return f"{months}mo"
+    if days >= 7:
+        weeks = days // 7
+        rem_days = days % 7
+        return f"{weeks}w {rem_days}d" if rem_days else f"{weeks}w"
     if days > 0:
+        rem_hours = hours % 24
         return f"{days}d {rem_hours}h" if rem_hours else f"{days}d"
     if hours > 0:
+        rem_minutes = minutes % 60
         return f"{hours}h {rem_minutes}m" if rem_minutes else f"{hours}h"
     return f"{minutes}m"
 

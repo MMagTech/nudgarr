@@ -45,17 +45,24 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     session = requests.Session()
     cycle = 0
 
+    # Set next_run_utc at startup without running a sweep.
+    # The first sweep fires when the interval elapses or Run Now is pressed.
+    # Missed intervals during downtime are skipped — no catch-up on restart.
+    cfg = load_or_init_config()
+    scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
+    interval_min = int(cfg.get("run_interval_minutes", 360))
+    if scheduler_enabled:
+        STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+    else:
+        STATUS["next_run_utc"] = None
+
     while not stop_flag["stop"]:
         cfg = load_or_init_config()
 
-        now = utcnow()
         scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
-
         interval_min = int(cfg.get("run_interval_minutes", 360))
-        next_run = now + timedelta(minutes=interval_min)
-        STATUS["next_run_utc"] = iso_z(next_run) if scheduler_enabled else None
 
-        should_run = scheduler_enabled and cycle == 0
+        should_run = False
 
         with RUN_LOCK:
             if STATUS.get("run_requested"):
@@ -86,6 +93,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 notify_error(f"Sweep failed: {e}", cfg)
             finally:
                 STATUS["run_in_progress"] = False
+                # Recalculate next run after each sweep completes
+                if scheduler_enabled:
+                    STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+                else:
+                    STATUS["next_run_utc"] = None
 
         if stop_flag["stop"]:
             break

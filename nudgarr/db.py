@@ -720,9 +720,9 @@ def _calc_turnaround(first_ts: Optional[str], imported_ts: Optional[str]) -> str
         return "<1m"
     # Round to nearest minute (30s threshold)
     minutes = int((delta_s + 30) // 60)
-    hours   = minutes // 60
-    days    = hours // 24
-    rem_hours   = hours % 24
+    hours = minutes // 60
+    days = hours // 24
+    rem_hours = hours % 24
     rem_minutes = minutes % 60
     if days > 0:
         return f"{days}d {rem_hours}h" if rem_hours else f"{days}d"

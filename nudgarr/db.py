@@ -162,6 +162,11 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     version     INTEGER NOT NULL PRIMARY KEY,
     applied_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS nudgarr_state (
+    key    TEXT NOT NULL PRIMARY KEY,
+    value  TEXT NOT NULL
+);
 """
 
 
@@ -1026,3 +1031,25 @@ def export_as_json_dict() -> Dict[str, Any]:
         "stats": stats_export,
         "exclusions": exclusions_export,
     }
+
+
+# ── App state persistence ─────────────────────────────────────────────
+
+def get_state(key: str) -> Optional[str]:
+    """Retrieve a persisted state value by key."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT value FROM nudgarr_state WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else None
+
+
+def set_state(key: str, value: str) -> None:
+    """Persist a state value by key."""
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO nudgarr_state (key, value) VALUES (?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value)
+        )
+        conn.commit()

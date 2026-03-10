@@ -366,6 +366,7 @@
       opacity: 0; pointer-events: none;
       transition: opacity .2s;
       box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(99,120,255,.08);
+      text-transform: none; letter-spacing: normal;
     }
     .tooltip-icon.tip-left .tooltip-box {
       left: auto; right: calc(100% + 3px);
@@ -1315,7 +1316,7 @@
       </div>
       <div class="field">
         <label>URL</label>
-        <input id="modalUrl" type="text" placeholder="http://192.168.1.10:7878"/>
+        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878"/>
       </div>
       <div class="field">
         <label id="modalKeyLabel">API Key</label>
@@ -1405,7 +1406,7 @@
 
 
 </div><!-- end .wrap -->
-</div><!-- end body wrap -->
+
 
 <!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
 
@@ -1627,6 +1628,7 @@
 const MOBILE = window.matchMedia('(max-width: 500px)').matches;
 let CFG = null;
 let PAGE = 0;
+let HISTORY_TOTAL = 0;
 let IMPORTS_PAGE = 0;
 let IMPORTS_TOTAL = 0;
 let ALL_INSTANCES = [];
@@ -2151,13 +2153,14 @@ function openModal(kind, idx) {
   MODAL_IDX = idx;
   const isEdit = idx >= 0;
   el('modalTitle').textContent = (isEdit ? 'Edit ' : 'Add ') + (kind === 'radarr' ? 'Radarr' : 'Sonarr') + ' Instance';
-  const it = isEdit ? CFG.instances[kind][idx] : {name:'', url:'http://', key:''};
+  const it = isEdit ? CFG.instances[kind][idx] : {name:'', url:'', key:''};
   el('modalName').value = it.name || '';
   el('modalUrl').value = it.url || '';
   const isMasked = (it.key || '').startsWith('••••••••');
   el('modalKey').value = it.key || '';
   el('modalKey').placeholder = isMasked ? 'Leave unchanged or enter a new key' : 'Instance API Key';
   el('modalName').placeholder = kind === 'radarr' ? 'Example: Radarr' : 'Example: Sonarr';
+  el('modalUrl').placeholder = kind === 'radarr' ? 'Example: http://192.168.1.10:7878' : 'Example: http://192.168.1.10:8989';
   el('modalKey').type = 'password';
   el('keyToggleBtn').textContent = 'Show';
   el('modalKeyLabel').textContent = isEdit ? 'API Key (Masked)' : 'API Key (Masked After Save)';
@@ -2534,6 +2537,7 @@ async function refreshHistory() {
     el('pageInfo').textContent = EXCL_FILTER_ACTIVE
       ? `${items.items.length} excluded item${items.items.length !== 1 ? 's' : ''}`
       : `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${items.total} item${items.total !== 1 ? 's' : ''}`;
+    HISTORY_TOTAL = items.total;
     el('historyPagination').style.display = (!EXCL_FILTER_ACTIVE && items.total > 0) ? 'flex' : 'none';
 
     const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
@@ -2623,7 +2627,10 @@ function sortItems(items, col, dir) {
 }
 
 function prevPage() { if (PAGE > 0) { PAGE--; refreshHistory(); } }
-function nextPage() { PAGE++; refreshHistory(); }
+function nextPage() {
+  const limit = parseInt(el('historyLimit').value || '25', 10);
+  if ((PAGE + 1) * limit < HISTORY_TOTAL) { PAGE++; refreshHistory(); }
+}
 
 // ── Page size memory (shared across History and Stats) ──
 function syncPageSize(source) {
@@ -2870,7 +2877,7 @@ function fillAdvanced() {
 
 function syncAuthUi() {
   const enabled = el('auth_enabled').checked;
-  el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled — anyone on your network can access the UI';
+  el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled';
 }
 
 function markUnsaved(msgId) {

@@ -74,7 +74,7 @@ def _sweep_radarr_instance(
         batch_items = chosen_items[i:i + batch_size]
         batch_ids = [m["id"] for m in batch_items]
         radarr_search_movies(session, url, key, batch_ids)
-        mark_items_searched("radarr", name, inst_url, "movie", batch_items, "Cutoff Unmet")
+        mark_items_searched("radarr", name, inst_url, "movie", batch_items, "Cutoff")
         for m in batch_items:
             record_stat_entry("radarr", name, str(m["id"]), m.get("title", ""), "Upgraded", iso_z(utcnow()))
         searched += len(batch_items)
@@ -119,7 +119,7 @@ def _sweep_radarr_instance(
             batch_items = chosen_missing[i:i + batch_size]
             batch_ids = [m["id"] for m in batch_items]
             radarr_search_movies(session, url, key, batch_ids)
-            mark_items_searched("radarr", name, inst_url, "missing_movie", batch_items, "Backlog Nudge")
+            mark_items_searched("radarr", name, inst_url, "missing_movie", batch_items, "Backlog")
             for m in batch_items:
                 record_stat_entry("radarr", name, str(m["id"]), m.get("title", ""), "Acquired", iso_z(utcnow()))
             searched_missing += len(batch_items)
@@ -177,7 +177,7 @@ def _sweep_sonarr_instance(
         batch_items = chosen_items[i:i + batch_size]
         batch_ids = [e["id"] for e in batch_items]
         sonarr_search_episodes(session, url, key, batch_ids)
-        mark_items_searched("sonarr", name, inst_url, "episode", batch_items, "Cutoff Unmet")
+        mark_items_searched("sonarr", name, inst_url, "episode", batch_items, "Cutoff")
         for e in batch_items:
             record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title", ""), "Upgraded", iso_z(utcnow()))
         searched += len(batch_items)
@@ -208,7 +208,7 @@ def _sweep_sonarr_instance(
             batch_items = chosen_missing[i:i + batch_size]
             batch_ids = [e["id"] for e in batch_items]
             sonarr_search_episodes(session, url, key, batch_ids)
-            mark_items_searched("sonarr", name, inst_url, "missing_episode", batch_items, "Backlog Nudge")
+            mark_items_searched("sonarr", name, inst_url, "missing_episode", batch_items, "Backlog")
             for e in batch_items:
                 record_stat_entry("sonarr", name, str(e.get("series_id") or e["id"]), e.get("title", ""), "Acquired", iso_z(utcnow()))
             searched_missing += len(batch_items)

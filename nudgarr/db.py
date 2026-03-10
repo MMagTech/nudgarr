@@ -292,8 +292,11 @@ def _run_migration_v2(conn: sqlite3.Connection) -> None:
                     conn.execute("DELETE FROM stat_entries WHERE id = ?", (r[0],))
                     deleted += 1
 
+            # Rename sweep_type labels to shorter single-word versions
+            conn.execute("UPDATE search_history SET sweep_type = 'Backlog' WHERE sweep_type = 'Backlog Nudge'")
+            conn.execute("UPDATE search_history SET sweep_type = 'Cutoff' WHERE sweep_type = 'Cutoff Unmet'")
+
             conn.execute(
-                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, ?)",
                 (iso_z(utcnow()),)
             )
 

@@ -354,6 +354,8 @@
     }
     .tooltip-wrap:hover .tooltip-icon { background: var(--accent-dim); border-color: var(--accent); }
     .tooltip-wrap:hover .tooltip-icon .tooltip-box { opacity: 1; pointer-events: auto; }
+    .tooltip-icon:hover { background: var(--accent-dim); border-color: var(--accent); }
+    .tooltip-icon:hover .tooltip-box { opacity: 1; pointer-events: auto; }
     .tooltip-box {
       position: absolute; left: calc(100% + 3px); bottom: 0; top: auto;
       background: #242640; border: 1px solid var(--accent-border);
@@ -1841,6 +1843,7 @@ function _onTabShown(name) {
   if (sl && CFG) sl.style.display = CFG.show_support_link !== false ? 'inline-flex' : 'none';
 
   if (name === 'history') {
+    HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
     EXCL_FILTER_ACTIVE = false;
     const pill = el('exclusionsPill'); if (pill) pill.classList.remove('active');
     clearHistorySearch();
@@ -2546,7 +2549,7 @@ async function refreshHistory() {
         <td style="color:var(--text);font-weight:500">${escapeHtml(title)}</td>
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
-        <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog Nudge' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
+        <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">×${it.search_count}</span>` : ''}</td>
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>

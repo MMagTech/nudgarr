@@ -1037,19 +1037,19 @@ def export_as_json_dict() -> Dict[str, Any]:
 
 def get_state(key: str) -> Optional[str]:
     """Retrieve a persisted state value by key."""
-    with _connect() as conn:
-        row = conn.execute(
-            "SELECT value FROM nudgarr_state WHERE key = ?", (key,)
-        ).fetchone()
-        return row["value"] if row else None
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT value FROM nudgarr_state WHERE key = ?", (key,)
+    ).fetchone()
+    return row["value"] if row else None
 
 
 def set_state(key: str, value: str) -> None:
     """Persist a state value by key."""
-    with _connect() as conn:
-        conn.execute(
-            "INSERT INTO nudgarr_state (key, value) VALUES (?, ?)"
-            " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value)
-        )
-        conn.commit()
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO nudgarr_state (key, value) VALUES (?, ?)"
+        " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value)
+    )
+    conn.commit()

@@ -86,10 +86,10 @@ def _next_cron_utc(expression: str) -> str:
     try:
         if tz:
             import datetime as _dt
-            now_local = now.replace(tzinfo=_dt.timezone.utc).astimezone(tz)
+            now_local = now.astimezone(tz)
             cron = croniter(expression, now_local)
             next_local = cron.get_next(_dt.datetime)
-            next_utc = next_local.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+            next_utc = next_local.astimezone(_dt.timezone.utc)
         else:
             cron = croniter(expression, now)
             next_utc = cron.get_next(type(now))
@@ -112,10 +112,10 @@ def _cron_due(expression: str) -> bool:
     try:
         if tz:
             import datetime as _dt
-            now_local = now.replace(tzinfo=_dt.timezone.utc).astimezone(tz)
+            now_local = now.astimezone(tz)
             cron = croniter(expression, now_local)
             prev_local = cron.get_prev(_dt.datetime)
-            prev_utc = prev_local.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+            prev_utc = prev_local.astimezone(_dt.timezone.utc)
         else:
             cron = croniter(expression, now)
             prev_utc = cron.get_prev(type(now))

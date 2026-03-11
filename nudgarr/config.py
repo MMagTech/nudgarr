@@ -29,6 +29,16 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if not isinstance(cfg.get("scheduler_enabled"), bool):
         errs.append("scheduler_enabled must be boolean")
 
+    if not isinstance(cfg.get("cron_enabled"), bool):
+        errs.append("cron_enabled must be boolean")
+
+    if not isinstance(cfg.get("cron_expression"), str):
+        errs.append("cron_expression must be a string")
+    elif cfg.get("cron_enabled"):
+        parts = cfg["cron_expression"].strip().split()
+        if len(parts) != 5:
+            errs.append("cron_expression must be a valid 5-field cron string")
+
     if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
         errs.append("run_interval_minutes must be an int >= 1")
 

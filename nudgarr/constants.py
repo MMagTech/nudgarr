@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -22,6 +22,10 @@ PORT = int(os.getenv("PORT", "8085"))
 DEFAULT_CONFIG: Dict[str, Any] = {
     "scheduler_enabled": False,        # off by default — user enables deliberately
     "run_interval_minutes": 360,
+
+    # Cron scheduling (v3.2.0) — coexists with interval, one active at a time
+    "cron_enabled": False,
+    "cron_expression": "",
 
     "cooldown_hours": 48,
     "sample_mode": "random",           # legacy — still accepted as fallback

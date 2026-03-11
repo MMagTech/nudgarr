@@ -11,6 +11,7 @@ Configuration management endpoints.
   POST /api/instance/toggle      -- enable/disable one instance
 """
 
+import os
 import threading
 
 import requests as req_lib
@@ -21,7 +22,8 @@ from nudgarr.auth import requires_auth
 from nudgarr.config import deep_copy, load_or_init_config, validate_config
 from nudgarr.constants import CONFIG_FILE, VERSION
 from nudgarr.globals import STATUS
-from nudgarr.utils import req, save_json_atomic
+from nudgarr.utils import req, save_json_atomic, iso_z, utcnow
+from datetime import timedelta
 
 bp = Blueprint("config", __name__)
 
@@ -77,6 +79,24 @@ def api_set_config():
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+
+    # Update next_run_utc in STATUS immediately so UI reflects new schedule without
+    # waiting for the scheduler loop to wake and detect the config change.
+    cron_enabled = bool(cfg.get("cron_enabled", False))
+    cron_expression = cfg.get("cron_expression", "")
+    scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
+    interval_min = int(cfg.get("run_interval_minutes", 360))
+    if cron_enabled and cron_expression:
+        try:
+            from nudgarr.scheduler import _next_cron_utc
+            STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
+        except Exception:
+            pass
+    elif scheduler_enabled:
+        STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+    else:
+        STATUS["next_run_utc"] = None
+
     return jsonify({"ok": True, "message": "Config saved", "config_file": CONFIG_FILE})
 
 

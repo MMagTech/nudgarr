@@ -160,6 +160,9 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     _prev_scheduler_enabled = scheduler_enabled
     _prev_interval_min = interval_min
 
+    # Track interval deadline separately so we never sleep longer than 60s
+    interval_deadline = time.monotonic() + (interval_min * 60)
+
     while not stop_flag["stop"]:
         cfg = load_or_init_config()
 
@@ -168,7 +171,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         cron_expression = cfg.get("cron_expression", "")
         interval_min = int(cfg.get("run_interval_minutes", 360))
 
-        # Recalculate next_run_utc if config changed without a run completing
+        # Recalculate next_run_utc and reset interval deadline if config changed
         config_changed = (
             cron_enabled != _prev_cron_enabled or
             cron_expression != _prev_cron_expression or
@@ -180,6 +183,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
             elif scheduler_enabled:
                 STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+                interval_deadline = time.monotonic() + (interval_min * 60)
             else:
                 STATUS["next_run_utc"] = None
             _prev_cron_enabled = cron_enabled
@@ -194,9 +198,14 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 should_run = True
                 STATUS["run_requested"] = False
 
-        # Cron trigger: check if a scheduled fire time just passed (within 60s window)
+        # Cron trigger: check if a scheduled fire time just passed (within 90s window)
         if not should_run and cron_enabled and cron_expression:
             if _cron_due(cron_expression):
+                should_run = True
+
+        # Interval trigger: fire when deadline reached
+        if not should_run and not cron_enabled and scheduler_enabled:
+            if time.monotonic() >= interval_deadline:
                 should_run = True
 
         if should_run:
@@ -228,31 +237,19 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                     STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
                 elif scheduler_enabled:
                     STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+                    interval_deadline = time.monotonic() + (interval_min * 60)
                 else:
                     STATUS["next_run_utc"] = None
 
         if stop_flag["stop"]:
             break
 
-        # Cron mode: always wake every 60s to check for due fires.
-        # Interval mode: sleep until next scheduled run.
-        if cron_enabled and cron_expression:
-            sleep_seconds = 60
-        else:
-            sleep_seconds = interval_min * 60 if scheduler_enabled else 60
-
-        deadline = time.monotonic() + sleep_seconds
+        # Always sleep max 60s so config changes are picked up quickly
+        deadline = time.monotonic() + 60
         while not stop_flag["stop"] and time.monotonic() < deadline:
             with RUN_LOCK:
                 if STATUS.get("run_requested"):
                     break
             time.sleep(1)
-
-        # Interval mode only: set run_requested when the sleep completes naturally
-        if not (cron_enabled and cron_expression):
-            if scheduler_enabled and not stop_flag["stop"]:
-                with RUN_LOCK:
-                    if not STATUS.get("run_requested"):
-                        STATUS["run_requested"] = True
 
     STATUS["scheduler_running"] = False

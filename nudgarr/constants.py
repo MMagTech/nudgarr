@@ -10,12 +10,13 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
 STATS_FILE = os.getenv("STATS_FILE", "/config/nudgarr-stats.json")
 EXCLUSIONS_FILE = os.getenv("EXCLUSIONS_FILE", "/config/nudgarr-exclusions.json")
+DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")
 PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {

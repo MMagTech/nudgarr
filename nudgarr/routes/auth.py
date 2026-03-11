@@ -105,3 +105,13 @@ def api_login():
 def api_logout():
     session.clear()
     return jsonify({"ok": True})
+
+
+@bp.post("/api/ping")
+def api_ping():
+    """Update last_active timestamp — called by frontend on user activity only."""
+    from nudgarr.auth import is_authenticated
+    if not is_authenticated():
+        return jsonify({"ok": False}), 401
+    session["last_active"] = datetime.now().timestamp()
+    return jsonify({"ok": True})

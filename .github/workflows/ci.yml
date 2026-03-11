@@ -82,3 +82,6 @@ jobs:
           print(f"Element ID consistency OK — checked {len(el_calls)} el() calls")
           EOF
 
+
+      - name: Run validate.py
+        run: python3 validate.py

@@ -4,6 +4,57 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v3.1.0
+
+**SQLite Database**
+
+Nudgarr now stores all state, history, stats, and exclusions in a local SQLite database. On first start after upgrading, existing JSON files are migrated automatically — no action required.
+
+- `db.py` introduced as the single persistence layer replacing direct JSON file reads/writes
+- Schema migrations versioned — v1 covers JSON migration, v2 adds iteration tracking and deduplication, v3 renames sweep type labels
+- `nudgarr_state` key/value table for persistent app state across restarts
+- Last run time and next run schedule now survive container restarts
+
+**Imports Tab**
+
+- Iteration tracking — each confirmed import of the same item increments a counter; re-imports at the same quality show a ×2, ×3 badge
+- `first_searched_ts` records the original search timestamp and never resets; turnaround measures the full journey from first search to confirmed import
+- Turnaround format extended — `<1m`, `2m`, `4h 23m`, `3d 14h`, `3w 2d`, `2mo`
+- Turnaround column header tooltip explaining the calculation
+- Duplicate imported rows from JSON migration deduplicated automatically
+- Column header renamed to Last Searched
+
+**Import Checking**
+
+- Import check loop now runs on its own independent timer, separate from the sweep schedule
+- Previously import checks only fired after a sweep completed — now they fire on the configured interval regardless of sweep activity
+
+**History**
+
+- Sweep type labels shortened — `Backlog Nudge` → `Backlog`, `Cutoff Unmet` → `Cutoff`
+- Existing database rows updated automatically via migration v3
+- History tab always resets to Last Searched descending on tab switch
+- Next page button now correctly disabled when all items fit on one page
+- Type column uses `.tag` CSS classes matching the Imports tab
+
+**Scheduler**
+
+- Startup no longer triggers an immediate sweep — first sweep fires when the configured interval elapses or Run Now is pressed
+- Missed intervals during downtime are skipped; no catch-up on restart
+
+**UI Polish**
+
+- Exclusion pill transitions rewritten — pure CSS opacity/transform, no keyframe animations
+- Tooltips now trigger on hover without requiring a `.tooltip-wrap` parent element
+- Tooltip text no longer inherits uppercase styling from table header context
+- Instance modal name and URL placeholders are app-aware with correct default ports for Radarr and Sonarr; URL field no longer pre-fills with `http://`
+- Lifetime Confirmed card includes a tooltip explaining what the counter tracks
+- Auth toggle inline label simplified to `Enabled` / `Disabled`
+- Support link pill correctly resets to saved state on tab switch
+- Help text cleaned up across Settings, Advanced, and Notifications — consistent punctuation and inline `(0 Disables)` format
+
+---
+
 ## v3.0.0
 
 **Mobile UI**

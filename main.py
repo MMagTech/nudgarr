@@ -16,16 +16,19 @@ from datetime import timedelta
 
 import requests
 
+from nudgarr import db
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import STATUS
 from nudgarr.routes import register_blueprints
-from nudgarr.scheduler import print_banner, scheduler_loop, start_ui_server
-from nudgarr.state import load_state
+from nudgarr.scheduler import import_check_loop, print_banner, scheduler_loop, start_ui_server
 from nudgarr.utils import iso_z, req, utcnow
 
 
 def main() -> None:
     register_blueprints()
+
+    # Initialise database (schema creation + one-time JSON migration if needed)
+    db.init_db()
 
     stop_flag = {"stop": False}
 
@@ -39,10 +42,6 @@ def main() -> None:
     cfg = load_or_init_config()
     print_banner(cfg)
 
-    # Pre-populate STATUS from persisted state so UI has values immediately
-    _st = load_state()
-    if _st.get("last_run_utc"):
-        STATUS["last_run_utc"] = _st["last_run_utc"]
     if cfg.get("scheduler_enabled"):
         _interval = int(cfg.get("run_interval_minutes", 360))
         STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=_interval))
@@ -80,6 +79,9 @@ def main() -> None:
 
     # Start UI in a daemon thread
     threading.Thread(target=start_ui_server, daemon=True).start()
+
+    # Start import check loop in a daemon thread — independent of sweep schedule
+    threading.Thread(target=import_check_loop, args=(stop_flag,), daemon=True).start()
 
     # Run scheduler loop in main thread
     scheduler_loop(stop_flag)

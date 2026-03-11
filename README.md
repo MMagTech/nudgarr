@@ -3,8 +3,6 @@
 
 Nudgarr keeps your Radarr and Sonarr libraries improving automatically — scheduling searches for missing content and quality upgrades so you don't have to.
 
-Nudgarr is stable and mature. Thanks to everyone who stuck with the frequent updates to get here. It does what it set out to do, and any new features beyond that will come from the community.
-
 ---
 
 ## Screenshots
@@ -57,7 +55,6 @@ Click any screenshot to view full size.
 - Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, and title search
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
 - First-run onboarding walkthrough and What's New modal on upgrade
-- Backup All — single download of config, state, and stats as a zip
 
 **Mobile**
 - Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
@@ -77,7 +74,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v3.0.0` · `3.0.0` · `3.0`
+**Tags:** `latest` · `v3.1.0` · `3.1.0` · `3.1`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -107,9 +104,7 @@ services:
       - PGID=${PGID:-1000}
       - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
-      - STATE_FILE=/config/nudgarr-state.json
-      - STATS_FILE=/config/nudgarr-stats.json
-      - EXCLUSIONS_FILE=/config/nudgarr-exclusions.json
+      - DB_FILE=/config/nudgarr.db
       # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:
@@ -150,14 +145,14 @@ Defaults to `1000:1000` if not set.
 
 ---
 
-## Config files
+## Data files
 
 | File | Purpose |
 |------|---------|
 | `/config/nudgarr-config.json` | All settings |
-| `/config/nudgarr-state.json` | Search history and cooldowns |
-| `/config/nudgarr-stats.json` | Confirmed import records |
-| `/config/nudgarr-exclusions.json` | Excluded titles |
+| `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
+
+If upgrading from v3.0.0 or earlier, existing JSON files are migrated automatically on first start. The original files are left in place and can be removed once you're satisfied with the upgrade.
 
 ---
 
@@ -167,11 +162,11 @@ Nudgarr is a local network tool. The login screen provides basic access control 
 
 Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a reverse proxy with HTTPS. Do not expose port 8085 to the internet.
 
-Locked out? Delete the config file and restart.
-
 ---
 
 ## Upgrade notes
+
+**v3.1.0** — All data (history, stats, exclusions) moves to a SQLite database. Existing JSON files migrate automatically on first start — no action needed. See the Data files section above for details.
 
 **v3.0.0** — No config changes required. The mobile layout activates automatically on devices under 500px wide.
 

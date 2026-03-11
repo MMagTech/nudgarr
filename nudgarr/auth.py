@@ -141,7 +141,6 @@ def is_authenticated() -> bool:
     if elapsed > timeout:
         session.clear()
         return False
-    session["last_active"] = datetime.now().timestamp()
     return True
 
 

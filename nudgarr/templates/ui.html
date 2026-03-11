@@ -253,6 +253,8 @@
     .cron-hint-line { font-size: 11.5px; color: var(--muted); margin-top: 4px; min-height: 16px; }
     .cron-hint-line.cron-ok  { color: #22c55e; }
     .cron-hint-line.cron-bad { color: #ef4444; }
+    .cron-hint-line.cron-warn { color: #f59e0b; }
+    .cron-hint-line.cron-warn a { color: #fbbf24; }
     .cron-hint-line a { color: #818cf8; text-underline-offset: 2px; }
     .cron-hint-line.cron-ok a { color: #4ade80; }
     .inst-card {
@@ -919,11 +921,11 @@
           <div style="display:flex; align-items:center; gap:10px;">
             <div class="tooltip-wrap">
               <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
-              <span class="tooltip-icon">i<div class="tooltip-box"><strong>Interval</strong> sweeps every X hours from the last run. On restart, the timer resets from that point.<br><br><strong>Cron</strong> fires at fixed clock times — missed schedules are skipped, not caught up.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box"><strong>Interval</strong> sweeps every X hours from the last run. On restart, the timer resets from that point.<br><br><strong>Cron</strong> fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
             </div>
             <span class="mode-pill" id="schedulerModePill">auto</span>
           </div>
-          <span id="cronModeSwitch" onclick="toggleCronPanel()" style="font-size:12px; color:#818cf8; cursor:pointer; text-decoration:underline; text-underline-offset:2px; user-select:none;">+ Use cron schedule</span>
+          <span id="cronModeSwitch" onclick="toggleCronPanel()" style="font-size:12px; color:#818cf8; cursor:pointer; text-decoration:underline; text-underline-offset:2px; user-select:none;">+ Use Cron Schedule</span>
         </div>
 
         <!-- Interval panel -->
@@ -959,7 +961,7 @@
           <div class="cron-panel-inner">
             <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
               <div class="field" style="flex:1">
-                <label>Automatic Sweeps</label>
+                <label>Automatic Sweeps <span id="cronContainerTime" style="font-weight:400; color:var(--muted); font-size:11px;"></span></label>
                 <div class="toggle-wrap" style="height:34px;">
                   <label class="toggle">
                     <input type="checkbox" id="cron_auto_enabled" onchange="syncCronUi(); markUnsaved('setMsg')"/>
@@ -1126,16 +1128,14 @@
   <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
   <div class="section" id="tab-imports">
     <div class="card">
-      <div style="display:flex;justify-content:center;margin-bottom:14px">
-        <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px">
-          Lifetime Confirmed
-          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
-        </div>
-      </div>
       <div class="import-stats">
         <div class="import-stat-card movies">
           <span class="import-stat-label">Movies:</span>
           <span class="import-stat-value" id="statMoviesTotal">—</span>
+        </div>
+        <div class="import-stat-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.3);gap:6px;">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(16,185,129,0.6);">Lifetime Confirmed</span>
+          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
         </div>
         <div class="import-stat-card shows">
           <span class="import-stat-label">Episodes:</span>
@@ -2195,6 +2195,7 @@ async function loadAll() {
   el('lastRun').textContent = fmtTime(st.last_run_utc);
   el('nextRun').textContent = (CFG && (CFG.scheduler_enabled || CFG.cron_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
   updateStatusPill(CFG.scheduler_enabled || CFG.cron_enabled);
+  updateContainerTime(st.container_time);
   await loadExclusions();
 
   // Show logout button when auth is enabled
@@ -2470,6 +2471,11 @@ async function testConnections() {
 }
 
 // ── Settings tab ──
+function updateContainerTime(timeStr) {
+  const el = document.getElementById('cronContainerTime');
+  if (el) el.textContent = timeStr ? '(' + timeStr + ')' : '';
+}
+
 function syncSchedulerUi() {
   const enabled = el('scheduler_enabled').checked;
   el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual only';
@@ -2497,11 +2503,23 @@ function toggleCronPanel() {
   const inCronMode = !el('cronWrap').classList.contains('cron-panel-collapsed');
   el('intervalWrap').classList.toggle('cron-panel-collapsed', !inCronMode);
   el('cronWrap').classList.toggle('cron-panel-collapsed', inCronMode);
-  el('cronModeSwitch').textContent = inCronMode ? '+ Use cron schedule' : '← Back to interval';
+  el('cronModeSwitch').textContent = inCronMode ? '+ Use Cron Schedule' : '← Back to Interval';
   if (!inCronMode) {
     validateCronExpr();
   }
   markUnsaved('setMsg');
+}
+
+function cronIntervalMinutes(expr) {
+  // Returns the minimum firing interval in minutes, or null if can't determine
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [min, hr] = parts;
+  if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
+  if (min === '*') return 1;
+  if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
+  if (hr === '*' && /^\d+$/.test(min)) return 60;
+  return 60; // default assume hourly or longer
 }
 
 function validateCronExpr() {
@@ -2523,9 +2541,19 @@ function validateCronExpr() {
   input.classList.toggle('cron-invalid', !valid);
   icon.style.display = valid ? 'inline' : 'none';
   if (valid) {
-    hint.className = 'cron-hint-line cron-ok';
-    hint.innerHTML = describeCron(val) + ' · <a href="https://crontab.guru" target="_blank" rel="noopener">cron generator ↗</a>';
+    const interval = cronIntervalMinutes(val);
+    const tooFrequent = interval !== null && interval < 60;
+    if (tooFrequent) {
+      icon.style.color = '#f59e0b';
+      hint.className = 'cron-hint-line cron-warn';
+      hint.innerHTML = '⚠ May stress indexers · <a href="https://crontab.guru" target="_blank" rel="noopener">cron generator ↗</a>';
+    } else {
+      icon.style.color = '#22c55e';
+      hint.className = 'cron-hint-line cron-ok';
+      hint.innerHTML = describeCron(val) + ' · <a href="https://crontab.guru" target="_blank" rel="noopener">cron generator ↗</a>';
+    }
   } else {
+    icon.style.color = '#22c55e';
     hint.className = 'cron-hint-line cron-bad';
     hint.innerHTML = 'Invalid cron expression';
   }
@@ -2533,18 +2561,20 @@ function validateCronExpr() {
 
 function describeCron(expr) {
   const parts = expr.trim().split(/\s+/);
-  if (parts.length !== 5) return expr;
+  if (parts.length !== 5) return 'Custom Schedule';
   const [min, hr, dom, mon, dow] = parts;
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const exactMin = /^\d+$/.test(min);
+  const exactHr  = /^\d+$/.test(hr);
   // Daily at specific time
-  if (dom === '*' && mon === '*' && dow === '*' && /^\d+$/.test(hr) && /^\d+$/.test(min)) {
+  if (dom === '*' && mon === '*' && dow === '*' && exactHr && exactMin) {
     const h = parseInt(hr), m = parseInt(min);
     const suffix = h >= 12 ? 'PM' : 'AM';
     const h12 = h % 12 || 12;
     return `Daily at ${h12}:${String(m).padStart(2,'0')} ${suffix}`;
   }
   // Weekly on specific day
-  if (dom === '*' && mon === '*' && /^\d+$/.test(dow) && /^\d+$/.test(hr) && /^\d+$/.test(min)) {
+  if (dom === '*' && mon === '*' && /^\d+$/.test(dow) && exactHr && exactMin) {
     const d = parseInt(dow) % 7;
     const h = parseInt(hr), m = parseInt(min);
     const suffix = h >= 12 ? 'PM' : 'AM';
@@ -2560,7 +2590,7 @@ function describeCron(expr) {
   if (min === '0' && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
     return 'Every hour';
   }
-  return expr;
+  return 'Custom Schedule';
 }
 
 function fillSettings() {
@@ -2568,7 +2598,7 @@ function fillSettings() {
   // Show correct panel
   el('intervalWrap').classList.toggle('cron-panel-collapsed', cronActive);
   el('cronWrap').classList.toggle('cron-panel-collapsed', !cronActive);
-  el('cronModeSwitch').textContent = cronActive ? '← Back to interval' : '+ Use cron schedule';
+  el('cronModeSwitch').textContent = cronActive ? '← Back to Interval' : '+ Use Cron Schedule';
 
   // Interval fields
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
@@ -2598,12 +2628,12 @@ async function saveSettings() {
   try {
     const cronActive = !el('cronWrap').classList.contains('cron-panel-collapsed');
     if (cronActive) {
-      CFG.cron_enabled = el('cron_auto_enabled').checked;
+      CFG.cron_enabled = true;
+      CFG.scheduler_enabled = el('cron_auto_enabled').checked;
       CFG.cron_expression = el('cron_expression').value.trim();
-      CFG.scheduler_enabled = false;
     } else {
-      CFG.scheduler_enabled = el('scheduler_enabled').checked;
       CFG.cron_enabled = false;
+      CFG.scheduler_enabled = el('scheduler_enabled').checked;
     }
     CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '6', 10) * 60;
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
@@ -3222,6 +3252,7 @@ async function refreshStatus() {
     _wasRunning = isRunning;
     el('nextRun').textContent = (CFG && (CFG.scheduler_enabled || CFG.cron_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
     updateStatusPill(CFG?.scheduler_enabled || CFG?.cron_enabled);
+    updateContainerTime(st.container_time);
     refreshDotsFromStatus(st.instance_health || {});
   } catch(e) {}
 }

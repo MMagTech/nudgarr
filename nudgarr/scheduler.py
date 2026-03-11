@@ -119,7 +119,7 @@ def _cron_due(expression: str) -> bool:
         else:
             cron = croniter(expression, now)
             prev_utc = cron.get_prev(type(now))
-        return (now - prev_utc).total_seconds() < 60
+        return (now - prev_utc).total_seconds() < 90
     except Exception:
         return False
 
@@ -155,6 +155,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     else:
         STATUS["next_run_utc"] = None
 
+    _prev_cron_enabled = cron_enabled
+    _prev_cron_expression = cron_expression
+    _prev_scheduler_enabled = scheduler_enabled
+    _prev_interval_min = interval_min
+
     while not stop_flag["stop"]:
         cfg = load_or_init_config()
 
@@ -162,6 +167,25 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
         cron_enabled = bool(cfg.get("cron_enabled", False))
         cron_expression = cfg.get("cron_expression", "")
         interval_min = int(cfg.get("run_interval_minutes", 360))
+
+        # Recalculate next_run_utc if config changed without a run completing
+        config_changed = (
+            cron_enabled != _prev_cron_enabled or
+            cron_expression != _prev_cron_expression or
+            scheduler_enabled != _prev_scheduler_enabled or
+            interval_min != _prev_interval_min
+        )
+        if config_changed:
+            if cron_enabled and cron_expression:
+                STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
+            elif scheduler_enabled:
+                STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+            else:
+                STATUS["next_run_utc"] = None
+            _prev_cron_enabled = cron_enabled
+            _prev_cron_expression = cron_expression
+            _prev_scheduler_enabled = scheduler_enabled
+            _prev_interval_min = interval_min
 
         should_run = False
 

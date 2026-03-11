@@ -2111,6 +2111,7 @@ function fmtTime(s) {
 
 async function api(path, opts) {
   const r = await fetch(path, opts || {});
+  if (r.status === 401) { window.location.href = '/login'; return; }
   const ct = r.headers.get('content-type') || '';
   const data = ct.includes('application/json') ? await r.json() : await r.text();
   if (!r.ok) throw new Error(typeof data === 'string' ? data : JSON.stringify(data));

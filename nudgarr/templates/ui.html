@@ -792,6 +792,200 @@
       #mobile-ui { display: flex !important; }
       body { background: var(--surface); }
     }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       LANDSCAPE UI  — mobile in landscape orientation
+       Portrait #mobile-ui hidden; #landscape-ui shown instead.
+       Desktop switch flag overrides to show .wrap until portrait rotation.
+    ══════════════════════════════════════════════════════════════════════ */
+
+    #landscape-ui {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      position: fixed;
+      top: 0; left: 0;
+      overflow: hidden;
+      background: var(--surface);
+      background-image: radial-gradient(ellipse 400px 160px at 50% -40px, rgba(99,120,255,0.06) 0%, transparent 100%);
+    }
+
+    /* ── Landscape header ── */
+    #ls-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      padding-left: calc(20px + env(safe-area-inset-left, 0px));
+      padding-right: calc(20px + env(safe-area-inset-right, 0px));
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .ls-wordmark {
+      font-size: 15px; font-weight: 700; font-style: italic;
+      letter-spacing: 0.03em;
+      background: linear-gradient(90deg, #a8b4ff 0%, #6378ff 60%, #818cf8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 5px rgba(99,120,255,0.3));
+    }
+    .ls-save-indicator {
+      font-size: 10px; color: var(--ok);
+      opacity: 0; transition: opacity .25s ease;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .ls-save-indicator.ls-visible { opacity: 1; }
+    .ls-save-dot {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--ok);
+    }
+
+    /* ── Viewport & tab track ── */
+    #ls-viewport {
+      flex: 1; overflow: hidden; position: relative;
+    }
+    .ls-tab-track { position: relative; width: 100%; height: 100%; }
+
+    .ls-tab {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 8px 20px;
+      padding-left: calc(20px + env(safe-area-inset-left, 0px));
+      padding-right: calc(20px + env(safe-area-inset-right, 0px));
+      scrollbar-width: none;
+      transform: translateX(100%);
+      transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+    .ls-tab::-webkit-scrollbar { display: none; }
+    .ls-tab.ls-tab-active { transform: translateX(0); }
+    .ls-tab.ls-tab-prev   { transform: translateX(-100%); }
+
+    /* Settings tab — two explicit columns */
+    #ls-tab-settings { display: flex; align-items: stretch; gap: 0; }
+    .ls-col {
+      flex: 1; display: flex; flex-direction: column; padding: 2px 0;
+    }
+    .ls-col-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent);
+      padding-bottom: 6px; margin-bottom: 2px;
+      border-bottom: 1px solid rgba(99,120,255,0.15);
+    }
+    .ls-col-divider {
+      width: 1px; margin: 4px 16px; flex-shrink: 0;
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,0.07) 20%, rgba(255,255,255,0.07) 80%, transparent);
+    }
+
+    /* Advanced tab — two-column grid */
+    #ls-tab-advanced {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 24px;
+      align-content: start;
+    }
+
+    /* ── Row ── */
+    .ls-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 6px 0; gap: 8px; min-height: 42px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ls-row:last-child { border-bottom: none; }
+    .ls-row-left { flex: 1; min-width: 0; }
+    .ls-row-label { font-size: 13px; color: var(--text); font-weight: 500; }
+    .ls-row-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+    /* ── Section label (advanced) ── */
+    .ls-section {
+      grid-column: 1 / -1;
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent);
+      padding-bottom: 4px; border-bottom: 1px solid rgba(99,120,255,0.15);
+      margin-top: 6px;
+    }
+    .ls-section:first-child { margin-top: 0; }
+
+    /* ── Stepper ── */
+    .ls-stepper {
+      display: flex; align-items: center;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 9px; overflow: hidden; flex-shrink: 0;
+    }
+    .ls-stepper-btn {
+      width: 34px; height: 34px; background: transparent; border: none;
+      color: var(--text-dim); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .08s;
+      -webkit-tap-highlight-color: transparent; user-select: none;
+    }
+    .ls-stepper-btn:active { background: rgba(255,255,255,0.14); }
+    .ls-stepper-val {
+      min-width: 38px; text-align: center;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      line-height: 34px; user-select: none;
+    }
+    .ls-stepper-val.ls-zero { color: var(--muted); }
+
+    /* ── Segmented control ── */
+    .ls-seg {
+      display: flex; background: var(--card);
+      border: 1px solid var(--border); border-radius: 9px;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .ls-seg-opt {
+      padding: 0 8px; height: 34px;
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      cursor: pointer; display: flex; align-items: center;
+      border-right: 1px solid var(--border);
+      transition: background .15s, color .15s;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .ls-seg-opt:last-child { border-right: none; }
+    .ls-seg-opt.ls-active { background: rgba(99,120,255,0.2); color: #c0caff; }
+
+    /* ── Desktop switch button ── */
+    .ls-desktop-btn {
+      padding: 0 16px; height: 34px;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      border-radius: 9px; color: #c0caff;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      flex-shrink: 0; transition: background .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ls-desktop-btn:active { background: rgba(99,120,255,0.25); }
+
+    /* ── Bottom nav ── */
+    #ls-nav {
+      height: 52px; background: var(--surface);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; justify-content: space-around;
+      flex-shrink: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+      box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface), 0 -4px 20px rgba(0,0,0,0.25);
+    }
+    .ls-nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      cursor: pointer; padding: 4px 20px; border-radius: 10px;
+      transition: background .15s; flex: 1; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ls-nav-item:active { background: var(--card); }
+    .ls-nav-icon { font-size: 18px; color: var(--muted); transition: color .15s; }
+    .ls-nav-label {
+      font-size: 9px; color: var(--muted); font-weight: 600;
+      letter-spacing: .03em; text-transform: uppercase; transition: color .15s;
+    }
+    .ls-nav-item.ls-active .ls-nav-icon,
+    .ls-nav-item.ls-active .ls-nav-label { color: var(--accent); }
+
+
   </style>
 </head>
 <body>
@@ -1661,6 +1855,210 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════ LANDSCAPE UI ══════════════════════════════ -->
+<div id="landscape-ui">
+
+  <!-- Header -->
+  <div id="ls-header">
+    <span class="ls-wordmark">Nudgarr</span>
+    <div class="ls-save-indicator" id="ls-save-ind">
+      <div class="ls-save-dot"></div>
+      Saved
+    </div>
+  </div>
+
+  <!-- Tab viewport -->
+  <div id="ls-viewport">
+    <div class="ls-tab-track">
+
+      <!-- ── Settings tab ── -->
+      <div class="ls-tab ls-tab-active" id="ls-tab-settings">
+
+        <!-- Left: Search -->
+        <div class="ls-col">
+          <div class="ls-col-label">Search</div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Max Movies</div>
+              <div class="ls-row-sub">Per Run · 0 Disables</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('movies',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-movies">1</div>
+              <button class="ls-stepper-btn" onclick="lsStep('movies',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Max Episodes</div>
+              <div class="ls-row-sub">Per Run · 0 Disables</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('episodes',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-episodes">1</div>
+              <button class="ls-stepper-btn" onclick="lsStep('episodes',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Radarr Mode</div>
+              <div class="ls-row-sub">How Items Are Picked</div>
+            </div>
+            <div class="ls-seg" id="ls-seg-radarr">
+              <div class="ls-seg-opt ls-active" onclick="lsSeg('radarr','random',this)">Rnd</div>
+              <div class="ls-seg-opt" onclick="lsSeg('radarr','alphabetical',this)">A–Z</div>
+              <div class="ls-seg-opt" onclick="lsSeg('radarr','oldest_added',this)">Old</div>
+              <div class="ls-seg-opt" onclick="lsSeg('radarr','newest_added',this)">New</div>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Sonarr Mode</div>
+              <div class="ls-row-sub">How Items Are Picked</div>
+            </div>
+            <div class="ls-seg" id="ls-seg-sonarr">
+              <div class="ls-seg-opt ls-active" onclick="lsSeg('sonarr','random',this)">Rnd</div>
+              <div class="ls-seg-opt" onclick="lsSeg('sonarr','alphabetical',this)">A–Z</div>
+              <div class="ls-seg-opt" onclick="lsSeg('sonarr','oldest_added',this)">Old</div>
+              <div class="ls-seg-opt" onclick="lsSeg('sonarr','newest_added',this)">New</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="ls-col-divider"></div>
+
+        <!-- Right: Timing -->
+        <div class="ls-col">
+          <div class="ls-col-label">Timing</div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Cooldown</div>
+              <div class="ls-row-sub">Hours Between Re-Searches</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('cooldown',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-cooldown">48</div>
+              <button class="ls-stepper-btn" onclick="lsStep('cooldown',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Batch Size</div>
+              <div class="ls-row-sub">Searches Per Batch</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('batch',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-batch">1</div>
+              <button class="ls-stepper-btn" onclick="lsStep('batch',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Sleep Seconds</div>
+              <div class="ls-row-sub">Pause Between Batches</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('sleep',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-sleep">5</div>
+              <button class="ls-stepper-btn" onclick="lsStep('sleep',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Jitter Seconds</div>
+              <div class="ls-row-sub">Random Extra Pause</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('jitter',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-jitter">2</div>
+              <button class="ls-stepper-btn" onclick="lsStep('jitter',1)">+</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /settings tab -->
+
+      <!-- ── Advanced tab ── -->
+      <div class="ls-tab" id="ls-tab-advanced">
+
+        <div class="ls-section">Radarr Backlog</div>
+
+        <div class="ls-row">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Max Missing</div>
+            <div class="ls-row-sub">Movies Per Run</div>
+          </div>
+          <div class="ls-stepper">
+            <button class="ls-stepper-btn" onclick="lsStep('r-missing',-1)">−</button>
+            <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
+            <button class="ls-stepper-btn" onclick="lsStep('r-missing',1)">+</button>
+          </div>
+        </div>
+
+        <div class="ls-row">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Added Within</div>
+            <div class="ls-row-sub">Days</div>
+          </div>
+          <div class="ls-stepper">
+            <button class="ls-stepper-btn" onclick="lsStep('r-days',-1)">−</button>
+            <div class="ls-stepper-val" id="ls-v-r-days">14</div>
+            <button class="ls-stepper-btn" onclick="lsStep('r-days',1)">+</button>
+          </div>
+        </div>
+
+        <div class="ls-section">Sonarr Backlog</div>
+
+        <div class="ls-row">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Max Missing</div>
+            <div class="ls-row-sub">Episodes Per Run</div>
+          </div>
+          <div class="ls-stepper">
+            <button class="ls-stepper-btn" onclick="lsStep('s-missing',-1)">−</button>
+            <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
+            <button class="ls-stepper-btn" onclick="lsStep('s-missing',1)">+</button>
+          </div>
+        </div>
+
+        <div class="ls-section">Desktop</div>
+
+        <div class="ls-row" style="grid-column: 1 / -1;">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Full Desktop View</div>
+            <div class="ls-row-sub">Rotate To Portrait To Return</div>
+          </div>
+          <button class="ls-desktop-btn" onclick="lsSwitchToDesktop()">Switch</button>
+        </div>
+
+      </div><!-- /advanced tab -->
+
+    </div><!-- /track -->
+  </div><!-- /viewport -->
+
+  <!-- Bottom nav -->
+  <nav id="ls-nav">
+    <div class="ls-nav-item ls-active" id="ls-nav-settings" onclick="lsSwitchTab(0)">
+      <span class="ls-nav-icon">⚙</span>
+      <span class="ls-nav-label">Settings</span>
+    </div>
+    <div class="ls-nav-item" id="ls-nav-advanced" onclick="lsSwitchTab(1)">
+      <span class="ls-nav-icon">⬡</span>
+      <span class="ls-nav-label">Advanced</span>
+    </div>
+  </nav>
+
+</div><!-- /landscape-ui -->
 
 <script>
 const MOBILE = window.matchMedia('(max-width: 500px)').matches;
@@ -3363,6 +3761,29 @@ if (!MOBILE) {
     if (name === 'instances') mRenderInstances();
   }
 
+  // ── Portrait swipe between tabs ──
+  (function() {
+    const ui = document.getElementById('mobile-ui');
+    if (!ui) return;
+    const TAB_ORDER = ['home', 'instances', 'sweep'];
+    let sx = null, sy = null;
+    ui.addEventListener('touchstart', e => {
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+    }, { passive: true });
+    ui.addEventListener('touchend', e => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+        const idx = TAB_ORDER.indexOf(M_TAB);
+        if (dx < 0 && idx < TAB_ORDER.length - 1) mSwitchTab(TAB_ORDER[idx + 1]);
+        if (dx > 0 && idx > 0) mSwitchTab(TAB_ORDER[idx - 1]);
+      }
+      sx = null;
+    }, { passive: true });
+  })();
+
   // ── Home ──
 
   function mUpdateHome(cfg, st) {
@@ -3886,14 +4307,29 @@ if (MOBILE) {
 
   const MOBILE_UI_STYLE = 'display:flex; flex-direction:column; width:100%; height:100vh; height:100dvh; position:fixed; top:0; left:0; overflow:hidden;';
 
+  const landscapeUi = document.getElementById('landscape-ui');
+  const LS_UI_STYLE = 'display:flex; flex-direction:column; width:100%; height:100vh; height:100dvh; position:fixed; top:0; left:0; overflow:hidden;';
+  let LS_DESKTOP_OVERRIDE = false;
+
   function checkOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight;
-    if (isLandscape) {
+    if (!isLandscape) {
+      // Portrait — always show portrait mobile, clear desktop override
+      LS_DESKTOP_OVERRIDE = false;
+      if (wrap) wrap.style.display = 'none';
+      if (landscapeUi) landscapeUi.style.display = 'none';
+      if (mobileUi) mobileUi.style.cssText = MOBILE_UI_STYLE;
+    } else if (LS_DESKTOP_OVERRIDE) {
+      // Landscape + user chose desktop
       if (mobileUi) mobileUi.style.display = 'none';
+      if (landscapeUi) landscapeUi.style.display = 'none';
       if (wrap) wrap.style.display = '';
     } else {
+      // Landscape — show landscape config UI
+      if (mobileUi) mobileUi.style.display = 'none';
       if (wrap) wrap.style.display = 'none';
-      if (mobileUi) mobileUi.style.cssText = MOBILE_UI_STYLE;
+      if (landscapeUi) landscapeUi.style.cssText = LS_UI_STYLE;
+      lsPopulate();
     }
   }
   checkOrientation();
@@ -3920,6 +4356,155 @@ if (MOBILE) {
   setInterval(mPollCycle, 5000);
 }
 
+
+// ── Landscape UI ──────────────────────────────────────────────────────────────
+
+const LS_VALS = {
+  movies: 1, episodes: 1,
+  cooldown: 48, batch: 1, sleep: 5, jitter: 2,
+  'r-missing': 1, 'r-days': 14, 's-missing': 1,
+};
+const LS_MINS = {
+  movies: 0, episodes: 0,
+  cooldown: 0, batch: 1, sleep: 0, jitter: 0,
+  'r-missing': 1, 'r-days': 1, 's-missing': 1,
+};
+const LS_CFG_KEYS = {
+  movies:      'radarr_max_movies_per_run',
+  episodes:    'sonarr_max_episodes_per_run',
+  cooldown:    'cooldown_hours',
+  batch:       'batch_size',
+  sleep:       'sleep_seconds',
+  jitter:      'jitter_seconds',
+  'r-missing': 'radarr_missing_max',
+  'r-days':    'radarr_missing_added_days',
+  's-missing': 'sonarr_missing_max',
+};
+let LS_SAVE_TIMER = null;
+let LS_HIDE_TIMER = null;
+let LS_TAB = 0;
+
+function lsPopulate() {
+  if (!CFG) return;
+  LS_VALS.movies    = CFG.radarr_max_movies_per_run   ?? 1;
+  LS_VALS.episodes  = CFG.sonarr_max_episodes_per_run ?? 1;
+  LS_VALS.cooldown  = CFG.cooldown_hours              ?? 48;
+  LS_VALS.batch     = CFG.batch_size                  ?? 1;
+  LS_VALS.sleep     = CFG.sleep_seconds               ?? 5;
+  LS_VALS.jitter    = CFG.jitter_seconds              ?? 2;
+  LS_VALS['r-missing'] = CFG.radarr_missing_max          ?? 1;
+  LS_VALS['r-days']    = CFG.radarr_missing_added_days   ?? 14;
+  LS_VALS['s-missing'] = CFG.sonarr_missing_max          ?? 1;
+
+  Object.keys(LS_VALS).forEach(k => {
+    const el = document.getElementById('ls-v-' + k);
+    if (el) { el.textContent = LS_VALS[k]; el.classList.toggle('ls-zero', LS_VALS[k] === 0); }
+  });
+
+  // Sample mode segments
+  lsSetSegActive('radarr', CFG.radarr_sample_mode || 'random');
+  lsSetSegActive('sonarr', CFG.sonarr_sample_mode || 'random');
+}
+
+function lsSetSegActive(which, val) {
+  const map = { random: 0, alphabetical: 1, oldest_added: 2, newest_added: 3 };
+  const seg = document.getElementById('ls-seg-' + which);
+  if (!seg) return;
+  seg.querySelectorAll('.ls-seg-opt').forEach((o, i) =>
+    o.classList.toggle('ls-active', i === (map[val] ?? 0))
+  );
+}
+
+function lsStep(key, dir) {
+  mHaptic(20);
+  LS_VALS[key] = Math.max(LS_MINS[key], LS_VALS[key] + dir);
+  const el = document.getElementById('ls-v-' + key);
+  if (el) { el.textContent = LS_VALS[key]; el.classList.toggle('ls-zero', LS_VALS[key] === 0); }
+  lsTriggerSave();
+}
+
+function lsSeg(which, val, el) {
+  const seg = document.getElementById('ls-seg-' + which);
+  if (seg) seg.querySelectorAll('.ls-seg-opt').forEach(o => o.classList.remove('ls-active'));
+  el.classList.add('ls-active');
+  // store into CFG directly for save
+  if (which === 'radarr') CFG.radarr_sample_mode = val;
+  if (which === 'sonarr') CFG.sonarr_sample_mode = val;
+  lsTriggerSave();
+}
+
+function lsTriggerSave() {
+  clearTimeout(LS_SAVE_TIMER);
+  clearTimeout(LS_HIDE_TIMER);
+  const ind = document.getElementById('ls-save-ind');
+  if (ind) ind.classList.remove('ls-visible');
+  LS_SAVE_TIMER = setTimeout(async () => {
+    try {
+      const updates = {};
+      Object.entries(LS_CFG_KEYS).forEach(([k, cfgKey]) => {
+        updates[cfgKey] = LS_VALS[k];
+      });
+      updates.radarr_sample_mode = CFG.radarr_sample_mode;
+      updates.sonarr_sample_mode = CFG.sonarr_sample_mode;
+      const cfg = await api('/api/config');
+      Object.assign(cfg, updates);
+      await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+      Object.assign(CFG, updates);
+      if (ind) {
+        ind.classList.add('ls-visible');
+        LS_HIDE_TIMER = setTimeout(() => ind.classList.remove('ls-visible'), 1200);
+      }
+    } catch(e) {}
+  }, 800);
+}
+
+// Tab switching
+const LS_NAV_ITEMS = ['ls-nav-settings', 'ls-nav-advanced'];
+const LS_TAB_IDS   = ['ls-tab-settings', 'ls-tab-advanced'];
+
+function lsSwitchTab(idx) {
+  LS_TAB = idx;
+  LS_TAB_IDS.forEach((id, i) => {
+    const t = document.getElementById(id);
+    if (!t) return;
+    t.classList.remove('ls-tab-active', 'ls-tab-prev');
+    if (i === idx) t.classList.add('ls-tab-active');
+    else if (i < idx) t.classList.add('ls-tab-prev');
+  });
+  LS_NAV_ITEMS.forEach((id, i) => {
+    const n = document.getElementById(id);
+    if (n) n.classList.toggle('ls-active', i === idx);
+  });
+}
+
+// Swipe — 30px min, horizontal must be 1.5× vertical
+(function() {
+  const vp = document.getElementById('ls-viewport');
+  if (!vp) return;
+  let sx = null, sy = null;
+  vp.addEventListener('touchstart', e => {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+  }, { passive: true });
+  vp.addEventListener('touchend', e => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+      if (dx < 0 && LS_TAB < 1) lsSwitchTab(LS_TAB + 1);
+      if (dx > 0 && LS_TAB > 0) lsSwitchTab(LS_TAB - 1);
+    }
+    sx = null;
+  }, { passive: true });
+})();
+
+// Desktop switch
+function lsSwitchToDesktop() {
+  LS_DESKTOP_OVERRIDE = true;
+  checkOrientation();
+}
+
+// ── End Landscape UI ──────────────────────────────────────────────────────────
 // ── Activity ping — updates session last_active on real user interaction only ──
 // Background polling does NOT reset the session timer. Only clicks, keypresses,
 // and scrolls count as activity. Debounced to fire at most once every 15 seconds.

@@ -1747,8 +1747,8 @@ You can add multiple instances — Nudgarr will search across all of them each r
 <strong>Automatic Sweeps</strong><br>
 Off by default — Nudgarr will not run until you enable it. You can still trigger a sweep at any time by clicking <strong>Run Now</strong>. This is the recommended approach until you are confident in your settings.
 <br><br>
-<strong>Run Interval</strong><br>
-How often the scheduler fires when enabled. Default is every 6 hours. Start conservative and adjust based on the size of your library and how active your indexers are.`
+<strong>Cron Schedule</strong><br>
+Controls when the scheduler fires. Default is <code>0 */6 * * *</code> — every 6 hours on the clock. Cron fires in container time. Set the <code>TZ</code> environment variable if you want schedules to follow a specific timezone — if unset or unresolvable, Nudgarr falls back to UTC. Start conservative and adjust based on your library size and how active your indexers are.`
   },
   {
     title: "Step 3 — Search Behavior",
@@ -1777,14 +1777,14 @@ How long Nudgarr pauses between batches. Default is 5 seconds. A longer pause is
 Adds a small random delay on top of the sleep time to make search patterns less predictable. Helps avoid triggering automated rate limit detection.`
   },
   {
-    title: "Step 5 — History & Stats",
+    title: "Step 5 — History & Imports",
     body: `Nudgarr keeps track of everything it does so you can see exactly what's happening.
 <br><br>
 <strong>History</strong><br>
 A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
 <br><br>
-<strong>Stats</strong><br>
-Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Episodes totals are lifetime counters that persist even if you clear the stats table.
+<strong>Imports</strong><br>
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully downloaded. Movies and Episodes totals are lifetime counters that persist even if you clear the imports table. Items that have been through multiple upgrade cycles show a ×2, ×3 badge, and turnaround tracks how long from first search to confirmed import.
 <br><br>
 Both tabs support <strong>title search</strong> — type a show or movie name to filter the table instantly. Use the instance dropdown alongside it to narrow results further.`
   },

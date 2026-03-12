@@ -131,6 +131,8 @@ CREATE TABLE IF NOT EXISTS stat_entries (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_stat_entries_active
     ON stat_entries (app, instance, item_id, type) WHERE imported = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_stat_entries_confirmed
+    ON stat_entries (app, instance, item_id) WHERE imported = 1;
 CREATE INDEX IF NOT EXISTS idx_stat_unimported
     ON stat_entries (imported, last_searched_ts) WHERE imported = 0;
 CREATE INDEX IF NOT EXISTS idx_stat_imported
@@ -192,6 +194,7 @@ def init_db() -> None:
     if row is not None:
         _run_migration_v2(conn)
         _run_migration_v3(conn)
+        _run_migration_v4(conn)
         return
 
     state_exists = os.path.exists(STATE_FILE)
@@ -333,7 +336,63 @@ def _run_migration_v3(conn: sqlite3.Connection) -> None:
         print(f"[Migration v3] FAILED: {exc}")
 
 
-def _migrate_exclusions(conn: sqlite3.Connection) -> None:
+def _run_migration_v4(conn: sqlite3.Connection) -> None:
+    """
+    Schema v4 — enforces one confirmed row per item by adding a unique index
+    on (app, instance, item_id) WHERE imported = 1, and deduplicates any
+    existing imported rows that violate this constraint (keeping earliest id).
+    """
+    row = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 4"
+    ).fetchone()
+    if row is not None:
+        return
+
+    print("[Migration v4] Running — deduplicating confirmed imports and adding unique index")
+    try:
+        with conn:
+            # Deduplicate any existing imported=1 rows with the same (app, instance, item_id)
+            dup_groups = conn.execute(
+                """
+                SELECT app, instance, item_id
+                FROM stat_entries
+                WHERE imported = 1
+                GROUP BY app, instance, item_id
+                HAVING COUNT(*) > 1
+                """
+            ).fetchall()
+
+            deleted = 0
+            for grp in dup_groups:
+                group_rows = conn.execute(
+                    """
+                    SELECT id FROM stat_entries
+                    WHERE imported = 1 AND app = ? AND instance = ? AND item_id = ?
+                    ORDER BY id ASC
+                    """,
+                    (grp[0], grp[1], grp[2])
+                ).fetchall()
+                for r in group_rows[1:]:
+                    conn.execute("DELETE FROM stat_entries WHERE id = ?", (r[0],))
+                    deleted += 1
+
+            # Add unique index to prevent future duplicates
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_stat_entries_confirmed
+                ON stat_entries (app, instance, item_id) WHERE imported = 1
+                """
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (4, ?)",
+                (iso_z(utcnow()),)
+            )
+        print(f"[Migration v4] Complete — {deleted} duplicate confirmed rows removed")
+    except Exception as exc:
+        print(f"[Migration v4] FAILED: {exc}")
+
+
+
     data = load_json(EXCLUSIONS_FILE, [])
     if not isinstance(data, list):
         return
@@ -730,6 +789,7 @@ def confirm_stat_entry(
         """
         SELECT id, type, iteration FROM stat_entries
         WHERE app = ? AND instance = ? AND item_id = ? AND imported = 1
+        ORDER BY id ASC LIMIT 1
         """,
         (app, instance, item_id)
     ).fetchone()

@@ -4,7 +4,7 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
-## v3.1.0
+## v3.2.0-dev
 
 **SQLite Database**
 

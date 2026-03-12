@@ -244,9 +244,6 @@
     /* ── Scheduler cron panel ── */
     .mode-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--accent-dim); border: 1px solid var(--accent-border); color: #a8b4ff; }
     .mode-pill.manual { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); color: var(--muted); }
-    .cron-panel-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .28s ease; }
-    .cron-panel-wrap.cron-panel-collapsed { grid-template-rows: 0fr; }
-    .cron-panel-inner { overflow: hidden; }
     .cron-expr-input { width: 200px; font-family: ui-monospace, monospace; letter-spacing: .03em; }
     .cron-expr-input.cron-valid   { border-color: rgba(34,197,94,.45); }
     .cron-expr-input.cron-invalid { border-color: rgba(239,68,68,.45); }
@@ -916,71 +913,42 @@
       <div class="card">
         <p class="section-label">Scheduler</p>
 
-        <!-- Mode header -->
+        <!-- Scheduler header -->
         <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.10);">
           <div style="display:flex; align-items:center; gap:10px;">
             <div class="tooltip-wrap">
               <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
-              <span class="tooltip-icon">i<div class="tooltip-box"><strong>Interval</strong> sweeps every X hours from the last run. On restart, the timer resets from that point.<br><br><strong>Cron</strong> fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
             </div>
             <span class="mode-pill" id="schedulerModePill">auto</span>
           </div>
-          <span id="cronModeSwitch" onclick="toggleCronPanel()" style="font-size:12px; color:#818cf8; cursor:pointer; text-decoration:underline; text-underline-offset:2px; user-select:none;">+ Use Cron Schedule</span>
-        </div>
-
-        <!-- Interval panel -->
-        <div class="cron-panel-wrap" id="intervalWrap">
-          <div class="cron-panel-inner">
-            <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
-              <div class="field" style="flex:1">
-                <label>Automatic Sweeps</label>
-                <div class="toggle-wrap" style="height:34px;">
-                  <label class="toggle">
-                    <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
-                    <span class="toggle-track"></span>
-                    <span class="toggle-thumb"></span>
-                  </label>
-                  <span class="help" id="scheduler_label">Enabled</span>
-                </div>
-                <div class="help">When disabled, only sweeps when you click <b>Run Now</b></div>
-              </div>
-              <div class="field" style="max-width:160px" id="intervalField">
-                <div class="tooltip-wrap">
-                  <label>Run Interval (Hours)</label>
-                  <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div></span>
-                </div>
-                <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
-                <div class="help">How often sweeps run</div>
-              </div>
-            </div>
-          </div>
+          <span id="cronContainerTime" style="font-size:12px; color:var(--muted);"></span>
         </div>
 
         <!-- Cron panel -->
-        <div class="cron-panel-wrap cron-panel-collapsed" id="cronWrap">
-          <div class="cron-panel-inner">
-            <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
-              <div class="field" style="flex:1">
-                <label>Automatic Sweeps <span id="cronContainerTime" style="font-weight:400; color:var(--muted); font-size:11px;"></span></label>
-                <div class="toggle-wrap" style="height:34px;">
-                  <label class="toggle">
-                    <input type="checkbox" id="cron_auto_enabled" onchange="syncCronUi(); markUnsaved('setMsg')"/>
-                    <span class="toggle-track"></span>
-                    <span class="toggle-thumb"></span>
-                  </label>
-                  <span class="help" id="cron_auto_label">Enabled</span>
-                </div>
-                <div class="help">When disabled, only sweeps when you click <b>Run Now</b></div>
-              </div>
-              <div class="field" style="max-width:240px;">
-                <label>Cron Expression</label>
-                <div style="position:relative; display:inline-block;">
-                  <input type="text" id="cron_expression" class="cron-expr-input" placeholder="e.g. 0 2 * * *" oninput="validateCronExpr(); markUnsaved('setMsg')" autocomplete="off" spellcheck="false"/>
-                  <span id="cronValidIcon" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:13px; color:#22c55e;">✓</span>
-                </div>
-                <div class="cron-hint-line" id="cronHintLine">Need help? <a href="https://crontab.guru" target="_blank" rel="noopener" style="color:#818cf8; text-underline-offset:2px;">Open cron generator ↗</a></div>
-              </div>
+        <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
+          <div class="field" style="flex:1">
+            <label>Automatic Sweeps</label>
+            <div class="toggle-wrap" style="height:34px;">
+              <label class="toggle">
+                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="scheduler_label">Enabled</span>
             </div>
+            <div class="help">Manual or Automatic Sweeps</div>
+          </div>
+          <div class="field" style="max-width:240px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+              <label style="margin:0">Cron Expression</label>
+              <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px; color:#818cf8; opacity:0.7; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; margin-left:8px;">cron generator ↗</a>
+            </div>
+            <div style="position:relative; display:inline-block; width:100%">
+              <input type="text" id="cron_expression" class="cron-expr-input" placeholder="e.g. 0 2 * * *" oninput="validateCronExpr(); markUnsaved('setMsg')" autocomplete="off" spellcheck="false"/>
+              <span id="cronValidIcon" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:13px; color:#22c55e;">✓</span>
+            </div>
+            <div class="cron-hint-line" id="cronHintLine"></div>
           </div>
         </div>
 
@@ -992,7 +960,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Cooldown (Hours)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
             </div>
             <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
             <div class="help">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
@@ -1002,7 +970,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Movies (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet movies searched per instance per run (0 Disables)</div>
@@ -1028,7 +996,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Episodes (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet episodes searched per instance per run (0 Disables)</div>
@@ -1274,7 +1242,7 @@
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Radarr Missing Max (Per Instance)</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
               <div class="help">Maximum missing movies searched per instance per run</div>
@@ -1316,7 +1284,7 @@
           </div>
           <div class="amber-warn" style="margin-top:16px">
             <p class="amber-warn-title">USE WITH CAUTION</p>
-            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and frequent cron schedule this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
           <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
             <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
@@ -1679,17 +1647,6 @@
         <div class="m-sheet-close" onclick="mCloseQS()">✕</div>
       </div>
       <div class="m-sheet-body m-qs-sheet-body">
-        <div class="m-stepper-row" id="m-qs-interval-row">
-          <div>
-            <div class="m-stepper-label">Run Interval</div>
-            <div class="m-stepper-sub">hours</div>
-          </div>
-          <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('interval',-1);mBtnPress(this)">−</button>
-            <div class="m-stepper-val" id="m-qs-interval">6</div>
-            <button class="m-stepper-btn" onclick="mQSStep('interval',1);mBtnPress(this)">+</button>
-          </div>
-        </div>
         <div class="m-stepper-row">
           <div>
             <div class="m-stepper-label">Cooldown</div>
@@ -2193,8 +2150,8 @@ async function loadAll() {
   const st = await api('/api/status');
   el('ver').textContent = st.version;
   el('lastRun').textContent = fmtTime(st.last_run_utc);
-  el('nextRun').textContent = (CFG && (CFG.scheduler_enabled || CFG.cron_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
-  updateStatusPill(CFG.scheduler_enabled || CFG.cron_enabled);
+  el('nextRun').textContent = (CFG && (CFG.scheduler_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
+  updateStatusPill(CFG.scheduler_enabled);
   updateContainerTime(st.container_time);
   await loadExclusions();
 
@@ -2478,36 +2435,16 @@ function updateContainerTime(timeStr) {
 
 function syncSchedulerUi() {
   const enabled = el('scheduler_enabled').checked;
-  el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual only';
-  el('run_interval_minutes').disabled = !enabled;
-  updateSchedulerModePill();
-}
-
-function syncCronUi() {
-  const enabled = el('cron_auto_enabled').checked;
-  el('cron_auto_label').textContent = enabled ? 'Enabled' : 'Manual only';
+  el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual';
   updateSchedulerModePill();
 }
 
 function updateSchedulerModePill() {
   const pill = el('schedulerModePill');
   if (!pill) return;
-  const cronActive = CFG && CFG.cron_enabled;
-  const intervalActive = el('scheduler_enabled') && el('scheduler_enabled').checked;
-  const active = cronActive || intervalActive;
+  const active = el('scheduler_enabled') && el('scheduler_enabled').checked;
   pill.textContent = active ? 'auto' : 'manual';
   pill.classList.toggle('manual', !active);
-}
-
-function toggleCronPanel() {
-  const inCronMode = !el('cronWrap').classList.contains('cron-panel-collapsed');
-  el('intervalWrap').classList.toggle('cron-panel-collapsed', !inCronMode);
-  el('cronWrap').classList.toggle('cron-panel-collapsed', inCronMode);
-  el('cronModeSwitch').textContent = inCronMode ? '+ Use Cron Schedule' : '← Back to Interval';
-  if (!inCronMode) {
-    validateCronExpr();
-  }
-  markUnsaved('setMsg');
 }
 
 function cronIntervalMinutes(expr) {
@@ -2532,7 +2469,7 @@ function validateCronExpr() {
     input.classList.remove('cron-valid', 'cron-invalid');
     icon.style.display = 'none';
     hint.className = 'cron-hint-line';
-    hint.innerHTML = 'Need help? <a href="https://crontab.guru" target="_blank" rel="noopener" style="color:#818cf8;text-underline-offset:2px;">Open cron generator ↗</a>';
+    hint.innerHTML = '';
     return;
   }
   const parts = val.split(/\s+/);
@@ -2546,14 +2483,14 @@ function validateCronExpr() {
     if (tooFrequent) {
       icon.style.color = '#f59e0b';
       hint.className = 'cron-hint-line cron-warn';
-      hint.innerHTML = '⚠ May stress indexers · <a href="https://crontab.guru" target="_blank" rel="noopener">cron generator ↗</a>';
+      hint.innerHTML = '⚠ May stress indexers';
     } else {
       icon.style.color = '#22c55e';
       hint.className = 'cron-hint-line cron-ok';
-      hint.innerHTML = describeCron(val) + ' · <a href="https://crontab.guru" target="_blank" rel="noopener">cron generator ↗</a>';
+      hint.innerHTML = describeCron(val);
     }
   } else {
-    icon.style.color = '#22c55e';
+    icon.style.color = '#ef4444';
     hint.className = 'cron-hint-line cron-bad';
     hint.innerHTML = 'Invalid cron expression';
   }
@@ -2566,6 +2503,7 @@ function describeCron(expr) {
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const exactMin = /^\d+$/.test(min);
   const exactHr  = /^\d+$/.test(hr);
+  const mm = exactMin ? String(parseInt(min)).padStart(2,'0') : '00';
   // Daily at specific time
   if (dom === '*' && mon === '*' && dow === '*' && exactHr && exactMin) {
     const h = parseInt(hr), m = parseInt(min);
@@ -2581,32 +2519,44 @@ function describeCron(expr) {
     const h12 = h % 12 || 12;
     return `Weekly on ${days[d]} at ${h12}:${String(m).padStart(2,'0')} ${suffix}`;
   }
-  // Every N hours
+  // Monthly on specific day
+  if (/^\d+$/.test(dom) && mon === '*' && dow === '*' && exactHr && exactMin) {
+    const d = parseInt(dom);
+    const h = parseInt(hr), m = parseInt(min);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    const ord = d === 1 ? '1st' : d === 2 ? '2nd' : d === 3 ? '3rd' : `${d}th`;
+    return `Monthly on the ${ord} at ${h12}:${String(m).padStart(2,'0')} ${suffix}`;
+  }
+  // Every N hours at fixed minute
+  if (/^\*\/\d+$/.test(hr) && dom === '*' && mon === '*' && dow === '*' && exactMin) {
+    const n = parseInt(hr.split('/')[1]);
+    return `Every ${n} hour${n !== 1 ? 's' : ''} at xx:${mm}`;
+  }
+  // Every N hours (on the hour)
   if (min === '0' && /^\*\/\d+$/.test(hr) && dom === '*' && mon === '*' && dow === '*') {
     const n = parseInt(hr.split('/')[1]);
-    return `Every ${n} hour${n !== 1 ? 's' : ''}`;
+    return `Every ${n} hour${n !== 1 ? 's' : ''} at xx:00`;
   }
-  // Hourly
+  // Every hour at fixed minute
+  if (/^\d+$/.test(min) && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return `Every hour at xx:${mm}`;
+  }
+  // Every hour on the hour
   if (min === '0' && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
-    return 'Every hour';
+    return 'Every hour at xx:00';
+  }
+  // Every N minutes
+  if (/^\*\/\d+$/.test(min) && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
+    const n = parseInt(min.split('/')[1]);
+    return `Every ${n} minute${n !== 1 ? 's' : ''}`;
   }
   return 'Custom Schedule';
 }
 
 function fillSettings() {
-  const cronActive = !!CFG.cron_enabled;
-  // Show correct panel
-  el('intervalWrap').classList.toggle('cron-panel-collapsed', cronActive);
-  el('cronWrap').classList.toggle('cron-panel-collapsed', !cronActive);
-  el('cronModeSwitch').textContent = cronActive ? '← Back to Interval' : '+ Use Cron Schedule';
-
-  // Interval fields
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
-  el('run_interval_minutes').value = Math.round((CFG.run_interval_minutes || 360) / 60);
-
-  // Cron fields
-  el('cron_auto_enabled').checked = !!CFG.cron_enabled;
-  el('cron_expression').value = CFG.cron_expression || '';
+  el('cron_expression').value = CFG.cron_expression || '0 */6 * * *';
 
   el('cooldown_hours').value = CFG.cooldown_hours;
   const legacyMode = CFG.sample_mode || 'random';
@@ -2618,7 +2568,6 @@ function fillSettings() {
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
   syncSchedulerUi();
-  syncCronUi();
   validateCronExpr();
   el('setMsg').textContent = ''; el('setMsg').className = 'msg';
   checkCooldownWarning();
@@ -2626,16 +2575,8 @@ function fillSettings() {
 
 async function saveSettings() {
   try {
-    const cronActive = !el('cronWrap').classList.contains('cron-panel-collapsed');
-    if (cronActive) {
-      CFG.cron_enabled = true;
-      CFG.scheduler_enabled = el('cron_auto_enabled').checked;
-      CFG.cron_expression = el('cron_expression').value.trim();
-    } else {
-      CFG.cron_enabled = false;
-      CFG.scheduler_enabled = el('scheduler_enabled').checked;
-    }
-    CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '6', 10) * 60;
+    CFG.scheduler_enabled = el('scheduler_enabled').checked;
+    CFG.cron_expression = el('cron_expression').value.trim();
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
     CFG.radarr_sample_mode = el('radarr_sample_mode').value;
     CFG.sonarr_sample_mode = el('sonarr_sample_mode').value;
@@ -2657,14 +2598,16 @@ async function saveSettings() {
 // ── Cooldown warning ──
 let _warnFlashTimer = null;
 function checkCooldownWarning() {
-  const intervalHours = parseFloat(el('run_interval_minutes').value || '6');
   const cooldown = parseFloat(el('cooldown_hours').value || '48');
   const warn = el('cooldownWarnMsg');
   if (!warn) return;
-  const shouldWarn = cooldown > 0 && cooldown < intervalHours;
+  const expr = (el('cron_expression') && el('cron_expression').value.trim()) || '';
+  const cronMins = cronIntervalMinutes(expr);
+  const cronHours = cronMins !== null ? cronMins / 60 : null;
+  const shouldWarn = cronHours !== null && cooldown > 0 && cooldown < cronHours;
   if (shouldWarn) {
     if (warn.textContent === '') {
-      warn.textContent = '⚠️ Cooldown < run interval — repeated searches likely';
+      warn.textContent = '⚠️ Cooldown < cron interval — repeated searches likely';
       warn.className = 'warn-flash';
       if (_warnFlashTimer) clearTimeout(_warnFlashTimer);
       _warnFlashTimer = setTimeout(() => { warn.className = 'warn-steady'; }, 3000);
@@ -3250,8 +3193,8 @@ async function refreshStatus() {
       }
     }
     _wasRunning = isRunning;
-    el('nextRun').textContent = (CFG && (CFG.scheduler_enabled || CFG.cron_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
-    updateStatusPill(CFG?.scheduler_enabled || CFG?.cron_enabled);
+    el('nextRun').textContent = (CFG && (CFG.scheduler_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
+    updateStatusPill(CFG?.scheduler_enabled);
     updateContainerTime(st.container_time);
     refreshDotsFromStatus(st.instance_health || {});
   } catch(e) {}
@@ -3407,18 +3350,16 @@ if (!MOBILE) {
     const lastEl = document.getElementById('m-last-run');
     if (lastEl) lastEl.textContent = fmtTime(st.last_run_utc);
     const nextEl = document.getElementById('m-next-run');
-    if (nextEl) nextEl.textContent = (cfg.scheduler_enabled || cfg.cron_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
+    if (nextEl) nextEl.textContent = (cfg.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
     const pill = document.getElementById('m-running-pill');
     if (pill) pill.classList.toggle('hidden', !st.run_in_progress);
-    const autoActive = cfg.scheduler_enabled || cfg.cron_enabled;
+    const autoActive = cfg.scheduler_enabled;
     const autoSub = document.getElementById('m-auto-sub');
     if (autoSub) {
-      if (cfg.cron_enabled) {
-        autoSub.textContent = 'Cron · ' + describeCron(cfg.cron_expression || '');
-      } else if (cfg.scheduler_enabled) {
-        autoSub.textContent = 'Interval · every ' + Math.round((cfg.run_interval_minutes || 360) / 60) + ' hrs';
+      if (cfg.scheduler_enabled) {
+        autoSub.textContent = describeCron(cfg.cron_expression || '');
       } else {
-        autoSub.textContent = 'Manual only';
+        autoSub.textContent = 'Manual';
       }
     }
     const tAuto = document.getElementById('m-toggle-auto');
@@ -3429,7 +3370,6 @@ if (!MOBILE) {
     if (tRadarrBacklog) tRadarrBacklog.classList.toggle('m-on', !!cfg.radarr_backlog_enabled);
     const tSonarrBacklog = document.getElementById('m-toggle-sonarr-backlog');
     if (tSonarrBacklog) tSonarrBacklog.classList.toggle('m-on', !!cfg.sonarr_backlog_enabled);
-    mQSUpdateIntervalDim();
   }
 
   // ── Run Now long press ──
@@ -3494,31 +3434,23 @@ if (!MOBILE) {
 
   // ── Quick Settings sheet ──
 
-  const M_QS_VALS = {interval: 6, cooldown: 48, movies: 1, episodes: 1};
-  const M_QS_MINS = {interval: 1, cooldown: 0, movies: 0, episodes: 0};
+  const M_QS_VALS = {cooldown: 48, movies: 1, episodes: 1};
+  const M_QS_MINS = {cooldown: 0, movies: 0, episodes: 0};
   let M_QS_SAVE_TIMER = null;
 
   function mOpenQS() {
-    M_QS_VALS.interval = Math.round((CFG.run_interval_minutes || 360) / 60);
     M_QS_VALS.cooldown = CFG.cooldown_hours || 48;
     M_QS_VALS.movies = CFG.radarr_max_movies_per_run || 1;
     M_QS_VALS.episodes = CFG.sonarr_max_episodes_per_run || 1;
-    ['interval','cooldown','movies','episodes'].forEach(k => {
+    ['cooldown','movies','episodes'].forEach(k => {
       const el = document.getElementById('m-qs-' + k);
       if (el) { el.textContent = M_QS_VALS[k]; el.classList.toggle('m-zero', M_QS_VALS[k] === 0); }
     });
-    mQSUpdateIntervalDim();
     mSheetOpen('m-qs-sheet');
     mSheetDrag('m-qs-handle', 'm-qs-sheet', mCloseQS);
   }
 
   function mCloseQS() { mSheetClose('m-qs-sheet'); }
-
-  function mQSUpdateIntervalDim() {
-    const row = document.getElementById('m-qs-interval-row');
-    if (!row) return;
-    row.classList.toggle('m-qs-disabled', !!(CFG && !CFG.scheduler_enabled && !CFG.cron_enabled));
-  }
 
   function mBtnPress(el) {
     el.classList.add('m-pressed');
@@ -3536,7 +3468,6 @@ if (!MOBILE) {
 
   async function mQSSave() {
     const updates = {
-      run_interval_minutes: M_QS_VALS.interval * 60,
       cooldown_hours: M_QS_VALS.cooldown,
       radarr_max_movies_per_run: M_QS_VALS.movies,
       sonarr_max_episodes_per_run: M_QS_VALS.episodes,
@@ -3578,12 +3509,7 @@ async function mSaveCfgKey(updates) {
 
 function mToggleAuto() {
   mHaptic(40);
-  if (CFG.cron_enabled) {
-    mSaveCfgKey({cron_enabled: false});
-  } else {
-    const newVal = !CFG.scheduler_enabled;
-    mSaveCfgKey({scheduler_enabled: newVal});
-  }
+  mSaveCfgKey({scheduler_enabled: !CFG.scheduler_enabled});
 }
 
 function mToggleNotify() {

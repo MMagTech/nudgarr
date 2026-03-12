@@ -96,7 +96,7 @@ def api_diagnostic():
         f"Last run: {STATUS.get('last_run_utc') or 'Never'}",
         f"Next run: {STATUS.get('next_run_utc') or 'N/A'}",
         f"Last error: {STATUS.get('last_error') or 'None'}",
-        f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, interval: {cfg.get('run_interval_minutes')}min",
+        f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, cron: {cfg.get('cron_expression', 'not set')}",
         f"Cooldown: {cfg.get('cooldown_hours')}h",
         f"Session timeout: {cfg.get('auth_session_minutes')}min | Auth: {'enabled' if cfg.get('auth_enabled') else 'disabled'}",
         f"Import check interval: {cfg.get('import_check_minutes')}min",

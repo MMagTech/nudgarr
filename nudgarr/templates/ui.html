@@ -971,8 +971,8 @@
       box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface), 0 -4px 20px rgba(0,0,0,0.25);
     }
     .ls-nav-item {
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      cursor: pointer; padding: 4px 20px; border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; padding: 8px 20px 4px; border-radius: 10px;
       transition: background .15s; flex: 1; user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
@@ -4352,158 +4352,152 @@ if (MOBILE) {
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
   });
+
+
+  // ── Landscape UI ────────────────────────────────────────────────────────────
+
+  const LS_VALS = {
+    movies: 1, episodes: 1,
+    cooldown: 48, batch: 1, sleep: 5, jitter: 2,
+    'r-missing': 1, 'r-days': 14, 's-missing': 1,
+  };
+  const LS_MINS = {
+    movies: 0, episodes: 0,
+    cooldown: 0, batch: 1, sleep: 0, jitter: 0,
+    'r-missing': 1, 'r-days': 1, 's-missing': 1,
+  };
+  const LS_CFG_KEYS = {
+    movies:      'radarr_max_movies_per_run',
+    episodes:    'sonarr_max_episodes_per_run',
+    cooldown:    'cooldown_hours',
+    batch:       'batch_size',
+    sleep:       'sleep_seconds',
+    jitter:      'jitter_seconds',
+    'r-missing': 'radarr_missing_max',
+    'r-days':    'radarr_missing_added_days',
+    's-missing': 'sonarr_missing_max',
+  };
+  let LS_SAVE_TIMER = null;
+  let LS_HIDE_TIMER = null;
+  let LS_TAB = 0;
+
+  function lsPopulate() {
+    if (!CFG) return;
+    LS_VALS.movies    = CFG.radarr_max_movies_per_run   ?? 1;
+    LS_VALS.episodes  = CFG.sonarr_max_episodes_per_run ?? 1;
+    LS_VALS.cooldown  = CFG.cooldown_hours              ?? 48;
+    LS_VALS.batch     = CFG.batch_size                  ?? 1;
+    LS_VALS.sleep     = CFG.sleep_seconds               ?? 5;
+    LS_VALS.jitter    = CFG.jitter_seconds              ?? 2;
+    LS_VALS['r-missing'] = CFG.radarr_missing_max          ?? 1;
+    LS_VALS['r-days']    = CFG.radarr_missing_added_days   ?? 14;
+    LS_VALS['s-missing'] = CFG.sonarr_missing_max          ?? 1;
+
+    Object.keys(LS_VALS).forEach(k => {
+      const el = document.getElementById('ls-v-' + k);
+      if (el) { el.textContent = LS_VALS[k]; el.classList.toggle('ls-zero', LS_VALS[k] === 0); }
+    });
+    lsSetSegActive('radarr', CFG.radarr_sample_mode || 'random');
+    lsSetSegActive('sonarr', CFG.sonarr_sample_mode || 'random');
+  }
+
+  function lsSetSegActive(which, val) {
+    const map = { random: 0, alphabetical: 1, oldest_added: 2, newest_added: 3 };
+    const seg = document.getElementById('ls-seg-' + which);
+    if (!seg) return;
+    seg.querySelectorAll('.ls-seg-opt').forEach((o, i) =>
+      o.classList.toggle('ls-active', i === (map[val] ?? 0))
+    );
+  }
+
+  function lsStep(key, dir) {
+    mHaptic(20);
+    LS_VALS[key] = Math.max(LS_MINS[key], LS_VALS[key] + dir);
+    const el = document.getElementById('ls-v-' + key);
+    if (el) { el.textContent = LS_VALS[key]; el.classList.toggle('ls-zero', LS_VALS[key] === 0); }
+    lsTriggerSave();
+  }
+
+  function lsSeg(which, val, el) {
+    const seg = document.getElementById('ls-seg-' + which);
+    if (seg) seg.querySelectorAll('.ls-seg-opt').forEach(o => o.classList.remove('ls-active'));
+    el.classList.add('ls-active');
+    if (which === 'radarr') CFG.radarr_sample_mode = val;
+    if (which === 'sonarr') CFG.sonarr_sample_mode = val;
+    lsTriggerSave();
+  }
+
+  function lsTriggerSave() {
+    clearTimeout(LS_SAVE_TIMER);
+    clearTimeout(LS_HIDE_TIMER);
+    const ind = document.getElementById('ls-save-ind');
+    if (ind) ind.classList.remove('ls-visible');
+    LS_SAVE_TIMER = setTimeout(async () => {
+      try {
+        const updates = {};
+        Object.entries(LS_CFG_KEYS).forEach(([k, cfgKey]) => { updates[cfgKey] = LS_VALS[k]; });
+        updates.radarr_sample_mode = CFG.radarr_sample_mode;
+        updates.sonarr_sample_mode = CFG.sonarr_sample_mode;
+        const cfg = await api('/api/config');
+        Object.assign(cfg, updates);
+        await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+        Object.assign(CFG, updates);
+        if (ind) {
+          ind.classList.add('ls-visible');
+          LS_HIDE_TIMER = setTimeout(() => ind.classList.remove('ls-visible'), 1200);
+        }
+      } catch(e) {}
+    }, 800);
+  }
+
+  const LS_NAV_ITEMS = ['ls-nav-settings', 'ls-nav-advanced'];
+  const LS_TAB_IDS   = ['ls-tab-settings', 'ls-tab-advanced'];
+
+  function lsSwitchTab(idx) {
+    LS_TAB = idx;
+    LS_TAB_IDS.forEach((id, i) => {
+      const t = document.getElementById(id);
+      if (!t) return;
+      t.classList.remove('ls-tab-active', 'ls-tab-prev');
+      if (i === idx) t.classList.add('ls-tab-active');
+      else if (i < idx) t.classList.add('ls-tab-prev');
+    });
+    LS_NAV_ITEMS.forEach((id, i) => {
+      const n = document.getElementById(id);
+      if (n) n.classList.toggle('ls-active', i === idx);
+    });
+  }
+
+  function lsSwitchToDesktop() {
+    LS_DESKTOP_OVERRIDE = true;
+    checkOrientation();
+  }
+
+  (function() {
+    const vp = document.getElementById('ls-viewport');
+    if (!vp) return;
+    let sx = null, sy = null;
+    vp.addEventListener('touchstart', e => {
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+    }, { passive: true });
+    vp.addEventListener('touchend', e => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+        if (dx < 0 && LS_TAB < 1) lsSwitchTab(LS_TAB + 1);
+        if (dx > 0 && LS_TAB > 0) lsSwitchTab(LS_TAB - 1);
+      }
+      sx = null;
+    }, { passive: true });
+  })();
+
+  // ── End Landscape UI ──────────────────────────────────────────────────────
+
   setInterval(mPollCycle, 5000);
 }
 
-
-// ── Landscape UI ──────────────────────────────────────────────────────────────
-
-const LS_VALS = {
-  movies: 1, episodes: 1,
-  cooldown: 48, batch: 1, sleep: 5, jitter: 2,
-  'r-missing': 1, 'r-days': 14, 's-missing': 1,
-};
-const LS_MINS = {
-  movies: 0, episodes: 0,
-  cooldown: 0, batch: 1, sleep: 0, jitter: 0,
-  'r-missing': 1, 'r-days': 1, 's-missing': 1,
-};
-const LS_CFG_KEYS = {
-  movies:      'radarr_max_movies_per_run',
-  episodes:    'sonarr_max_episodes_per_run',
-  cooldown:    'cooldown_hours',
-  batch:       'batch_size',
-  sleep:       'sleep_seconds',
-  jitter:      'jitter_seconds',
-  'r-missing': 'radarr_missing_max',
-  'r-days':    'radarr_missing_added_days',
-  's-missing': 'sonarr_missing_max',
-};
-let LS_SAVE_TIMER = null;
-let LS_HIDE_TIMER = null;
-let LS_TAB = 0;
-
-function lsPopulate() {
-  if (!CFG) return;
-  LS_VALS.movies    = CFG.radarr_max_movies_per_run   ?? 1;
-  LS_VALS.episodes  = CFG.sonarr_max_episodes_per_run ?? 1;
-  LS_VALS.cooldown  = CFG.cooldown_hours              ?? 48;
-  LS_VALS.batch     = CFG.batch_size                  ?? 1;
-  LS_VALS.sleep     = CFG.sleep_seconds               ?? 5;
-  LS_VALS.jitter    = CFG.jitter_seconds              ?? 2;
-  LS_VALS['r-missing'] = CFG.radarr_missing_max          ?? 1;
-  LS_VALS['r-days']    = CFG.radarr_missing_added_days   ?? 14;
-  LS_VALS['s-missing'] = CFG.sonarr_missing_max          ?? 1;
-
-  Object.keys(LS_VALS).forEach(k => {
-    const el = document.getElementById('ls-v-' + k);
-    if (el) { el.textContent = LS_VALS[k]; el.classList.toggle('ls-zero', LS_VALS[k] === 0); }
-  });
-
-  // Sample mode segments
-  lsSetSegActive('radarr', CFG.radarr_sample_mode || 'random');
-  lsSetSegActive('sonarr', CFG.sonarr_sample_mode || 'random');
-}
-
-function lsSetSegActive(which, val) {
-  const map = { random: 0, alphabetical: 1, oldest_added: 2, newest_added: 3 };
-  const seg = document.getElementById('ls-seg-' + which);
-  if (!seg) return;
-  seg.querySelectorAll('.ls-seg-opt').forEach((o, i) =>
-    o.classList.toggle('ls-active', i === (map[val] ?? 0))
-  );
-}
-
-function lsStep(key, dir) {
-  mHaptic(20);
-  LS_VALS[key] = Math.max(LS_MINS[key], LS_VALS[key] + dir);
-  const el = document.getElementById('ls-v-' + key);
-  if (el) { el.textContent = LS_VALS[key]; el.classList.toggle('ls-zero', LS_VALS[key] === 0); }
-  lsTriggerSave();
-}
-
-function lsSeg(which, val, el) {
-  const seg = document.getElementById('ls-seg-' + which);
-  if (seg) seg.querySelectorAll('.ls-seg-opt').forEach(o => o.classList.remove('ls-active'));
-  el.classList.add('ls-active');
-  // store into CFG directly for save
-  if (which === 'radarr') CFG.radarr_sample_mode = val;
-  if (which === 'sonarr') CFG.sonarr_sample_mode = val;
-  lsTriggerSave();
-}
-
-function lsTriggerSave() {
-  clearTimeout(LS_SAVE_TIMER);
-  clearTimeout(LS_HIDE_TIMER);
-  const ind = document.getElementById('ls-save-ind');
-  if (ind) ind.classList.remove('ls-visible');
-  LS_SAVE_TIMER = setTimeout(async () => {
-    try {
-      const updates = {};
-      Object.entries(LS_CFG_KEYS).forEach(([k, cfgKey]) => {
-        updates[cfgKey] = LS_VALS[k];
-      });
-      updates.radarr_sample_mode = CFG.radarr_sample_mode;
-      updates.sonarr_sample_mode = CFG.sonarr_sample_mode;
-      const cfg = await api('/api/config');
-      Object.assign(cfg, updates);
-      await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
-      Object.assign(CFG, updates);
-      if (ind) {
-        ind.classList.add('ls-visible');
-        LS_HIDE_TIMER = setTimeout(() => ind.classList.remove('ls-visible'), 1200);
-      }
-    } catch(e) {}
-  }, 800);
-}
-
-// Tab switching
-const LS_NAV_ITEMS = ['ls-nav-settings', 'ls-nav-advanced'];
-const LS_TAB_IDS   = ['ls-tab-settings', 'ls-tab-advanced'];
-
-function lsSwitchTab(idx) {
-  LS_TAB = idx;
-  LS_TAB_IDS.forEach((id, i) => {
-    const t = document.getElementById(id);
-    if (!t) return;
-    t.classList.remove('ls-tab-active', 'ls-tab-prev');
-    if (i === idx) t.classList.add('ls-tab-active');
-    else if (i < idx) t.classList.add('ls-tab-prev');
-  });
-  LS_NAV_ITEMS.forEach((id, i) => {
-    const n = document.getElementById(id);
-    if (n) n.classList.toggle('ls-active', i === idx);
-  });
-}
-
-// Swipe — 30px min, horizontal must be 1.5× vertical
-(function() {
-  const vp = document.getElementById('ls-viewport');
-  if (!vp) return;
-  let sx = null, sy = null;
-  vp.addEventListener('touchstart', e => {
-    sx = e.touches[0].clientX;
-    sy = e.touches[0].clientY;
-  }, { passive: true });
-  vp.addEventListener('touchend', e => {
-    if (sx === null) return;
-    const dx = e.changedTouches[0].clientX - sx;
-    const dy = e.changedTouches[0].clientY - sy;
-    if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
-      if (dx < 0 && LS_TAB < 1) lsSwitchTab(LS_TAB + 1);
-      if (dx > 0 && LS_TAB > 0) lsSwitchTab(LS_TAB - 1);
-    }
-    sx = null;
-  }, { passive: true });
-})();
-
-// Desktop switch
-function lsSwitchToDesktop() {
-  LS_DESKTOP_OVERRIDE = true;
-  checkOrientation();
-}
-
-// ── End Landscape UI ──────────────────────────────────────────────────────────
 // ── Activity ping — updates session last_active on real user interaction only ──
 // Background polling does NOT reset the session timer. Only clicks, keypresses,
 // and scrolls count as activity. Debounced to fire at most once every 15 seconds.

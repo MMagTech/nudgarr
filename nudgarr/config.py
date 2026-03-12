@@ -31,7 +31,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
     if not isinstance(cfg.get("cron_expression"), str):
         errs.append("cron_expression must be a string")
-    else:
+    elif cfg.get("scheduler_enabled"):
         parts = cfg["cron_expression"].strip().split()
         if len(parts) != 5:
             errs.append("cron_expression must be a valid 5-field cron string")

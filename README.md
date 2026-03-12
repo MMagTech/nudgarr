@@ -34,6 +34,7 @@ Click any screenshot to view full size.
 
 - **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted → Cutoff Unmet queue and triggers a search for a better quality version
 - **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering and per-app caps
+- **Skip Queued** — items already downloading are silently skipped; queued items never consume a search slot
 - **Import tracking** — polls Radarr and Sonarr after each sweep to confirm which searches resulted in a successful download
 - **Multiple instances** — supports multiple Radarr and Sonarr instances independently, each with their own health status
 
@@ -42,7 +43,8 @@ Click any screenshot to view full size.
 ## Features
 
 **Core**
-- Scheduler with configurable run interval, or manual-only mode
+- Cron-based scheduler with configurable expression and timezone support, or manual-only mode
+- Skip Queued — items already in the download queue are silently bypassed; max per run always filled from actionable items
 - Per-instance enable/disable — disabled instances skipped in sweeps and health checks
 - Per-app sample modes — Random, Alphabetical, Oldest Added, Newest Added independently for Radarr and Sonarr
 - Configurable cooldown, batch size, sleep, and jitter controls for indexer rate limit compliance

@@ -79,6 +79,26 @@ def radarr_get_missing_movies(
     return out
 
 
+def radarr_get_queued_movie_ids(
+    session: requests.Session,
+    url: str,
+    key: str,
+) -> set:
+    """Returns a set of movieId integers currently in the Radarr download queue."""
+    queued: set = set()
+    try:
+        endpoint = f"{url.rstrip('/')}/api/v3/queue?pageSize=1000&includeUnknownMovieItems=false"
+        data = req(session, "GET", endpoint, key)
+        if isinstance(data, dict):
+            for rec in data.get("records") or []:
+                mid = rec.get("movieId")
+                if isinstance(mid, int):
+                    queued.add(mid)
+    except Exception:
+        pass
+    return queued
+
+
 def radarr_search_movies(
     session: requests.Session,
     url: str,
@@ -187,6 +207,26 @@ def sonarr_get_missing_episodes(
                     title = ep_title or f"Episode {eid}"
                 episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
+
+
+def sonarr_get_queued_episode_ids(
+    session: requests.Session,
+    url: str,
+    key: str,
+) -> set:
+    """Returns a set of episodeId integers currently in the Sonarr download queue."""
+    queued: set = set()
+    try:
+        endpoint = f"{url.rstrip('/')}/api/v3/queue?pageSize=1000&includeUnknownSeriesItems=false"
+        data = req(session, "GET", endpoint, key)
+        if isinstance(data, dict):
+            for rec in data.get("records") or []:
+                eid = rec.get("episodeId")
+                if isinstance(eid, int):
+                    queued.add(eid)
+    except Exception:
+        pass
+    return queued
 
 
 def sonarr_search_episodes(

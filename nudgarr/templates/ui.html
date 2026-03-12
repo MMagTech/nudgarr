@@ -977,10 +977,9 @@
       -webkit-tap-highlight-color: transparent;
     }
     .ls-nav-item:active { background: var(--card); }
-    .ls-nav-icon { font-size: 18px; color: var(--muted); transition: color .15s; }
+    .ls-nav-icon { font-size: 24px; color: var(--muted); transition: color .15s; }
     .ls-nav-label {
-      font-size: 9px; color: var(--muted); font-weight: 600;
-      letter-spacing: .03em; text-transform: uppercase; transition: color .15s;
+      font-size: 10px; color: var(--muted); font-weight: 500; transition: color .15s;
     }
     .ls-nav-item.ls-active .ls-nav-icon,
     .ls-nav-item.ls-active .ls-nav-label { color: var(--accent); }
@@ -2049,7 +2048,7 @@
   <!-- Bottom nav -->
   <nav id="ls-nav">
     <div class="ls-nav-item ls-active" id="ls-nav-settings" onclick="lsSwitchTab(0)">
-      <span class="ls-nav-icon">⚙</span>
+      <span class="ls-nav-icon">☰</span>
       <span class="ls-nav-label">Settings</span>
     </div>
     <div class="ls-nav-item" id="ls-nav-advanced" onclick="lsSwitchTab(1)">
@@ -4316,14 +4315,14 @@ if (MOBILE) {
     if (!isLandscape) {
       // Portrait — always show portrait mobile, clear desktop override
       LS_DESKTOP_OVERRIDE = false;
-      if (wrap) wrap.style.display = 'none';
+      if (wrap) wrap.style.removeProperty('display'); // remove forced !important override
       if (landscapeUi) landscapeUi.style.display = 'none';
       if (mobileUi) mobileUi.style.cssText = MOBILE_UI_STYLE;
     } else if (LS_DESKTOP_OVERRIDE) {
-      // Landscape + user chose desktop
+      // Landscape + user chose desktop — force override of media query !important
       if (mobileUi) mobileUi.style.display = 'none';
       if (landscapeUi) landscapeUi.style.display = 'none';
-      if (wrap) wrap.style.display = '';
+      if (wrap) wrap.style.setProperty('display', 'block', 'important');
     } else {
       // Landscape — show landscape config UI
       if (mobileUi) mobileUi.style.display = 'none';

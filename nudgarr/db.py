@@ -392,7 +392,7 @@ def _run_migration_v4(conn: sqlite3.Connection) -> None:
         print(f"[Migration v4] FAILED: {exc}")
 
 
-
+def _migrate_exclusions(conn: sqlite3.Connection) -> None:
     data = load_json(EXCLUSIONS_FILE, [])
     if not isinstance(data, list):
         return

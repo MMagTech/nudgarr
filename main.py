@@ -12,7 +12,6 @@ Wires everything together:
 
 import signal
 import threading
-from datetime import timedelta
 
 import requests
 
@@ -21,7 +20,7 @@ from nudgarr.config import load_or_init_config
 from nudgarr.globals import STATUS
 from nudgarr.routes import register_blueprints
 from nudgarr.scheduler import import_check_loop, print_banner, scheduler_loop, start_ui_server
-from nudgarr.utils import iso_z, req, utcnow
+from nudgarr.utils import req
 
 
 def main() -> None:
@@ -41,10 +40,6 @@ def main() -> None:
 
     cfg = load_or_init_config()
     print_banner(cfg)
-
-    if cfg.get("scheduler_enabled"):
-        _interval = int(cfg.get("run_interval_minutes", 360))
-        STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=_interval))
 
     # Background health ping — parallel, non-blocking, populates dots within ~1s
     def _startup_health_ping():

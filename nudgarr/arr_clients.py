@@ -115,15 +115,12 @@ def radarr_search_movies(
 
 # ── Sonarr ────────────────────────────────────────────────────────────
 
-def sonarr_get_cutoff_unmet_episodes(
+def _sonarr_get_series_map(
     session: requests.Session,
     url: str,
     key: str,
-    page_size: int = 100,
-    max_pages: int = 5,
-) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted→Cutoff Unmet."""
-    # First fetch all series to build id→title map
+) -> Dict[int, str]:
+    """Fetch all series from Sonarr and return {series_id: title} map."""
     series_map: Dict[int, str] = {}
     try:
         series_data = req(session, "GET", f"{url.rstrip('/')}/api/v3/series", key)
@@ -133,10 +130,22 @@ def sonarr_get_cutoff_unmet_episodes(
                     series_map[s["id"]] = s["title"]
     except Exception:
         pass
+    return series_map
 
+
+def _sonarr_episodes_from_wanted(
+    session: requests.Session,
+    url: str,
+    key: str,
+    endpoint_path: str,
+    series_map: Dict[int, str],
+    page_size: int = 100,
+    max_pages: int = 5,
+) -> List[Dict[str, Any]]:
+    """Shared pagination helper for Sonarr wanted endpoints."""
     episodes: List[Dict[str, Any]] = []
     for page in range(1, max_pages + 1):
-        endpoint = f"{url.rstrip('/')}/api/v3/wanted/cutoff?page={page}&pageSize={page_size}"
+        endpoint = f"{url.rstrip('/')}{endpoint_path}?page={page}&pageSize={page_size}"
         data = req(session, "GET", endpoint, key)
         if not isinstance(data, dict):
             break
@@ -160,6 +169,20 @@ def sonarr_get_cutoff_unmet_episodes(
                     title = ep_title or f"Episode {eid}"
                 episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
     return episodes
+
+
+def sonarr_get_cutoff_unmet_episodes(
+    session: requests.Session,
+    url: str,
+    key: str,
+    page_size: int = 100,
+    max_pages: int = 5,
+) -> List[Dict[str, Any]]:
+    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted→Cutoff Unmet."""
+    series_map = _sonarr_get_series_map(session, url, key)
+    return _sonarr_episodes_from_wanted(
+        session, url, key, "/api/v3/wanted/cutoff", series_map, page_size, max_pages
+    )
 
 
 def sonarr_get_missing_episodes(
@@ -170,43 +193,10 @@ def sonarr_get_missing_episodes(
     max_pages: int = 5,
 ) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted→Missing."""
-    # Reuse series map
-    series_map: Dict[int, str] = {}
-    try:
-        series_data = req(session, "GET", f"{url.rstrip('/')}/api/v3/series", key)
-        if isinstance(series_data, list):
-            for s in series_data:
-                if isinstance(s.get("id"), int) and isinstance(s.get("title"), str):
-                    series_map[s["id"]] = s["title"]
-    except Exception:
-        pass
-
-    episodes: List[Dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
-        endpoint = f"{url.rstrip('/')}/api/v3/wanted/missing?page={page}&pageSize={page_size}"
-        data = req(session, "GET", endpoint, key)
-        if not isinstance(data, dict):
-            break
-        records = data.get("records") or []
-        if not records:
-            break
-        for rec in records:
-            eid = rec.get("id") or rec.get("episodeId")
-            if isinstance(eid, int):
-                series_id = rec.get("seriesId")
-                series_title = series_map.get(series_id) if series_id else None
-                season = rec.get("seasonNumber")
-                ep_num = rec.get("episodeNumber")
-                ep_title = rec.get("title")
-                added = rec.get("airDateUtc") or rec.get("added")
-                if series_title and season is not None and ep_num is not None:
-                    title = f"{series_title} S{season:02d}E{ep_num:02d}"
-                    if ep_title:
-                        title += f" · {ep_title}"
-                else:
-                    title = ep_title or f"Episode {eid}"
-                episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
-    return episodes
+    series_map = _sonarr_get_series_map(session, url, key)
+    return _sonarr_episodes_from_wanted(
+        session, url, key, "/api/v3/wanted/missing", series_map, page_size, max_pages
+    )
 
 
 def sonarr_get_queued_episode_ids(

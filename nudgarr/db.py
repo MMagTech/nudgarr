@@ -16,6 +16,7 @@ search_history
   get_search_history()     -- paginated history items with cooldown metadata
   get_search_history_summary() -- entry counts per instance
   get_last_searched_ts()   -- return last_searched_ts for a single item (cooldown check)
+  get_last_searched_ts_bulk() -- return {item_id: ts} for a list of items (batch cooldown check)
   prune_search_history()   -- delete rows older than retention_days
   clear_search_history()   -- delete all rows (Clear History)
 
@@ -614,6 +615,29 @@ def get_last_searched_ts(
     return row["last_searched_ts"] if row else None
 
 
+def get_last_searched_ts_bulk(
+    app: str,
+    instance_name: str,
+    instance_url: str,
+    item_type: str,
+    item_ids: List[str],
+) -> Dict[str, str]:
+    """Return {item_id: last_searched_ts} for a list of items in one query."""
+    if not item_ids:
+        return {}
+    conn = get_connection()
+    placeholders = ",".join("?" * len(item_ids))
+    rows = conn.execute(
+        f"""
+        SELECT item_id, last_searched_ts FROM search_history
+        WHERE app = ? AND instance_name = ? AND instance_url = ?
+          AND item_type = ? AND item_id IN ({placeholders})
+        """,
+        [app, instance_name, instance_url, item_type] + item_ids
+    ).fetchall()
+    return {r["item_id"]: r["last_searched_ts"] for r in rows}
+
+
 def get_search_history(
     app_filter: str = "",
     instance_key: str = "",
@@ -676,7 +700,6 @@ def get_search_history(
 
 
 def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    from nudgarr.constants import DB_FILE as _DB_FILE
     from nudgarr.state import state_key as make_state_key
 
     conn = get_connection()
@@ -706,7 +729,7 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
             instances[app].append({"key": sk, "name": inst["name"]})
 
     try:
-        size = os.path.getsize(_DB_FILE)
+        size = os.path.getsize(DB_FILE)
     except Exception:
         size = 0
 
@@ -830,20 +853,24 @@ def confirm_stat_entry(
 
 def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM stat_entries WHERE imported = 0"
-    ).fetchall()
-    if check_minutes == 0:
+    if check_minutes <= 0:
+        rows = conn.execute(
+            "SELECT * FROM stat_entries WHERE imported = 0"
+        ).fetchall()
         return [dict(r) for r in rows]
+
     now_dt = parse_iso(now_ts)
-    result = []
-    for r in rows:
-        dt = parse_iso(r["last_searched_ts"])
-        if dt is None:
-            continue
-        if now_dt and (now_dt - dt).total_seconds() / 60 >= check_minutes:
-            result.append(dict(r))
-    return result
+    if now_dt is None:
+        return []
+    cutoff = iso_z(now_dt - timedelta(minutes=check_minutes))
+    rows = conn.execute(
+        """
+        SELECT * FROM stat_entries
+        WHERE imported = 0 AND last_searched_ts <= ?
+        """,
+        (cutoff,)
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def get_confirmed_entries(

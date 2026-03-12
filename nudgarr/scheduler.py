@@ -211,5 +211,3 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
             time.sleep(1)
 
     STATUS["scheduler_running"] = False
-
-    STATUS["scheduler_running"] = False

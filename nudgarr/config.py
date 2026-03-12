@@ -50,6 +50,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "state_retention_days",
         "radarr_missing_max",
         "radarr_missing_added_days",
+        "sonarr_missing_max",
+        "sonarr_missing_added_days",
     ):
         v = cfg.get(k)
         if not isinstance(v, int) or v < 0:
@@ -95,7 +97,7 @@ def load_or_init_config() -> Dict[str, Any]:
     merged["instances"]["radarr"] = cfg.get("instances", {}).get("radarr", merged["instances"]["radarr"])
     merged["instances"]["sonarr"] = cfg.get("instances", {}).get("sonarr", merged["instances"]["sonarr"])
 
-    # ── Migration: interval → cron (v3.2.0) ──
+    # ── Migration: interval → cron (v3.1.0) ──
     # Old installs may have run_interval_minutes and/or cron_enabled.
     # Convert to cron_expression if missing or empty, then drop legacy keys.
     if not merged.get("cron_expression"):

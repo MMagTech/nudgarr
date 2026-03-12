@@ -2448,6 +2448,15 @@ function syncSchedulerUi() {
     cronInput.disabled = !enabled;
     cronInput.style.opacity = enabled ? '' : '0.4';
     cronInput.style.cursor = enabled ? '' : 'not-allowed';
+    if (enabled) {
+      validateCronExpr();
+    } else {
+      cronInput.classList.remove('cron-valid', 'cron-invalid', 'cron-glow');
+      const icon = el('cronValidIcon');
+      if (icon) icon.style.display = 'none';
+      const hint = el('cronHintLine');
+      if (hint) { hint.className = 'cron-hint-line'; hint.innerHTML = ''; }
+    }
   }
 }
 

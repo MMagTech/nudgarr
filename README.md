@@ -30,6 +30,19 @@ Click any screenshot to view full size.
 
 ---
 
+## Documentation
+
+Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTech/nudgarr/wiki), including:
+
+- [Setup & Configuration](https://github.com/MMagTech/nudgarr/wiki/Setup-&-Configuration)
+- [How Nudgarr Works](https://github.com/MMagTech/nudgarr/wiki/How-Nudgarr-Works)
+- [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference)
+- [Exclusions](https://github.com/MMagTech/nudgarr/wiki/Exclusions)
+- [Notifications (Apprise)](https://github.com/MMagTech/nudgarr/wiki/Notifications-(Apprise))
+- [FAQ & Troubleshooting](https://github.com/MMagTech/nudgarr/wiki/FAQ-&-Troubleshooting)
+
+---
+
 ## What it does
 
 - **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted → Cutoff Unmet queue and triggers a search for a better quality version
@@ -61,7 +74,8 @@ Click any screenshot to view full size.
 **Mobile**
 - Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
 - Four-tab bottom nav: Home · Instances · Sweep · Exclusions
-- Quick Settings — long press Run Now to adjust interval, cooldown, and caps without leaving the home tab
+- Quick Settings — long press Run Now to adjust cooldown and max per run without leaving the home tab
+- Landscape mode — rotating to landscape switches to a compact settings panel; tap Desktop View to access the full UI
 - Bottom sheets for Exclusions and Imports with haptic feedback and swipe-to-dismiss
 - iOS and Android browser toolbar matches the app via `theme-color`
 
@@ -87,6 +101,7 @@ PUID=1000
 PGID=1000
 PORT=8085
 CONFIG_PATH=/your/path/to/appdata/nudgarr
+TZ=UTC
 # SECRET_KEY=your-secret-key  # optional, auto-generated if not set
 ```
 
@@ -107,6 +122,7 @@ services:
       - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
       - DB_FILE=/config/nudgarr.db
+      - TZ=${TZ:-UTC}
       # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:
@@ -178,4 +194,4 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide. For usage questions, the [wiki](https://github.com/MMagTech/nudgarr/wiki) is the first stop.

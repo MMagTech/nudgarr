@@ -14,6 +14,7 @@ services:
       - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
       - DB_FILE=/config/nudgarr.db
+      - TZ=${TZ:-UTC}
       # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:

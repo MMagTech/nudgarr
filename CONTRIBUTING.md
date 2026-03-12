@@ -255,5 +255,5 @@ Nudgarr intentionally supports only Radarr and Sonarr. If you want to add Readar
 
 ## Questions
 
-Open an issue on GitHub. If you're working on something larger, it's worth discussing the approach before building it.
+Check the [wiki](https://github.com/MMagTech/nudgarr/wiki) first — setup, settings, and common questions are covered there. For anything not answered, open an issue on GitHub. If you're working on something larger, it's worth discussing the approach before building it.
 

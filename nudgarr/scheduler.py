@@ -9,6 +9,7 @@ Background sweep engine.
   scheduler_loop      -- main sweep loop, runs on interval + handles run-now requests
 """
 
+import datetime as _dt
 import os
 import time
 from typing import Any, Dict
@@ -84,7 +85,6 @@ def _next_cron_utc(expression: str) -> str:
     now = utcnow()
     try:
         if tz:
-            import datetime as _dt
             now_local = now.astimezone(tz)
             cron = croniter(expression, now_local)
             next_local = cron.get_next(_dt.datetime)
@@ -93,7 +93,7 @@ def _next_cron_utc(expression: str) -> str:
             cron = croniter(expression, now)
             next_utc = cron.get_next(type(now))
     except Exception:
-        next_utc = now + timedelta(hours=1)
+        next_utc = now + _dt.timedelta(hours=1)
 
     return iso_z(next_utc)
 
@@ -110,7 +110,6 @@ def _cron_due(expression: str) -> bool:
     now = utcnow()
     try:
         if tz:
-            import datetime as _dt
             now_local = now.astimezone(tz)
             cron = croniter(expression, now_local)
             prev_local = cron.get_prev(_dt.datetime)
@@ -153,8 +152,8 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
 
         # Recalculate next_run_utc immediately if config changed
         config_changed = (
-            scheduler_enabled != _prev_scheduler_enabled or
-            cron_expression != _prev_cron_expression
+            scheduler_enabled != _prev_scheduler_enabled
+            or cron_expression != _prev_cron_expression
         )
         if config_changed:
             STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None

@@ -11,7 +11,6 @@ Configuration management endpoints.
   POST /api/instance/toggle      -- enable/disable one instance
 """
 
-import os
 import threading
 
 import requests as req_lib

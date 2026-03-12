@@ -526,19 +526,31 @@ def _migrate_stats(conn: sqlite3.Connection) -> None:
         )
         unimported_rows += 1
 
+    # Deduplicate imported entries on (app, instance, item_id) — keep earliest imported_ts
+    imported_deduped: Dict[Tuple, Dict] = {}
     for entry in imported_entries:
+        key = (
+            entry.get("app", ""),
+            entry.get("instance", ""),
+            str(entry.get("item_id", "")),
+        )
+        imp_ts = entry.get("imported_ts") or ""
+        if key not in imported_deduped or imp_ts < imported_deduped[key].get("imported_ts", ""):
+            imported_deduped[key] = entry
+
+    for (app, instance, item_id), entry in imported_deduped.items():
         searched_ts = entry.get("searched_ts") or iso_z(utcnow())
         conn.execute(
             """
-            INSERT INTO stat_entries
+            INSERT OR IGNORE INTO stat_entries
                 (app, instance, item_id, title, type,
                  first_searched_ts, last_searched_ts, imported, imported_ts)
             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
             """,
             (
-                entry.get("app", ""),
-                entry.get("instance", ""),
-                str(entry.get("item_id", "")),
+                app,
+                instance,
+                item_id,
                 entry.get("title") or "",
                 entry.get("type") or "",
                 searched_ts,

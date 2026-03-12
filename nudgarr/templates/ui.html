@@ -317,6 +317,8 @@
     .excl-btn:hover { color: var(--bad); }
     .excl-btn.excluded { opacity: 1 !important; color: #f87171; }
     tr:hover .excl-btn { opacity: 1; }
+    .arr-link { cursor: pointer; }
+    .arr-link:hover { color: var(--accent) !important; }
     tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
     tr.row-excluded .excl-btn { opacity: 1 !important; }
     .excl-col { overflow: visible !important; }
@@ -426,21 +428,6 @@
       border-radius: 2px;
       background: linear-gradient(90deg, rgba(99,120,255,0.4) 0%, rgba(99,120,255,0) 100%);
     }
-    @keyframes wordmark-sweep {
-      0%   { background-position: 200% center; }
-      100% { background-position: -200% center; }
-    }
-    .wordmark.sweeping::after {
-      background: linear-gradient(90deg,
-        rgba(99,120,255,0) 0%,
-        rgba(99,120,255,0.15) 25%,
-        rgba(99,120,255,0.5) 50%,
-        rgba(99,120,255,0.15) 75%,
-        rgba(99,120,255,0) 100%
-      );
-      background-size: 200% auto;
-      animation: wordmark-sweep 7s linear infinite;
-    }
 
 
     .amber-warn {
@@ -476,20 +463,9 @@
     /* ══════════════════════════════════════════════════════════════════════
        MOBILE UI  — portrait ≤480px
        Desktop .wrap is hidden; #mobile-ui shown instead.
-       Landscape ≤480px → rotate overlay only.
+       Landscape on mobile → desktop view shown instead.
        ≥600px any orientation → desktop always (mobile never loads).
     ══════════════════════════════════════════════════════════════════════ */
-
-    /* Rotate lock overlay */
-    #mobile-rotate {
-      display: none;
-      position: fixed; inset: 0; z-index: 9999;
-      background: var(--bg);
-      flex-direction: column; align-items: center; justify-content: center;
-      gap: 16px; text-align: center; padding: 32px;
-    }
-    #mobile-rotate .rotate-icon { font-size: 48px; }
-    #mobile-rotate p { color: var(--muted); font-size: 14px; max-width: 260px; line-height: 1.5; }
 
     /* Mobile shell */
     #mobile-ui {
@@ -815,10 +791,6 @@
       .wrap { display: none !important; }
       #mobile-ui { display: flex !important; }
       body { background: var(--surface); }
-    }
-    @media screen and (max-width: 500px) and (orientation: landscape) {
-      #mobile-ui { display: none !important; }
-      #mobile-rotate { display: flex !important; }
     }
   </style>
 </head>
@@ -1494,12 +1466,6 @@
 
 <!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
 
-<!-- Rotate lock -->
-<div id="mobile-rotate">
-  <div class="rotate-icon">⟳</div>
-  <p>Nudgarr is portrait-only on mobile. Please rotate your device.</p>
-</div>
-
 <!-- Mobile shell -->
 <div id="mobile-ui">
 
@@ -1507,7 +1473,6 @@
   <div class="m-tab m-active" id="m-home">
     <div class="m-home-header">
       <h1>Nudgarr</h1>
-      <span>v<span id="m-ver"></span></span>
     </div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
 
@@ -2777,7 +2742,7 @@ async function refreshHistory() {
       const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
       return `
       <tr class="${rowClass}">
-        <td style="color:var(--text);font-weight:500">${escapeHtml(title)}</td>
+        <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${it.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(it.app)}','${escapeHtml(it.instance_name)}','${escapeHtml(it.item_id)}')">${escapeHtml(title)}</td>
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
         <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
@@ -2976,7 +2941,7 @@ async function refreshImports() {
       const tagClass = e.type === 'Acquired' ? 'tag acquired' : 'tag';
       return `
       <tr>
-        <td style="color:var(--text);font-weight:500">${escapeHtml(e.title || e.item_id)}</td>
+        <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${e.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(e.app)}','${escapeHtml(e.instance)}','${escapeHtml(e.item_id)}')">${escapeHtml(e.title || e.item_id)}</td>
         <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
         <td><span class="${tagClass}">${escapeHtml(e.type)}${escapeHtml(iterSuffix)}</span></td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.first_searched_ts))}</td>
@@ -3194,12 +3159,29 @@ async function runNow() {
     await api('/api/run-now', {method:'POST'});
     el('lastRun').textContent = 'Running…';
     el('dot-dryrun').classList.add('running');
+    const wm = el('wordmark');
+    wm.classList.add('sweeping');
+    wm._pendingStop = false;
   } catch(e) {
     showAlert('Run request failed: ' + e.message);
   }
 }
 
-// ── Status polling ──
+// ── Arr link ──
+async function openArrLink(app, instance, itemId) {
+  try {
+    const data = await api(`/api/arr-link?app=${encodeURIComponent(app)}&instance=${encodeURIComponent(instance)}&item_id=${encodeURIComponent(itemId)}`);
+    if (data.ok && data.url) {
+      window.open(data.url, '_blank');
+    } else {
+      showAlert('Could not open in ' + (app === 'radarr' ? 'Radarr' : 'Sonarr') + ': ' + (data.error || 'Unknown error'));
+    }
+  } catch(e) {
+    showAlert('Link failed: ' + e.message);
+  }
+}
+
+
 let _wasRunning = false;
 async function refreshStatus() {
   try {
@@ -3384,8 +3366,6 @@ if (!MOBILE) {
   // ── Home ──
 
   function mUpdateHome(cfg, st) {
-    const verEl = document.getElementById('m-ver');
-    if (verEl) verEl.textContent = st.version || '';
     const lastEl = document.getElementById('m-last-run');
     if (lastEl) lastEl.textContent = fmtTime(st.last_run_utc);
     const nextEl = document.getElementById('m-next-run');
@@ -3900,18 +3880,21 @@ async function mPollCycle() {
 // ── Mobile init ──
 
 if (MOBILE) {
-  // Force layout via JS — don't rely on CSS media query alone
+  // Force layout via JS — show mobile in portrait, desktop in landscape
   const wrap = document.querySelector('.wrap');
   const mobileUi = document.getElementById('mobile-ui');
-  const rotateOverlay = document.getElementById('mobile-rotate');
-  if (wrap) wrap.style.display = 'none';
 
   const MOBILE_UI_STYLE = 'display:flex; flex-direction:column; width:100%; height:100vh; height:100dvh; position:fixed; top:0; left:0; overflow:hidden;';
 
   function checkOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight;
-    if (mobileUi) mobileUi.style.cssText = isLandscape ? 'display:none' : MOBILE_UI_STYLE;
-    if (rotateOverlay) rotateOverlay.style.display = isLandscape ? 'flex' : 'none';
+    if (isLandscape) {
+      if (mobileUi) mobileUi.style.display = 'none';
+      if (wrap) wrap.style.display = '';
+    } else {
+      if (wrap) wrap.style.display = 'none';
+      if (mobileUi) mobileUi.style.cssText = MOBILE_UI_STYLE;
+    }
   }
   checkOrientation();
   window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 100));

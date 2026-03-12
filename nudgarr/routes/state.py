@@ -155,3 +155,56 @@ def api_remove_exclusion():
         return jsonify({"error": "title required"}), 400
     count = db.remove_exclusion(title)
     return jsonify({"ok": True, "count": count})
+
+
+# ── Arr link ──────────────────────────────────────────────────────────
+
+@bp.get("/api/arr-link")
+@requires_auth
+def api_arr_link():
+    """
+    Resolve a Radarr/Sonarr item ID to a direct UI URL in the configured instance.
+    Returns {ok: true, url: "http://..."} or {ok: false, error: "..."}.
+    """
+    import requests as _requests
+    app_name = request.args.get("app", "").lower()
+    instance_name = request.args.get("instance", "").strip()
+    item_id = request.args.get("item_id", "").strip()
+
+    if app_name not in ("radarr", "sonarr") or not instance_name or not item_id:
+        return jsonify({"ok": False, "error": "app, instance, and item_id are required"}), 400
+
+    cfg = load_or_init_config()
+    instances = cfg.get("instances", {}).get(app_name, [])
+    inst = next((i for i in instances if i.get("name") == instance_name), None)
+    if not inst:
+        return jsonify({"ok": False, "error": "Instance not found"}), 404
+
+    base_url = inst["url"].rstrip("/")
+    key = inst["key"]
+
+    try:
+        if app_name == "radarr":
+            r = _requests.get(
+                f"{base_url}/api/v3/movie/{item_id}",
+                headers={"X-Api-Key": key},
+                timeout=10,
+            )
+            r.raise_for_status()
+            slug = r.json().get("titleSlug", "")
+            if not slug:
+                return jsonify({"ok": False, "error": "No titleSlug in response"}), 502
+            return jsonify({"ok": True, "url": f"{base_url}/movie/{slug}"})
+        else:
+            r = _requests.get(
+                f"{base_url}/api/v3/series/{item_id}",
+                headers={"X-Api-Key": key},
+                timeout=10,
+            )
+            r.raise_for_status()
+            slug = r.json().get("titleSlug", "")
+            if not slug:
+                return jsonify({"ok": False, "error": "No titleSlug in response"}), 502
+            return jsonify({"ok": True, "url": f"{base_url}/series/{slug}"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 502

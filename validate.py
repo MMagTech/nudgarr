@@ -69,7 +69,7 @@ if mobile_start:
 section("Key Mobile Elements")
 
 for label, pat in {
-    '#mobile-rotate':'id="mobile-rotate"', '#mobile-ui':'id="mobile-ui"',
+    '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
     '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
     '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"'

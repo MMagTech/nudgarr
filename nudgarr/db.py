@@ -688,6 +688,9 @@ def get_search_history(
         friendly = (instance_name_map or {}).get(sk, r["instance_name"])
         items.append({
             "key": f"{r['item_type']}:{r['item_id']}",
+            "app": r["app"],
+            "instance_name": r["instance_name"],
+            "item_id": r["item_id"],
             "title": r["title"],
             "instance": friendly,
             "last_searched": ts,

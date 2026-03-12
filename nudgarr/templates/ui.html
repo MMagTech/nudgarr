@@ -247,6 +247,14 @@
     .cron-expr-input { width: 200px; font-family: ui-monospace, monospace; letter-spacing: .03em; }
     .cron-expr-input.cron-valid   { border-color: rgba(34,197,94,.45); }
     .cron-expr-input.cron-invalid { border-color: rgba(239,68,68,.45); }
+    @keyframes cron-glow-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0); border-color: rgba(239,68,68,.45); }
+      30%  { box-shadow: 0 0 0 5px rgba(239,68,68,.45); border-color: rgba(239,68,68,.8); }
+      60%  { box-shadow: 0 0 0 0 rgba(239,68,68,0); border-color: rgba(239,68,68,.45); }
+      80%  { box-shadow: 0 0 0 5px rgba(239,68,68,.45); border-color: rgba(239,68,68,.8); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); border-color: rgba(239,68,68,.45); }
+    }
+    .cron-expr-input.cron-glow { animation: cron-glow-pulse .9s ease forwards; }
     .cron-hint-line { font-size: 11.5px; color: var(--muted); margin-top: 4px; min-height: 16px; }
     .cron-hint-line.cron-ok  { color: #22c55e; }
     .cron-hint-line.cron-bad { color: #ef4444; }
@@ -908,21 +916,20 @@
 
   <!-- ══════════════════════════════ SETTINGS ══════════════════════════════ -->
   <div class="section" id="tab-settings">
-    <div class="grid" style="max-width:600px">
+    <div class="grid">
 
       <div class="card">
         <p class="section-label">Scheduler</p>
 
         <!-- Scheduler header -->
-        <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.10);">
-          <div style="display:flex; align-items:center; gap:10px;">
+        <div style="padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.10);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
+            <span id="cronContainerTime" style="font-size:11px; color:var(--muted);"></span>
             <div class="tooltip-wrap">
-              <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
               <span class="tooltip-icon">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
             </div>
-            <span class="mode-pill" id="schedulerModePill">auto</span>
           </div>
-          <span id="cronContainerTime" style="font-size:12px; color:var(--muted);"></span>
         </div>
 
         <!-- Cron panel -->
@@ -2436,15 +2443,12 @@ function updateContainerTime(timeStr) {
 function syncSchedulerUi() {
   const enabled = el('scheduler_enabled').checked;
   el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual';
-  updateSchedulerModePill();
-}
-
-function updateSchedulerModePill() {
-  const pill = el('schedulerModePill');
-  if (!pill) return;
-  const active = el('scheduler_enabled') && el('scheduler_enabled').checked;
-  pill.textContent = active ? 'auto' : 'manual';
-  pill.classList.toggle('manual', !active);
+  const cronInput = el('cron_expression');
+  if (cronInput) {
+    cronInput.disabled = !enabled;
+    cronInput.style.opacity = enabled ? '' : '0.4';
+    cronInput.style.cursor = enabled ? '' : 'not-allowed';
+  }
 }
 
 function cronIntervalMinutes(expr) {
@@ -2464,6 +2468,7 @@ function validateCronExpr() {
   const hint  = el('cronHintLine');
   const icon  = el('cronValidIcon');
   if (!input) return;
+  input.classList.remove('cron-glow');
   const val = input.value.trim();
   if (!val) {
     input.classList.remove('cron-valid', 'cron-invalid');
@@ -2575,8 +2580,24 @@ function fillSettings() {
 
 async function saveSettings() {
   try {
-    CFG.scheduler_enabled = el('scheduler_enabled').checked;
-    CFG.cron_expression = el('cron_expression').value.trim();
+    const enabled = el('scheduler_enabled').checked;
+    const expr = el('cron_expression').value.trim();
+    const parts = expr.split(/\s+/);
+    const exprValid = parts.length === 5 && parts.every(p => /^[\d\*\/,\-]+$/.test(p));
+
+    // Client-side guard: block save if auto enabled with no valid expression
+    if (enabled && !exprValid) {
+      const input = el('cron_expression');
+      input.classList.remove('cron-glow');
+      void input.offsetWidth; // force reflow to restart animation
+      input.classList.add('cron-invalid', 'cron-glow');
+      el('setMsg').textContent = 'Enter a valid cron expression first';
+      el('setMsg').className = 'msg err';
+      return;
+    }
+
+    CFG.scheduler_enabled = enabled;
+    CFG.cron_expression = expr;
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
     CFG.radarr_sample_mode = el('radarr_sample_mode').value;
     CFG.sonarr_sample_mode = el('sonarr_sample_mode').value;
@@ -2585,7 +2606,13 @@ async function saveSettings() {
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
-    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    const res = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const msg = (body && body.errors && body.errors[0]) ? body.errors[0] : 'Save failed';
+      el('setMsg').textContent = msg; el('setMsg').className = 'msg err';
+      return;
+    }
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');

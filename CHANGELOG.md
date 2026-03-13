@@ -4,6 +4,16 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v3.1.1
+
+**Bug Fixes**
+
+- Instance rename no longer breaks API key restoration — `_restore_keys` now falls back to URL matching when the stored name doesn't match, so renaming and saving in one step preserves the connection
+- Import confirmation is now rename-safe throughout — `stat_entries` stores `instance_url`, `check_imports` falls back to URL when name lookup fails, and `confirm_stat_entry` handles URL-based matching for both pending and confirmed rows
+- Imports tab instance filter now keys on URL rather than name — existing entries remain visible after a rename
+
+---
+
 ## v3.1.0
 
 **SQLite Database**

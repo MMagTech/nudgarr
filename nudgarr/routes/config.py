@@ -52,9 +52,13 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
         incoming_insts = incoming.get("instances", {}).get(app_name, [])
         stored_insts = stored.get("instances", {}).get(app_name, [])
         stored_by_name = {i.get("name", ""): i for i in stored_insts}
+        stored_by_url = {i.get("url", "").rstrip("/"): i for i in stored_insts}
         for inst in incoming_insts:
             if _is_masked(inst.get("key", "")):
-                real = stored_by_name.get(inst.get("name", ""), {}).get("key", "")
+                # Try name first, fall back to URL for rename scenarios
+                match = stored_by_name.get(inst.get("name", "")) or \
+                        stored_by_url.get(inst.get("url", "").rstrip("/"))
+                real = (match or {}).get("key", "")
                 if real:
                     inst["key"] = real
 

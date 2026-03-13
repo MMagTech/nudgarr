@@ -3334,7 +3334,7 @@ async function refreshImports() {
     if (sel) {
       const prev = sel.value;
       sel.innerHTML = '<option value="">All Instances</option>' +
-        data.instances.map(i => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
+        data.instances.map(i => `<option value="${escapeHtml(i.url)}">${escapeHtml(i.name)}</option>`).join('');
       if (prev) sel.value = prev;
     }
 

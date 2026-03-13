@@ -24,7 +24,7 @@ bp = Blueprint("stats", __name__)
 @requires_auth
 def api_get_stats():
     cfg = load_or_init_config()
-    instance_filter = request.args.get("instance", "")
+    instance_filter = request.args.get("instance", "").rstrip("/")
     type_filter = request.args.get("type", "")
     try:
         offset = int(request.args.get("offset", 0))
@@ -33,7 +33,7 @@ def api_get_stats():
         offset, limit = 0, 25
 
     total, entries, available_types = db.get_confirmed_entries(
-        instance_filter=instance_filter,
+        instance_url_filter=instance_filter,
         type_filter=type_filter,
         offset=offset,
         limit=limit,
@@ -42,9 +42,9 @@ def api_get_stats():
 
     all_instances = []
     for inst in cfg.get("instances", {}).get("radarr", []):
-        all_instances.append({"name": inst["name"], "app": "radarr"})
+        all_instances.append({"name": inst["name"], "url": inst["url"].rstrip("/"), "app": "radarr"})
     for inst in cfg.get("instances", {}).get("sonarr", []):
-        all_instances.append({"name": inst["name"], "app": "sonarr"})
+        all_instances.append({"name": inst["name"], "url": inst["url"].rstrip("/"), "app": "sonarr"})
 
     return jsonify({
         "entries": entries,

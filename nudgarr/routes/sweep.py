@@ -164,13 +164,15 @@ def api_test_instance():
     if kind not in ("radarr", "sonarr"):
         return jsonify({"ok": False, "error": "Invalid kind"}), 400
     stored = load_or_init_config()
-    stored_insts = {i.get("name", ""): i for i in stored.get("instances", {}).get(kind, [])}
+    stored_insts_by_name = {i.get("name", ""): i for i in stored.get("instances", {}).get(kind, [])}
+    stored_insts_by_url = {i.get("url", "").rstrip("/"): i for i in stored.get("instances", {}).get(kind, [])}
     session = req_lib.Session()
     results = {kind: []}
     for inst in instances.get(kind, []):
         key = inst.get("key", "")
         if key.startswith("••••••••"):
-            real = stored_insts.get(inst.get("name", ""), {}).get("key", "")
+            match = stored_insts_by_name.get(inst.get("name", "")) or stored_insts_by_url.get(inst.get("url", "").rstrip("/"))
+            real = (match or {}).get("key", "")
             if real:
                 inst = dict(inst)
                 inst["key"] = real

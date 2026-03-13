@@ -29,6 +29,8 @@
       --bad-border: rgba(239,68,68,.35);
     }
     *, *::before, *::after { box-sizing: border-box; }
+    html, body { touch-action: pan-x pan-y; }
+    button, a, input, select, textarea, [onclick], label { touch-action: manipulation; }
     body {
       margin: 0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;

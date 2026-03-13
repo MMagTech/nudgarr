@@ -9,11 +9,13 @@ Background sweep engine.
   scheduler_loop      -- main sweep loop, runs on interval + handles run-now requests
 """
 
+import datetime as _dt
+import os
 import time
-from datetime import timedelta
 from typing import Any, Dict
 
 import requests
+from croniter import croniter
 
 from nudgarr import db
 from nudgarr.config import load_or_init_config
@@ -22,7 +24,7 @@ from nudgarr.globals import RUN_LOCK, STATUS, app
 from nudgarr.notifications import notify_error, notify_sweep_complete
 from nudgarr.stats import check_imports
 from nudgarr.sweep import run_sweep
-from nudgarr.utils import iso_z, parse_iso, utcnow
+from nudgarr.utils import iso_z, utcnow
 
 
 def print_banner(cfg: Dict[str, Any]) -> None:
@@ -71,39 +73,92 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
             last_check_ts = now
 
 
+def _next_cron_utc(expression: str) -> str:
+    """Return the next fire time for a cron expression as a UTC ISO-Z string."""
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = None
+
+    now = utcnow()
+    try:
+        if tz:
+            now_local = now.astimezone(tz)
+            cron = croniter(expression, now_local)
+            next_local = cron.get_next(_dt.datetime)
+            next_utc = next_local.astimezone(_dt.timezone.utc)
+        else:
+            cron = croniter(expression, now)
+            next_utc = cron.get_next(type(now))
+    except Exception:
+        next_utc = now + _dt.timedelta(hours=1)
+
+    return iso_z(next_utc)
+
+
+def _cron_due(expression: str) -> bool:
+    """Return True if the cron expression should have fired since last checked (within 60s window)."""
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = None
+
+    now = utcnow()
+    try:
+        if tz:
+            now_local = now.astimezone(tz)
+            cron = croniter(expression, now_local)
+            prev_local = cron.get_prev(_dt.datetime)
+            prev_utc = prev_local.astimezone(_dt.timezone.utc)
+        else:
+            cron = croniter(expression, now)
+            prev_utc = cron.get_prev(type(now))
+        return (now - prev_utc).total_seconds() < 90
+    except Exception:
+        return False
+
+
 def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     STATUS["scheduler_running"] = True
     session = requests.Session()
     cycle = 0
 
     # Restore last_run_utc from persisted state so UI shows correctly after restart.
-    # Derive next_run_utc from it so the schedule stays accurate across restarts.
-    # If no persisted value exists (fresh install), schedule from now.
     cfg = load_or_init_config()
-    scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
-    interval_min = int(cfg.get("run_interval_minutes", 360))
+    scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
+    cron_expression = cfg.get("cron_expression", "0 */6 * * *")
 
     persisted_last_run = db.get_state("last_run_utc")
     if persisted_last_run:
         STATUS["last_run_utc"] = persisted_last_run
 
-    if scheduler_enabled:
-        if persisted_last_run:
-            last_dt = parse_iso(persisted_last_run)
-            if last_dt:
-                STATUS["next_run_utc"] = iso_z(last_dt + timedelta(minutes=interval_min))
-            else:
-                STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
-        else:
-            STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
+    # Set initial next_run_utc
+    if scheduler_enabled and cron_expression:
+        STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
     else:
         STATUS["next_run_utc"] = None
 
+    _prev_scheduler_enabled = scheduler_enabled
+    _prev_cron_expression = cron_expression
+
     while not stop_flag["stop"]:
         cfg = load_or_init_config()
+        scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
+        cron_expression = cfg.get("cron_expression", "0 */6 * * *")
 
-        scheduler_enabled = bool(cfg.get("scheduler_enabled", True))
-        interval_min = int(cfg.get("run_interval_minutes", 360))
+        # Recalculate next_run_utc immediately if config changed
+        config_changed = (
+            scheduler_enabled != _prev_scheduler_enabled
+            or cron_expression != _prev_cron_expression
+        )
+        if config_changed:
+            STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
+            _prev_scheduler_enabled = scheduler_enabled
+            _prev_cron_expression = cron_expression
 
         should_run = False
 
@@ -111,6 +166,11 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
             if STATUS.get("run_requested"):
                 should_run = True
                 STATUS["run_requested"] = False
+
+        # Cron trigger: check if a scheduled fire time just passed (within 90s window)
+        if not should_run and scheduler_enabled and cron_expression:
+            if _cron_due(cron_expression):
+                should_run = True
 
         if should_run:
             cycle += 1
@@ -137,25 +197,17 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 notify_error(f"Sweep failed: {e}", cfg)
             finally:
                 STATUS["run_in_progress"] = False
-                if scheduler_enabled:
-                    STATUS["next_run_utc"] = iso_z(utcnow() + timedelta(minutes=interval_min))
-                else:
-                    STATUS["next_run_utc"] = None
+                STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
 
         if stop_flag["stop"]:
             break
 
-        sleep_seconds = interval_min * 60 if scheduler_enabled else 60
-        deadline = time.monotonic() + sleep_seconds
+        # Always wake every 60s to check for due cron fires and config changes
+        deadline = time.monotonic() + 60
         while not stop_flag["stop"] and time.monotonic() < deadline:
             with RUN_LOCK:
                 if STATUS.get("run_requested"):
                     break
             time.sleep(1)
-
-        if scheduler_enabled and not stop_flag["stop"]:
-            with RUN_LOCK:
-                if not STATUS.get("run_requested"):
-                    STATUS["run_requested"] = True
 
     STATUS["scheduler_running"] = False

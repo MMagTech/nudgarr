@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#181a28"/>
   <title>Nudgarr</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2311131f'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%236366f1'%3EN%3C/text%3E%3C/svg%3E"/>
@@ -29,6 +29,8 @@
       --bad-border: rgba(239,68,68,.35);
     }
     *, *::before, *::after { box-sizing: border-box; }
+    html, body { touch-action: pan-x pan-y; }
+    button, a, input, select, textarea, [onclick], label { touch-action: manipulation; }
     body {
       margin: 0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -241,7 +243,27 @@
     }
     .toggle input:checked ~ .toggle-thumb { left: 19px; background: #fff; transform: translateY(-50%); }
 
-    /* ── Instance cards ── */
+    /* ── Scheduler cron panel ── */
+    .mode-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--accent-dim); border: 1px solid var(--accent-border); color: #a8b4ff; }
+    .mode-pill.manual { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); color: var(--muted); }
+    .cron-expr-input { width: 200px; font-family: ui-monospace, monospace; letter-spacing: .03em; }
+    .cron-expr-input.cron-valid   { border-color: rgba(34,197,94,.45); }
+    .cron-expr-input.cron-invalid { border-color: rgba(239,68,68,.45); }
+    @keyframes cron-glow-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0); border-color: rgba(239,68,68,.45); }
+      30%  { box-shadow: 0 0 0 5px rgba(239,68,68,.45); border-color: rgba(239,68,68,.8); }
+      60%  { box-shadow: 0 0 0 0 rgba(239,68,68,0); border-color: rgba(239,68,68,.45); }
+      80%  { box-shadow: 0 0 0 5px rgba(239,68,68,.45); border-color: rgba(239,68,68,.8); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); border-color: rgba(239,68,68,.45); }
+    }
+    .cron-expr-input.cron-glow { animation: cron-glow-pulse .9s ease forwards; }
+    .cron-hint-line { font-size: 11.5px; color: var(--muted); margin-top: 4px; min-height: 16px; }
+    .cron-hint-line.cron-ok  { color: #22c55e; }
+    .cron-hint-line.cron-bad { color: #ef4444; }
+    .cron-hint-line.cron-warn { color: #f59e0b; }
+    .cron-hint-line.cron-warn a { color: #fbbf24; }
+    .cron-hint-line a { color: #818cf8; text-underline-offset: 2px; }
+    .cron-hint-line.cron-ok a { color: #4ade80; }
     .inst-card {
       border: 1px solid var(--border); border-radius: 12px;
       padding: 13px 14px; margin-top: 8px; background: var(--surface);
@@ -297,6 +319,8 @@
     .excl-btn:hover { color: var(--bad); }
     .excl-btn.excluded { opacity: 1 !important; color: #f87171; }
     tr:hover .excl-btn { opacity: 1; }
+    .arr-link { cursor: pointer; }
+    .arr-link:hover { color: var(--accent) !important; }
     tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
     tr.row-excluded .excl-btn { opacity: 1 !important; }
     .excl-col { overflow: visible !important; }
@@ -406,20 +430,19 @@
       border-radius: 2px;
       background: linear-gradient(90deg, rgba(99,120,255,0.4) 0%, rgba(99,120,255,0) 100%);
     }
-    @keyframes wordmark-sweep {
-      0%   { background-position: 200% center; }
-      100% { background-position: -200% center; }
+    @keyframes sweepShimmer {
+      0%   { background-position: -80% 0; opacity: 0.5; }
+      45%  { opacity: 1; }
+      100% { background-position: 200% 0; opacity: 0.5; }
     }
+    @keyframes sweepTick { from {} to {} }
     .wordmark.sweeping::after {
-      background: linear-gradient(90deg,
-        rgba(99,120,255,0) 0%,
-        rgba(99,120,255,0.15) 25%,
-        rgba(99,120,255,0.5) 50%,
-        rgba(99,120,255,0.15) 75%,
-        rgba(99,120,255,0) 100%
-      );
-      background-size: 200% auto;
-      animation: wordmark-sweep 7s linear infinite;
+      background: linear-gradient(90deg, transparent 0%, rgba(129,140,248,0.95) 50%, transparent 100%);
+      background-size: 55% 100%;
+      animation: sweepShimmer 1.4s ease-in-out infinite;
+    }
+    .wordmark.sweeping {
+      animation: sweepTick 1.4s linear infinite;
     }
 
 
@@ -456,20 +479,9 @@
     /* ══════════════════════════════════════════════════════════════════════
        MOBILE UI  — portrait ≤480px
        Desktop .wrap is hidden; #mobile-ui shown instead.
-       Landscape ≤480px → rotate overlay only.
+       Landscape on mobile → desktop view shown instead.
        ≥600px any orientation → desktop always (mobile never loads).
     ══════════════════════════════════════════════════════════════════════ */
-
-    /* Rotate lock overlay */
-    #mobile-rotate {
-      display: none;
-      position: fixed; inset: 0; z-index: 9999;
-      background: var(--bg);
-      flex-direction: column; align-items: center; justify-content: center;
-      gap: 16px; text-align: center; padding: 32px;
-    }
-    #mobile-rotate .rotate-icon { font-size: 48px; }
-    #mobile-rotate p { color: var(--muted); font-size: 14px; max-width: 260px; line-height: 1.5; }
 
     /* Mobile shell */
     #mobile-ui {
@@ -796,10 +808,207 @@
       #mobile-ui { display: flex !important; }
       body { background: var(--surface); }
     }
-    @media screen and (max-width: 500px) and (orientation: landscape) {
+
+    /* Hide .wrap on landscape mobile (height < 500px) before JS runs —
+       prevents flash of desktop UI on refresh in landscape orientation. */
+    @media screen and (max-height: 500px) and (orientation: landscape) {
+      .wrap { display: none !important; }
       #mobile-ui { display: none !important; }
-      #mobile-rotate { display: flex !important; }
+      body { background: var(--surface); }
     }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       LANDSCAPE UI  — mobile in landscape orientation
+       Portrait #mobile-ui hidden; #landscape-ui shown instead.
+       Desktop switch flag overrides to show .wrap until portrait rotation.
+    ══════════════════════════════════════════════════════════════════════ */
+
+    #landscape-ui {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      position: fixed;
+      top: 0; left: 0;
+      overflow: hidden;
+      background: var(--surface);
+      background-image: radial-gradient(ellipse 400px 160px at 50% -40px, rgba(99,120,255,0.06) 0%, transparent 100%);
+    }
+
+    /* ── Landscape header ── */
+    #ls-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      padding-left: calc(20px + env(safe-area-inset-left, 0px));
+      padding-right: calc(20px + env(safe-area-inset-right, 0px));
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .ls-wordmark {
+      font-size: 15px; font-weight: 700; font-style: italic;
+      letter-spacing: 0.03em;
+      background: linear-gradient(90deg, #a8b4ff 0%, #6378ff 60%, #818cf8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 5px rgba(99,120,255,0.3));
+    }
+    .ls-save-indicator {
+      font-size: 10px; color: var(--ok);
+      opacity: 0; transition: opacity .25s ease;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .ls-save-indicator.ls-visible { opacity: 1; }
+    .ls-save-dot {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--ok);
+    }
+
+    /* ── Viewport & tab track ── */
+    #ls-viewport {
+      flex: 1; overflow: hidden; position: relative;
+    }
+    .ls-tab-track { position: relative; width: 100%; height: 100%; }
+
+    .ls-tab {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 8px 20px;
+      padding-left: calc(20px + env(safe-area-inset-left, 0px));
+      padding-right: calc(20px + env(safe-area-inset-right, 0px));
+      scrollbar-width: none;
+      transform: translateX(100%);
+      transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+    .ls-tab::-webkit-scrollbar { display: none; }
+    .ls-tab.ls-tab-active { transform: translateX(0); }
+    .ls-tab.ls-tab-prev   { transform: translateX(-100%); }
+
+    /* Settings tab — two explicit columns */
+    #ls-tab-settings { display: flex; align-items: stretch; gap: 0; }
+    .ls-col {
+      flex: 1; display: flex; flex-direction: column; padding: 2px 0;
+    }
+    .ls-col-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent);
+      padding-bottom: 6px; margin-bottom: 2px;
+      border-bottom: 1px solid rgba(99,120,255,0.15);
+    }
+    .ls-col-divider {
+      width: 1px; margin: 4px 16px; flex-shrink: 0;
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,0.07) 20%, rgba(255,255,255,0.07) 80%, transparent);
+    }
+
+    /* Advanced tab — two-column grid */
+    #ls-tab-advanced {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 24px;
+      align-content: start;
+    }
+
+    /* ── Row ── */
+    .ls-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 6px 0; gap: 8px; min-height: 42px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ls-row:last-child { border-bottom: none; }
+    .ls-row-left { flex: 1; min-width: 0; }
+    .ls-row-label { font-size: 13px; color: var(--text); font-weight: 500; }
+    .ls-row-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+    /* ── Section label (advanced) ── */
+    .ls-section {
+      grid-column: 1 / -1;
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent);
+      padding-bottom: 4px; border-bottom: 1px solid rgba(99,120,255,0.15);
+      margin-top: 6px;
+    }
+    .ls-section:first-child { margin-top: 0; }
+
+    /* ── Stepper ── */
+    .ls-stepper {
+      display: flex; align-items: center;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 9px; overflow: hidden; flex-shrink: 0;
+    }
+    .ls-stepper-btn {
+      width: 34px; height: 34px; background: transparent; border: none;
+      color: var(--text-dim); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .08s;
+      -webkit-tap-highlight-color: transparent; user-select: none;
+    }
+    .ls-stepper-btn:active { background: rgba(255,255,255,0.14); }
+    .ls-stepper-val {
+      min-width: 38px; text-align: center;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      line-height: 34px; user-select: none;
+    }
+    .ls-stepper-val.ls-zero { color: var(--muted); }
+
+    /* ── Segmented control ── */
+    .ls-seg {
+      display: flex; background: var(--card);
+      border: 1px solid var(--border); border-radius: 9px;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .ls-seg-opt {
+      padding: 0 8px; height: 34px;
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      cursor: pointer; display: flex; align-items: center;
+      border-right: 1px solid var(--border);
+      transition: background .15s, color .15s;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .ls-seg-opt:last-child { border-right: none; }
+    .ls-seg-opt.ls-active { background: rgba(99,120,255,0.2); color: #c0caff; }
+
+    /* ── Desktop switch button ── */
+    .ls-desktop-btn {
+      padding: 0 16px; height: 34px;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      border-radius: 9px; color: #c0caff;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      flex-shrink: 0; transition: background .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ls-desktop-btn:active { background: rgba(99,120,255,0.25); }
+
+    /* ── Bottom nav ── */
+    #ls-nav {
+      height: 52px; background: var(--surface);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; justify-content: space-around;
+      flex-shrink: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+      box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface), 0 -4px 20px rgba(0,0,0,0.25);
+    }
+    .ls-nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; padding: 8px 20px 4px; border-radius: 10px;
+      transition: background .15s; flex: 1; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ls-nav-item:active { background: var(--card); }
+    .ls-nav-icon { font-size: 24px; color: var(--muted); transition: color .15s; }
+    .ls-nav-label {
+      font-size: 10px; color: var(--muted); font-weight: 500; transition: color .15s;
+    }
+    .ls-nav-item.ls-active .ls-nav-icon,
+    .ls-nav-item.ls-active .ls-nav-label { color: var(--accent); }
+
+
   </style>
 </head>
 <body>
@@ -896,14 +1105,27 @@
 
   <!-- ══════════════════════════════ SETTINGS ══════════════════════════════ -->
   <div class="section" id="tab-settings">
-    <div class="grid" style="max-width:600px">
+    <div class="grid">
 
       <div class="card">
         <p class="section-label">Scheduler</p>
-        <div class="row" style="gap:16px; flex-wrap:nowrap; align-items:flex-start">
+
+        <!-- Scheduler header -->
+        <div style="padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.10);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
+            <span id="cronContainerTime" style="font-size:11px; color:var(--muted);"></span>
+            <div class="tooltip-wrap">
+              <span class="tooltip-icon">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cron panel -->
+        <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
           <div class="field" style="flex:1">
             <label>Automatic Sweeps</label>
-            <div class="toggle-wrap">
+            <div class="toggle-wrap" style="height:34px;">
               <label class="toggle">
                 <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
                 <span class="toggle-track"></span>
@@ -911,17 +1133,21 @@
               </label>
               <span class="help" id="scheduler_label">Enabled</span>
             </div>
-            <div class="help">When disabled, only sweeps when you click <b>Run Now</b></div>
+            <div class="help">Manual or Automatic Sweeps</div>
           </div>
-          <div class="field" style="max-width:160px">
-            <div class="tooltip-wrap">
-              <label>Run Interval (Hours)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr automatically fires a sweep. If set to 6 hours, a sweep runs every 6 hours when the scheduler is enabled. Setting this too low combined with a short cooldown and high max per run can generate enough search traffic to trigger indexer rate limits or bans.</div></span>
+          <div class="field" style="max-width:240px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+              <label style="margin:0">Cron Expression</label>
+              <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px; color:#818cf8; opacity:0.7; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; margin-left:8px;">cron generator ↗</a>
             </div>
-            <input id="run_interval_minutes" type="number" min="1" oninput="markUnsaved('setMsg'); checkCooldownWarning()"/>
-            <div class="help">How often sweeps run</div>
+            <div style="position:relative; display:inline-block; width:100%">
+              <input type="text" id="cron_expression" class="cron-expr-input" placeholder="e.g. 0 */6 * * *" oninput="validateCronExpr(); markUnsaved('setMsg')" autocomplete="off" spellcheck="false"/>
+              <span id="cronValidIcon" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:13px; color:#22c55e;">✓</span>
+            </div>
+            <div class="cron-hint-line" id="cronHintLine"></div>
           </div>
         </div>
+
       </div>
 
       <div class="card">
@@ -930,7 +1156,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Cooldown (Hours)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. If your run interval is 6 hours and cooldown is 4 hours, the same item will be searched every single sweep because it's always past cooldown by the time the next run fires. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
             </div>
             <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
             <div class="help">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
@@ -940,7 +1166,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Movies (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet movies searched per instance per run (0 Disables)</div>
@@ -966,7 +1192,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Max Episodes (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and run interval to keep total search volume manageable.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
             <div class="help">Maximum Cutoff Unmet episodes searched per instance per run (0 Disables)</div>
@@ -1019,7 +1245,7 @@
 
       <div class="card amber-warn">
         <p class="amber-warn-title">⚠️ INDEXER RATE LIMITS</p>
-        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits when using this app.</p>
+        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits.</p>
       </div>
 
       <div class="row" style="margin-top:16px">
@@ -1066,16 +1292,14 @@
   <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
   <div class="section" id="tab-imports">
     <div class="card">
-      <div style="display:flex;justify-content:center;margin-bottom:14px">
-        <div class="pill" style="font-size:13px;font-weight:700;letter-spacing:0.04em;padding:8px 24px;background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);color:#10b981;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px">
-          Lifetime Confirmed
-          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
-        </div>
-      </div>
       <div class="import-stats">
         <div class="import-stat-card movies">
           <span class="import-stat-label">Movies:</span>
           <span class="import-stat-value" id="statMoviesTotal">—</span>
+        </div>
+        <div class="import-stat-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.3);gap:6px;">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(16,185,129,0.6);">Lifetime Confirmed</span>
+          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
         </div>
         <div class="import-stat-card shows">
           <span class="import-stat-label">Episodes:</span>
@@ -1214,7 +1438,7 @@
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Radarr Missing Max (Per Instance)</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a short run interval you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
               <div class="help">Maximum missing movies searched per instance per run</div>
@@ -1256,7 +1480,7 @@
           </div>
           <div class="amber-warn" style="margin-top:16px">
             <p class="amber-warn-title">USE WITH CAUTION</p>
-            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and short run interval this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and frequent cron schedule this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
           </div>
           <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
             <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
@@ -1402,21 +1626,29 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v3.0.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v3.1.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
-       <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px">
+       <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile UI <span style="font-weight:400;color:var(--muted);font-size:11px">v3.0.0</span></div>
-           <div class="help">A purpose-built mobile layout activates automatically on any device under 500px wide. Four-tab bottom nav — Home, Instances, Sweep, Exclusions — with native-feeling bottom sheets, haptic feedback, and swipe-to-dismiss.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🗄️ SQLite Database</div>
+           <div class="help">All history, stats, and exclusions now live in a local SQLite database. Existing data migrates automatically on first start — no action required.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⚙️ Quick Settings <span style="font-weight:400;color:var(--muted);font-size:11px">v3.0.0</span></div>
-           <div class="help">Long press Run Now on mobile to adjust Run Interval, Cooldown, Max Movies, and Max Episodes without leaving the home tab. Changes save automatically.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🕐 Cron Scheduling</div>
+           <div class="help">The run interval is now a cron expression — default <code>0 */6 * * *</code>. Set a <code>TZ</code> env var to match your timezone. Nudgarr no longer runs on startup — the first sweep fires when the cron next fires or you press Run Now. Existing intervals are converted automatically on upgrade.</div>
          </div>
-       </div>
-       <div class="callout-text" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-         <p>Nudgarr does what it set out to do. Thanks for bearing with the constant updates to get here. They'll slow down now.</p>
-         <p style="margin-top:10px">Future updates will keep it stable and focused, and any new features will come from the community.</p>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⏭️ Skip Queued</div>
+           <div class="help">Items already in your download queue are silently skipped during sweeps. They never consume a search slot — your max per run is always filled from items that actually need a nudge.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔄 Import Iteration Tracking</div>
+           <div class="help">The Imports tab now tracks how many times an item has been through the full search-and-download cycle. Re-imports show a ×2, ×3 badge, and turnaround measures from the very first search.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔗 Open in Radarr / Sonarr</div>
+           <div class="help">Click any title in History or Imports to jump straight to that item in Radarr or Sonarr. Hover to see which app will open.</div>
+         </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
          <button class="btn sm primary" onclick="dismissWhatsNew()">Got it</button>
@@ -1455,12 +1687,6 @@
 
 <!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
 
-<!-- Rotate lock -->
-<div id="mobile-rotate">
-  <div class="rotate-icon">⟳</div>
-  <p>Nudgarr is portrait-only on mobile. Please rotate your device.</p>
-</div>
-
 <!-- Mobile shell -->
 <div id="mobile-ui">
 
@@ -1468,7 +1694,6 @@
   <div class="m-tab m-active" id="m-home">
     <div class="m-home-header">
       <h1>Nudgarr</h1>
-      <span>v<span id="m-ver"></span></span>
     </div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
 
@@ -1619,17 +1844,6 @@
         <div class="m-sheet-close" onclick="mCloseQS()">✕</div>
       </div>
       <div class="m-sheet-body m-qs-sheet-body">
-        <div class="m-stepper-row" id="m-qs-interval-row">
-          <div>
-            <div class="m-stepper-label">Run Interval</div>
-            <div class="m-stepper-sub">hours</div>
-          </div>
-          <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('interval',-1);mBtnPress(this)">−</button>
-            <div class="m-stepper-val" id="m-qs-interval">6</div>
-            <button class="m-stepper-btn" onclick="mQSStep('interval',1);mBtnPress(this)">+</button>
-          </div>
-        </div>
         <div class="m-stepper-row">
           <div>
             <div class="m-stepper-label">Cooldown</div>
@@ -1669,8 +1883,212 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════ LANDSCAPE UI ══════════════════════════════ -->
+<div id="landscape-ui">
+
+  <!-- Header -->
+  <div id="ls-header">
+    <span class="ls-wordmark">Nudgarr</span>
+    <div class="ls-save-indicator" id="ls-save-ind">
+      <div class="ls-save-dot"></div>
+      Saved
+    </div>
+  </div>
+
+  <!-- Tab viewport -->
+  <div id="ls-viewport">
+    <div class="ls-tab-track">
+
+      <!-- ── Settings tab ── -->
+      <div class="ls-tab ls-tab-active" id="ls-tab-settings">
+
+        <!-- Left: Search -->
+        <div class="ls-col">
+          <div class="ls-col-label">Search</div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Max Movies</div>
+              <div class="ls-row-sub">Per Run · 0 Disables</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('movies',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-movies">1</div>
+              <button class="ls-stepper-btn" onclick="lsStep('movies',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Max Episodes</div>
+              <div class="ls-row-sub">Per Run · 0 Disables</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('episodes',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-episodes">1</div>
+              <button class="ls-stepper-btn" onclick="lsStep('episodes',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Radarr Mode</div>
+              <div class="ls-row-sub">How Items Are Picked</div>
+            </div>
+            <div class="ls-seg" id="ls-seg-radarr">
+              <div class="ls-seg-opt ls-active" onclick="lsSeg('radarr','random',this)">Rnd</div>
+              <div class="ls-seg-opt" onclick="lsSeg('radarr','alphabetical',this)">A–Z</div>
+              <div class="ls-seg-opt" onclick="lsSeg('radarr','oldest_added',this)">Old</div>
+              <div class="ls-seg-opt" onclick="lsSeg('radarr','newest_added',this)">New</div>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Sonarr Mode</div>
+              <div class="ls-row-sub">How Items Are Picked</div>
+            </div>
+            <div class="ls-seg" id="ls-seg-sonarr">
+              <div class="ls-seg-opt ls-active" onclick="lsSeg('sonarr','random',this)">Rnd</div>
+              <div class="ls-seg-opt" onclick="lsSeg('sonarr','alphabetical',this)">A–Z</div>
+              <div class="ls-seg-opt" onclick="lsSeg('sonarr','oldest_added',this)">Old</div>
+              <div class="ls-seg-opt" onclick="lsSeg('sonarr','newest_added',this)">New</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="ls-col-divider"></div>
+
+        <!-- Right: Timing -->
+        <div class="ls-col">
+          <div class="ls-col-label">Timing</div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Cooldown</div>
+              <div class="ls-row-sub">Hours Between Re-Searches</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('cooldown',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-cooldown">48</div>
+              <button class="ls-stepper-btn" onclick="lsStep('cooldown',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Batch Size</div>
+              <div class="ls-row-sub">Searches Per Batch</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('batch',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-batch">1</div>
+              <button class="ls-stepper-btn" onclick="lsStep('batch',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Sleep Seconds</div>
+              <div class="ls-row-sub">Pause Between Batches</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('sleep',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-sleep">5</div>
+              <button class="ls-stepper-btn" onclick="lsStep('sleep',1)">+</button>
+            </div>
+          </div>
+
+          <div class="ls-row">
+            <div class="ls-row-left">
+              <div class="ls-row-label">Jitter Seconds</div>
+              <div class="ls-row-sub">Random Extra Pause</div>
+            </div>
+            <div class="ls-stepper">
+              <button class="ls-stepper-btn" onclick="lsStep('jitter',-1)">−</button>
+              <div class="ls-stepper-val" id="ls-v-jitter">2</div>
+              <button class="ls-stepper-btn" onclick="lsStep('jitter',1)">+</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /settings tab -->
+
+      <!-- ── Advanced tab ── -->
+      <div class="ls-tab" id="ls-tab-advanced">
+
+        <div class="ls-section">Radarr Backlog</div>
+
+        <div class="ls-row">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Max Missing</div>
+            <div class="ls-row-sub">Movies Per Run</div>
+          </div>
+          <div class="ls-stepper">
+            <button class="ls-stepper-btn" onclick="lsStep('r-missing',-1)">−</button>
+            <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
+            <button class="ls-stepper-btn" onclick="lsStep('r-missing',1)">+</button>
+          </div>
+        </div>
+
+        <div class="ls-row">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Added Within</div>
+            <div class="ls-row-sub">Days</div>
+          </div>
+          <div class="ls-stepper">
+            <button class="ls-stepper-btn" onclick="lsStep('r-days',-1)">−</button>
+            <div class="ls-stepper-val" id="ls-v-r-days">14</div>
+            <button class="ls-stepper-btn" onclick="lsStep('r-days',1)">+</button>
+          </div>
+        </div>
+
+        <div class="ls-section">Sonarr Backlog</div>
+
+        <div class="ls-row">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Max Missing</div>
+            <div class="ls-row-sub">Episodes Per Run</div>
+          </div>
+          <div class="ls-stepper">
+            <button class="ls-stepper-btn" onclick="lsStep('s-missing',-1)">−</button>
+            <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
+            <button class="ls-stepper-btn" onclick="lsStep('s-missing',1)">+</button>
+          </div>
+        </div>
+
+        <div class="ls-section">Desktop</div>
+
+        <div class="ls-row" style="grid-column: 1 / -1;">
+          <div class="ls-row-left">
+            <div class="ls-row-label">Full Desktop View</div>
+            <div class="ls-row-sub">Rotate To Portrait To Return</div>
+          </div>
+          <button class="ls-desktop-btn" onclick="lsSwitchToDesktop()">Switch</button>
+        </div>
+
+      </div><!-- /advanced tab -->
+
+    </div><!-- /track -->
+  </div><!-- /viewport -->
+
+  <!-- Bottom nav -->
+  <nav id="ls-nav">
+    <div class="ls-nav-item ls-active" id="ls-nav-settings" onclick="lsSwitchTab(0)">
+      <span class="ls-nav-icon">☰</span>
+      <span class="ls-nav-label">Settings</span>
+    </div>
+    <div class="ls-nav-item" id="ls-nav-advanced" onclick="lsSwitchTab(1)">
+      <span class="ls-nav-icon">⬡</span>
+      <span class="ls-nav-label">Advanced</span>
+    </div>
+  </nav>
+
+</div><!-- /landscape-ui -->
+
 <script>
-const MOBILE = window.matchMedia('(max-width: 500px)').matches;
+const MOBILE = Math.min(window.screen.width, window.screen.height) <= 500;
 let CFG = null;
 let PAGE = 0;
 let HISTORY_TOTAL = 0;
@@ -1719,8 +2137,8 @@ You can add multiple instances — Nudgarr will search across all of them each r
 <strong>Automatic Sweeps</strong><br>
 Off by default — Nudgarr will not run until you enable it. You can still trigger a sweep at any time by clicking <strong>Run Now</strong>. This is the recommended approach until you are confident in your settings.
 <br><br>
-<strong>Run Interval</strong><br>
-How often the scheduler fires when enabled. Default is every 6 hours. Start conservative and adjust based on the size of your library and how active your indexers are.`
+<strong>Cron Schedule</strong><br>
+Controls when the scheduler fires. Default is <code>0 */6 * * *</code> — every 6 hours on the clock. Cron fires in container time. Set the <code>TZ</code> environment variable if you want schedules to follow a specific timezone — if unset or unresolvable, Nudgarr falls back to UTC. Start conservative and adjust based on your library size and how active your indexers are.`
   },
   {
     title: "Step 3 — Search Behavior",
@@ -1749,14 +2167,14 @@ How long Nudgarr pauses between batches. Default is 5 seconds. A longer pause is
 Adds a small random delay on top of the sleep time to make search patterns less predictable. Helps avoid triggering automated rate limit detection.`
   },
   {
-    title: "Step 5 — History & Stats",
+    title: "Step 5 — History & Imports",
     body: `Nudgarr keeps track of everything it does so you can see exactly what's happening.
 <br><br>
 <strong>History</strong><br>
 A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
 <br><br>
-<strong>Stats</strong><br>
-Tracks confirmed imports — items that were searched by Nudgarr and later successfully imported. Movies and Episodes totals are lifetime counters that persist even if you clear the stats table.
+<strong>Imports</strong><br>
+Tracks confirmed imports — items that were searched by Nudgarr and later successfully downloaded. Movies and Episodes totals are lifetime counters that persist even if you clear the imports table. Items that have been through multiple upgrade cycles show a ×2, ×3 badge, and turnaround tracks how long from first search to confirmed import.
 <br><br>
 Both tabs support <strong>title search</strong> — type a show or movie name to filter the table instantly. Use the instance dropdown alongside it to narrow results further.`
   },
@@ -2133,8 +2551,9 @@ async function loadAll() {
   const st = await api('/api/status');
   el('ver').textContent = st.version;
   el('lastRun').textContent = fmtTime(st.last_run_utc);
-  el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
+  el('nextRun').textContent = (CFG && (CFG.scheduler_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
   updateStatusPill(CFG.scheduler_enabled);
+  updateContainerTime(st.container_time);
   await loadExclusions();
 
   // Show logout button when auth is enabled
@@ -2410,15 +2829,143 @@ async function testConnections() {
 }
 
 // ── Settings tab ──
+function updateContainerTime(timeStr) {
+  const el = document.getElementById('cronContainerTime');
+  if (el) el.textContent = timeStr ? '(' + timeStr + ')' : '';
+}
+
 function syncSchedulerUi() {
   const enabled = el('scheduler_enabled').checked;
-  el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual only';
-  el('run_interval_minutes').disabled = !enabled;
+  el('scheduler_label').textContent = enabled ? 'Enabled' : 'Manual';
+  const cronInput = el('cron_expression');
+  if (cronInput) {
+    cronInput.disabled = !enabled;
+    cronInput.style.opacity = enabled ? '' : '0.4';
+    cronInput.style.cursor = enabled ? '' : 'not-allowed';
+    if (enabled) {
+      validateCronExpr();
+    } else {
+      cronInput.classList.remove('cron-valid', 'cron-invalid', 'cron-glow');
+      const icon = el('cronValidIcon');
+      if (icon) icon.style.display = 'none';
+      const hint = el('cronHintLine');
+      if (hint) { hint.className = 'cron-hint-line'; hint.innerHTML = ''; }
+    }
+  }
+}
+
+function cronIntervalMinutes(expr) {
+  // Returns the minimum firing interval in minutes, or null if can't determine
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [min, hr] = parts;
+  if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
+  if (min === '*') return 1;
+  if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
+  if (hr === '*' && /^\d+$/.test(min)) return 60;
+  return 60; // default assume hourly or longer
+}
+
+function validateCronExpr() {
+  const input = el('cron_expression');
+  const hint  = el('cronHintLine');
+  const icon  = el('cronValidIcon');
+  if (!input) return;
+  input.classList.remove('cron-glow');
+  const val = input.value.trim();
+  if (!val) {
+    input.classList.remove('cron-valid', 'cron-invalid');
+    icon.style.display = 'none';
+    hint.className = 'cron-hint-line';
+    hint.innerHTML = '';
+    return;
+  }
+  const parts = val.split(/\s+/);
+  const valid = parts.length === 5 && parts.every(p => /^[\d\*\/,\-]+$/.test(p));
+  input.classList.toggle('cron-valid',   valid);
+  input.classList.toggle('cron-invalid', !valid);
+  icon.style.display = valid ? 'inline' : 'none';
+  if (valid) {
+    const interval = cronIntervalMinutes(val);
+    const tooFrequent = interval !== null && interval < 60;
+    if (tooFrequent) {
+      icon.style.color = '#f59e0b';
+      hint.className = 'cron-hint-line cron-warn';
+      hint.innerHTML = '⚠ May stress indexers';
+    } else {
+      icon.style.color = '#22c55e';
+      hint.className = 'cron-hint-line cron-ok';
+      hint.innerHTML = describeCron(val);
+    }
+  } else {
+    icon.style.color = '#ef4444';
+    hint.className = 'cron-hint-line cron-bad';
+    hint.innerHTML = 'Invalid cron expression';
+  }
+}
+
+function describeCron(expr) {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return 'Custom Schedule';
+  const [min, hr, dom, mon, dow] = parts;
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const exactMin = /^\d+$/.test(min);
+  const exactHr  = /^\d+$/.test(hr);
+  const mm = exactMin ? String(parseInt(min)).padStart(2,'0') : '00';
+  // Daily at specific time
+  if (dom === '*' && mon === '*' && dow === '*' && exactHr && exactMin) {
+    const h = parseInt(hr), m = parseInt(min);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `Daily at ${h12}:${String(m).padStart(2,'0')} ${suffix}`;
+  }
+  // Weekly on specific day
+  if (dom === '*' && mon === '*' && /^\d+$/.test(dow) && exactHr && exactMin) {
+    const d = parseInt(dow) % 7;
+    const h = parseInt(hr), m = parseInt(min);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `Weekly on ${days[d]} at ${h12}:${String(m).padStart(2,'0')} ${suffix}`;
+  }
+  // Monthly on specific day
+  if (/^\d+$/.test(dom) && mon === '*' && dow === '*' && exactHr && exactMin) {
+    const d = parseInt(dom);
+    const h = parseInt(hr), m = parseInt(min);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    const ord = d === 1 ? '1st' : d === 2 ? '2nd' : d === 3 ? '3rd' : `${d}th`;
+    return `Monthly on the ${ord} at ${h12}:${String(m).padStart(2,'0')} ${suffix}`;
+  }
+  // Every N hours at fixed minute
+  if (/^\*\/\d+$/.test(hr) && dom === '*' && mon === '*' && dow === '*' && exactMin) {
+    const n = parseInt(hr.split('/')[1]);
+    return `Every ${n} hour${n !== 1 ? 's' : ''} at xx:${mm}`;
+  }
+  // Every N hours (on the hour)
+  if (min === '0' && /^\*\/\d+$/.test(hr) && dom === '*' && mon === '*' && dow === '*') {
+    const n = parseInt(hr.split('/')[1]);
+    return `Every ${n} hour${n !== 1 ? 's' : ''} at xx:00`;
+  }
+  // Every hour at fixed minute
+  if (/^\d+$/.test(min) && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return `Every hour at xx:${mm}`;
+  }
+  // Every hour on the hour
+  if (min === '0' && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return 'Every hour at xx:00';
+  }
+  // Every N minutes
+  if (/^\*\/\d+$/.test(min) && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
+    const n = parseInt(min.split('/')[1]);
+    return `Every ${n} minute${n !== 1 ? 's' : ''}`;
+  }
+  return 'Custom Schedule';
 }
 
 function fillSettings() {
   el('scheduler_enabled').checked = !!CFG.scheduler_enabled;
-  el('run_interval_minutes').value = Math.round((CFG.run_interval_minutes || 360) / 60);
+  el('cron_expression').value = CFG.cron_expression || '0 */6 * * *';
+
   el('cooldown_hours').value = CFG.cooldown_hours;
   const legacyMode = CFG.sample_mode || 'random';
   el('radarr_sample_mode').value = CFG.radarr_sample_mode || legacyMode;
@@ -2435,8 +2982,24 @@ function fillSettings() {
 
 async function saveSettings() {
   try {
-    CFG.scheduler_enabled = el('scheduler_enabled').checked;
-    CFG.run_interval_minutes = parseInt(el('run_interval_minutes').value || '6', 10) * 60;
+    const enabled = el('scheduler_enabled').checked;
+    const expr = el('cron_expression').value.trim();
+    const parts = expr.split(/\s+/);
+    const exprValid = parts.length === 5 && parts.every(p => /^[\d\*\/,\-]+$/.test(p));
+
+    // Client-side guard: block save if auto enabled with no valid expression
+    if (enabled && !exprValid) {
+      const input = el('cron_expression');
+      input.classList.remove('cron-glow');
+      void input.offsetWidth; // force reflow to restart animation
+      input.classList.add('cron-invalid', 'cron-glow');
+      el('setMsg').textContent = 'Enter a valid cron expression first';
+      el('setMsg').className = 'msg err';
+      return;
+    }
+
+    CFG.scheduler_enabled = enabled;
+    CFG.cron_expression = expr;
     CFG.cooldown_hours = parseInt(el('cooldown_hours').value || '48', 10);
     CFG.radarr_sample_mode = el('radarr_sample_mode').value;
     CFG.sonarr_sample_mode = el('sonarr_sample_mode').value;
@@ -2445,7 +3008,13 @@ async function saveSettings() {
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
-    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    const res = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const msg = (body && body.errors && body.errors[0]) ? body.errors[0] : 'Save failed';
+      el('setMsg').textContent = msg; el('setMsg').className = 'msg err';
+      return;
+    }
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
@@ -2458,14 +3027,16 @@ async function saveSettings() {
 // ── Cooldown warning ──
 let _warnFlashTimer = null;
 function checkCooldownWarning() {
-  const intervalHours = parseFloat(el('run_interval_minutes').value || '6');
   const cooldown = parseFloat(el('cooldown_hours').value || '48');
   const warn = el('cooldownWarnMsg');
   if (!warn) return;
-  const shouldWarn = cooldown > 0 && cooldown < intervalHours;
+  const expr = (el('cron_expression') && el('cron_expression').value.trim()) || '';
+  const cronMins = cronIntervalMinutes(expr);
+  const cronHours = cronMins !== null ? cronMins / 60 : null;
+  const shouldWarn = cronHours !== null && cooldown > 0 && cooldown < cronHours;
   if (shouldWarn) {
     if (warn.textContent === '') {
-      warn.textContent = '⚠️ Cooldown < run interval — repeated searches likely';
+      warn.textContent = '⚠️ Cooldown < cron interval — repeated searches likely';
       warn.className = 'warn-flash';
       if (_warnFlashTimer) clearTimeout(_warnFlashTimer);
       _warnFlashTimer = setTimeout(() => { warn.className = 'warn-steady'; }, 3000);
@@ -2596,7 +3167,7 @@ async function refreshHistory() {
       const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
       return `
       <tr class="${rowClass}">
-        <td style="color:var(--text);font-weight:500">${escapeHtml(title)}</td>
+        <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${it.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(it.app)}','${escapeHtml(it.instance_name)}','${escapeHtml(it.item_id)}')">${escapeHtml(title)}</td>
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
         <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
@@ -2795,7 +3366,7 @@ async function refreshImports() {
       const tagClass = e.type === 'Acquired' ? 'tag acquired' : 'tag';
       return `
       <tr>
-        <td style="color:var(--text);font-weight:500">${escapeHtml(e.title || e.item_id)}</td>
+        <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${e.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(e.app)}','${escapeHtml(e.instance)}','${escapeHtml(e.item_id)}')">${escapeHtml(e.title || e.item_id)}</td>
         <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
         <td><span class="${tagClass}">${escapeHtml(e.type)}${escapeHtml(iterSuffix)}</span></td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.first_searched_ts))}</td>
@@ -3013,12 +3584,29 @@ async function runNow() {
     await api('/api/run-now', {method:'POST'});
     el('lastRun').textContent = 'Running…';
     el('dot-dryrun').classList.add('running');
+    const wm = el('wordmark');
+    wm.classList.add('sweeping');
+    wm._pendingStop = false;
   } catch(e) {
     showAlert('Run request failed: ' + e.message);
   }
 }
 
-// ── Status polling ──
+// ── Arr link ──
+async function openArrLink(app, instance, itemId) {
+  try {
+    const data = await api(`/api/arr-link?app=${encodeURIComponent(app)}&instance=${encodeURIComponent(instance)}&item_id=${encodeURIComponent(itemId)}`);
+    if (data.ok && data.url) {
+      window.open(data.url, '_blank');
+    } else {
+      showAlert('Could not open in ' + (app === 'radarr' ? 'Radarr' : 'Sonarr') + ': ' + (data.error || 'Unknown error'));
+    }
+  } catch(e) {
+    showAlert('Link failed: ' + e.message);
+  }
+}
+
+
 let _wasRunning = false;
 async function refreshStatus() {
   try {
@@ -3051,8 +3639,9 @@ async function refreshStatus() {
       }
     }
     _wasRunning = isRunning;
-    el('nextRun').textContent = (CFG && CFG.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
+    el('nextRun').textContent = (CFG && (CFG.scheduler_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
     updateStatusPill(CFG?.scheduler_enabled);
+    updateContainerTime(st.container_time);
     refreshDotsFromStatus(st.instance_health || {});
   } catch(e) {}
 }
@@ -3199,28 +3788,55 @@ if (!MOBILE) {
     if (name === 'instances') mRenderInstances();
   }
 
+  // ── Portrait swipe between tabs ──
+  (function() {
+    const ui = document.getElementById('mobile-ui');
+    if (!ui) return;
+    const TAB_ORDER = ['home', 'instances', 'sweep'];
+    let sx = null, sy = null;
+    ui.addEventListener('touchstart', e => {
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+    }, { passive: true });
+    ui.addEventListener('touchend', e => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+        const idx = TAB_ORDER.indexOf(M_TAB);
+        if (dx < 0 && idx < TAB_ORDER.length - 1) mSwitchTab(TAB_ORDER[idx + 1]);
+        if (dx > 0 && idx > 0) mSwitchTab(TAB_ORDER[idx - 1]);
+      }
+      sx = null;
+    }, { passive: true });
+  })();
+
   // ── Home ──
 
   function mUpdateHome(cfg, st) {
-    const verEl = document.getElementById('m-ver');
-    if (verEl) verEl.textContent = st.version || '';
     const lastEl = document.getElementById('m-last-run');
     if (lastEl) lastEl.textContent = fmtTime(st.last_run_utc);
     const nextEl = document.getElementById('m-next-run');
-    if (nextEl) nextEl.textContent = cfg.scheduler_enabled ? fmtTime(st.next_run_utc) : 'Manual';
+    if (nextEl) nextEl.textContent = (cfg.scheduler_enabled) ? fmtTime(st.next_run_utc) : 'Manual';
     const pill = document.getElementById('m-running-pill');
     if (pill) pill.classList.toggle('hidden', !st.run_in_progress);
+    const autoActive = cfg.scheduler_enabled;
     const autoSub = document.getElementById('m-auto-sub');
-    if (autoSub) autoSub.textContent = cfg.scheduler_enabled ? 'Auto' : 'Manual';
+    if (autoSub) {
+      if (cfg.scheduler_enabled) {
+        autoSub.textContent = describeCron(cfg.cron_expression || '');
+      } else {
+        autoSub.textContent = 'Manual';
+      }
+    }
     const tAuto = document.getElementById('m-toggle-auto');
-    if (tAuto) tAuto.classList.toggle('m-on', !!cfg.scheduler_enabled);
+    if (tAuto) tAuto.classList.toggle('m-on', !!autoActive);
     const tNotify = document.getElementById('m-toggle-notify');
     if (tNotify) tNotify.classList.toggle('m-on', !!cfg.notify_enabled);
     const tRadarrBacklog = document.getElementById('m-toggle-radarr-backlog');
     if (tRadarrBacklog) tRadarrBacklog.classList.toggle('m-on', !!cfg.radarr_backlog_enabled);
     const tSonarrBacklog = document.getElementById('m-toggle-sonarr-backlog');
     if (tSonarrBacklog) tSonarrBacklog.classList.toggle('m-on', !!cfg.sonarr_backlog_enabled);
-    mQSUpdateIntervalDim();
   }
 
   // ── Run Now long press ──
@@ -3285,31 +3901,23 @@ if (!MOBILE) {
 
   // ── Quick Settings sheet ──
 
-  const M_QS_VALS = {interval: 6, cooldown: 48, movies: 1, episodes: 1};
-  const M_QS_MINS = {interval: 1, cooldown: 0, movies: 0, episodes: 0};
+  const M_QS_VALS = {cooldown: 48, movies: 1, episodes: 1};
+  const M_QS_MINS = {cooldown: 0, movies: 0, episodes: 0};
   let M_QS_SAVE_TIMER = null;
 
   function mOpenQS() {
-    M_QS_VALS.interval = Math.round((CFG.run_interval_minutes || 360) / 60);
     M_QS_VALS.cooldown = CFG.cooldown_hours || 48;
     M_QS_VALS.movies = CFG.radarr_max_movies_per_run || 1;
     M_QS_VALS.episodes = CFG.sonarr_max_episodes_per_run || 1;
-    ['interval','cooldown','movies','episodes'].forEach(k => {
+    ['cooldown','movies','episodes'].forEach(k => {
       const el = document.getElementById('m-qs-' + k);
       if (el) { el.textContent = M_QS_VALS[k]; el.classList.toggle('m-zero', M_QS_VALS[k] === 0); }
     });
-    mQSUpdateIntervalDim();
     mSheetOpen('m-qs-sheet');
     mSheetDrag('m-qs-handle', 'm-qs-sheet', mCloseQS);
   }
 
   function mCloseQS() { mSheetClose('m-qs-sheet'); }
-
-  function mQSUpdateIntervalDim() {
-    const row = document.getElementById('m-qs-interval-row');
-    if (!row) return;
-    row.classList.toggle('m-qs-disabled', !!(CFG && !CFG.scheduler_enabled));
-  }
 
   function mBtnPress(el) {
     el.classList.add('m-pressed');
@@ -3327,7 +3935,6 @@ if (!MOBILE) {
 
   async function mQSSave() {
     const updates = {
-      run_interval_minutes: M_QS_VALS.interval * 60,
       cooldown_hours: M_QS_VALS.cooldown,
       radarr_max_movies_per_run: M_QS_VALS.movies,
       sonarr_max_episodes_per_run: M_QS_VALS.episodes,
@@ -3369,8 +3976,7 @@ async function mSaveCfgKey(updates) {
 
 function mToggleAuto() {
   mHaptic(40);
-  const newVal = !CFG.scheduler_enabled;
-  mSaveCfgKey({scheduler_enabled: newVal});
+  mSaveCfgKey({scheduler_enabled: !CFG.scheduler_enabled});
 }
 
 function mToggleNotify() {
@@ -3722,21 +4328,45 @@ async function mPollCycle() {
 // ── Mobile init ──
 
 if (MOBILE) {
-  // Force layout via JS — don't rely on CSS media query alone
+  // Force layout via JS — show mobile in portrait, desktop in landscape
   const wrap = document.querySelector('.wrap');
   const mobileUi = document.getElementById('mobile-ui');
-  const rotateOverlay = document.getElementById('mobile-rotate');
-  if (wrap) wrap.style.display = 'none';
 
   const MOBILE_UI_STYLE = 'display:flex; flex-direction:column; width:100%; height:100vh; height:100dvh; position:fixed; top:0; left:0; overflow:hidden;';
 
+  const landscapeUi = document.getElementById('landscape-ui');
+  const LS_UI_STYLE = 'display:flex; flex-direction:column; width:100%; height:100vh; height:100dvh; position:fixed; top:0; left:0; overflow:hidden;';
+  let LS_DESKTOP_OVERRIDE = sessionStorage.getItem('nudgarr_desktop_override') === '1';
+
   function checkOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight;
-    if (mobileUi) mobileUi.style.cssText = isLandscape ? 'display:none' : MOBILE_UI_STYLE;
-    if (rotateOverlay) rotateOverlay.style.display = isLandscape ? 'flex' : 'none';
+    if (!isLandscape) {
+      // Portrait — always show portrait mobile, clear desktop override
+      LS_DESKTOP_OVERRIDE = false;
+      sessionStorage.removeItem('nudgarr_desktop_override');
+      if (wrap) wrap.style.removeProperty('display'); // remove forced !important override
+      if (landscapeUi) landscapeUi.style.display = 'none';
+      if (mobileUi) mobileUi.style.cssText = MOBILE_UI_STYLE;
+    } else if (LS_DESKTOP_OVERRIDE) {
+      // Landscape + user chose desktop — force override of media query !important
+      if (mobileUi) mobileUi.style.display = 'none';
+      if (landscapeUi) landscapeUi.style.display = 'none';
+      if (wrap) wrap.style.setProperty('display', 'block', 'important');
+    } else {
+      // Landscape — show landscape config UI
+      if (mobileUi) mobileUi.style.display = 'none';
+      if (wrap) wrap.style.display = 'none';
+      if (landscapeUi) landscapeUi.style.cssText = LS_UI_STYLE;
+      lsPopulate();
+    }
   }
   checkOrientation();
-  window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 100));
+  window.addEventListener('orientationchange', () => {
+    if (wrap) wrap.style.setProperty('display', 'none', 'important');
+    if (mobileUi) mobileUi.style.display = 'none';
+    if (landscapeUi) landscapeUi.style.display = 'none';
+    setTimeout(checkOrientation, 100);
+  });
   window.addEventListener('resize', checkOrientation);
   loadAll().then(async () => {
     const st = await api('/api/status');
@@ -3756,6 +4386,150 @@ if (MOBILE) {
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
   });
+
+
+  // ── Landscape UI ────────────────────────────────────────────────────────────
+
+  const LS_VALS = {
+    movies: 1, episodes: 1,
+    cooldown: 48, batch: 1, sleep: 5, jitter: 2,
+    'r-missing': 1, 'r-days': 14, 's-missing': 1,
+  };
+  const LS_MINS = {
+    movies: 0, episodes: 0,
+    cooldown: 0, batch: 1, sleep: 0, jitter: 0,
+    'r-missing': 1, 'r-days': 1, 's-missing': 1,
+  };
+  const LS_CFG_KEYS = {
+    movies:      'radarr_max_movies_per_run',
+    episodes:    'sonarr_max_episodes_per_run',
+    cooldown:    'cooldown_hours',
+    batch:       'batch_size',
+    sleep:       'sleep_seconds',
+    jitter:      'jitter_seconds',
+    'r-missing': 'radarr_missing_max',
+    'r-days':    'radarr_missing_added_days',
+    's-missing': 'sonarr_missing_max',
+  };
+  let LS_SAVE_TIMER = null;
+  let LS_HIDE_TIMER = null;
+  let LS_TAB = 0;
+
+  function lsPopulate() {
+    if (!CFG) return;
+    LS_VALS.movies    = CFG.radarr_max_movies_per_run   ?? 1;
+    LS_VALS.episodes  = CFG.sonarr_max_episodes_per_run ?? 1;
+    LS_VALS.cooldown  = CFG.cooldown_hours              ?? 48;
+    LS_VALS.batch     = CFG.batch_size                  ?? 1;
+    LS_VALS.sleep     = CFG.sleep_seconds               ?? 5;
+    LS_VALS.jitter    = CFG.jitter_seconds              ?? 2;
+    LS_VALS['r-missing'] = CFG.radarr_missing_max          ?? 1;
+    LS_VALS['r-days']    = CFG.radarr_missing_added_days   ?? 14;
+    LS_VALS['s-missing'] = CFG.sonarr_missing_max          ?? 1;
+
+    Object.keys(LS_VALS).forEach(k => {
+      const el = document.getElementById('ls-v-' + k);
+      if (el) { el.textContent = LS_VALS[k]; el.classList.toggle('ls-zero', LS_VALS[k] === 0); }
+    });
+    lsSetSegActive('radarr', CFG.radarr_sample_mode || 'random');
+    lsSetSegActive('sonarr', CFG.sonarr_sample_mode || 'random');
+  }
+
+  function lsSetSegActive(which, val) {
+    const map = { random: 0, alphabetical: 1, oldest_added: 2, newest_added: 3 };
+    const seg = document.getElementById('ls-seg-' + which);
+    if (!seg) return;
+    seg.querySelectorAll('.ls-seg-opt').forEach((o, i) =>
+      o.classList.toggle('ls-active', i === (map[val] ?? 0))
+    );
+  }
+
+  function lsStep(key, dir) {
+    mHaptic(20);
+    LS_VALS[key] = Math.max(LS_MINS[key], LS_VALS[key] + dir);
+    const el = document.getElementById('ls-v-' + key);
+    if (el) { el.textContent = LS_VALS[key]; el.classList.toggle('ls-zero', LS_VALS[key] === 0); }
+    lsTriggerSave();
+  }
+
+  function lsSeg(which, val, el) {
+    const seg = document.getElementById('ls-seg-' + which);
+    if (seg) seg.querySelectorAll('.ls-seg-opt').forEach(o => o.classList.remove('ls-active'));
+    el.classList.add('ls-active');
+    if (which === 'radarr') CFG.radarr_sample_mode = val;
+    if (which === 'sonarr') CFG.sonarr_sample_mode = val;
+    lsTriggerSave();
+  }
+
+  function lsTriggerSave() {
+    clearTimeout(LS_SAVE_TIMER);
+    clearTimeout(LS_HIDE_TIMER);
+    const ind = document.getElementById('ls-save-ind');
+    if (ind) ind.classList.remove('ls-visible');
+    LS_SAVE_TIMER = setTimeout(async () => {
+      try {
+        const updates = {};
+        Object.entries(LS_CFG_KEYS).forEach(([k, cfgKey]) => { updates[cfgKey] = LS_VALS[k]; });
+        updates.radarr_sample_mode = CFG.radarr_sample_mode;
+        updates.sonarr_sample_mode = CFG.sonarr_sample_mode;
+        const cfg = await api('/api/config');
+        Object.assign(cfg, updates);
+        await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+        Object.assign(CFG, updates);
+        if (ind) {
+          ind.classList.add('ls-visible');
+          LS_HIDE_TIMER = setTimeout(() => ind.classList.remove('ls-visible'), 1200);
+        }
+      } catch(e) {}
+    }, 800);
+  }
+
+  const LS_NAV_ITEMS = ['ls-nav-settings', 'ls-nav-advanced'];
+  const LS_TAB_IDS   = ['ls-tab-settings', 'ls-tab-advanced'];
+
+  function lsSwitchTab(idx) {
+    LS_TAB = idx;
+    LS_TAB_IDS.forEach((id, i) => {
+      const t = document.getElementById(id);
+      if (!t) return;
+      t.classList.remove('ls-tab-active', 'ls-tab-prev');
+      if (i === idx) t.classList.add('ls-tab-active');
+      else if (i < idx) t.classList.add('ls-tab-prev');
+    });
+    LS_NAV_ITEMS.forEach((id, i) => {
+      const n = document.getElementById(id);
+      if (n) n.classList.toggle('ls-active', i === idx);
+    });
+  }
+
+  function lsSwitchToDesktop() {
+    LS_DESKTOP_OVERRIDE = true;
+    sessionStorage.setItem('nudgarr_desktop_override', '1');
+    checkOrientation();
+  }
+
+  (function() {
+    const vp = document.getElementById('ls-viewport');
+    if (!vp) return;
+    let sx = null, sy = null;
+    vp.addEventListener('touchstart', e => {
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+    }, { passive: true });
+    vp.addEventListener('touchend', e => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+        if (dx < 0 && LS_TAB < 1) lsSwitchTab(LS_TAB + 1);
+        if (dx > 0 && LS_TAB > 0) lsSwitchTab(LS_TAB - 1);
+      }
+      sx = null;
+    }, { passive: true });
+  })();
+
+  // ── End Landscape UI ──────────────────────────────────────────────────────
+
   setInterval(mPollCycle, 5000);
 }
 

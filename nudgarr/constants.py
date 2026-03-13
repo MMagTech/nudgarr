@@ -21,7 +21,7 @@ PORT = int(os.getenv("PORT", "8085"))
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "scheduler_enabled": False,        # off by default — user enables deliberately
-    "run_interval_minutes": 360,
+    "cron_expression": "0 */6 * * *",  # default: every 6 hours on the clock
 
     "cooldown_hours": 48,
     "sample_mode": "random",           # legacy — still accepted as fallback

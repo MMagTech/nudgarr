@@ -9,6 +9,9 @@ Sweep control and instance connection testing.
   POST /api/test-instance -- test a single instance against in-memory values
 """
 
+import os
+import datetime
+
 import requests as req_lib
 
 from flask import Blueprint, jsonify, request
@@ -22,11 +25,26 @@ from nudgarr.utils import mask_url, req, is_safe_url
 bp = Blueprint("sweep", __name__)
 
 
+def _container_time_str() -> str:
+    """Return current container time as 'HH:MM TZ' using TZ env var."""
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(tz_name)
+        now = datetime.datetime.now(tz)
+        abbr = now.strftime("%Z") or tz_name
+        return now.strftime("%H:%M") + " " + abbr
+    except Exception:
+        now = datetime.datetime.utcnow()
+        return now.strftime("%H:%M") + " UTC"
+
+
 @bp.get("/api/status")
 @requires_auth
 def api_status():
     payload = dict(STATUS)
     payload["sweep_lifetime"] = db.get_sweep_lifetime()
+    payload["container_time"] = _container_time_str()
     return jsonify(payload)
 
 

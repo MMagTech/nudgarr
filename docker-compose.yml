@@ -13,9 +13,8 @@ services:
       - PGID=${PGID:-1000}
       - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
-      - STATE_FILE=/config/nudgarr-state.json
-      - STATS_FILE=/config/nudgarr-stats.json
-      - EXCLUSIONS_FILE=/config/nudgarr-exclusions.json
+      - DB_FILE=/config/nudgarr.db
+      - TZ=${TZ:-UTC}
       # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:

@@ -15,7 +15,6 @@ from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import STATUS
-from nudgarr.state import state_key
 
 bp = Blueprint("diagnostics", __name__)
 
@@ -30,37 +29,30 @@ def api_diagnostic():
     sonarr_names = [i.get("name") for i in sonarr_instances]
 
     # Per-instance entry counts from DB
-    valid_keys = set()
-    name_map = {}
+    valid_urls = {}
     for inst in radarr_instances:
-        sk = state_key(inst["name"], inst["url"])
-        name_map[("radarr", sk)] = inst["name"]
-        valid_keys.add(("radarr", sk))
+        valid_urls[("radarr", inst["url"].rstrip("/"))] = inst["name"]
     for inst in sonarr_instances:
-        sk = state_key(inst["name"], inst["url"])
-        name_map[("sonarr", sk)] = inst["name"]
-        valid_keys.add(("sonarr", sk))
+        valid_urls[("sonarr", inst["url"].rstrip("/"))] = inst["name"]
 
     summary_rows = db.get_connection().execute(
         """
-        SELECT app, instance_name, instance_url, COUNT(*) as cnt
+        SELECT app, instance_url, COUNT(*) as cnt
         FROM search_history
-        GROUP BY app, instance_name, instance_url
+        GROUP BY app, instance_url
         """
     ).fetchall()
 
     instance_counts = []
-    seen = set()
     for r in summary_rows:
-        sk = f"{r['instance_name']}|{r['instance_url']}"
-        key_tuple = (r["app"], sk)
-        seen.add(key_tuple)
-        if key_tuple in valid_keys:
-            friendly = name_map[key_tuple]
+        url = r["instance_url"].rstrip("/")
+        key_tuple = (r["app"], url)
+        if key_tuple in valid_urls:
+            friendly = valid_urls[key_tuple]
             instance_counts.append(f"  {r['app']}/{friendly}: {r['cnt']} entries")
         else:
             instance_counts.append(
-                f"  {r['app']}/{sk}: {r['cnt']} entries (orphaned — no matching instance)"
+                f"  {r['app']}/{url}: {r['cnt']} entries (orphaned — no matching instance)"
             )
 
     # Last run summary
@@ -96,7 +88,7 @@ def api_diagnostic():
         f"Last run: {STATUS.get('last_run_utc') or 'Never'}",
         f"Next run: {STATUS.get('next_run_utc') or 'N/A'}",
         f"Last error: {STATUS.get('last_error') or 'None'}",
-        f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, interval: {cfg.get('run_interval_minutes')}min",
+        f"Scheduler: {'enabled' if cfg.get('scheduler_enabled') else 'manual'}, cron: {cfg.get('cron_expression', 'not set')}",
         f"Cooldown: {cfg.get('cooldown_hours')}h",
         f"Session timeout: {cfg.get('auth_session_minutes')}min | Auth: {'enabled' if cfg.get('auth_enabled') else 'disabled'}",
         f"Import check interval: {cfg.get('import_check_minutes')}min",

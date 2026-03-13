@@ -77,6 +77,20 @@ def api_set_config():
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+
+    # Update next_run_utc in STATUS immediately so UI reflects new schedule without
+    # waiting for the scheduler loop to wake and detect the config change.
+    cron_expression = cfg.get("cron_expression", "0 */6 * * *")
+    scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
+    if scheduler_enabled and cron_expression:
+        try:
+            from nudgarr.scheduler import _next_cron_utc
+            STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
+        except Exception:
+            pass
+    else:
+        STATUS["next_run_utc"] = None
+
     return jsonify({"ok": True, "message": "Config saved", "config_file": CONFIG_FILE})
 
 

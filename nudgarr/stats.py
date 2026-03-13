@@ -28,7 +28,6 @@ from nudgarr import db
 from nudgarr.notifications import notify_import
 from nudgarr.utils import iso_z, parse_iso, utcnow
 
-
 # ── Stats recording ───────────────────────────────────────────────────
 
 def record_stat_entry(
@@ -82,7 +81,9 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                     timeout=15,
                 )
                 if r.ok:
-                    events = r.json() if isinstance(r.json(), list) else []
+                    events = r.json()
+                    if not isinstance(events, list):
+                        events = []
                     for ev in events:
                         if ev.get("eventType") == "downloadFolderImported":
                             ev_dt = parse_iso(ev.get("date", ""))
@@ -150,10 +151,15 @@ def pick_items_with_cooldown(
     """
     eligible: List[Dict[str, Any]] = []
     skipped = 0
+
+    # Fetch all cooldown timestamps in one query instead of one per item
+    item_ids = [str(item["id"]) for item in items]
+    ts_map = db.get_last_searched_ts_bulk(
+        instance_app, instance_name, instance_url, item_type, item_ids
+    )
+
     for item in items:
-        last_ts = db.get_last_searched_ts(
-            instance_app, instance_name, instance_url, item_type, str(item["id"])
-        )
+        last_ts = ts_map.get(str(item["id"]))
         if is_allowed_by_cooldown(last_ts, cooldown_hours):
             eligible.append(item)
         else:

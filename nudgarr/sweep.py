@@ -25,9 +25,11 @@ from nudgarr import db
 from nudgarr.arr_clients import (
     radarr_get_cutoff_unmet_movies,
     radarr_get_missing_movies,
+    radarr_get_queued_movie_ids,
     radarr_search_movies,
     sonarr_get_cutoff_unmet_episodes,
     sonarr_get_missing_episodes,
+    sonarr_get_queued_episode_ids,
     sonarr_search_episodes,
 )
 from nudgarr.globals import STATUS
@@ -59,6 +61,8 @@ def _sweep_radarr_instance(
 
     all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
     all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
+    queued_movie_ids = radarr_get_queued_movie_ids(session, url, key)
+    all_movies = [m for m in all_movies if m["id"] not in queued_movie_ids]
     STATUS["instance_health"][f"radarr|{name}"] = "ok"
     all_ids = [m["id"] for m in all_movies]
 
@@ -94,6 +98,7 @@ def _sweep_radarr_instance(
     if radarr_backlog_enabled and missing_max > 0:
         missing_records = radarr_get_missing_movies(session, url, key)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
+        missing_records = [m for m in missing_records if m["id"] not in queued_movie_ids]
         missing_total = len(missing_records)
 
         missing_filtered: List[Dict[str, Any]] = []
@@ -162,6 +167,8 @@ def _sweep_sonarr_instance(
 
     all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key)
     all_episodes = [e for e in all_episodes if (e.get("title") or "").lower() not in excluded_titles]
+    queued_episode_ids = sonarr_get_queued_episode_ids(session, url, key)
+    all_episodes = [e for e in all_episodes if e["id"] not in queued_episode_ids]
     STATUS["instance_health"][f"sonarr|{name}"] = "ok"
     all_ids = [e["id"] for e in all_episodes]
 
@@ -195,6 +202,7 @@ def _sweep_sonarr_instance(
     if sonarr_backlog_enabled and sonarr_missing_max > 0:
         missing_records = sonarr_get_missing_episodes(session, url, key)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
+        missing_records = [m for m in missing_records if m["id"] not in queued_episode_ids]
         missing_total = len(missing_records)
         chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
             missing_records, "sonarr", name, inst_url, "missing_episode",

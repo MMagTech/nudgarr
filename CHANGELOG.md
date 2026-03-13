@@ -15,6 +15,20 @@ Nudgarr now stores all state, history, stats, and exclusions in a local SQLite d
 - `nudgarr_state` key/value table for persistent app state across restarts
 - Last run time and next run schedule now survive container restarts
 
+**Scheduler**
+
+- Cron expression replaces the run interval setting — default `0 */6 * * *` (every 6 hours)
+- TZ environment variable respected for cron evaluation — schedules fire in container local time
+- Startup no longer triggers an immediate sweep — first sweep fires when the cron expression next fires or Run Now is pressed
+- Missed intervals during downtime are skipped; no catch-up on restart
+
+**Skip Queued**
+
+- Items already present in the Radarr or Sonarr download queue are silently skipped during sweeps
+- Applies to both cutoff unmet and backlog searches across all instances
+- Queued items do not consume a slot — max per run is always filled from actionable items only
+- Always-on, no toggle or configuration required
+
 **Imports Tab**
 
 - Iteration tracking — each confirmed import of the same item increments a counter; re-imports at the same quality show a ×2, ×3 badge
@@ -37,10 +51,11 @@ Nudgarr now stores all state, history, stats, and exclusions in a local SQLite d
 - Next page button now correctly disabled when all items fit on one page
 - Type column uses `.tag` CSS classes matching the Imports tab
 
-**Scheduler**
+**Settings**
 
-- Startup no longer triggers an immediate sweep — first sweep fires when the configured interval elapses or Run Now is pressed
-- Missed intervals during downtime are skipped; no catch-up on restart
+- Settings tab now renders full width — consistent with other tabs
+- Cron input validates on change — invalid expressions are highlighted with an amber glow
+- Container local time displayed inline beneath the cron field for at-a-glance schedule confirmation
 
 **UI Polish**
 
@@ -52,6 +67,8 @@ Nudgarr now stores all state, history, stats, and exclusions in a local SQLite d
 - Auth toggle inline label simplified to `Enabled` / `Disabled`
 - Support link pill correctly resets to saved state on tab switch
 - Help text cleaned up across Settings, Advanced, and Notifications — consistent punctuation and inline `(0 Disables)` format
+- Indexer rate limits warning updated
+- CONTRIBUTING rewritten
 
 ---
 

@@ -56,8 +56,7 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
         for inst in incoming_insts:
             if _is_masked(inst.get("key", "")):
                 # Try name first, fall back to URL for rename scenarios
-                match = stored_by_name.get(inst.get("name", "")) or \
-                        stored_by_url.get(inst.get("url", "").rstrip("/"))
+                match = stored_by_name.get(inst.get("name", "")) or stored_by_url.get(inst.get("url", "").rstrip("/"))
                 real = (match or {}).get("key", "")
                 if real:
                     inst["key"] = real

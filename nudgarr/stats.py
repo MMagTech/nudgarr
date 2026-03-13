@@ -66,8 +66,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
         app = entry.get("app", "radarr")
         instance_name = entry.get("instance", "")
         instance_url = (entry.get("instance_url") or "").rstrip("/")
-        inst = instance_map.get((app, instance_name)) or \
-               (instance_map_by_url.get((app, instance_url)) if instance_url else None)
+        inst = instance_map.get((app, instance_name)) or (instance_map_by_url.get((app, instance_url)) if instance_url else None)
         if not inst:
             continue
 

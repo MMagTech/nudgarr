@@ -9,25 +9,42 @@ Sweep control and instance connection testing.
   POST /api/test-instance -- test a single instance against in-memory values
 """
 
+import os
+import datetime
+
 import requests as req_lib
 
 from flask import Blueprint, jsonify, request
 
+from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import RUN_LOCK, STATUS
-from nudgarr.state import load_state
 from nudgarr.utils import mask_url, req, is_safe_url
 
 bp = Blueprint("sweep", __name__)
 
 
+def _container_time_str() -> str:
+    """Return current container time as 'HH:MM TZ' using TZ env var."""
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(tz_name)
+        now = datetime.datetime.now(tz)
+        abbr = now.strftime("%Z") or tz_name
+        return now.strftime("%H:%M") + " " + abbr
+    except Exception:
+        now = datetime.datetime.utcnow()
+        return now.strftime("%H:%M") + " UTC"
+
+
 @bp.get("/api/status")
 @requires_auth
 def api_status():
-    st = load_state()
     payload = dict(STATUS)
-    payload["sweep_lifetime"] = st.get("sweep_lifetime", {})
+    payload["sweep_lifetime"] = db.get_sweep_lifetime()
+    payload["container_time"] = _container_time_str()
     return jsonify(payload)
 
 
@@ -108,9 +125,7 @@ def api_test():
 
 
 def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> None:
-    """Test one instance and append result. Updates STATUS health in place."""
     name = inst.get("name", "")
-    key = inst.get("key", "")
     if not inst.get("enabled", True):
         STATUS["instance_health"][f"{app_name}|{name}"] = "disabled"
         results[app_name].append({
@@ -126,7 +141,7 @@ def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> 
             STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
             return
         url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
-        data = req(session, "GET", url, key)
+        data = req(session, "GET", url, inst.get("key", ""))
         results[app_name].append({
             "name": name, "url": mask_url(inst["url"]), "ok": True,
             "version": data.get("version") if isinstance(data, dict) else None,
@@ -143,20 +158,17 @@ def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> 
 @bp.post("/api/test-instance")
 @requires_auth
 def api_test_instance():
-    """Test a single instance against caller-supplied values (in-memory, not disk)."""
     data = request.get_json(force=True, silent=True) or {}
     kind = data.get("kind", "")
     instances = data.get("instances", {})
     if kind not in ("radarr", "sonarr"):
         return jsonify({"ok": False, "error": "Invalid kind"}), 400
-    # Load stored config to resolve any masked keys
     stored = load_or_init_config()
     stored_insts = {i.get("name", ""): i for i in stored.get("instances", {}).get(kind, [])}
     session = req_lib.Session()
     results = {kind: []}
     for inst in instances.get(kind, []):
         key = inst.get("key", "")
-        # If key is masked, substitute the real stored key
         if key.startswith("••••••••"):
             real = stored_insts.get(inst.get("name", ""), {}).get("key", "")
             if real:

@@ -56,6 +56,7 @@ def _load_or_create_secret_key() -> str:
 
 app.secret_key = _load_or_create_secret_key()
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 # SESSION_COOKIE_SAMESITE intentionally not set.
 # SameSite=Lax breaks session cookies in reverse-proxy and iframe
 # environments (Unraid, Synology) because POST requests are treated as

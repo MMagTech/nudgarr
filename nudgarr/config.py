@@ -29,8 +29,12 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if not isinstance(cfg.get("scheduler_enabled"), bool):
         errs.append("scheduler_enabled must be boolean")
 
-    if not isinstance(cfg.get("run_interval_minutes"), int) or cfg["run_interval_minutes"] < 1:
-        errs.append("run_interval_minutes must be an int >= 1")
+    if not isinstance(cfg.get("cron_expression"), str):
+        errs.append("cron_expression must be a string")
+    elif cfg.get("scheduler_enabled"):
+        parts = cfg["cron_expression"].strip().split()
+        if len(parts) != 5:
+            errs.append("cron_expression must be a valid 5-field cron string")
 
     VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
     for mode_key in ("radarr_sample_mode", "sonarr_sample_mode"):
@@ -46,6 +50,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "state_retention_days",
         "radarr_missing_max",
         "radarr_missing_added_days",
+        "sonarr_missing_max",
+        "sonarr_missing_added_days",
     ):
         v = cfg.get(k)
         if not isinstance(v, int) or v < 0:
@@ -90,6 +96,31 @@ def load_or_init_config() -> Dict[str, Any]:
     # merge instances
     merged["instances"]["radarr"] = cfg.get("instances", {}).get("radarr", merged["instances"]["radarr"])
     merged["instances"]["sonarr"] = cfg.get("instances", {}).get("sonarr", merged["instances"]["sonarr"])
+
+    # ── Migration: interval → cron (v3.1.0) ──
+    # Old installs may have run_interval_minutes and/or cron_enabled.
+    # Convert to cron_expression if missing or empty, then drop legacy keys.
+    if not merged.get("cron_expression"):
+        interval_min = cfg.get("run_interval_minutes")
+        converted = False
+        if isinstance(interval_min, int) and interval_min > 0:
+            if interval_min < 60 and 60 % interval_min == 0:
+                # Sub-hour clean divisor e.g. 30 → */30 * * * *
+                merged["cron_expression"] = f"*/{interval_min} * * * *"
+                converted = True
+            elif interval_min % 60 == 0:
+                hours = interval_min // 60
+                if hours == 1:
+                    merged["cron_expression"] = "0 * * * *"
+                else:
+                    merged["cron_expression"] = f"0 */{hours} * * *"
+                converted = True
+        if not converted:
+            merged["cron_expression"] = DEFAULT_CONFIG["cron_expression"]
+
+    # Drop legacy keys that no longer exist in DEFAULT_CONFIG
+    for legacy_key in ("run_interval_minutes", "cron_enabled"):
+        merged.pop(legacy_key, None)
 
     ok, errs = validate_config(merged)
     if not ok:

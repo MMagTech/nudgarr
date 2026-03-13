@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -39,9 +39,9 @@ jobs:
             --statistics
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Check JS syntax
         run: |
@@ -82,3 +82,6 @@ jobs:
           print(f"Element ID consistency OK — checked {len(el_calls)} el() calls")
           EOF
 
+
+      - name: Run validate.py
+        run: python3 validate.py

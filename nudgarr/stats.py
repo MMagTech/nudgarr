@@ -9,11 +9,13 @@ Stats recording, import confirmation checking, and cooldown selection.
                     pick_items_with_cooldown, pick_ids_with_cooldown
   State marking   : mark_items_searched, mark_ids_searched
 
-pick_ids_with_cooldown and mark_ids_searched are legacy helpers kept for
-compatibility with any code still passing plain ID lists rather than item
-dicts.
+Cooldown checking and state marking now query the SQLite database
+directly via db.py rather than the st_bucket dict pattern.
 
-Imports from within the package: state, notifications, utils.
+pick_ids_with_cooldown and mark_ids_searched are legacy helpers kept
+for compatibility with any code still passing plain ID lists.
+
+Imports from within the package: db, notifications, utils.
 """
 
 import random
@@ -22,10 +24,9 @@ from typing import Any, Dict, List, Tuple
 
 import requests
 
+from nudgarr import db
 from nudgarr.notifications import notify_import
-from nudgarr.state import load_stats, save_stats
 from nudgarr.utils import iso_z, parse_iso, utcnow
-
 
 # ── Stats recording ───────────────────────────────────────────────────
 
@@ -37,53 +38,27 @@ def record_stat_entry(
     entry_type: str,
     searched_ts: str,
 ) -> None:
-    """Record a searched item for later import checking. entry_type: 'Upgraded' or 'Acquired'"""
-    stats = load_stats()
-    entries = stats.get("entries", [])
-    entries.append({
-        "app": app,
-        "instance": instance_name,
-        "item_id": str(item_id),
-        "title": title,
-        "type": entry_type,
-        "searched_ts": searched_ts,
-        "imported": False,
-        "imported_ts": None,
-    })
-    stats["entries"] = entries
-    save_stats(stats)
+    """Record a searched item for later import checking."""
+    db.upsert_stat_entry(app, instance_name, str(item_id), title, entry_type, searched_ts)
 
 
 # ── Import checking ───────────────────────────────────────────────────
 
 def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     """Poll Radarr/Sonarr history for import events on recently searched items."""
-    stats = load_stats()
-    entries = stats.get("entries", [])
     check_minutes = int(cfg.get("import_check_minutes", 120))
-    now = utcnow()
-    updated = False
+    now_ts = iso_z(utcnow())
 
-    # Build instance lookup
-    instance_map: Dict[str, Dict[str, str]] = {}
+    instance_map: Dict[Tuple[str, str], Dict] = {}
     for inst in cfg.get("instances", {}).get("radarr", []):
         instance_map[("radarr", inst["name"])] = inst
     for inst in cfg.get("instances", {}).get("sonarr", []):
         instance_map[("sonarr", inst["name"])] = inst
 
-    for entry in entries:
-        if entry.get("imported"):
-            continue
-        searched_ts = entry.get("searched_ts")
-        if not searched_ts:
-            continue
-        dt = parse_iso(searched_ts)
-        if dt is None:
-            continue
-        # Only check after the delay has elapsed
-        if (now - dt).total_seconds() / 60 < check_minutes:
-            continue
+    entries = db.get_unconfirmed_entries(check_minutes, now_ts)
+    updated = False
 
+    for entry in entries:
         app = entry.get("app", "radarr")
         instance_name = entry.get("instance", "")
         inst = instance_map.get((app, instance_name))
@@ -93,6 +68,9 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
         url = inst["url"].rstrip("/")
         key = inst["key"]
         item_id = entry.get("item_id", "")
+        entry_type = entry.get("type", "")
+        last_searched_ts = entry.get("last_searched_ts", "")
+        dt = parse_iso(last_searched_ts)
 
         try:
             if app == "radarr":
@@ -103,16 +81,18 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                     timeout=15,
                 )
                 if r.ok:
-                    events = r.json() if isinstance(r.json(), list) else []
+                    events = r.json()
+                    if not isinstance(events, list):
+                        events = []
                     for ev in events:
                         if ev.get("eventType") == "downloadFolderImported":
                             ev_dt = parse_iso(ev.get("date", ""))
-                            if ev_dt and ev_dt > dt:
-                                entry["imported"] = True
-                                entry["imported_ts"] = iso_z(ev_dt)
-                                stats["lifetime_movies"] = stats.get("lifetime_movies", 0) + 1
-                                notify_import(entry.get("title", "Unknown"), entry.get("type", "Upgraded"), instance_name, cfg)
-                                updated = True
+                            if ev_dt and (dt is None or ev_dt > dt):
+                                imported_ts = iso_z(ev_dt)
+                                if db.confirm_stat_entry(app, instance_name, item_id, entry_type, imported_ts):
+                                    db.increment_lifetime_total("movies")
+                                    notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
+                                    updated = True
                                 break
             else:
                 r = session_obj.get(
@@ -127,34 +107,28 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                     for ev in events:
                         if ev.get("eventType") == "downloadFolderImported":
                             ev_dt = parse_iso(ev.get("date", ""))
-                            if ev_dt and ev_dt > dt:
-                                entry["imported"] = True
-                                entry["imported_ts"] = iso_z(ev_dt)
-                                stats["lifetime_shows"] = stats.get("lifetime_shows", 0) + 1
-                                notify_import(entry.get("title", "Unknown"), entry.get("type", "Upgraded"), instance_name, cfg)
-                                updated = True
+                            if ev_dt and (dt is None or ev_dt > dt):
+                                imported_ts = iso_z(ev_dt)
+                                if db.confirm_stat_entry(app, instance_name, item_id, entry_type, imported_ts):
+                                    db.increment_lifetime_total("shows")
+                                    notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
+                                    updated = True
                                 break
         except Exception as e:
             print(f"[Stats] Import check failed for {instance_name}/{item_id}: {e}")
 
     if updated:
-        stats["entries"] = entries
-        save_stats(stats)
         print("[Stats] Import check complete — updated confirmed imports")
 
 
 # ── Cooldown selection ────────────────────────────────────────────────
 
-def is_allowed_by_cooldown(last_entry: Any, cooldown_hours: int) -> bool:
+def is_allowed_by_cooldown(last_ts: Any, cooldown_hours: int) -> bool:
     if cooldown_hours <= 0:
         return True
-    if not last_entry:
+    if not last_ts:
         return True
-    # Support both old string format and new dict format {"ts": "...", "title": "..."}
-    last_iso = last_entry.get("ts") if isinstance(last_entry, dict) else last_entry
-    if not last_iso:
-        return True
-    dt = parse_iso(last_iso)
+    dt = parse_iso(last_ts) if isinstance(last_ts, str) else None
     if dt is None:
         return True
     return dt < (utcnow() - timedelta(hours=cooldown_hours))
@@ -162,83 +136,110 @@ def is_allowed_by_cooldown(last_entry: Any, cooldown_hours: int) -> bool:
 
 def pick_items_with_cooldown(
     items: List[Dict[str, Any]],
-    st_bucket: Dict[str, Any],
-    prefix: str,
+    instance_app: str,
+    instance_name: str,
+    instance_url: str,
+    item_type: str,
     cooldown_hours: int,
     max_per_run: int,
     sample_mode: str,
 ) -> Tuple[List[Dict[str, Any]], int, int]:
+    """
+    Filter items by cooldown, sort by sample_mode, and return up to max_per_run.
+    Cooldown timestamps are fetched from the DB per item.
+    Returns (chosen_items, eligible_count, skipped_count).
+    """
     eligible: List[Dict[str, Any]] = []
     skipped = 0
+
+    # Fetch all cooldown timestamps in one query instead of one per item
+    item_ids = [str(item["id"]) for item in items]
+    ts_map = db.get_last_searched_ts_bulk(
+        instance_app, instance_name, instance_url, item_type, item_ids
+    )
+
     for item in items:
-        _id = item["id"]
-        key = f"{prefix}:{_id}"
-        entry = st_bucket.get(key)
-        last_ts = entry.get("ts") if isinstance(entry, dict) else entry
+        last_ts = ts_map.get(str(item["id"]))
         if is_allowed_by_cooldown(last_ts, cooldown_hours):
             eligible.append(item)
         else:
             skipped += 1
+
     if sample_mode == "random":
         random.shuffle(eligible)
     elif sample_mode == "alphabetical":
         eligible.sort(key=lambda x: (x.get("title") or "").lower())
     elif sample_mode == "oldest_added":
-        # Items without added date sort to end
         eligible.sort(key=lambda x: (x.get("added") or "9999"))
     elif sample_mode == "newest_added":
-        # Items without added date sort to end
         eligible.sort(key=lambda x: (x.get("added") or ""), reverse=True)
-    # "first" and unknown modes: preserve original API order
+
     chosen = eligible[:max_per_run] if max_per_run > 0 else []
     return chosen, len(eligible), skipped
 
 
 def pick_ids_with_cooldown(
     ids: List[int],
-    st_bucket: Dict[str, Any],
-    prefix: str,
+    instance_app: str,
+    instance_name: str,
+    instance_url: str,
+    item_type: str,
     cooldown_hours: int,
     max_per_run: int,
     sample_mode: str,
 ) -> Tuple[List[int], int, int]:
-    """Legacy helper for plain ID lists (kept for compatibility)."""
+    """Legacy helper for plain ID lists."""
     items = [{"id": i, "title": ""} for i in ids]
-    chosen_items, eligible, skipped = pick_items_with_cooldown(items, st_bucket, prefix, cooldown_hours, max_per_run, sample_mode)
+    chosen_items, eligible, skipped = pick_items_with_cooldown(
+        items, instance_app, instance_name, instance_url, item_type,
+        cooldown_hours, max_per_run, sample_mode
+    )
     return [it["id"] for it in chosen_items], eligible, skipped
 
 
 # ── State marking ─────────────────────────────────────────────────────
 
 def mark_items_searched(
-    st_bucket: Dict[str, Any],
-    prefix: str,
+    instance_app: str,
+    instance_name: str,
+    instance_url: str,
+    item_type: str,
     items: List[Dict[str, Any]],
     sweep_type: str = "",
 ) -> None:
     now_s = iso_z(utcnow())
     for item in items:
-        key = f"{prefix}:{item['id']}"
-        existing = st_bucket.get(key) or {}
-        prev_count = existing.get("search_count", 0) if isinstance(existing, dict) else 0
-        st_bucket[key] = {
-            "ts": now_s,
-            "title": item.get("title") or "",
-            "sweep_type": sweep_type,
-            "library_added": item.get("added") or existing.get("library_added") or "",
-            "search_count": prev_count + 1,
-        }
+        db.upsert_search_history(
+            app=instance_app,
+            instance_name=instance_name,
+            instance_url=instance_url,
+            item_type=item_type,
+            item_id=str(item["id"]),
+            title=item.get("title") or "",
+            sweep_type=sweep_type,
+            library_added=item.get("added") or "",
+            now_ts=now_s,
+        )
 
 
 def mark_ids_searched(
-    st_bucket: Dict[str, Any],
-    prefix: str,
+    instance_app: str,
+    instance_name: str,
+    instance_url: str,
+    item_type: str,
     ids: List[int],
 ) -> None:
-    """Legacy helper for plain ID lists (kept for compatibility)."""
+    """Legacy helper for plain ID lists."""
     now_s = iso_z(utcnow())
     for _id in ids:
-        key = f"{prefix}:{_id}"
-        existing = st_bucket.get(key)
-        title = existing.get("title", "") if isinstance(existing, dict) else ""
-        st_bucket[key] = {"ts": now_s, "title": title}
+        db.upsert_search_history(
+            app=instance_app,
+            instance_name=instance_name,
+            instance_url=instance_url,
+            item_type=item_type,
+            item_id=str(_id),
+            title="",
+            sweep_type="",
+            library_added="",
+            now_ts=now_s,
+        )

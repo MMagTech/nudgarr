@@ -69,7 +69,7 @@ if mobile_start:
 section("Key Mobile Elements")
 
 for label, pat in {
-    '#mobile-rotate':'id="mobile-rotate"', '#mobile-ui':'id="mobile-ui"',
+    '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
     '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
     '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"'
@@ -176,7 +176,45 @@ if cv and clv:
     if cv == clv: ok(f"Versions match: {cv}")
     else: fail(f"Version mismatch: constants.py={cv}, CHANGELOG.md={clv}")
 
-# ── Routes Registration ───────────────────────────────────────────────────────
+# ── Database Integrity ────────────────────────────────────────────────────────
+section("Database Integrity")
+
+DB_FILE = 'nudgarr/db.py'
+try:
+    db_content = open(DB_FILE).read()
+
+    # Required tables in schema SQL
+    for table in ['search_history', 'stat_entries', 'exclusions',
+                  'sweep_lifetime', 'lifetime_totals', 'schema_migrations', 'nudgarr_state']:
+        if f'CREATE TABLE IF NOT EXISTS {table}' in db_content:
+            ok(f"Schema defines table: {table}")
+        else:
+            fail(f"Schema missing table: {table}")
+
+    # Required public functions
+    for fn in ['init_db', 'get_state', 'set_state', '_run_migration_v2', '_run_migration_v3']:
+        if f'def {fn}(' in db_content:
+            ok(f"db.py defines: {fn}()")
+        else:
+            fail(f"db.py missing function: {fn}()")
+
+    # Migration versions recorded
+    for v in [1, 2, 3]:
+        if f'VALUES ({v},' in db_content or f'version = {v}' in db_content:
+            ok(f"Migration v{v} referenced in db.py")
+        else:
+            fail(f"Migration v{v} not referenced in db.py")
+
+    # _SCHEMA_SQL defined
+    if '_SCHEMA_SQL' in db_content:
+        ok("_SCHEMA_SQL defined")
+    else:
+        fail("_SCHEMA_SQL not found in db.py")
+
+except FileNotFoundError:
+    fail(f"{DB_FILE} not found")
+
+
 section("Routes Registration")
 
 try:

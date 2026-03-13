@@ -3,8 +3,6 @@
 
 Nudgarr keeps your Radarr and Sonarr libraries improving automatically — scheduling searches for missing content and quality upgrades so you don't have to.
 
-Nudgarr is stable and mature. Thanks to everyone who stuck with the frequent updates to get here. It does what it set out to do, and any new features beyond that will come from the community.
-
 ---
 
 ## Screenshots
@@ -32,10 +30,24 @@ Click any screenshot to view full size.
 
 ---
 
+## Documentation
+
+Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTech/nudgarr/wiki), including:
+
+- [Setup & Configuration](https://github.com/MMagTech/nudgarr/wiki/Setup-&-Configuration)
+- [How Nudgarr Works](https://github.com/MMagTech/nudgarr/wiki/How-Nudgarr-Works)
+- [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference)
+- [Exclusions](https://github.com/MMagTech/nudgarr/wiki/Exclusions)
+- [Notifications (Apprise)](https://github.com/MMagTech/nudgarr/wiki/Notifications-(Apprise))
+- [FAQ & Troubleshooting](https://github.com/MMagTech/nudgarr/wiki/FAQ-&-Troubleshooting)
+
+---
+
 ## What it does
 
 - **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted → Cutoff Unmet queue and triggers a search for a better quality version
 - **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering and per-app caps
+- **Skip Queued** — items already downloading are silently skipped; queued items never consume a search slot
 - **Import tracking** — polls Radarr and Sonarr after each sweep to confirm which searches resulted in a successful download
 - **Multiple instances** — supports multiple Radarr and Sonarr instances independently, each with their own health status
 
@@ -44,7 +56,8 @@ Click any screenshot to view full size.
 ## Features
 
 **Core**
-- Scheduler with configurable run interval, or manual-only mode
+- Cron-based scheduler with configurable expression and timezone support, or manual-only mode
+- Skip Queued — items already in the download queue are silently bypassed; max per run always filled from actionable items
 - Per-instance enable/disable — disabled instances skipped in sweeps and health checks
 - Per-app sample modes — Random, Alphabetical, Oldest Added, Newest Added independently for Radarr and Sonarr
 - Configurable cooldown, batch size, sleep, and jitter controls for indexer rate limit compliance
@@ -57,12 +70,12 @@ Click any screenshot to view full size.
 - Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, and title search
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
 - First-run onboarding walkthrough and What's New modal on upgrade
-- Backup All — single download of config, state, and stats as a zip
 
 **Mobile**
 - Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
 - Four-tab bottom nav: Home · Instances · Sweep · Exclusions
-- Quick Settings — long press Run Now to adjust interval, cooldown, and caps without leaving the home tab
+- Quick Settings — long press Run Now to adjust cooldown and max per run without leaving the home tab
+- Landscape mode — rotating to landscape switches to a compact settings panel; tap Desktop View to access the full UI
 - Bottom sheets for Exclusions and Imports with haptic feedback and swipe-to-dismiss
 - iOS and Android browser toolbar matches the app via `theme-color`
 
@@ -77,7 +90,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v3.0.0` · `3.0.0` · `3.0`
+**Tags:** `latest` · `v3.1.0` · `3.1.0` · `3.1`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -88,6 +101,7 @@ PUID=1000
 PGID=1000
 PORT=8085
 CONFIG_PATH=/your/path/to/appdata/nudgarr
+TZ=UTC
 # SECRET_KEY=your-secret-key  # optional, auto-generated if not set
 ```
 
@@ -107,9 +121,8 @@ services:
       - PGID=${PGID:-1000}
       - PORT=${PORT:-8085}
       - CONFIG_FILE=/config/nudgarr-config.json
-      - STATE_FILE=/config/nudgarr-state.json
-      - STATS_FILE=/config/nudgarr-stats.json
-      - EXCLUSIONS_FILE=/config/nudgarr-exclusions.json
+      - DB_FILE=/config/nudgarr.db
+      - TZ=${TZ:-UTC}
       # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
     read_only: true
     tmpfs:
@@ -150,14 +163,14 @@ Defaults to `1000:1000` if not set.
 
 ---
 
-## Config files
+## Data files
 
 | File | Purpose |
 |------|---------|
 | `/config/nudgarr-config.json` | All settings |
-| `/config/nudgarr-state.json` | Search history and cooldowns |
-| `/config/nudgarr-stats.json` | Confirmed import records |
-| `/config/nudgarr-exclusions.json` | Excluded titles |
+| `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
+
+If upgrading from v3.0.0 or earlier, existing JSON files are migrated automatically on first start. The original files are left in place and can be removed once you're satisfied with the upgrade.
 
 ---
 
@@ -167,11 +180,11 @@ Nudgarr is a local network tool. The login screen provides basic access control 
 
 Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a reverse proxy with HTTPS. Do not expose port 8085 to the internet.
 
-Locked out? Delete the config file and restart.
-
 ---
 
 ## Upgrade notes
+
+**v3.1.0** — All data (history, stats, exclusions) moves to a SQLite database. Existing JSON files migrate automatically on first start — no action needed. See the Data files section above for details.
 
 **v3.0.0** — No config changes required. The mobile layout activates automatically on devices under 500px wide.
 
@@ -181,4 +194,5 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide. For usage questions, the [wiki](https://github.com/MMagTech/nudgarr/wiki) is the first stop.
+

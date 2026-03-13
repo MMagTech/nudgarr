@@ -809,6 +809,14 @@
       body { background: var(--surface); }
     }
 
+    /* Hide .wrap on landscape mobile (height < 500px) before JS runs —
+       prevents flash of desktop UI on refresh in landscape orientation. */
+    @media screen and (max-height: 500px) and (orientation: landscape) {
+      .wrap { display: none !important; }
+      #mobile-ui { display: none !important; }
+      body { background: var(--surface); }
+    }
+
     /* ══════════════════════════════════════════════════════════════════════
        LANDSCAPE UI  — mobile in landscape orientation
        Portrait #mobile-ui hidden; #landscape-ui shown instead.

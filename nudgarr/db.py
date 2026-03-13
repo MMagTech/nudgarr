@@ -1107,6 +1107,21 @@ def _calc_turnaround(first_ts: Optional[str], imported_ts: Optional[str]) -> str
     return f"{minutes}m"
 
 
+def rename_instance_in_history(app: str, instance_url: str, new_name: str) -> None:
+    """Update instance_name in search_history and stat_entries for a renamed instance."""
+    url = instance_url.rstrip("/")
+    conn = get_connection()
+    conn.execute(
+        "UPDATE search_history SET instance_name = ? WHERE app = ? AND instance_url = ?",
+        (new_name, app, url)
+    )
+    conn.execute(
+        "UPDATE stat_entries SET instance = ? WHERE app = ? AND instance_url = ?",
+        (new_name, app, url)
+    )
+    conn.commit()
+
+
 def clear_stat_entries() -> None:
     conn = get_connection()
     conn.execute("DELETE FROM stat_entries")

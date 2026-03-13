@@ -4,6 +4,21 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v3.1.2
+
+**Bug Fixes**
+
+- Instance rename now correctly updates the connection dot — `api/test-instance` was missing the URL fallback for masked key lookup, causing the dot to go red after a rename even when the key was intact
+- Renaming an instance now retroactively updates the instance name in History and Imports
+- iOS PWA nav bar no longer overlaps the home indicator — portrait and landscape nav bars now expand to accommodate the safe area inset with icons correctly anchored above it
+- What's New modal now compares major.minor only — patch version upgrades no longer trigger the modal
+
+**UI**
+
+- Instance modal Save button renamed to Apply to better reflect that changes are staged until Save Changes is clicked
+
+---
+
 ## v3.1.1
 
 **Bug Fixes**

@@ -18,6 +18,7 @@ import requests as req_lib
 from flask import Blueprint, jsonify, request
 
 from nudgarr.auth import requires_auth
+from nudgarr import db
 from nudgarr.config import deep_copy, load_or_init_config, validate_config
 from nudgarr.constants import CONFIG_FILE, VERSION
 from nudgarr.globals import STATUS
@@ -74,12 +75,29 @@ def api_set_config():
     cfg = request.get_json(force=True, silent=True)
     if not isinstance(cfg, dict):
         return jsonify({"ok": False, "error": "Body must be JSON object"}), 400
+    stored = load_or_init_config()
     # Restore any masked keys before validation and save
-    _restore_keys(cfg, load_or_init_config())
+    _restore_keys(cfg, stored)
+    # Detect instance renames (by URL) before saving
+    renames = []
+    for app_name in ("radarr", "sonarr"):
+        stored_by_url = {
+            i.get("url", "").rstrip("/"): i.get("name", "")
+            for i in stored.get("instances", {}).get(app_name, [])
+        }
+        for inst in cfg.get("instances", {}).get(app_name, []):
+            url = inst.get("url", "").rstrip("/")
+            old_name = stored_by_url.get(url)
+            new_name = inst.get("name", "")
+            if old_name and old_name != new_name:
+                renames.append((app_name, url, new_name))
     ok, errs = validate_config(cfg)
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400
     save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    # Apply renames to history and imports
+    for app_name, url, new_name in renames:
+        db.rename_instance_in_history(app_name, url, new_name)
 
     # Update next_run_utc in STATUS immediately so UI reflects new schedule without
     # waiting for the scheduler loop to wake and detect the config change.

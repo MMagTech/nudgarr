@@ -506,13 +506,14 @@
 
     /* Bottom nav */
     #m-nav {
-      height: 64px;
+      height: calc(64px + env(safe-area-inset-bottom, 0px));
       background: var(--surface);
       border-top: 1px solid rgba(255,255,255,0.07);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-around;
       flex-shrink: 0;
+      padding-top: 8px;
       padding-bottom: env(safe-area-inset-bottom, 0px);
       box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface), 0 -4px 20px rgba(0,0,0,0.25);
     }
@@ -985,10 +986,11 @@
 
     /* ── Bottom nav ── */
     #ls-nav {
-      height: 52px; background: var(--surface);
+      height: calc(52px + env(safe-area-inset-bottom, 0px)); background: var(--surface);
       border-top: 1px solid rgba(255,255,255,0.07);
-      display: flex; align-items: center; justify-content: space-around;
+      display: flex; align-items: flex-start; justify-content: space-around;
       flex-shrink: 0;
+      padding-top: 6px;
       padding-bottom: env(safe-area-inset-bottom, 0px);
       padding-left: env(safe-area-inset-left, 0px);
       padding-right: env(safe-area-inset-right, 0px);
@@ -3096,7 +3098,8 @@ function maybeShowWhatsNew() {
   if (!CFG.onboarding_complete) return;
   const lastSeen = CFG.last_seen_version || '';
   const current = el('ver').textContent || '';
-  if (current && lastSeen !== current) {
+  const toMinor = v => v.split('.').slice(0, 2).join('.');
+  if (current && toMinor(lastSeen) !== toMinor(current)) {
     el('whatsNewModal').style.display = 'flex';
   }
 }

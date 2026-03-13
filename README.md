@@ -195,3 +195,4 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide. For usage questions, the [wiki](https://github.com/MMagTech/nudgarr/wiki) is the first stop.
+

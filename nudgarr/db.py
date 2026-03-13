@@ -110,10 +110,10 @@ CREATE TABLE IF NOT EXISTS search_history (
     first_searched_ts TEXT NOT NULL,
     last_searched_ts  TEXT NOT NULL,
     search_count      INTEGER NOT NULL DEFAULT 1,
-    UNIQUE (app, instance_name, instance_url, item_type, item_id)
+    UNIQUE (app, instance_url, item_type, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_sh_lookup
-    ON search_history (app, instance_name, instance_url, item_type, item_id);
+    ON search_history (app, instance_url, item_type, item_id);
 CREATE INDEX IF NOT EXISTS idx_sh_last_searched
     ON search_history (last_searched_ts);
 
@@ -196,6 +196,7 @@ def init_db() -> None:
         _run_migration_v2(conn)
         _run_migration_v3(conn)
         _run_migration_v4(conn)
+        _run_migration_v5(conn)
         return
 
     state_exists = os.path.exists(STATE_FILE)
@@ -393,7 +394,93 @@ def _run_migration_v4(conn: sqlite3.Connection) -> None:
         print(f"[Migration v4] FAILED: {exc}")
 
 
-def _migrate_exclusions(conn: sqlite3.Connection) -> None:
+def _run_migration_v5(conn: sqlite3.Connection) -> None:
+    """
+    Schema v5 — rebuilds search_history with a corrected unique constraint.
+    The old constraint was (app, instance_name, instance_url, item_type, item_id),
+    meaning renaming an instance would create duplicate rows and break cooldown
+    lookups. The new constraint is (app, instance_url, item_type, item_id) —
+    the URL is the real identity of an instance, the name is just a label.
+    Any duplicate rows produced by a prior rename are merged: earliest
+    first_searched_ts, latest last_searched_ts, summed search_count, most
+    recent instance_name kept.
+    """
+    row = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 5"
+    ).fetchone()
+    if row is not None:
+        return
+
+    print("[Migration v5] Running — rebuilding search_history with URL-only unique key")
+    try:
+        with conn:
+            conn.execute("""
+                CREATE TABLE search_history_new (
+                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app               TEXT NOT NULL,
+                    instance_name     TEXT NOT NULL,
+                    instance_url      TEXT NOT NULL,
+                    item_type         TEXT NOT NULL,
+                    item_id           TEXT NOT NULL,
+                    title             TEXT NOT NULL DEFAULT '',
+                    sweep_type        TEXT NOT NULL DEFAULT '',
+                    library_added     TEXT NOT NULL DEFAULT '',
+                    first_searched_ts TEXT NOT NULL,
+                    last_searched_ts  TEXT NOT NULL,
+                    search_count      INTEGER NOT NULL DEFAULT 1,
+                    UNIQUE (app, instance_url, item_type, item_id)
+                )
+            """)
+
+            # For each (app, instance_url, item_type, item_id) group, keep the
+            # row with the latest last_searched_ts (most recent name), use the
+            # earliest first_searched_ts, and sum search_count across any duplicates.
+            conn.execute("""
+                INSERT INTO search_history_new
+                    (app, instance_name, instance_url, item_type, item_id,
+                     title, sweep_type, library_added,
+                     first_searched_ts, last_searched_ts, search_count)
+                SELECT
+                    sh.app, sh.instance_name, sh.instance_url,
+                    sh.item_type, sh.item_id,
+                    sh.title, sh.sweep_type, sh.library_added,
+                    agg.first_ts, agg.last_ts, agg.total_count
+                FROM search_history sh
+                JOIN (
+                    SELECT app, instance_url, item_type, item_id,
+                           MIN(first_searched_ts) AS first_ts,
+                           MAX(last_searched_ts)  AS last_ts,
+                           SUM(search_count)      AS total_count
+                    FROM search_history
+                    GROUP BY app, instance_url, item_type, item_id
+                ) agg
+                  ON  sh.app          = agg.app
+                  AND sh.instance_url = agg.instance_url
+                  AND sh.item_type    = agg.item_type
+                  AND sh.item_id      = agg.item_id
+                  AND sh.last_searched_ts = agg.last_ts
+            """)
+
+            conn.execute("DROP TABLE search_history")
+            conn.execute("ALTER TABLE search_history_new RENAME TO search_history")
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sh_lookup
+                    ON search_history (app, instance_url, item_type, item_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sh_last_searched
+                    ON search_history (last_searched_ts)
+            """)
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (5, ?)",
+                (iso_z(utcnow()),)
+            )
+        print("[Migration v5] Complete")
+    except Exception as exc:
+        print(f"[Migration v5] FAILED: {exc}")
+
+
+
     data = load_json(EXCLUSIONS_FILE, [])
     if not isinstance(data, list):
         return
@@ -592,9 +679,10 @@ def upsert_search_history(
              title, sweep_type, library_added,
              first_searched_ts, last_searched_ts, search_count)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        ON CONFLICT (app, instance_name, instance_url, item_type, item_id) DO UPDATE SET
+        ON CONFLICT (app, instance_url, item_type, item_id) DO UPDATE SET
             last_searched_ts = excluded.last_searched_ts,
             search_count     = search_history.search_count + 1,
+            instance_name    = excluded.instance_name,
             title            = CASE WHEN excluded.title != '' THEN excluded.title
                                     ELSE search_history.title END,
             sweep_type       = CASE WHEN excluded.sweep_type != '' THEN excluded.sweep_type
@@ -619,10 +707,10 @@ def get_last_searched_ts(
     row = conn.execute(
         """
         SELECT last_searched_ts FROM search_history
-        WHERE app = ? AND instance_name = ? AND instance_url = ?
+        WHERE app = ? AND instance_url = ?
           AND item_type = ? AND item_id = ?
         """,
-        (app, instance_name, instance_url, item_type, item_id)
+        (app, instance_url, item_type, item_id)
     ).fetchone()
     return row["last_searched_ts"] if row else None
 
@@ -642,10 +730,10 @@ def get_last_searched_ts_bulk(
     rows = conn.execute(
         f"""
         SELECT item_id, last_searched_ts FROM search_history
-        WHERE app = ? AND instance_name = ? AND instance_url = ?
+        WHERE app = ? AND instance_url = ?
           AND item_type = ? AND item_id IN ({placeholders})
         """,
-        [app, instance_name, instance_url, item_type] + item_ids
+        [app, instance_url, item_type] + item_ids
     ).fetchall()
     return {r["item_id"]: r["last_searched_ts"] for r in rows}
 
@@ -666,11 +754,12 @@ def get_search_history(
         params.append(app_filter)
     if instance_key:
         parts = instance_key.split("|", 1)
-        where.append("instance_name = ?")
-        params.append(parts[0])
         if len(parts) > 1:
             where.append("instance_url = ?")
             params.append(parts[1])
+        else:
+            where.append("instance_url = ?")
+            params.append(parts[0])
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     total = conn.execute(
@@ -720,17 +809,24 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_connection()
     rows = conn.execute(
         """
-        SELECT app, instance_name, instance_url, COUNT(*) as cnt
+        SELECT app, instance_url, COUNT(*) as cnt
         FROM search_history
-        GROUP BY app, instance_name, instance_url
+        GROUP BY app, instance_url
         """
     ).fetchall()
+
+    # Build a url->current_name map from config for key construction
+    url_to_name: Dict[str, str] = {}
+    for app_name in ("radarr", "sonarr"):
+        for inst in cfg.get("instances", {}).get(app_name, []):
+            url_to_name[inst["url"]] = inst["name"]
 
     per_instance: Dict[str, Dict] = {"radarr": {}, "sonarr": {}}
     radarr_total = 0
     sonarr_total = 0
     for r in rows:
-        sk = f"{r['instance_name']}|{r['instance_url']}"
+        name = url_to_name.get(r["instance_url"], r["instance_url"])
+        sk = f"{name}|{r['instance_url']}"
         per_instance[r["app"]][sk] = r["cnt"]
         if r["app"] == "radarr":
             radarr_total += r["cnt"]

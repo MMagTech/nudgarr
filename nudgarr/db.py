@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS stat_entries (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     app               TEXT NOT NULL,
     instance          TEXT NOT NULL,
+    instance_url      TEXT NOT NULL DEFAULT '',
     item_id           TEXT NOT NULL,
     title             TEXT NOT NULL DEFAULT '',
     type              TEXT NOT NULL DEFAULT '',
@@ -197,6 +198,7 @@ def init_db() -> None:
         _run_migration_v3(conn)
         _run_migration_v4(conn)
         _run_migration_v5(conn)
+        _run_migration_v6(conn)
         return
 
     state_exists = os.path.exists(STATE_FILE)
@@ -478,6 +480,29 @@ def _run_migration_v5(conn: sqlite3.Connection) -> None:
         print("[Migration v5] Complete")
     except Exception as exc:
         print(f"[Migration v5] FAILED: {exc}")
+
+
+def _run_migration_v6(conn: sqlite3.Connection) -> None:
+    """Add instance_url column to stat_entries for rename-safe import confirmation."""
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 6"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(stat_entries)").fetchall()]
+        if "instance_url" not in cols:
+            conn.execute(
+                "ALTER TABLE stat_entries ADD COLUMN instance_url TEXT NOT NULL DEFAULT ''"
+            )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (6, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        print("[Migration v6] Added instance_url to stat_entries")
+    except Exception as exc:
+        print(f"[Migration v6] FAILED: {exc}")
 
 
 
@@ -886,6 +911,7 @@ def clear_search_history() -> None:
 def upsert_stat_entry(
     app: str,
     instance: str,
+    instance_url: str,
     item_id: str,
     title: str,
     entry_type: str,
@@ -895,15 +921,16 @@ def upsert_stat_entry(
     conn.execute(
         """
         INSERT INTO stat_entries
-            (app, instance, item_id, title, type,
+            (app, instance, instance_url, item_id, title, type,
              first_searched_ts, last_searched_ts, imported)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
         ON CONFLICT (app, instance, item_id, type) WHERE imported = 0 DO UPDATE SET
             last_searched_ts = excluded.last_searched_ts,
+            instance_url = excluded.instance_url,
             title = CASE WHEN excluded.title != '' THEN excluded.title
                          ELSE stat_entries.title END
         """,
-        (app, instance, item_id, title, entry_type, searched_ts, searched_ts)
+        (app, instance, instance_url, item_id, title, entry_type, searched_ts, searched_ts)
     )
     conn.commit()
 
@@ -911,6 +938,7 @@ def upsert_stat_entry(
 def confirm_stat_entry(
     app: str,
     instance: str,
+    instance_url: str,
     item_id: str,
     entry_type: str,
     imported_ts: str,
@@ -920,6 +948,7 @@ def confirm_stat_entry(
     # Check for an existing imported row for this item (any type).
     # If one exists we update it in place — one row per item, badge reflects
     # the most recent event, iteration increments when the same type repeats.
+    # Fall back to URL match if name lookup fails (handles renames).
     existing = conn.execute(
         """
         SELECT id, type, iteration FROM stat_entries
@@ -929,35 +958,48 @@ def confirm_stat_entry(
         (app, instance, item_id)
     ).fetchone()
 
+    if not existing and instance_url:
+        existing = conn.execute(
+            """
+            SELECT id, type, iteration FROM stat_entries
+            WHERE app = ? AND instance_url = ? AND item_id = ? AND imported = 1
+            ORDER BY id ASC LIMIT 1
+            """,
+            (app, instance_url, item_id)
+        ).fetchone()
+
     if existing:
         new_iteration = (existing["iteration"] + 1) if existing["type"] == entry_type else 1
         conn.execute(
             """
             UPDATE stat_entries
-            SET type = ?, imported_ts = ?, iteration = ?
+            SET type = ?, imported_ts = ?, iteration = ?, instance = ?
             WHERE id = ?
             """,
-            (entry_type, imported_ts, new_iteration, existing["id"])
+            (entry_type, imported_ts, new_iteration, instance, existing["id"])
         )
-        # Remove the now-confirmed pending row
+        # Remove the now-confirmed pending row (match by URL too for rename safety)
         conn.execute(
             """
             DELETE FROM stat_entries
-            WHERE app = ? AND instance = ? AND item_id = ? AND type = ? AND imported = 0
+            WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
+              AND (instance = ? OR instance_url = ?)
             """,
-            (app, instance, item_id, entry_type)
+            (app, item_id, entry_type, instance, instance_url)
         )
         conn.commit()
         return True
 
     # No prior imported row — mark the pending row as imported
+    # Try name first, fall back to URL
     cur = conn.execute(
         """
         UPDATE stat_entries
-        SET imported = 1, imported_ts = ?, iteration = 1
-        WHERE app = ? AND instance = ? AND item_id = ? AND type = ? AND imported = 0
+        SET imported = 1, imported_ts = ?, iteration = 1, instance = ?
+        WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
+          AND (instance = ? OR instance_url = ?)
         """,
-        (imported_ts, app, instance, item_id, entry_type)
+        (imported_ts, instance, app, item_id, entry_type, instance, instance_url)
     )
     conn.commit()
     return cur.rowcount > 0
@@ -986,7 +1028,7 @@ def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
 
 
 def get_confirmed_entries(
-    instance_filter: str = "",
+    instance_url_filter: str = "",
     type_filter: str = "",
     offset: int = 0,
     limit: int = 25,
@@ -994,9 +1036,9 @@ def get_confirmed_entries(
     conn = get_connection()
     where = ["imported = 1"]
     params: list = []
-    if instance_filter:
-        where.append("instance = ?")
-        params.append(instance_filter)
+    if instance_url_filter:
+        where.append("instance_url = ?")
+        params.append(instance_url_filter)
     where_sql = "WHERE " + " AND ".join(where)
 
     type_rows = conn.execute(
@@ -1063,6 +1105,21 @@ def _calc_turnaround(first_ts: Optional[str], imported_ts: Optional[str]) -> str
         rem_minutes = minutes % 60
         return f"{hours}h {rem_minutes}m" if rem_minutes else f"{hours}h"
     return f"{minutes}m"
+
+
+def rename_instance_in_history(app: str, instance_url: str, new_name: str) -> None:
+    """Update instance_name in search_history and stat_entries for a renamed instance."""
+    url = instance_url.rstrip("/")
+    conn = get_connection()
+    conn.execute(
+        "UPDATE search_history SET instance_name = ? WHERE app = ? AND instance_url = ?",
+        (new_name, app, url)
+    )
+    conn.execute(
+        "UPDATE stat_entries SET instance = ? WHERE app = ? AND instance_url = ?",
+        (new_name, app, url)
+    )
+    conn.commit()
 
 
 def clear_stat_entries() -> None:

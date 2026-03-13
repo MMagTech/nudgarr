@@ -4,6 +4,31 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v3.1.2
+
+**Bug Fixes**
+
+- Instance rename now correctly updates the connection dot — `api/test-instance` was missing the URL fallback for masked key lookup, causing the dot to go red after a rename even when the key was intact
+- Renaming an instance now retroactively updates the instance name in History and Imports
+- iOS PWA nav bar no longer overlaps the home indicator — portrait and landscape nav bars now expand to accommodate the safe area inset with icons correctly anchored above it
+- What's New modal now compares major.minor only — patch version upgrades no longer trigger the modal
+
+**UI**
+
+- Instance modal Save button renamed to Apply to better reflect that changes are staged until Save Changes is clicked
+
+---
+
+## v3.1.1
+
+**Bug Fixes**
+
+- Instance rename no longer breaks API key restoration — `_restore_keys` now falls back to URL matching when the stored name doesn't match, so renaming and saving in one step preserves the connection
+- Import confirmation is now rename-safe throughout — `stat_entries` stores `instance_url`, `check_imports` falls back to URL when name lookup fails, and `confirm_stat_entry` handles URL-based matching for both pending and confirmed rows
+- Imports tab instance filter now keys on URL rather than name — existing entries remain visible after a rename
+
+---
+
 ## v3.1.0
 
 **SQLite Database**

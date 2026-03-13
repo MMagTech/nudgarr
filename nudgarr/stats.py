@@ -33,13 +33,14 @@ from nudgarr.utils import iso_z, parse_iso, utcnow
 def record_stat_entry(
     app: str,
     instance_name: str,
+    instance_url: str,
     item_id: str,
     title: str,
     entry_type: str,
     searched_ts: str,
 ) -> None:
     """Record a searched item for later import checking."""
-    db.upsert_stat_entry(app, instance_name, str(item_id), title, entry_type, searched_ts)
+    db.upsert_stat_entry(app, instance_name, instance_url, str(item_id), title, entry_type, searched_ts)
 
 
 # ── Import checking ───────────────────────────────────────────────────
@@ -50,10 +51,13 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     now_ts = iso_z(utcnow())
 
     instance_map: Dict[Tuple[str, str], Dict] = {}
+    instance_map_by_url: Dict[Tuple[str, str], Dict] = {}
     for inst in cfg.get("instances", {}).get("radarr", []):
         instance_map[("radarr", inst["name"])] = inst
+        instance_map_by_url[("radarr", inst["url"].rstrip("/"))] = inst
     for inst in cfg.get("instances", {}).get("sonarr", []):
         instance_map[("sonarr", inst["name"])] = inst
+        instance_map_by_url[("sonarr", inst["url"].rstrip("/"))] = inst
 
     entries = db.get_unconfirmed_entries(check_minutes, now_ts)
     updated = False
@@ -61,7 +65,8 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     for entry in entries:
         app = entry.get("app", "radarr")
         instance_name = entry.get("instance", "")
-        inst = instance_map.get((app, instance_name))
+        instance_url = (entry.get("instance_url") or "").rstrip("/")
+        inst = instance_map.get((app, instance_name)) or (instance_map_by_url.get((app, instance_url)) if instance_url else None)
         if not inst:
             continue
 
@@ -89,7 +94,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             ev_dt = parse_iso(ev.get("date", ""))
                             if ev_dt and (dt is None or ev_dt > dt):
                                 imported_ts = iso_z(ev_dt)
-                                if db.confirm_stat_entry(app, instance_name, item_id, entry_type, imported_ts):
+                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts):
                                     db.increment_lifetime_total("movies")
                                     notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
                                     updated = True
@@ -109,7 +114,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             ev_dt = parse_iso(ev.get("date", ""))
                             if ev_dt and (dt is None or ev_dt > dt):
                                 imported_ts = iso_z(ev_dt)
-                                if db.confirm_stat_entry(app, instance_name, item_id, entry_type, imported_ts):
+                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts):
                                     db.increment_lifetime_total("shows")
                                     notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
                                     updated = True

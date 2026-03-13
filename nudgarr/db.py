@@ -481,6 +481,7 @@ def _run_migration_v5(conn: sqlite3.Connection) -> None:
 
 
 
+def _migrate_exclusions(conn: sqlite3.Connection) -> None:
     data = load_json(EXCLUSIONS_FILE, [])
     if not isinstance(data, list):
         return

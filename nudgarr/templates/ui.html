@@ -2088,7 +2088,7 @@
 </div><!-- /landscape-ui -->
 
 <script>
-const MOBILE = window.matchMedia('(max-width: 500px)').matches;
+const MOBILE = Math.min(window.screen.width, window.screen.height) <= 500;
 let CFG = null;
 let PAGE = 0;
 let HISTORY_TOTAL = 0;

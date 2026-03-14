@@ -45,10 +45,13 @@ def start_ui_server() -> None:
 
 
 def import_check_loop(stop_flag: Dict[str, bool]) -> None:
-    """
-    Independent import-check timer. Fires check_imports on its own schedule,
-    completely separate from the sweep interval. Wakes every 60 seconds and
-    checks whether import_check_minutes has elapsed since the last check.
+    """Independent import-check timer running in its own daemon thread.
+
+    Wakes every 60 seconds and checks whether import_check_minutes has elapsed
+    since the last check. Completely decoupled from the sweep schedule — imports
+    are polled on their own interval regardless of when sweeps run.
+
+    Intentionally runs even when the scheduler is disabled (manual-only mode).
     """
     session = requests.Session()
     last_check_ts = utcnow()
@@ -123,6 +126,19 @@ def _cron_due(expression: str) -> bool:
 
 
 def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
+    """Main sweep loop — runs in the main thread for the lifetime of the process.
+
+    Wakes every 60 seconds to check for:
+      - A run-now request from the UI (STATUS["run_requested"])
+      - A cron fire — uses a 90-second window (not 60) to avoid missing a cron
+        tick that falls just outside a 60-second sleep boundary
+
+    Config is reloaded on every iteration so schedule changes take effect
+    without a restart. next_run_utc is recalculated immediately on config change.
+
+    To add a new per-sweep action (e.g. a post-sweep hook), add it in the
+    try block after notify_sweep_complete.
+    """
     STATUS["scheduler_running"] = True
     session = requests.Session()
     cycle = 0

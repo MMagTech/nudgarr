@@ -20,6 +20,8 @@ from nudgarr.utils import load_json, save_json_atomic
 
 
 def deep_copy(obj: Any) -> Any:
+    """JSON round-trip deep clone. Safer than copy.deepcopy for config dicts
+    since it strips any non-serialisable objects and guarantees a plain dict."""
     return json.loads(json.dumps(obj))
 
 

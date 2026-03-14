@@ -60,15 +60,18 @@ def notify_sweep_complete(summary: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     lines = []
     for app in ("radarr", "sonarr"):
         for inst in summary.get(app, []):
+            # Skip instances that have notifications turned off via per-instance override
             if not inst.get("notifications_enabled", True):
                 continue
             searched = inst.get("searched", 0) + inst.get("searched_missing", 0)
+            # Skip instances that searched nothing — no point notifying about them
             if searched == 0:
                 continue
             cutoff = inst.get("searched", 0)
             backlog = inst.get("searched_missing", 0)
             detail = f"{cutoff} Cutoff, {backlog} Backlog" if backlog > 0 else "Cutoff"
             lines.append(f"{inst.get('name', '?')} — {searched} Searched ({detail})")
+    # If every instance was suppressed or searched nothing, fire nothing
     if not lines:
         return
     send_notification(

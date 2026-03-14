@@ -60,6 +60,23 @@ def _sweep_radarr_instance(
     backlog_enabled: bool,
     notifications_enabled: bool,
 ) -> Dict[str, Any]:
+    """Run one Radarr instance through a full sweep cycle.
+
+    Filtering pipeline (order matters):
+      1. Exclusions — skip titles on the global exclusion list
+      2. Skip Queued — skip movies already in the download queue
+      3. Availability — skip movies whose minimumAvailability hasn't been reached
+      4. Cooldown — skip movies searched too recently (via pick_items_with_cooldown)
+      5. Sample mode + cap — sort eligible items and take up to radarr_max
+
+    Backlog nudges (missing movies) follow the same pipeline minus availability,
+    with an additional age filter (missing_added_days) before cooldown.
+
+    All resolved values (cooldown, caps, modes) come pre-resolved from run_sweep
+    via _resolve() — this function never reads cfg directly for those fields.
+
+    Returns a summary dict consumed by run_sweep and ultimately /api/status.
+    """
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
 
@@ -67,6 +84,13 @@ def _sweep_radarr_instance(
     all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
     queued_movie_ids = radarr_get_queued_movie_ids(session, url, key)
     all_movies = [m for m in all_movies if m["id"] not in queued_movie_ids]
+    skipped_unavailable = [m for m in all_movies if not m.get("isAvailable", True)]
+    all_movies = [m for m in all_movies if m.get("isAvailable", True)]
+    if skipped_unavailable:
+        for m in skipped_unavailable:
+            threshold = m.get("minimumAvailability") or "unknown"
+            release = m.get("releaseDate") or "no date"
+            print(f"[Radarr:{name}] skipped_not_available: {m.get('title', '?')} (minimumAvailability={threshold}, releaseDate={release})")
     STATUS["instance_health"][f"radarr|{name}"] = "ok"
     all_ids = [m["id"] for m in all_movies]
 
@@ -100,6 +124,7 @@ def _sweep_radarr_instance(
         missing_records = radarr_get_missing_movies(session, url, key)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
         missing_records = [m for m in missing_records if m["id"] not in queued_movie_ids]
+        missing_records = [m for m in missing_records if m.get("isAvailable", True)]
         missing_total = len(missing_records)
 
         missing_filtered: List[Dict[str, Any]] = []
@@ -167,6 +192,14 @@ def _sweep_sonarr_instance(
     backlog_enabled: bool,
     notifications_enabled: bool,
 ) -> Dict[str, Any]:
+    """Run one Sonarr instance through a full sweep cycle.
+
+    Same pipeline as _sweep_radarr_instance but for episodes.
+    Sonarr has no minimumAvailability concept — availability filter is omitted.
+    Backlog nudges also have no age filter (missing_added_days is Radarr-only).
+
+    All resolved values come pre-resolved from run_sweep via _resolve().
+    """
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
 
@@ -291,6 +324,9 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     }
 
     overrides_enabled = bool(cfg.get("per_instance_overrides_enabled", False))
+    # When overrides_enabled is False, _resolve() is a passthrough — all instances
+    # use the global values extracted above. When True, per-instance overrides stored
+    # in inst["overrides"] take precedence over globals for any field they define.
 
     for inst in cfg.get("instances", {}).get("radarr", []):
         if not inst.get("enabled", True):

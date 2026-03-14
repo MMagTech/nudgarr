@@ -228,9 +228,8 @@
     .ov-iw:hover .ov-rx,
     .ov-iw input.ov-active ~ .ov-rx { opacity: 1; pointer-events: auto; }
     .ov-rx:hover { color: var(--bad); }
-    input.ov-active, select.ov-active {
-      border-color: rgba(99,120,255,.45); background: rgba(99,120,255,.08);
-    }
+    input.ov-active { border-color: rgba(99,120,255,.45); background: rgba(99,120,255,.08); }
+    select.ov-active { border-color: rgba(99,120,255,.45); }
     .ov-bl-row {
       display: flex; align-items: center; justify-content: space-between;
       padding: 5px 9px; border-radius: 8px;
@@ -1117,8 +1116,8 @@
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
     <div class="tab" data-tab="imports" onclick="showTab('imports')">Imports</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
-    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">Overrides</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
+    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">Overrides</div>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -1495,19 +1494,6 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════ OVERRIDES ══════════════════════════════ -->
-  <div class="section" id="tab-overrides">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;flex-wrap:wrap;gap:6px">
-      <div>
-        <span style="font-size:13px;font-weight:600">Per-Instance Overrides</span>
-        <p class="help" style="margin:2px 0 0">Unchanged fields inherit global values.</p>
-      </div>
-    </div>
-    <div class="grid cols2" id="overrides-grid">
-      <!-- Cards injected by renderOverridesCards() -->
-    </div>
-  </div>
-
   <!-- ══════════════════════════════ ADVANCED ══════════════════════════════ -->
   <div class="section" id="tab-advanced">
     <div class="grid">
@@ -1570,6 +1556,22 @@
             </div>
           </div>
           </div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">For the Arr-tists</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Per-Instance Overrides</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or backlog behaviour. Enable and disable without losing your saved overrides.</div></span>
+            </div>
+            <div class="toggle-wrap" style="margin-top:4px">
+              <label class="toggle">
+                <input type="checkbox" id="per_instance_overrides_enabled" onchange="toggleOverridesFeature(this.checked)"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="overrides_enabled_label">Disabled</span>
+            </div>
           </div>
           <div class="amber-warn" style="margin-top:16px">
             <p class="amber-warn-title">USE WITH CAUTION</p>
@@ -1636,20 +1638,6 @@
               <span class="help" id="support_link_label">Shown</span>
             </div>
           </div>
-          <div class="hr"></div>
-          <p class="section-label">Per-Instance Overrides</p>
-          <div class="field">
-            <label>Enable Per-Instance Overrides</label>
-            <div class="toggle-wrap">
-              <label class="toggle">
-                <input type="checkbox" id="per_instance_overrides_enabled" onchange="toggleOverridesFeature(this.checked)"/>
-                <span class="toggle-track"></span>
-                <span class="toggle-thumb"></span>
-              </label>
-              <span class="help" id="overrides_enabled_label">Disabled</span>
-            </div>
-            <div class="help" style="margin-top:6px">When enabled, the Overrides tab appears in the nav. Disabling reverts all instances to global settings immediately, including cooldowns.</div>
-          </div>
         </div>
       </div>
 
@@ -1679,6 +1667,19 @@
         <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
         <div id="diagBox" class="diag-box" style="display:none"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ OVERRIDES ══════════════════════════════ -->
+  <div class="section" id="tab-overrides">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;flex-wrap:wrap;gap:6px">
+      <div>
+        <span style="font-size:13px;font-weight:600">Per-Instance Overrides</span>
+        <p class="help" style="margin:2px 0 0">Unchanged fields inherit global values.</p>
+      </div>
+    </div>
+    <div class="grid cols2" id="overrides-grid">
+      <!-- Cards injected by renderOverridesCards() -->
     </div>
   </div>
 
@@ -2422,8 +2423,8 @@ function showTab(name) {
       const names = Array.from(dirty).map(c => c.dataset.name).filter(Boolean).join(', ');
       showConfirm(
         'Pending Changes',
-        `You have unapplied changes on: ${names}. Leave without applying?`,
-        'Leave'
+        `You have unapplied changes on: ${names}. Proceed without applying?`,
+        'Proceed'
       ).then(ok => { if (ok) _doShowTab(name); });
       return;
     }
@@ -3332,112 +3333,133 @@ function _getGlobal(kind, field) {
 
 function _ovCardId(kind, idx) { return `ov-card-${kind}-${idx}`; }
 
+function _buildOverrideCard(kind, idx, inst) {
+  const ov = inst.overrides || {};
+  const cardId = _ovCardId(kind, idx);
+  const ovCount = Object.keys(ov).length;
+  const isDisabled = inst.enabled === false;
+  const badgeClass = kind === 'sonarr' ? 'ov-badge ov-sonarr' : 'ov-badge';
+  const dotClass = kind === 'sonarr' ? 'ov-dot ov-sonarr' : 'ov-dot';
+  const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added'];
+  const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
+
+  const statusHtml = ovCount
+    ? `<span class="help" style="font-size:11px">${ovCount} Override${ovCount !== 1 ? 's' : ''}</span>`
+    : `<span class="help" style="font-size:11px;color:var(--muted)">Global Inherited</span>`;
+
+  const disabledStyle = isDisabled ? 'opacity:0.45;pointer-events:none' : '';
+  const disabledBorder = isDisabled ? 'border-color:rgba(255,255,255,.06)' : '';
+
+  const numField = (field, label, globalVal) => {
+    const hasOv = field in ov;
+    const val = hasOv ? ov[field] : '';
+    const activeClass = hasOv ? 'ov-active' : '';
+    return `<div class="field">
+      <label>${label}</label>
+      <div class="ov-iw">
+        <input type="number" min="0" id="${cardId}-${field}" value="${val}"
+          placeholder="${globalVal}" class="${activeClass}"
+          oninput="markCardDirty('${kind}',${idx})"/>
+        <button class="ov-rx" title="Reset to global (${globalVal})"
+          onclick="resetFieldOverride('${kind}',${idx},'${field}')">×</button>
+      </div>
+      <span class="help">Global: ${globalVal}</span>
+    </div>`;
+  };
+
+  const globalMode = _getGlobal(kind, 'sample_mode');
+  const hasOvMode = 'sample_mode' in ov;
+  const modeVal = hasOvMode ? ov.sample_mode : globalMode;
+  const modeField = `<div class="field">
+    <label>Sample Mode</label>
+    <select id="${cardId}-sample_mode" class="${hasOvMode ? 'ov-active' : ''}"
+      onchange="markCardDirty('${kind}',${idx})">
+      ${VALID_MODES.map(m => `<option value="${m}"${modeVal === m ? ' selected' : ''}>${MODE_LABELS[m]}${!hasOvMode && m === globalMode ? ' (global)' : ''}</option>`).join('')}
+    </select>
+    <span class="help">Global: ${MODE_LABELS[globalMode] || globalMode}</span>
+  </div>`;
+
+  const globalBacklog = _getGlobal(kind, 'backlog_enabled');
+  const hasOvBacklog = 'backlog_enabled' in ov;
+  const backlogVal = hasOvBacklog ? ov.backlog_enabled : globalBacklog;
+  const blRowClass = hasOvBacklog ? 'ov-bl-row ov-active' : 'ov-bl-row';
+  const blLabel = hasOvBacklog
+    ? `${backlogVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalBacklog ? 'On' : 'Off'}`
+    : `${backlogVal ? 'On' : 'Off'} (Global: ${globalBacklog ? 'On' : 'Off'})`;
+  const backlogField = `<div class="field">
+    <label>Backlog</label>
+    <div class="${blRowClass}" id="${cardId}-bl-row">
+      <span class="help" style="font-size:11px" id="${cardId}-bl-label">${blLabel}</span>
+      <label class="toggle">
+        <input type="checkbox" id="${cardId}-backlog_enabled"${backlogVal ? ' checked' : ''}
+          onchange="markCardDirty('${kind}',${idx}); updateBacklogLabel('${kind}',${idx})"/>
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>`;
+
+  const gCooldown = _getGlobal(kind, 'cooldown_hours');
+  const gCutoff   = _getGlobal(kind, 'max_cutoff_unmet');
+  const gBacklog  = _getGlobal(kind, 'max_backlog');
+  const gMissing  = _getGlobal(kind, 'max_missing_days');
+
+  // Row 1: Cooldown / Sample Mode
+  // Row 2: Max Cutoff Unmet / Backlog toggle
+  // Row 3 Radarr: Max Backlog left / Max Missing Days right
+  // Row 3 Sonarr: Max Backlog left / empty right
+  const row3 = kind === 'radarr'
+    ? `${numField('max_backlog', 'Max Backlog', gBacklog)}
+       ${numField('max_missing_days', 'Max Missing Days', gMissing)}`
+    : `${numField('max_backlog', 'Max Backlog', gBacklog)}<div></div>`;
+
+  const disabledTag = isDisabled
+    ? `<span class="help" style="font-size:11px;color:var(--muted)">Disabled</span>`
+    : `<div style="display:flex;align-items:center;gap:6px" id="${cardId}-status">${statusHtml}</div>`;
+
+  return `<div class="ov-card" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
+    <div class="ov-card-hdr">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div class="${badgeClass}"><div class="${dotClass}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
+        <span style="font-weight:600;font-size:13px;color:var(--text-dim)">${escapeHtml(inst.name)}</span>
+      </div>
+      ${disabledTag}
+    </div>
+    <div class="ov-fields" style="${disabledStyle}">
+      ${numField('cooldown_hours', 'Cooldown Hours', gCooldown)}
+      ${modeField}
+      ${numField('max_cutoff_unmet', 'Max Cutoff Unmet', gCutoff)}
+      ${backlogField}
+      ${row3}
+    </div>
+    <div class="ov-card-foot" style="${disabledStyle}">
+      <button class="ov-rst-all" onclick="resetCardOverrides('${kind}',${idx})">Reset All to Global</button>
+      <button class="btn sm primary" onclick="applyOverrides('${kind}',${idx})">Apply</button>
+    </div>
+  </div>`;
+}
+
 function renderOverridesCards() {
   if (!CFG) return;
   const grid = el('overrides-grid');
   if (!grid) return;
-  const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added'];
-  const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
   let html = '';
   ['radarr', 'sonarr'].forEach(kind => {
     (CFG.instances[kind] || []).forEach((inst, idx) => {
-      const ov = inst.overrides || {};
-      const cardId = _ovCardId(kind, idx);
-      const ovCount = Object.keys(ov).length;
-      const badgeClass = kind === 'sonarr' ? 'ov-badge ov-sonarr' : 'ov-badge';
-      const dotClass = kind === 'sonarr' ? 'ov-dot ov-sonarr' : 'ov-dot';
-      const statusHtml = ovCount
-        ? `<span class="help" style="font-size:11px">${ovCount} Override${ovCount !== 1 ? 's' : ''}</span>`
-        : `<span class="help" style="font-size:11px;color:var(--muted)">Global Inherited</span>`;
-
-      // Field helpers
-      const numField = (field, label, globalVal, step) => {
-        const hasOv = field in ov;
-        const val = hasOv ? ov[field] : '';
-        const activeClass = hasOv ? ' ov-active' : '';
-        return `<div class="field">
-          <label>${label}</label>
-          <div class="ov-iw">
-            <input type="number" min="0"${step ? ` step="${step}"` : ''}
-              id="${cardId}-${field}" value="${val}"
-              placeholder="${globalVal}"
-              class="${activeClass.trim()}"
-              oninput="markCardDirty('${kind}',${idx})"/>
-            <button class="ov-rx" title="Reset to global (${globalVal})"
-              onclick="resetFieldOverride('${kind}',${idx},'${field}')">×</button>
-          </div>
-          <span class="help">Global: ${globalVal}</span>
-        </div>`;
-      };
-
-      const globalMode = _getGlobal(kind, 'sample_mode');
-      const hasOvMode = 'sample_mode' in ov;
-      const modeActiveClass = hasOvMode ? ' ov-active' : '';
-      const modeField = `<div class="field">
-        <label>Sample Mode</label>
-        <select id="${cardId}-sample_mode" class="${modeActiveClass.trim()}"
-          onchange="markCardDirty('${kind}',${idx})">
-          ${VALID_MODES.map(m => `<option value="${m}"${(hasOvMode ? ov.sample_mode : globalMode) === m ? ' selected' : ''}>${MODE_LABELS[m]}${!hasOvMode && m === globalMode ? ' (global)' : ''}</option>`).join('')}
-        </select>
-        <span class="help">Global: ${MODE_LABELS[globalMode] || globalMode}</span>
-      </div>`;
-
-      const globalBacklog = _getGlobal(kind, 'backlog_enabled');
-      const hasOvBacklog = 'backlog_enabled' in ov;
-      const backlogVal = hasOvBacklog ? ov.backlog_enabled : globalBacklog;
-      const blRowClass = hasOvBacklog ? 'ov-bl-row ov-active' : 'ov-bl-row';
-      const blLabel = hasOvBacklog
-        ? `${backlogVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalBacklog ? 'On' : 'Off'}`
-        : `${backlogVal ? 'On' : 'Off'} (Global: ${globalBacklog ? 'On' : 'Off'})`;
-      const backlogField = `<div class="field">
-        <label>Backlog</label>
-        <div class="${blRowClass}" id="${cardId}-bl-row">
-          <span class="help" style="font-size:11px" id="${cardId}-bl-label">${blLabel}</span>
-          <label class="toggle">
-            <input type="checkbox" id="${cardId}-backlog_enabled"${backlogVal ? ' checked' : ''}
-              onchange="markCardDirty('${kind}',${idx}); updateBacklogLabel('${kind}',${idx})"/>
-            <span class="toggle-track"></span>
-            <span class="toggle-thumb"></span>
-          </label>
-        </div>
-      </div>`;
-
-      const gCooldown = _getGlobal(kind, 'cooldown_hours');
-      const gCutoff   = _getGlobal(kind, 'max_cutoff_unmet');
-      const gBacklog  = _getGlobal(kind, 'max_backlog');
-      const gMissing  = _getGlobal(kind, 'max_missing_days');
-
-      // Row 1: Cooldown / Sample Mode
-      // Row 2: Max Cutoff Unmet / Backlog toggle
-      // Row 3: Max Missing Days (Radarr only) / Max Backlog
-      const row3left = kind === 'radarr'
-        ? numField('max_missing_days', 'Max Missing Days', gMissing, 1)
-        : '<div></div>';
-
-      html += `<div class="ov-card" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}">
-        <div class="ov-card-hdr">
-          <div style="display:flex;align-items:center;gap:7px">
-            <div class="${badgeClass}"><div class="${dotClass}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
-            <span style="font-weight:600;font-size:13px;color:var(--text-dim)">${escapeHtml(inst.name)}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px" id="${cardId}-status">${statusHtml}</div>
-        </div>
-        <div class="ov-fields">
-          ${numField('cooldown_hours', 'Cooldown Hours', gCooldown, 1)}
-          ${modeField}
-          ${numField('max_cutoff_unmet', 'Max Cutoff Unmet', gCutoff, 1)}
-          ${backlogField}
-          ${row3left}
-          ${numField('max_backlog', 'Max Backlog', gBacklog, 1)}
-        </div>
-        <div class="ov-card-foot">
-          <button class="ov-rst-all" onclick="resetCardOverrides('${kind}',${idx})">Reset All to Global</button>
-          <button class="btn sm primary" onclick="applyOverrides('${kind}',${idx})">Apply</button>
-        </div>
-      </div>`;
+      html += _buildOverrideCard(kind, idx, inst);
     });
   });
   grid.innerHTML = html || '<p class="help" style="color:var(--muted)">No instances configured.</p>';
+}
+
+function renderSingleOverrideCard(kind, idx) {
+  const inst = (CFG.instances[kind] || [])[idx];
+  if (!inst) return;
+  const cardId = _ovCardId(kind, idx);
+  const existing = el(cardId);
+  if (!existing) return;
+  const newHtml = _buildOverrideCard(kind, idx, inst);
+  existing.outerHTML = newHtml;
 }
 
 function markCardDirty(kind, idx) {
@@ -3486,14 +3508,10 @@ async function applyOverrides(kind, idx) {
     }
   });
 
-  // Sample mode — only store if it differs from global
+  // Sample mode — always store on Apply (explicit override regardless of global match)
   const modeEl = el(cardId + '-sample_mode');
   if (modeEl) {
-    const globalMode = _getGlobal(kind, 'sample_mode');
-    if (modeEl.value !== globalMode || 'sample_mode' in existing) {
-      newOv.sample_mode = modeEl.value;
-      modeEl.classList.add('ov-active');
-    }
+    newOv.sample_mode = modeEl.value;
   }
 
   // Backlog enabled — always store current value if input has been interacted with
@@ -3502,8 +3520,6 @@ async function applyOverrides(kind, idx) {
     const globalBacklog = _getGlobal(kind, 'backlog_enabled');
     if (blInput.checked !== globalBacklog || 'backlog_enabled' in existing) {
       newOv.backlog_enabled = blInput.checked;
-      const row = el(cardId + '-bl-row');
-      if (row) row.classList.add('ov-active');
     }
   }
 
@@ -3515,25 +3531,8 @@ async function applyOverrides(kind, idx) {
     });
     // Update local CFG
     inst.overrides = newOv;
-    // Clear dirty state with fade
-    const card = el(cardId);
-    if (card) {
-      card.style.transition = 'border-color .15s';
-      card.classList.remove('ov-dirty');
-    }
-    // Update status badge
-    const ovCount = Object.keys(newOv).length;
-    const status = el(cardId + '-status');
-    if (status) {
-      status.style.transition = 'opacity .15s';
-      status.style.opacity = '0';
-      setTimeout(() => {
-        status.innerHTML = ovCount
-          ? `<span class="help" style="font-size:11px">${ovCount} Override${ovCount !== 1 ? 's' : ''}</span>`
-          : `<span class="help" style="font-size:11px;color:var(--muted)">Global Inherited</span>`;
-        status.style.opacity = '1';
-      }, 150);
-    }
+    // Re-render just this card so all styles reflect the saved state correctly
+    renderSingleOverrideCard(kind, idx);
   } catch(e) {
     showAlert('Failed to save overrides: ' + e.message);
   }

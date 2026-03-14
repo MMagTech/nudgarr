@@ -185,17 +185,18 @@
     .tab-overrides.ov-tab-visible {
       opacity: 1; transform: scale(1); max-width: 120px;
       padding-left: 14px; padding-right: 14px; pointer-events: auto;
-      border-color: rgba(99,120,255,.3) !important;
-      background: rgba(99,120,255,.08) !important;
-      color: #a8b4ff !important;
+      border-color: rgba(255,255,255,.13) !important;
+      background: var(--surface) !important;
+      color: var(--text-dim) !important;
       box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06) !important;
     }
     .tab-overrides.ov-tab-visible:hover {
-      border-color: rgba(99,120,255,.5) !important; color: #c4cdff !important;
+      color: var(--text) !important; border-color: rgba(255,255,255,.2) !important;
     }
     .tab-overrides.ov-tab-visible.active {
-      background: rgba(99,120,255,.18) !important;
-      border-color: rgba(99,120,255,.35) !important; color: #c4cdff !important;
+      color: #c4cdff !important; background: rgba(99,120,255,.18) !important;
+      border-color: rgba(99,120,255,.35) !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(99,120,255,.12) !important;
     }
 
     /* ── Override cards ── */
@@ -1111,13 +1112,13 @@
   <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
+    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">Overrides</div>
     <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
     <div class="tab" data-tab="imports" onclick="showTab('imports')">Imports</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
     <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
-    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">Overrides</div>
   </div>
 
   <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
@@ -3340,6 +3341,8 @@ function _buildOverrideCard(kind, idx, inst) {
   const isDisabled = inst.enabled === false;
   const badgeClass = kind === 'sonarr' ? 'ov-badge ov-sonarr' : 'ov-badge';
   const dotClass = kind === 'sonarr' ? 'ov-dot ov-sonarr' : 'ov-dot';
+  const badgeStyle = isDisabled ? 'opacity:0.4;filter:saturate(0)' : '';
+  const dotStyle = isDisabled ? 'opacity:0.4' : '';
   const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added'];
   const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
 
@@ -3420,7 +3423,7 @@ function _buildOverrideCard(kind, idx, inst) {
   return `<div class="ov-card" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
-        <div class="${badgeClass}"><div class="${dotClass}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
+        <div class="${badgeClass}" style="${badgeStyle}"><div class="${dotClass}" style="${dotStyle}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
         <span style="font-weight:600;font-size:13px;color:var(--text-dim)">${escapeHtml(inst.name)}</span>
       </div>
       ${disabledTag}

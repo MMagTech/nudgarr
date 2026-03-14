@@ -185,7 +185,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 notify_sweep_complete(summary, cfg)
                 for app_name in ("radarr", "sonarr"):
                     for inst in summary.get(app_name, []):
-                        if "error" in inst:
+                        if "error" in inst and inst.get("notifications_enabled", True):
                             notify_error(f"'{inst['name']}' is unreachable.", cfg)
                 try:
                     check_imports(session, cfg)

@@ -238,6 +238,13 @@
       transition: border-color .15s, background .15s;
     }
     .ov-bl-row.ov-active { border-color: rgba(99,120,255,.35); background: rgba(99,120,255,.05); }
+    .notify-footer-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: rgba(255,255,255,.02);
+      transition: border-color .15s, background .15s;
+    }
+    .notify-footer-row.ov-active { border-color: rgba(99,120,255,.35); background: rgba(99,120,255,.05); }
     .ov-card-foot {
       display: flex; align-items: center; justify-content: space-between;
       padding-top: 9px; border-top: 1px solid var(--border);
@@ -3322,12 +3329,13 @@ function dismissOverridesModal() {
 function _getGlobal(kind, field) {
   if (!CFG) return '';
   const map = {
-    cooldown_hours:   CFG.cooldown_hours ?? 48,
-    max_cutoff_unmet: kind === 'radarr' ? (CFG.radarr_max_movies_per_run ?? 1) : (CFG.sonarr_max_episodes_per_run ?? 1),
-    sample_mode:      kind === 'radarr' ? (CFG.radarr_sample_mode || 'random') : (CFG.sonarr_sample_mode || 'random'),
-    max_backlog:      kind === 'radarr' ? (CFG.radarr_missing_max ?? 1) : (CFG.sonarr_missing_max ?? 1),
-    max_missing_days: CFG.radarr_missing_added_days ?? 14,
-    backlog_enabled:  kind === 'radarr' ? !!CFG.radarr_backlog_enabled : !!CFG.sonarr_backlog_enabled,
+    cooldown_hours:        CFG.cooldown_hours ?? 48,
+    max_cutoff_unmet:      kind === 'radarr' ? (CFG.radarr_max_movies_per_run ?? 1) : (CFG.sonarr_max_episodes_per_run ?? 1),
+    sample_mode:           kind === 'radarr' ? (CFG.radarr_sample_mode || 'random') : (CFG.sonarr_sample_mode || 'random'),
+    max_backlog:           kind === 'radarr' ? (CFG.radarr_missing_max ?? 1) : (CFG.sonarr_missing_max ?? 1),
+    max_missing_days:      CFG.radarr_missing_added_days ?? 14,
+    backlog_enabled:       kind === 'radarr' ? !!CFG.radarr_backlog_enabled : !!CFG.sonarr_backlog_enabled,
+    notifications_enabled: !!CFG.notify_enabled,
   };
   return field in map ? map[field] : '';
 }
@@ -3420,6 +3428,14 @@ function _buildOverrideCard(kind, idx, inst) {
     ? `<span class="help" style="font-size:11px;color:var(--muted)">Disabled</span>`
     : `<div style="display:flex;align-items:center;gap:6px" id="${cardId}-status">${statusHtml}</div>`;
 
+  const globalNotify = _getGlobal(kind, 'notifications_enabled');
+  const hasOvNotify = 'notifications_enabled' in ov;
+  const notifyVal = hasOvNotify ? ov.notifications_enabled : globalNotify;
+  const notifyRowClass = hasOvNotify ? 'notify-footer-row ov-active' : 'notify-footer-row';
+  const notifyLabel = hasOvNotify
+    ? `${notifyVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalNotify ? 'On' : 'Off'}`
+    : `${notifyVal ? 'On' : 'Off'} (Global: ${globalNotify ? 'On' : 'Off'})`;
+
   return `<div class="ov-card" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
@@ -3434,6 +3450,18 @@ function _buildOverrideCard(kind, idx, inst) {
       ${numField('max_cutoff_unmet', 'Max Cutoff Unmet', gCutoff)}
       ${backlogField}
       ${row3}
+    </div>
+    <div class="${notifyRowClass}" id="${cardId}-notify-row" style="${disabledStyle};margin-bottom:8px">
+      <div>
+        <span style="font-size:11px;font-weight:500;color:#bcc4dc">Notifications</span>
+        <span class="help" style="font-size:10px;margin-left:8px" id="${cardId}-notify-label">${notifyLabel}</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="${cardId}-notifications_enabled"${notifyVal ? ' checked' : ''}
+          onchange="markCardDirty('${kind}',${idx}); updateNotifyLabel('${kind}',${idx})"/>
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
     </div>
     <div class="ov-card-foot" style="${disabledStyle}">
       <button class="ov-rst-all" onclick="resetCardOverrides('${kind}',${idx})">Reset All to Global</button>
@@ -3486,6 +3514,17 @@ function updateBacklogLabel(kind, idx) {
   if (row) { row.classList.add('ov-active'); }
 }
 
+function updateNotifyLabel(kind, idx) {
+  const cardId = _ovCardId(kind, idx);
+  const checked = el(cardId + '-notifications_enabled').checked;
+  const globalNotify = _getGlobal(kind, 'notifications_enabled');
+  const row = el(cardId + '-notify-row');
+  const lbl = el(cardId + '-notify-label');
+  const label = `${checked ? 'On (Override)' : 'Off (Override)'} Global: ${globalNotify ? 'On' : 'Off'}`;
+  if (lbl) lbl.textContent = label;
+  if (row) row.classList.add('ov-active');
+}
+
 async function applyOverrides(kind, idx) {
   const cardId = _ovCardId(kind, idx);
   const inst = (CFG.instances[kind] || [])[idx];
@@ -3523,6 +3562,15 @@ async function applyOverrides(kind, idx) {
     const globalBacklog = _getGlobal(kind, 'backlog_enabled');
     if (blInput.checked !== globalBacklog || 'backlog_enabled' in existing) {
       newOv.backlog_enabled = blInput.checked;
+    }
+  }
+
+  // Notifications enabled — always store current value if input has been interacted with
+  const notifyInput = el(cardId + '-notifications_enabled');
+  if (notifyInput) {
+    const globalNotify = _getGlobal(kind, 'notifications_enabled');
+    if (notifyInput.checked !== globalNotify || 'notifications_enabled' in existing) {
+      newOv.notifications_enabled = notifyInput.checked;
     }
   }
 

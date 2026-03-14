@@ -96,7 +96,11 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                                 imported_ts = iso_z(ev_dt)
                                 if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts):
                                     db.increment_lifetime_total("movies")
-                                    notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
+                                    overrides_on = cfg.get("per_instance_overrides_enabled", False)
+                                    ov = inst.get("overrides", {}) if overrides_on else {}
+                                    notify_on = ov.get("notifications_enabled", cfg.get("notify_enabled", False))
+                                    if notify_on:
+                                        notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
                                     updated = True
                                 break
             else:
@@ -116,7 +120,11 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                                 imported_ts = iso_z(ev_dt)
                                 if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts):
                                     db.increment_lifetime_total("shows")
-                                    notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
+                                    overrides_on = cfg.get("per_instance_overrides_enabled", False)
+                                    ov = inst.get("overrides", {}) if overrides_on else {}
+                                    notify_on = ov.get("notifications_enabled", cfg.get("notify_enabled", False))
+                                    if notify_on:
+                                        notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
                                     updated = True
                                 break
         except Exception as e:

@@ -4,6 +4,14 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v3.2.0
+
+**Per-Instance Overrides**
+
+- Full changelog entry to be completed before main push
+
+---
+
 ## v3.1.2
 
 **Bug Fixes**

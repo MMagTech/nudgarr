@@ -93,6 +93,9 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")
+                        ne = overrides.get("notifications_enabled")
+                        if ne is not None and not isinstance(ne, bool):
+                            errs.append(f"instances.{app}[{i}].overrides.notifications_enabled must be boolean")
 
     for bool_key in ("per_instance_overrides_enabled", "per_instance_overrides_seen"):
         v = cfg.get(bool_key)

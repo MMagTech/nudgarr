@@ -103,7 +103,7 @@ for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
            'toggleOverridesFeature','dismissOverridesModal',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
-           'markCardDirty','updateBacklogLabel']:
+           'markCardDirty','updateBacklogLabel','updateNotifyLabel']:
     if f'function {fn}' not in content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 

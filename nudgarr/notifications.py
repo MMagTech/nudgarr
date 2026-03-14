@@ -3,13 +3,14 @@ nudgarr/notifications.py
 
 Apprise-based push notification dispatch.
 
-  send_notification    -- core dispatcher, returns True on success
-  notify_sweep_complete -- called after each sweep cycle
-  notify_import        -- called when an import is confirmed
-  notify_error         -- called on sweep or instance errors
+  send_notification     -- core dispatcher, returns True on success
+  notify_sweep_complete -- called after each sweep cycle; per-instance aware
+  notify_import         -- called when an import is confirmed
+  notify_error          -- called on sweep or instance errors
 
 All notify_* helpers are no-ops when the relevant trigger is disabled
-in config, or when Apprise is unavailable.
+in config, or when Apprise is unavailable. notify_sweep_complete respects
+per-instance notifications_enabled from the sweep summary.
 
 Imports from within the package: config only (APPRISE_AVAILABLE via
 a deferred try/import to avoid hard-failing when apprise is absent).
@@ -56,15 +57,23 @@ def send_notification(title: str, body: str, cfg: Optional[Dict[str, Any]] = Non
 def notify_sweep_complete(summary: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     if not cfg.get("notify_on_sweep_complete", True):
         return
-    searched = 0
-    skipped = 0
+    lines = []
     for app in ("radarr", "sonarr"):
         for inst in summary.get(app, []):
-            searched += inst.get("searched", 0) + inst.get("searched_missing", 0)
-            skipped += inst.get("skipped_cooldown", 0) + inst.get("skipped_missing_cooldown", 0)
+            if not inst.get("notifications_enabled", True):
+                continue
+            searched = inst.get("searched", 0) + inst.get("searched_missing", 0)
+            if searched == 0:
+                continue
+            cutoff = inst.get("searched", 0)
+            backlog = inst.get("searched_missing", 0)
+            detail = f"{cutoff} Cutoff, {backlog} Backlog" if backlog > 0 else "Cutoff"
+            lines.append(f"{inst.get('name', '?')} — {searched} Searched ({detail})")
+    if not lines:
+        return
     send_notification(
         title="Nudgarr — Sweep Complete",
-        body=f"{searched} item{'s' if searched != 1 else ''} searched, {skipped} skipped due to cooldown.",
+        body="\n".join(lines),
         cfg=cfg
     )
 
@@ -73,8 +82,8 @@ def notify_import(title: str, entry_type: str, instance: str, cfg: Dict[str, Any
     if not cfg.get("notify_on_import", True):
         return
     send_notification(
-        title=f"Nudgarr — {entry_type} Imported",
-        body=f"{title} was successfully imported via {instance}.",
+        title="Nudgarr — Import Confirmed",
+        body=f"{title} imported via {instance}.",
         cfg=cfg
     )
 

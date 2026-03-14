@@ -58,6 +58,7 @@ def _sweep_radarr_instance(
     missing_max: int,
     missing_added_days: int,
     backlog_enabled: bool,
+    notifications_enabled: bool,
 ) -> Dict[str, Any]:
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
@@ -147,6 +148,7 @@ def _sweep_radarr_instance(
         "searched_missing": searched_missing,
         "limit_missing": missing_max,
         "missing_added_days": missing_added_days,
+        "notifications_enabled": notifications_enabled,
     }
 
 
@@ -163,6 +165,7 @@ def _sweep_sonarr_instance(
     jitter_seconds: float,
     missing_max: int,
     backlog_enabled: bool,
+    notifications_enabled: bool,
 ) -> Dict[str, Any]:
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
@@ -238,6 +241,7 @@ def _sweep_sonarr_instance(
         "will_search_missing": len(chosen_missing),
         "searched_missing": searched_missing,
         "limit_missing": missing_max,
+        "notifications_enabled": notifications_enabled,
     }
 
 
@@ -303,12 +307,14 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
         inst_missing_max = _resolve(inst, cfg, overrides_enabled, "max_backlog", int(cfg.get("radarr_missing_max", 1)))
         inst_missing_days = _resolve(inst, cfg, overrides_enabled, "max_missing_days", int(cfg.get("radarr_missing_added_days", 14)))
         inst_backlog_enabled = _resolve(inst, cfg, overrides_enabled, "backlog_enabled", bool(cfg.get("radarr_backlog_enabled", False)))
+        inst_notifications_enabled = _resolve(inst, cfg, overrides_enabled, "notifications_enabled", bool(cfg.get("notify_enabled", False)))
         try:
             inst_summary = _sweep_radarr_instance(
                 session, inst, cfg, excluded_titles,
                 inst_cooldown, inst_radarr_max, inst_sample_mode,
                 batch_size, sleep_seconds, jitter_seconds,
                 inst_missing_max, inst_missing_days, inst_backlog_enabled,
+                inst_notifications_enabled,
             )
             summary["radarr"].append(inst_summary)
             lk = f"radarr|{state_key(name, url)}"
@@ -346,12 +352,14 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             inst_sample_mode = sonarr_sample_mode
         inst_missing_max = _resolve(inst, cfg, overrides_enabled, "max_backlog", int(cfg.get("sonarr_missing_max", 1)))
         inst_backlog_enabled = _resolve(inst, cfg, overrides_enabled, "backlog_enabled", bool(cfg.get("sonarr_backlog_enabled", False)))
+        inst_notifications_enabled = _resolve(inst, cfg, overrides_enabled, "notifications_enabled", bool(cfg.get("notify_enabled", False)))
         try:
             inst_summary = _sweep_sonarr_instance(
                 session, inst, cfg, excluded_titles,
                 inst_cooldown, inst_sonarr_max, inst_sample_mode,
                 batch_size, sleep_seconds, jitter_seconds,
                 inst_missing_max, inst_backlog_enabled,
+                inst_notifications_enabled,
             )
             summary["sonarr"].append(inst_summary)
             lk = f"sonarr|{state_key(name, url)}"

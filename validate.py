@@ -99,7 +99,11 @@ for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
            'mAccordion','mSwitchTab','mPollCycle',
            'mOpenExclusions','mCloseExclusions','mSwitchExclTab',
            'mLoadExclusions','mExclRemove','mLoadExclHistory','mExclAdd',
-           'mOpenImports','mCloseImports','mLoadImports']:
+           'mOpenImports','mCloseImports','mLoadImports',
+           'toggleOverridesFeature','dismissOverridesModal',
+           'renderOverridesCards','applyOverrides',
+           'resetCardOverrides','resetFieldOverride',
+           'markCardDirty','updateBacklogLabel']:
     if f'function {fn}' not in content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 

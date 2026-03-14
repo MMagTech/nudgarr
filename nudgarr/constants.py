@@ -72,4 +72,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # UI Preferences (v2.5.0)
     "last_seen_version": "",
     "show_support_link": True,
+
+    # Per-Instance Overrides (v3.2.0)
+    "per_instance_overrides_enabled": False,
+    "per_instance_overrides_seen": False,
 }

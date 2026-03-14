@@ -9,6 +9,8 @@ Configuration management endpoints.
   POST /api/onboarding/complete  -- mark onboarding done
   POST /api/whats-new/dismiss    -- dismiss what's new modal
   POST /api/instance/toggle      -- enable/disable one instance
+  POST /api/instance/overrides   -- save or clear overrides for one instance
+  POST /api/overrides/toggle     -- enable/disable per-instance overrides globally
 """
 
 import threading
@@ -175,3 +177,52 @@ def api_instance_toggle():
     else:
         STATUS["instance_health"][key] = "disabled"
     return jsonify({"ok": True, "enabled": now_enabled})
+
+
+@bp.post("/api/instance/overrides")
+@requires_auth
+def api_instance_overrides():
+    """Save or clear the overrides block for one instance.
+
+    Body: { kind, idx, overrides }
+    overrides is a sparse dict — only fields to override are present.
+    Pass an empty dict {} to clear all overrides for that instance.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    kind = data.get("kind", "")
+    idx = data.get("idx", -1)
+    overrides = data.get("overrides", {})
+    if kind not in ("radarr", "sonarr") or not isinstance(idx, int) or idx < 0:
+        return jsonify({"ok": False, "error": "Invalid kind or idx"}), 400
+    if not isinstance(overrides, dict):
+        return jsonify({"ok": False, "error": "overrides must be an object"}), 400
+    cfg = load_or_init_config()
+    instances = cfg.get("instances", {}).get(kind, [])
+    if idx >= len(instances):
+        return jsonify({"ok": False, "error": "Instance not found"}), 404
+    if overrides:
+        instances[idx]["overrides"] = overrides
+    else:
+        instances[idx].pop("overrides", None)
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/overrides/toggle")
+@requires_auth
+def api_overrides_toggle():
+    """Enable or disable per-instance overrides globally.
+
+    Body: { enabled: bool }
+    Also marks per_instance_overrides_seen on first enable.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    enabled = data.get("enabled")
+    if not isinstance(enabled, bool):
+        return jsonify({"ok": False, "error": "enabled must be boolean"}), 400
+    cfg = load_or_init_config()
+    cfg["per_instance_overrides_enabled"] = enabled
+    if enabled and not cfg.get("per_instance_overrides_seen", False):
+        cfg["per_instance_overrides_seen"] = True
+    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    return jsonify({"ok": True, "enabled": enabled})

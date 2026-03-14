@@ -99,6 +99,26 @@ def api_diagnostic():
         f"Database: {DB_FILE} ({db_size})",
         f"Config file: {CONFIG_FILE}",
         f"History entries: {total_history} total | Confirmed imports: {total_stats}",
+        f"Per-instance overrides: {'enabled' if cfg.get('per_instance_overrides_enabled') else 'disabled'}",
+    ]
+
+    # Per-instance override detail — only shown when feature is enabled and overrides exist
+    if cfg.get("per_instance_overrides_enabled"):
+        override_lines = []
+        for app_name in ("radarr", "sonarr"):
+            for inst in cfg.get("instances", {}).get(app_name, []):
+                ov = inst.get("overrides", {})
+                if ov:
+                    fields = ", ".join(f"{k}={v}" for k, v in ov.items())
+                    override_lines.append(f"  {app_name}/{inst.get('name', '?')}: {fields}")
+        if override_lines:
+            lines.append("")
+            lines.append("Active per-instance overrides:")
+            lines.extend(override_lines)
+        else:
+            lines.append("  (no overrides applied)")
+
+    lines += [
         "",
         "Last run summary:",
     ] + (summary_lines or ["  No runs yet."]) + [

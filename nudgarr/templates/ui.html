@@ -689,6 +689,7 @@
       width: 40px; height: 40px; background: transparent; border: none;
       color: var(--text-dim); font-size: 20px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
+      touch-action: none;
       -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
     }
     .m-stepper-btn { transition: background .05s, transform .05s; }
@@ -1011,6 +1012,7 @@
       color: var(--text-dim); font-size: 16px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+      touch-action: none;
       -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
       transition: color .12s;
     }
@@ -1224,6 +1226,7 @@
       display: flex; align-items: center;
       background: var(--card); border: 1px solid var(--border);
       border-radius: 9px; overflow: hidden; flex-shrink: 0;
+      -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
     }
     .ls-stepper-btn {
       width: 34px; height: 34px; background: transparent; border: none;
@@ -1273,7 +1276,7 @@
 
     /* ── Bottom nav ── */
     #ls-nav {
-      height: calc(52px + env(safe-area-inset-bottom, 0px)); background: var(--surface);
+      height: calc(62px + env(safe-area-inset-bottom, 0px)); background: var(--surface);
       border-top: 1px solid rgba(255,255,255,0.07);
       display: flex; align-items: flex-start; justify-content: space-around;
       flex-shrink: 0;
@@ -1923,28 +1926,6 @@
     </div>
   </div>
 
-  <!-- ══ Confirm Modal ══ -->
-  <div class="modal-backdrop" id="confirmModal" style="display:none">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
-      <h2 id="confirmTitle">Confirm</h2>
-      <p class="help" id="confirmMsg" style="margin:0 0 20px"></p>
-      <div class="row" style="justify-content:flex-end">
-        <button class="btn sm" onclick="confirmResolve(false)">Cancel</button>
-        <button class="btn sm primary" id="confirmOkBtn" onclick="confirmResolve(true)">Confirm</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ Alert Modal ══ -->
-  <div class="modal-backdrop" id="alertModal" style="display:none">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
-      <p class="help" id="alertMsg" style="margin:0 0 20px"></p>
-      <div class="row" style="justify-content:flex-end">
-        <button class="btn sm primary" onclick="el('alertModal').style.display='none'">OK</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
@@ -2039,6 +2020,28 @@
 
 </div><!-- end .wrap -->
 
+<!-- ══ Confirm Modal — body level so visible in landscape and portrait ══ -->
+<div class="modal-backdrop" id="confirmModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+    <h2 id="confirmTitle">Confirm</h2>
+    <p class="help" id="confirmMsg" style="margin:0 0 20px"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sm" onclick="confirmResolve(false)">Cancel</button>
+      <button class="btn sm primary" id="confirmOkBtn" onclick="confirmResolve(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Alert Modal — body level so visible in landscape and portrait ══ -->
+<div class="modal-backdrop" id="alertModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+    <p class="help" id="alertMsg" style="margin:0 0 20px"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sm primary" onclick="el('alertModal').style.display='none'">OK</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
 
@@ -2111,7 +2114,7 @@
       <div class="m-stepper-left">
         <div class="m-toggle-label">Radarr Backlog</div>
         <div class="m-sub-wrap">
-          <span class="m-sub-a" id="m-radarr-backlog-sub-a">Search missing movies</span>
+          <span class="m-sub-a" id="m-radarr-backlog-sub-a">Search Missing Movies</span>
           <span class="m-sub-b m-sub-override" id="m-radarr-backlog-sub-b"></span>
         </div>
       </div>
@@ -2122,7 +2125,7 @@
       <div class="m-stepper-left">
         <div class="m-toggle-label">Sonarr Backlog</div>
         <div class="m-sub-wrap">
-          <span class="m-sub-a" id="m-sonarr-backlog-sub-a">Search missing episodes</span>
+          <span class="m-sub-a" id="m-sonarr-backlog-sub-a">Search Missing Episodes</span>
           <span class="m-sub-b m-sub-override" id="m-sonarr-backlog-sub-b"></span>
         </div>
       </div>
@@ -2306,9 +2309,9 @@
               <div class="ls-row-sub">Per Run · 0 Disables</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onclick="lsStep('movies',-1)">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('movies',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
               <div class="ls-stepper-val" id="ls-v-movies">1</div>
-              <button class="ls-stepper-btn" onclick="lsStep('movies',1)">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('movies',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
             </div>
           </div>
 
@@ -2318,9 +2321,9 @@
               <div class="ls-row-sub">Per Run · 0 Disables</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onclick="lsStep('episodes',-1)">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('episodes',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
               <div class="ls-stepper-val" id="ls-v-episodes">1</div>
-              <button class="ls-stepper-btn" onclick="lsStep('episodes',1)">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('episodes',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
             </div>
           </div>
 
@@ -2364,9 +2367,9 @@
               <div class="ls-row-sub">Hours Between Re-Searches</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onclick="lsStep('cooldown',-1)">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('cooldown',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
               <div class="ls-stepper-val" id="ls-v-cooldown">48</div>
-              <button class="ls-stepper-btn" onclick="lsStep('cooldown',1)">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('cooldown',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
             </div>
           </div>
 
@@ -2376,9 +2379,9 @@
               <div class="ls-row-sub">Searches Per Batch</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onclick="lsStep('batch',-1)">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('batch',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
               <div class="ls-stepper-val" id="ls-v-batch">1</div>
-              <button class="ls-stepper-btn" onclick="lsStep('batch',1)">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('batch',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
             </div>
           </div>
 
@@ -2388,9 +2391,9 @@
               <div class="ls-row-sub">Pause Between Batches</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onclick="lsStep('sleep',-1)">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('sleep',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
               <div class="ls-stepper-val" id="ls-v-sleep">5</div>
-              <button class="ls-stepper-btn" onclick="lsStep('sleep',1)">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('sleep',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
             </div>
           </div>
 
@@ -2400,9 +2403,9 @@
               <div class="ls-row-sub">Random Extra Pause</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onclick="lsStep('jitter',-1)">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('jitter',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
               <div class="ls-stepper-val" id="ls-v-jitter">2</div>
-              <button class="ls-stepper-btn" onclick="lsStep('jitter',1)">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('jitter',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
             </div>
           </div>
         </div>
@@ -2420,9 +2423,9 @@
             <div class="ls-row-sub">Movies Per Run</div>
           </div>
           <div class="ls-stepper">
-            <button class="ls-stepper-btn" onclick="lsStep('r-missing',-1)">−</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
             <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
-            <button class="ls-stepper-btn" onclick="lsStep('r-missing',1)">+</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-missing',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
           </div>
         </div>
 
@@ -2432,9 +2435,9 @@
             <div class="ls-row-sub">Days</div>
           </div>
           <div class="ls-stepper">
-            <button class="ls-stepper-btn" onclick="lsStep('r-days',-1)">−</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-days',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
             <div class="ls-stepper-val" id="ls-v-r-days">14</div>
-            <button class="ls-stepper-btn" onclick="lsStep('r-days',1)">+</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
           </div>
         </div>
 
@@ -2446,9 +2449,9 @@
             <div class="ls-row-sub">Episodes Per Run</div>
           </div>
           <div class="ls-stepper">
-            <button class="ls-stepper-btn" onclick="lsStep('s-missing',-1)">−</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
             <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
-            <button class="ls-stepper-btn" onclick="lsStep('s-missing',1)">+</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
           </div>
         </div>
 
@@ -5813,9 +5816,36 @@ if (MOBILE) {
     );
   }
 
-  function lsStep(key, dir) {
+  const LS_HOLD_INCREMENTS = {
+    movies: 5, episodes: 5, cooldown: 24,
+    batch: 1, sleep: 1, jitter: 1,
+    'r-missing': 5, 'r-days': 7, 's-missing': 5,
+  };
+  let _lsHoldTimer = null;
+  let _lsHoldInterval = null;
+
+  function lsHoldStart(key, dir) {
     mHaptic(20);
-    LS_VALS[key] = Math.max(LS_MINS[key], LS_VALS[key] + dir);
+    lsStep(key, dir, 1);
+    _lsHoldTimer = setTimeout(() => {
+      const inc = LS_HOLD_INCREMENTS[key] || 1;
+      _lsHoldInterval = setInterval(() => {
+        mHaptic(10);
+        lsStep(key, dir, inc);
+      }, 400);
+    }, 500);
+  }
+
+  function lsHoldEnd() {
+    clearTimeout(_lsHoldTimer);
+    clearInterval(_lsHoldInterval);
+    _lsHoldTimer = null;
+    _lsHoldInterval = null;
+  }
+
+  function lsStep(key, dir, amt) {
+    mHaptic(20);
+    LS_VALS[key] = Math.max(LS_MINS[key], LS_VALS[key] + dir * (amt || 1));
     const el = document.getElementById('ls-v-' + key);
     if (el) { el.textContent = LS_VALS[key]; el.classList.toggle('ls-zero', LS_VALS[key] === 0); }
     lsTriggerSave();

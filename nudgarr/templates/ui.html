@@ -925,7 +925,7 @@
     .m-callout-b.m-sub-entering { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
     /* ── Landscape Overrides tab ── */
-    #ls-tab-overrides { display: flex; overflow: hidden; padding: 0; }
+    #ls-tab-overrides { display: flex; overflow: hidden; padding: 0; padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
     #ls-nav-overrides { display: none; }
 
     .ls-ov-rail {
@@ -976,10 +976,10 @@
     }
     .ls-ov-body {
       flex: 1; overflow: visible; min-height: 0;
-      padding: 7px 12px 4px;
+      padding: 4px 12px 4px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 4px 10px;
+      gap: 2px 10px;
       align-content: space-between;
     }
     .ls-ov-field { display: flex; flex-direction: column; gap: 1px; }
@@ -1008,8 +1008,8 @@
     }
     .ls-ov-stepper.ls-ov-active { border-color: rgba(99,120,255,.45); background: rgba(99,120,255,.08); }
     .ls-ov-stepper-btn {
-      width: 32px; height: 32px; border: none; background: none;
-      color: var(--text-dim); font-size: 16px; cursor: pointer;
+      width: 28px; height: 28px; border: none; background: none;
+      color: var(--text-dim); font-size: 15px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; -webkit-tap-highlight-color: transparent;
       touch-action: none;
@@ -1030,7 +1030,6 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 4px 7px; border-radius: 6px;
       border: 1px solid var(--border); background: rgba(255,255,255,.02);
-      align-self: end;
     }
     .ls-ov-bl-row .ls-ov-bl-label { font-size: 10px; color: var(--muted); font-weight: 600; }
     .ls-ov-bl-row .ls-ov-bl-sub { font-size: 8px; color: rgba(124,132,148,.4); }
@@ -1078,10 +1077,13 @@
       background: var(--warn); display: inline-block; flex-shrink: 0;
     }
     .ls-ov-foot-reset {
-      background: none; border: none; color: var(--muted); font-size: 10px;
-      cursor: pointer; padding: 0; white-space: nowrap;
-      -webkit-tap-highlight-color: transparent;
+      background: none; border: 1px solid rgba(255,255,255,.1);
+      color: var(--muted); font-size: 10px; font-weight: 500;
+      cursor: pointer; padding: 3px 9px; border-radius: 6px;
+      white-space: nowrap; -webkit-tap-highlight-color: transparent;
+      transition: border-color .15s, color .15s;
     }
+    .ls-ov-foot-reset:active { border-color: rgba(255,255,255,.2); color: var(--text-dim); }
     .ls-ov-foot-apply {
       padding: 4px 12px; border-radius: 7px; font-size: 11px; font-weight: 600;
       cursor: pointer; border: 1px solid var(--accent-border);
@@ -4963,7 +4965,6 @@ async function mToggleMobileOverrides() {
     mOvUpdateSubLabels();
     // Show first-time modal when enabling
     if (newVal && !CFG.per_instance_overrides_seen_mobile) {
-      CFG.per_instance_overrides_seen_mobile = true;
       const modal = document.getElementById('m-ov-modal');
       if (modal) { modal.style.display = 'flex'; modal.classList.add('m-visible'); }
     }
@@ -5132,17 +5133,20 @@ function lsOvRenderPanel() {
   const blSub = 'backlog_enabled' in ov
     ? `${blVal ? 'On (Override)' : 'Off (Override)'}`
     : `${blVal ? 'On' : 'Off'} (Global: ${gBl ? 'On' : 'Off'})`;
-  const blField = `<div class="ls-ov-bl-row${blActive}" id="ls-ov-bl-row">
-    <div>
-      <div class="ls-ov-bl-label">Backlog</div>
-      <div class="ls-ov-bl-sub" id="ls-ov-bl-sub">${blSub}</div>
+  const blField = `<div class="ls-ov-field">
+    <label style="visibility:hidden">Backlog</label>
+    <div class="ls-ov-bl-row${blActive}" id="ls-ov-bl-row">
+      <div>
+        <div class="ls-ov-bl-label">Backlog</div>
+        <div class="ls-ov-bl-sub" id="ls-ov-bl-sub">${blSub}</div>
+      </div>
+      <label class="ls-ov-toggle">
+        <input type="checkbox" id="ls-ov-f-backlog_enabled"${blVal ? ' checked' : ''}
+          onchange="lsOvMarkDirty(); lsOvUpdateBlLabel()"/>
+        <span class="ls-ov-toggle-track"></span>
+        <span class="ls-ov-toggle-thumb"></span>
+      </label>
     </div>
-    <label class="ls-ov-toggle">
-      <input type="checkbox" id="ls-ov-f-backlog_enabled"${blVal ? ' checked' : ''}
-        onchange="lsOvMarkDirty(); lsOvUpdateBlLabel()"/>
-      <span class="ls-ov-toggle-track"></span>
-      <span class="ls-ov-toggle-thumb"></span>
-    </label>
   </div>`;
 
   // Row 3
@@ -5251,11 +5255,9 @@ function lsOvMarkDirty() {
   const body = document.getElementById('ls-ov-body');
   if (body) body.dataset.dirty = '1';
   lsOvUpdateFooter();
-  // Update rail dot
+  // Save current DOM values to pending so lsOvRenderPanel reads correctly on re-render
   if (LS_OV_SEL) {
-    const {kind, idx} = LS_OV_SEL;
-    // Temporarily store so rail shows dot
-    LS_OV_PENDING[_lsOvKey(kind, idx)] = true;
+    _lsOvSavePendingFromDOM();
     lsOvRenderRail();
   }
 }

@@ -3380,12 +3380,13 @@ function _buildOverrideCard(kind, idx, inst) {
 
   const globalMode = _getGlobal(kind, 'sample_mode');
   const hasOvMode = 'sample_mode' in ov;
-  const modeVal = hasOvMode ? ov.sample_mode : globalMode;
+  const modeVal = hasOvMode ? ov.sample_mode : '';
   const modeField = `<div class="field">
     <label>Sample Mode</label>
     <select id="${cardId}-sample_mode" class="${hasOvMode ? 'ov-active' : ''}"
       onchange="markCardDirty('${kind}',${idx})">
-      ${VALID_MODES.map(m => `<option value="${m}"${modeVal === m ? ' selected' : ''}>${MODE_LABELS[m]}${!hasOvMode && m === globalMode ? ' (global)' : ''}</option>`).join('')}
+      <option value=""${!hasOvMode ? ' selected' : ''}>Use Global</option>
+      ${VALID_MODES.map(m => `<option value="${m}"${modeVal === m ? ' selected' : ''}>${MODE_LABELS[m]}</option>`).join('')}
     </select>
     <span class="help">Global: ${MODE_LABELS[globalMode] || globalMode}</span>
   </div>`;
@@ -3550,10 +3551,16 @@ async function applyOverrides(kind, idx) {
     }
   });
 
-  // Sample mode — always store on Apply (explicit override regardless of global match)
+  // Sample mode — empty value means "Use Global" (remove override), any mode value saves it
   const modeEl = el(cardId + '-sample_mode');
   if (modeEl) {
-    newOv.sample_mode = modeEl.value;
+    if (modeEl.value === '') {
+      delete newOv.sample_mode;
+      modeEl.classList.remove('ov-active');
+    } else {
+      newOv.sample_mode = modeEl.value;
+      modeEl.classList.add('ov-active');
+    }
   }
 
   // Backlog enabled — always store current value if input has been interacted with
@@ -3609,10 +3616,15 @@ async function resetCardOverrides(kind, idx) {
 
 function resetFieldOverride(kind, idx, field) {
   const cardId = _ovCardId(kind, idx);
-  const input = el(cardId + '-' + field);
-  if (!input) return;
-  input.value = '';
-  input.classList.remove('ov-active');
+  if (field === 'sample_mode') {
+    const sel = el(cardId + '-sample_mode');
+    if (sel) { sel.value = ''; sel.classList.remove('ov-active'); }
+  } else {
+    const input = el(cardId + '-' + field);
+    if (!input) return;
+    input.value = '';
+    input.classList.remove('ov-active');
+  }
   markCardDirty(kind, idx);
 }
 async function refreshHistory() {

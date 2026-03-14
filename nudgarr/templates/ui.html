@@ -975,7 +975,7 @@
       flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
     }
     .ls-ov-body {
-      flex: 1; overflow: hidden;
+      flex: 1; overflow: visible;
       padding: 7px 12px 4px;
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1287,13 +1287,13 @@
       box-shadow: 0 calc(env(safe-area-inset-bottom, 0px) + 40px) 0 var(--surface), 0 -4px 20px rgba(0,0,0,0.25);
     }
     .ls-nav-item {
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
       cursor: pointer; padding: 8px 20px 4px; border-radius: 10px;
       transition: background .15s; flex: 1; user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
     .ls-nav-item:active { background: var(--card); }
-    .ls-nav-icon { font-size: 24px; color: var(--muted); transition: color .15s; }
+    .ls-nav-icon { font-size: 20px; color: var(--muted); transition: color .15s; }
     .ls-nav-label {
       font-size: 10px; color: var(--muted); font-weight: 500; transition: color .15s;
     }
@@ -2270,8 +2270,9 @@
     <div class="m-sheet m-qs-sheet" style="border-radius:20px;margin:16px">
       <div style="padding:20px 18px 0">
         <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Per-Instance Overrides</div>
-        <div style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:16px">Override cooldown, caps, backlog, and notifications per instance. Rotate to landscape to configure overrides for each instance.</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(99,120,255,.07);border:1px solid rgba(99,120,255,.15);border-radius:10px;margin-bottom:18px">Enabling overrides doesn't change any behaviour. Overrides only take effect when you Apply them on each instance in landscape view.</div>
+        <div style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:12px">Fine-tune cooldown, caps, backlog, and notifications independently for each instance. Configure in landscape, tap ⊙ in the bottom nav.</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(99,120,255,.07);border:1px solid rgba(99,120,255,.15);border-radius:10px;margin-bottom:8px">Quick Settings and the home toggles always edit global values. Instances with overrides applied use their own values instead and won't be affected by the global.</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(99,120,255,.07);border:1px solid rgba(99,120,255,.15);border-radius:10px;margin-bottom:18px">Overrides only take effect once you Apply them on each instance in landscape.</div>
       </div>
       <div style="padding:0 18px 20px">
         <button onclick="mDismissOvModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,rgba(99,120,255,.25),rgba(99,120,255,.15));border:1px solid var(--accent-border);border-radius:12px;color:#c0caff;font-size:14px;font-weight:600;cursor:pointer">Continue</button>
@@ -4953,8 +4954,8 @@ async function mToggleMobileOverrides() {
     CFG.per_instance_overrides_enabled = newVal;
     mOvUpdateSubLabels();
     // Show first-time modal when enabling
-    if (newVal && !CFG.per_instance_overrides_seen) {
-      CFG.per_instance_overrides_seen = true;
+    if (newVal && !CFG.per_instance_overrides_seen_mobile) {
+      CFG.per_instance_overrides_seen_mobile = true;
       const modal = document.getElementById('m-ov-modal');
       if (modal) { modal.style.display = 'flex'; modal.classList.add('m-visible'); }
     }
@@ -4971,6 +4972,10 @@ async function mToggleMobileOverrides() {
 function mDismissOvModal() {
   const modal = document.getElementById('m-ov-modal');
   if (modal) { modal.classList.remove('m-visible'); setTimeout(() => { modal.style.display = 'none'; }, 300); }
+  if (CFG && !CFG.per_instance_overrides_seen_mobile) {
+    CFG.per_instance_overrides_seen_mobile = true;
+    mSaveCfgKey({per_instance_overrides_seen_mobile: true});
+  }
 }
 
 // ── Landscape Overrides — rail/panel rendering ─────────────────────────────

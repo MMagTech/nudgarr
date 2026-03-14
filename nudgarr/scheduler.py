@@ -141,7 +141,6 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     """
     STATUS["scheduler_running"] = True
     session = requests.Session()
-    cycle = 0
 
     # Restore last_run_utc from persisted state so UI shows correctly after restart.
     cfg = load_or_init_config()
@@ -189,10 +188,9 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 should_run = True
 
         if should_run:
-            cycle += 1
             STATUS["run_in_progress"] = True
             try:
-                print(f"--- Sweep Cycle #{cycle} ---")
+                print(f"--- Sweep {iso_z(utcnow())[:16].replace('T', ' ')} UTC ---")
                 summary = run_sweep(cfg, session)
                 STATUS["last_summary"] = summary
                 STATUS["last_run_utc"] = iso_z(utcnow())

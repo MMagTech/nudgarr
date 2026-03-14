@@ -175,12 +175,12 @@
     /* ── Overrides tab — animated entrance/exit ── */
     .tab-overrides {
       opacity: 0; transform: scale(0.7); max-width: 0;
-      padding-left: 0; padding-right: 0; overflow: hidden;
+      padding-left: 0; padding-right: 0; margin: 0; overflow: hidden;
       pointer-events: none; border-color: transparent !important;
       background: transparent !important; color: transparent !important;
       box-shadow: none !important;
       transition: opacity .25s ease, transform .3s cubic-bezier(.34,1.4,.64,1),
-                  max-width .25s ease, padding .25s ease;
+                  max-width .25s ease, padding .25s ease, margin .25s ease;
     }
     .tab-overrides.ov-tab-visible {
       opacity: 1; transform: scale(1); max-width: 120px;
@@ -931,6 +931,7 @@
       display: flex; flex-direction: column;
       overflow-y: auto; scrollbar-width: none;
       padding: 4px 0;
+      padding-left: env(safe-area-inset-left, 0px);
     }
     .ls-ov-rail::-webkit-scrollbar { display: none; }
     .ls-ov-rail-item {
@@ -996,6 +997,26 @@
     }
     .ls-ov-field select.ls-ov-active { border-color: rgba(99,120,255,.45); }
     .ls-ov-field .ls-ov-global { font-size: 8px; color: rgba(124,132,148,.4); margin-top: 1px; }
+    .ls-ov-stepper {
+      display: flex; align-items: center; gap: 0;
+      border: 1px solid rgba(255,255,255,.11); border-radius: 9px;
+      background: #13152b; overflow: hidden;
+      transition: border-color .15s;
+    }
+    .ls-ov-stepper.ls-ov-active { border-color: rgba(99,120,255,.45); background: rgba(99,120,255,.08); }
+    .ls-ov-stepper-btn {
+      width: 32px; height: 32px; border: none; background: none;
+      color: var(--text-dim); font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+      transition: color .12s;
+    }
+    .ls-ov-stepper-btn:active { color: var(--text); }
+    .ls-ov-stepper-val {
+      flex: 1; text-align: center; font-size: 13px; font-weight: 600;
+      color: var(--text); min-width: 28px;
+    }
+    .ls-ov-stepper-val.ls-ov-zero { color: var(--muted); }
 
     .ls-ov-bl-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -1616,7 +1637,7 @@
             </label>
             <span class="help" id="notify_label">Disabled</span>
           </div>
-          <div class="help">Send notifications via any Apprise-compatible service — Discord, Gotify, Ntfy, Pushover, Slack, and many more</div>
+          <div class="help">Send notifications via any Apprise-compatible service</div>
         </div>
         <div class="field" id="notify_url_field" style="margin-top:12px">
           <label>Notification URL</label>
@@ -1624,7 +1645,7 @@
             <input type="password" id="notify_url" placeholder="e.g. discord://webhookid/token" oninput="markUnsaved('notifyMsg')"/>
             <button class="key-toggle" onclick="toggleNotifyUrl()" id="notifyUrlToggleBtn">Show</button>
           </div>
-          <div class="help">Enter your Apprise-compatible notification URL. See <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--accent)">Apprise docs</a> for supported services and URL formats.</div>
+          <div class="help">See <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--accent)">Apprise docs</a> for supported services and URL formats.</div>
         </div>
         <div id="notify_test_row" style="margin-top:12px;display:none">
           <button class="btn sm" onclick="testNotification()">Send Test</button>
@@ -1643,7 +1664,7 @@
               <span class="toggle-thumb"></span>
             </label>
           </div>
-          <div class="help">Fires when a sweep finishes — includes items searched and skipped</div>
+          <div class="help">Fires when a sweep finishes and at least one instance searched something</div>
         </div>
         <div class="field" style="margin-top:12px">
           <label>Import Confirmed</label>
@@ -1682,7 +1703,7 @@
       <div class="grid cols2">
         <div class="card">
           <p class="section-label">Backlog Nudges</p>
-          <div class="help" style="margin-bottom:12px">Searches movies and episodes identified as missing. These searches are on top of your Max Per Run caps.</div>
+          <div class="help" style="margin-bottom:12px">Finds and searches items missing from your library on top of your regular cutoff sweeps.</div>
           <p class="section-label" style="margin:0 0 8px">Radarr</p>
           <div class="field" style="margin-bottom:10px">
             <div class="toggle-wrap">
@@ -1772,7 +1793,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Episodes totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
             </div>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed. 0 disables.</div>
+            <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed (0 Disables).</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Stats</p>
@@ -1807,7 +1828,7 @@
           <div class="field">
             <label>Onboarding</label>
             <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
-            <div class="help" style="margin-top:6px">View the initial walkthrough at any time.</div>
+            <div class="help" style="margin-top:6px">View the initial walkthrough.</div>
           </div>
           <div class="field" style="margin-top:14px">
             <label>Show Support Link</label>
@@ -1875,7 +1896,10 @@
       </div>
       <div class="field">
         <label>URL</label>
-        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878"/>
+        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878" oninput="checkModalUrlPath(this.value)"/>
+        <div class="amber-warn amber-warn-collapsible" id="modalUrlWarn">
+          <p class="help amber-warn-body" id="modalUrlWarnMsg"></p>
+        </div>
       </div>
       <div class="field">
         <label id="modalKeyLabel">API Key</label>
@@ -2182,37 +2206,37 @@
             </div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('cooldown',-1);mBtnPress(this)">−</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',-1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="mQSHoldStart('cooldown',-1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">−</button>
             <div class="m-stepper-val" id="m-qs-cooldown">48</div>
-            <button class="m-stepper-btn" onclick="mQSStep('cooldown',1);mBtnPress(this)">+</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="mQSHoldStart('cooldown',1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
           <div>
             <div class="m-stepper-label">Max Movies</div>
             <div class="m-sub-wrap">
-              <span class="m-sub-a" id="m-qs-movies-sub-a">Per run · 0 disables</span>
+              <span class="m-sub-a" id="m-qs-movies-sub-a">Per Run · 0 Disables</span>
               <span class="m-sub-b m-sub-override" id="m-qs-movies-sub-b"></span>
             </div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('movies',-1);mBtnPress(this)">−</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',-1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="mQSHoldStart('movies',-1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">−</button>
             <div class="m-stepper-val" id="m-qs-movies">1</div>
-            <button class="m-stepper-btn" onclick="mQSStep('movies',1);mBtnPress(this)">+</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="mQSHoldStart('movies',1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
           <div>
             <div class="m-stepper-label">Max Episodes</div>
             <div class="m-sub-wrap">
-              <span class="m-sub-a" id="m-qs-episodes-sub-a">Per run · 0 disables</span>
+              <span class="m-sub-a" id="m-qs-episodes-sub-a">Per Run · 0 Disables</span>
               <span class="m-sub-b m-sub-override" id="m-qs-episodes-sub-b"></span>
             </div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onclick="mQSStep('episodes',-1);mBtnPress(this)">−</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',-1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="mQSHoldStart('episodes',-1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">−</button>
             <div class="m-stepper-val" id="m-qs-episodes">1</div>
-            <button class="m-stepper-btn" onclick="mQSStep('episodes',1);mBtnPress(this)">+</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="mQSHoldStart('episodes',1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -3025,6 +3049,31 @@ function renderInstances(kind) {
 let MODAL_KIND = '';
 let MODAL_IDX = -1;
 
+function checkModalUrlPath(val) {
+  const warn = el('modalUrlWarn');
+  const msg = el('modalUrlWarnMsg');
+  if (!warn || !msg) return;
+  if (!val) { warn.classList.remove('visible'); return; }
+  try {
+    const parsed = new URL(val);
+    const path = parsed.pathname;
+    const PAGE_PATTERNS = [/\/series\//i, /\/movie\//i, /\/movies\//i, /\/calendar/i, /\/activity/i, /\/wanted/i, /\/settings/i, /\/system/i, /\/history/i, /\.[a-z]{2,4}$/i];
+    const isPagePath = PAGE_PATTERNS.some(p => p.test(path));
+    const hasDeepPath = path.split('/').filter(Boolean).length > 1;
+    if (isPagePath) {
+      msg.innerHTML = `⚠️ URL appears to include a page path. The instance URL should end at the port — e.g. <code style="background:rgba(99,120,255,.12);border:1px solid rgba(99,120,255,.2);border-radius:4px;padding:1px 5px;font-size:11px;color:#a8b4ff">${parsed.origin}</code>`;
+      warn.classList.add('visible');
+    } else if (hasDeepPath) {
+      msg.innerHTML = `⚠️ URL includes a subpath. If this is a reverse proxy base URL that's fine — otherwise it should end at the port.`;
+      warn.classList.add('visible');
+    } else {
+      warn.classList.remove('visible');
+    }
+  } catch(e) {
+    warn.classList.remove('visible');
+  }
+}
+
 function openModal(kind, idx) {
   MODAL_KIND = kind;
   MODAL_IDX = idx;
@@ -3042,6 +3091,10 @@ function openModal(kind, idx) {
   el('keyToggleBtn').textContent = 'Show';
   el('modalKeyLabel').textContent = isEdit ? 'API Key (Masked)' : 'API Key (Masked After Save)';
   el('instModal').style.display = 'flex';
+  // Clear URL warning on fresh open and check if editing an existing URL
+  const urlWarn = el('modalUrlWarn');
+  if (urlWarn) urlWarn.classList.remove('visible');
+  if (it.url) checkModalUrlPath(it.url);
   setTimeout(() => el('modalName').focus(), 50);
 }
 
@@ -4685,9 +4738,32 @@ if (!MOBILE) {
     setTimeout(() => el.classList.remove('m-pressed'), 150);
   }
 
-  function mQSStep(key, dir) {
+  const M_QS_HOLD_INCREMENTS = {cooldown: 24, movies: 5, episodes: 5};
+  let _mQsHoldTimer = null;
+  let _mQsHoldInterval = null;
+
+  function mQSHoldStart(key, dir) {
     mHaptic(20);
-    M_QS_VALS[key] = Math.max(M_QS_MINS[key], M_QS_VALS[key] + dir);
+    mQSStep(key, dir, 1);
+    _mQsHoldTimer = setTimeout(() => {
+      const inc = M_QS_HOLD_INCREMENTS[key] || 5;
+      _mQsHoldInterval = setInterval(() => {
+        mHaptic(10);
+        mQSStep(key, dir, inc);
+      }, 100);
+    }, 500);
+  }
+
+  function mQSHoldEnd() {
+    clearTimeout(_mQsHoldTimer);
+    clearInterval(_mQsHoldInterval);
+    _mQsHoldTimer = null;
+    _mQsHoldInterval = null;
+  }
+
+  function mQSStep(key, dir, amt) {
+    mHaptic(20);
+    M_QS_VALS[key] = Math.max(M_QS_MINS[key], M_QS_VALS[key] + dir * (amt || 1));
     const el = document.getElementById('m-qs-' + key);
     if (el) { el.textContent = M_QS_VALS[key]; el.classList.toggle('m-zero', M_QS_VALS[key] === 0); }
     clearTimeout(M_QS_SAVE_TIMER);
@@ -4797,7 +4873,7 @@ function _mOvCountBacklogOverrides(kind) {
 }
 
 function _mOvPlural(n, word) {
-  return n === 1 ? `1 instance overrides` : `${n} instances override`;
+  return n === 1 ? `1 Override` : `${n} Overrides`;
 }
 
 function mOvUpdateSubLabels() {
@@ -4997,12 +5073,20 @@ function lsOvRenderPanel() {
   const numField = (field, label) => {
     const val = fVal(field);
     const gVal = gv(field);
-    const active = fActive(field) ? ' ls-ov-active' : '';
+    const active = fActive(field);
+    const dispVal = val !== '' && val !== null ? val : gVal;
     return `<div class="ls-ov-field">
       <label>${label}</label>
-      <input type="number" min="0" id="ls-ov-f-${field}" value="${val}"
-        placeholder="${gVal}" class="${active}"
-        oninput="lsOvMarkDirty()"/>
+      <div class="ls-ov-stepper${active ? ' ls-ov-active' : ''}" id="ls-ov-s-${field}">
+        <button class="ls-ov-stepper-btn"
+          onmousedown="lsOvHoldStart('${field}',-1)" onmouseup="lsOvHoldEnd()" onmouseleave="lsOvHoldEnd()"
+          ontouchstart="lsOvHoldStart('${field}',-1)" ontouchend="lsOvHoldEnd()" ontouchcancel="lsOvHoldEnd()">−</button>
+        <div class="ls-ov-stepper-val${dispVal === 0 ? ' ls-ov-zero' : ''}" id="ls-ov-sv-${field}">${dispVal}</div>
+        <button class="ls-ov-stepper-btn"
+          onmousedown="lsOvHoldStart('${field}',1)" onmouseup="lsOvHoldEnd()" onmouseleave="lsOvHoldEnd()"
+          ontouchstart="lsOvHoldStart('${field}',1)" ontouchend="lsOvHoldEnd()" ontouchcancel="lsOvHoldEnd()">+</button>
+      </div>
+      <input type="hidden" id="ls-ov-f-${field}" value="${val !== '' && val !== null ? val : ''}"/>
       <span class="ls-ov-global">Global: ${gVal}</span>
     </div>`;
   };
@@ -5080,6 +5164,50 @@ function lsOvRenderPanel() {
   lsOvUpdateFooter();
 }
 
+const LS_OV_HOLD_INCREMENTS = {
+  cooldown_hours:   24,
+  max_cutoff_unmet:  5,
+  max_backlog:       5,
+  max_missing_days:  7,
+};
+let _lsOvHoldTimer = null;
+let _lsOvHoldInterval = null;
+
+function lsOvStep(field, dir, amt) {
+  const hidden = document.getElementById('ls-ov-f-' + field);
+  const valEl = document.getElementById('ls-ov-sv-' + field);
+  const stepper = document.getElementById('ls-ov-s-' + field);
+  if (!hidden || !valEl) return;
+  const {kind} = LS_OV_SEL || {};
+  const gVal = kind ? (_getGlobal(kind, field) ?? 0) : 0;
+  const current = hidden.value !== '' ? parseInt(hidden.value, 10) : gVal;
+  const next = Math.max(0, current + dir * (amt || 1));
+  hidden.value = next;
+  valEl.textContent = next;
+  valEl.classList.toggle('ls-ov-zero', next === 0);
+  if (stepper) stepper.classList.toggle('ls-ov-active', next !== gVal);
+  lsOvMarkDirty();
+}
+
+function lsOvHoldStart(field, dir) {
+  // Single tap fires immediately at ±1
+  lsOvStep(field, dir, 1);
+  // After 500ms hold threshold, start repeating at hold increment
+  _lsOvHoldTimer = setTimeout(() => {
+    const inc = LS_OV_HOLD_INCREMENTS[field] || 5;
+    _lsOvHoldInterval = setInterval(() => {
+      lsOvStep(field, dir, inc);
+    }, 100);
+  }, 500);
+}
+
+function lsOvHoldEnd() {
+  clearTimeout(_lsOvHoldTimer);
+  clearInterval(_lsOvHoldInterval);
+  _lsOvHoldTimer = null;
+  _lsOvHoldInterval = null;
+}
+
 function lsOvMarkDirty() {
   const body = document.getElementById('ls-ov-body');
   if (body) body.dataset.dirty = '1';
@@ -5145,12 +5273,6 @@ async function lsOvApply() {
   if (applyBtn) { applyBtn.disabled = true; applyBtn.style.opacity = '.5'; }
 
   _lsOvApplyTimer = setTimeout(async () => {
-    const {kind, idx} = LS_OV_SEL;
-    const inst = (CFG.instances?.[kind] || [])[idx];
-    if (!inst) return;
-    const existing = inst.overrides || {};
-    const newOv = Object.assign({}, existing);
-    const numFields = ['cooldown_hours','max_cutoff_unmet','max_backlog'];
     if (kind === 'radarr') numFields.push('max_missing_days');
     numFields.forEach(field => {
       const input = document.getElementById('ls-ov-f-' + field);
@@ -5195,7 +5317,7 @@ async function lsOvApply() {
     } finally {
       if (applyBtn) { applyBtn.disabled = false; applyBtn.style.opacity = ''; }
     }
-  }, 300);
+  }, 500);
 }
 
 async function lsOvReset() {
@@ -5612,6 +5734,9 @@ if (MOBILE) {
     } catch(e) {}
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
+    // Re-populate landscape UI now that CFG is loaded — fixes landscape nav
+    // icon not appearing when page loads directly in landscape orientation
+    if (typeof lsPopulate === 'function') lsPopulate();
   });
 
 

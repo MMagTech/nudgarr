@@ -975,7 +975,7 @@
       flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
     }
     .ls-ov-body {
-      flex: 1; overflow: visible;
+      flex: 1; overflow: visible; min-height: 0;
       padding: 7px 12px 4px;
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1166,6 +1166,7 @@
       padding: 8px 20px;
       padding-left: calc(20px + env(safe-area-inset-left, 0px));
       padding-right: calc(20px + env(safe-area-inset-right, 0px));
+      padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
       scrollbar-width: none;
       transform: translateX(100%);
       transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1276,11 +1277,11 @@
 
     /* ── Bottom nav ── */
     #ls-nav {
-      height: calc(62px + env(safe-area-inset-bottom, 0px)); background: var(--surface);
+      height: calc(52px + env(safe-area-inset-bottom, 0px)); background: var(--surface);
       border-top: 1px solid rgba(255,255,255,0.07);
       display: flex; align-items: flex-start; justify-content: space-around;
       flex-shrink: 0;
-      padding-top: 6px;
+      padding-top: 4px;
       padding-bottom: env(safe-area-inset-bottom, 0px);
       padding-left: env(safe-area-inset-left, 0px);
       padding-right: env(safe-area-inset-right, 0px);
@@ -2217,9 +2218,9 @@
             </div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',-1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="event.preventDefault();mQSHoldStart('cooldown',-1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">−</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',-1);mBtnPress(this)" onmouseup="mQSHoldEnd('cooldown',-1)" onmouseleave="mQSHoldEnd('cooldown',-1)" ontouchstart="event.preventDefault();mQSHoldStart('cooldown',-1);mBtnPress(this)" ontouchend="mQSHoldEnd('cooldown',-1)" ontouchcancel="mQSHoldEnd('cooldown',-1)">−</button>
             <div class="m-stepper-val" id="m-qs-cooldown">48</div>
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="event.preventDefault();mQSHoldStart('cooldown',1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">+</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',1);mBtnPress(this)" onmouseup="mQSHoldEnd('cooldown',1)" onmouseleave="mQSHoldEnd('cooldown',1)" ontouchstart="event.preventDefault();mQSHoldStart('cooldown',1);mBtnPress(this)" ontouchend="mQSHoldEnd('cooldown',1)" ontouchcancel="mQSHoldEnd('cooldown',1)">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -2231,9 +2232,9 @@
             </div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',-1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="event.preventDefault();mQSHoldStart('movies',-1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">−</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',-1);mBtnPress(this)" onmouseup="mQSHoldEnd('movies',-1)" onmouseleave="mQSHoldEnd('movies',-1)" ontouchstart="event.preventDefault();mQSHoldStart('movies',-1);mBtnPress(this)" ontouchend="mQSHoldEnd('movies',-1)" ontouchcancel="mQSHoldEnd('movies',-1)">−</button>
             <div class="m-stepper-val" id="m-qs-movies">1</div>
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="event.preventDefault();mQSHoldStart('movies',1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">+</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',1);mBtnPress(this)" onmouseup="mQSHoldEnd('movies',1)" onmouseleave="mQSHoldEnd('movies',1)" ontouchstart="event.preventDefault();mQSHoldStart('movies',1);mBtnPress(this)" ontouchend="mQSHoldEnd('movies',1)" ontouchcancel="mQSHoldEnd('movies',1)">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -2245,9 +2246,9 @@
             </div>
           </div>
           <div class="m-stepper">
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',-1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="event.preventDefault();mQSHoldStart('episodes',-1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">−</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',-1);mBtnPress(this)" onmouseup="mQSHoldEnd('episodes',-1)" onmouseleave="mQSHoldEnd('episodes',-1)" ontouchstart="event.preventDefault();mQSHoldStart('episodes',-1);mBtnPress(this)" ontouchend="mQSHoldEnd('episodes',-1)" ontouchcancel="mQSHoldEnd('episodes',-1)">−</button>
             <div class="m-stepper-val" id="m-qs-episodes">1</div>
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',1);mBtnPress(this)" onmouseup="mQSHoldEnd()" onmouseleave="mQSHoldEnd()" ontouchstart="event.preventDefault();mQSHoldStart('episodes',1);mBtnPress(this)" ontouchend="mQSHoldEnd()" ontouchcancel="mQSHoldEnd()">+</button>
+            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',1);mBtnPress(this)" onmouseup="mQSHoldEnd('episodes',1)" onmouseleave="mQSHoldEnd('episodes',1)" ontouchstart="event.preventDefault();mQSHoldStart('episodes',1);mBtnPress(this)" ontouchend="mQSHoldEnd('episodes',1)" ontouchcancel="mQSHoldEnd('episodes',1)">+</button>
           </div>
         </div>
         <div class="m-stepper-row">
@@ -2310,9 +2311,9 @@
               <div class="ls-row-sub">Per Run · 0 Disables</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('movies',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',-1)" onmouseup="lsHoldEnd('movies',-1)" onmouseleave="lsHoldEnd('movies',-1)" ontouchstart="event.preventDefault();lsHoldStart('movies',-1)" ontouchend="lsHoldEnd('movies',-1)" ontouchcancel="lsHoldEnd('movies',-1)">−</button>
               <div class="ls-stepper-val" id="ls-v-movies">1</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('movies',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',1)" onmouseup="lsHoldEnd('movies',1)" onmouseleave="lsHoldEnd('movies',1)" ontouchstart="event.preventDefault();lsHoldStart('movies',1)" ontouchend="lsHoldEnd('movies',1)" ontouchcancel="lsHoldEnd('movies',1)">+</button>
             </div>
           </div>
 
@@ -2322,9 +2323,9 @@
               <div class="ls-row-sub">Per Run · 0 Disables</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('episodes',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',-1)" onmouseup="lsHoldEnd('episodes',-1)" onmouseleave="lsHoldEnd('episodes',-1)" ontouchstart="event.preventDefault();lsHoldStart('episodes',-1)" ontouchend="lsHoldEnd('episodes',-1)" ontouchcancel="lsHoldEnd('episodes',-1)">−</button>
               <div class="ls-stepper-val" id="ls-v-episodes">1</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('episodes',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',1)" onmouseup="lsHoldEnd('episodes',1)" onmouseleave="lsHoldEnd('episodes',1)" ontouchstart="event.preventDefault();lsHoldStart('episodes',1)" ontouchend="lsHoldEnd('episodes',1)" ontouchcancel="lsHoldEnd('episodes',1)">+</button>
             </div>
           </div>
 
@@ -2368,9 +2369,9 @@
               <div class="ls-row-sub">Hours Between Re-Searches</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('cooldown',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',-1)" onmouseup="lsHoldEnd('cooldown',-1)" onmouseleave="lsHoldEnd('cooldown',-1)" ontouchstart="event.preventDefault();lsHoldStart('cooldown',-1)" ontouchend="lsHoldEnd('cooldown',-1)" ontouchcancel="lsHoldEnd('cooldown',-1)">−</button>
               <div class="ls-stepper-val" id="ls-v-cooldown">48</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('cooldown',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',1)" onmouseup="lsHoldEnd('cooldown',1)" onmouseleave="lsHoldEnd('cooldown',1)" ontouchstart="event.preventDefault();lsHoldStart('cooldown',1)" ontouchend="lsHoldEnd('cooldown',1)" ontouchcancel="lsHoldEnd('cooldown',1)">+</button>
             </div>
           </div>
 
@@ -2380,9 +2381,9 @@
               <div class="ls-row-sub">Searches Per Batch</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('batch',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',-1)" onmouseup="lsHoldEnd('batch',-1)" onmouseleave="lsHoldEnd('batch',-1)" ontouchstart="event.preventDefault();lsHoldStart('batch',-1)" ontouchend="lsHoldEnd('batch',-1)" ontouchcancel="lsHoldEnd('batch',-1)">−</button>
               <div class="ls-stepper-val" id="ls-v-batch">1</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('batch',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',1)" onmouseup="lsHoldEnd('batch',1)" onmouseleave="lsHoldEnd('batch',1)" ontouchstart="event.preventDefault();lsHoldStart('batch',1)" ontouchend="lsHoldEnd('batch',1)" ontouchcancel="lsHoldEnd('batch',1)">+</button>
             </div>
           </div>
 
@@ -2392,9 +2393,9 @@
               <div class="ls-row-sub">Pause Between Batches</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('sleep',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',-1)" onmouseup="lsHoldEnd('sleep',-1)" onmouseleave="lsHoldEnd('sleep',-1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',-1)" ontouchend="lsHoldEnd('sleep',-1)" ontouchcancel="lsHoldEnd('sleep',-1)">−</button>
               <div class="ls-stepper-val" id="ls-v-sleep">5</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('sleep',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',1)" onmouseup="lsHoldEnd('sleep',1)" onmouseleave="lsHoldEnd('sleep',1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',1)" ontouchend="lsHoldEnd('sleep',1)" ontouchcancel="lsHoldEnd('sleep',1)">+</button>
             </div>
           </div>
 
@@ -2404,9 +2405,9 @@
               <div class="ls-row-sub">Random Extra Pause</div>
             </div>
             <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('jitter',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',-1)" onmouseup="lsHoldEnd('jitter',-1)" onmouseleave="lsHoldEnd('jitter',-1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',-1)" ontouchend="lsHoldEnd('jitter',-1)" ontouchcancel="lsHoldEnd('jitter',-1)">−</button>
               <div class="ls-stepper-val" id="ls-v-jitter">2</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('jitter',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',1)" onmouseup="lsHoldEnd('jitter',1)" onmouseleave="lsHoldEnd('jitter',1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',1)" ontouchend="lsHoldEnd('jitter',1)" ontouchcancel="lsHoldEnd('jitter',1)">+</button>
             </div>
           </div>
         </div>
@@ -2424,9 +2425,9 @@
             <div class="ls-row-sub">Movies Per Run</div>
           </div>
           <div class="ls-stepper">
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd('r-missing',-1)" onmouseleave="lsHoldEnd('r-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd('r-missing',-1)" ontouchcancel="lsHoldEnd('r-missing',-1)">−</button>
             <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-missing',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',1)" onmouseup="lsHoldEnd('r-missing',1)" onmouseleave="lsHoldEnd('r-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',1)" ontouchend="lsHoldEnd('r-missing',1)" ontouchcancel="lsHoldEnd('r-missing',1)">+</button>
           </div>
         </div>
 
@@ -2436,9 +2437,9 @@
             <div class="ls-row-sub">Days</div>
           </div>
           <div class="ls-stepper">
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-days',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',-1)" onmouseup="lsHoldEnd('r-days',-1)" onmouseleave="lsHoldEnd('r-days',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',-1)" ontouchend="lsHoldEnd('r-days',-1)" ontouchcancel="lsHoldEnd('r-days',-1)">−</button>
             <div class="ls-stepper-val" id="ls-v-r-days">14</div>
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd('r-days',1)" onmouseleave="lsHoldEnd('r-days',1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd('r-days',1)" ontouchcancel="lsHoldEnd('r-days',1)">+</button>
           </div>
         </div>
 
@@ -2450,9 +2451,9 @@
             <div class="ls-row-sub">Episodes Per Run</div>
           </div>
           <div class="ls-stepper">
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">−</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd('s-missing',-1)" onmouseleave="lsHoldEnd('s-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd('s-missing',-1)" ontouchcancel="lsHoldEnd('s-missing',-1)">−</button>
             <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd()" onmouseleave="lsHoldEnd()" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd()" ontouchcancel="lsHoldEnd()">+</button>
+            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd('s-missing',1)" onmouseleave="lsHoldEnd('s-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd('s-missing',1)" ontouchcancel="lsHoldEnd('s-missing',1)">+</button>
           </div>
         </div>
 
@@ -4750,15 +4751,17 @@ if (!MOBILE) {
     setTimeout(() => el.classList.remove('m-pressed'), 150);
   }
 
-  const M_QS_HOLD_INCREMENTS = {cooldown: 24, movies: 5, episodes: 5};
+  const M_QS_HOLD_INCREMENTS = {cooldown: 24, movies: 1, episodes: 1};
   let _mQsHoldTimer = null;
   let _mQsHoldInterval = null;
+  let _mQsHoldFired = false;
 
   function mQSHoldStart(key, dir) {
-    mHaptic(20);
-    mQSStep(key, dir, 1);
+    _mQsHoldFired = false;
     _mQsHoldTimer = setTimeout(() => {
-      const inc = M_QS_HOLD_INCREMENTS[key] || 5;
+      _mQsHoldFired = true;
+      const inc = M_QS_HOLD_INCREMENTS[key] || 1;
+      mQSStep(key, dir, inc);
       _mQsHoldInterval = setInterval(() => {
         mHaptic(10);
         mQSStep(key, dir, inc);
@@ -4766,11 +4769,16 @@ if (!MOBILE) {
     }, 500);
   }
 
-  function mQSHoldEnd() {
+  function mQSHoldEnd(key, dir) {
     clearTimeout(_mQsHoldTimer);
     clearInterval(_mQsHoldInterval);
     _mQsHoldTimer = null;
     _mQsHoldInterval = null;
+    if (!_mQsHoldFired && key !== undefined) {
+      mHaptic(20);
+      mQSStep(key, dir, 1);
+    }
+    _mQsHoldFired = false;
   }
 
   function mQSStep(key, dir, amt) {
@@ -5094,13 +5102,9 @@ function lsOvRenderPanel() {
     return `<div class="ls-ov-field">
       <label>${label}</label>
       <div class="ls-ov-stepper${active ? ' ls-ov-active' : ''}" id="ls-ov-s-${field}">
-        <button class="ls-ov-stepper-btn"
-          onmousedown="lsOvHoldStart('${field}',-1)" onmouseup="lsOvHoldEnd()" onmouseleave="lsOvHoldEnd()"
-          ontouchstart="event.preventDefault();lsOvHoldStart('${field}',-1)" ontouchend="lsOvHoldEnd()" ontouchcancel="lsOvHoldEnd()">−</button>
+        <button class="ls-ov-stepper-btn" data-ov-field="${field}" data-ov-dir="-1">−</button>
         <div class="ls-ov-stepper-val${dispVal === 0 ? ' ls-ov-zero' : ''}" id="ls-ov-sv-${field}">${dispVal}</div>
-        <button class="ls-ov-stepper-btn"
-          onmousedown="lsOvHoldStart('${field}',1)" onmouseup="lsOvHoldEnd()" onmouseleave="lsOvHoldEnd()"
-          ontouchstart="event.preventDefault();lsOvHoldStart('${field}',1)" ontouchend="lsOvHoldEnd()" ontouchcancel="lsOvHoldEnd()">+</button>
+        <button class="ls-ov-stepper-btn" data-ov-field="${field}" data-ov-dir="1">+</button>
       </div>
       <input type="hidden" id="ls-ov-f-${field}" value="${val !== '' && val !== null ? val : ''}"/>
       <span class="ls-ov-global">Global: ${gVal}</span>
@@ -5176,18 +5180,33 @@ function lsOvRenderPanel() {
           <span class="ls-ov-toggle-thumb"></span>
         </label>
       </div>`;
+
+    // Attach hold listeners programmatically — inline handlers on innerHTML elements
+    // are unreliable for sustained mousedown/touchstart hold detection
+    body.querySelectorAll('.ls-ov-stepper-btn[data-ov-field]').forEach(btn => {
+      const field = btn.dataset.ovField;
+      const dir = parseInt(btn.dataset.ovDir, 10);
+      btn.addEventListener('mousedown', () => lsOvHoldStart(field, dir));
+      btn.addEventListener('mouseup', () => lsOvHoldEnd(field, dir));
+      btn.addEventListener('mouseleave', () => lsOvHoldEnd(field, dir));
+      btn.addEventListener('touchstart', e => { e.preventDefault(); lsOvHoldStart(field, dir); }, {passive: false});
+      btn.addEventListener('touchend', () => lsOvHoldEnd(field, dir));
+      btn.addEventListener('touchcancel', () => lsOvHoldEnd(field, dir));
+    });
+  }
   }
   lsOvUpdateFooter();
 }
 
 const LS_OV_HOLD_INCREMENTS = {
   cooldown_hours:   24,
-  max_cutoff_unmet:  5,
-  max_backlog:       5,
-  max_missing_days:  7,
+  max_cutoff_unmet:  1,
+  max_backlog:       1,
+  max_missing_days:  1,
 };
 let _lsOvHoldTimer = null;
 let _lsOvHoldInterval = null;
+let _lsOvHoldFired = false;
 
 function lsOvStep(field, dir, amt) {
   const hidden = document.getElementById('ls-ov-f-' + field);
@@ -5206,22 +5225,27 @@ function lsOvStep(field, dir, amt) {
 }
 
 function lsOvHoldStart(field, dir) {
-  // Single tap fires immediately at ±1
-  lsOvStep(field, dir, 1);
-  // After 500ms hold threshold, start repeating at hold increment
+  _lsOvHoldFired = false;
   _lsOvHoldTimer = setTimeout(() => {
-    const inc = LS_OV_HOLD_INCREMENTS[field] || 5;
+    _lsOvHoldFired = true;
+    const inc = LS_OV_HOLD_INCREMENTS[field] || 1;
+    lsOvStep(field, dir, inc);
     _lsOvHoldInterval = setInterval(() => {
       lsOvStep(field, dir, inc);
     }, 400);
   }, 500);
 }
 
-function lsOvHoldEnd() {
+function lsOvHoldEnd(field, dir) {
   clearTimeout(_lsOvHoldTimer);
   clearInterval(_lsOvHoldInterval);
   _lsOvHoldTimer = null;
   _lsOvHoldInterval = null;
+  // If hold never fired, treat as single tap
+  if (!_lsOvHoldFired && field !== undefined) {
+    lsOvStep(field, dir, 1);
+  }
+  _lsOvHoldFired = false;
 }
 
 function lsOvMarkDirty() {
@@ -5822,18 +5846,21 @@ if (MOBILE) {
   }
 
   const LS_HOLD_INCREMENTS = {
-    movies: 5, episodes: 5, cooldown: 24,
+    movies: 1, episodes: 1, cooldown: 24,
     batch: 1, sleep: 1, jitter: 1,
-    'r-missing': 5, 'r-days': 7, 's-missing': 5,
+    'r-missing': 1, 'r-days': 1, 's-missing': 1,
   };
   let _lsHoldTimer = null;
   let _lsHoldInterval = null;
+  let _lsHoldFired = false;
 
   function lsHoldStart(key, dir) {
-    mHaptic(20);
-    lsStep(key, dir, 1);
+    _lsHoldFired = false;
     _lsHoldTimer = setTimeout(() => {
+      _lsHoldFired = true;
       const inc = LS_HOLD_INCREMENTS[key] || 1;
+      mHaptic(20);
+      lsStep(key, dir, inc);
       _lsHoldInterval = setInterval(() => {
         mHaptic(10);
         lsStep(key, dir, inc);
@@ -5841,11 +5868,16 @@ if (MOBILE) {
     }, 500);
   }
 
-  function lsHoldEnd() {
+  function lsHoldEnd(key, dir) {
     clearTimeout(_lsHoldTimer);
     clearInterval(_lsHoldInterval);
     _lsHoldTimer = null;
     _lsHoldInterval = null;
+    if (!_lsHoldFired && key !== undefined) {
+      mHaptic(20);
+      lsStep(key, dir, 1);
+    }
+    _lsHoldFired = false;
   }
 
   function lsStep(key, dir, amt) {

@@ -98,9 +98,11 @@ function syncPageSize(source) {
   const other = el(source === 'history' ? 'importsLimit' : 'historyLimit');
   if (other && other.value !== val) other.value = val;
 }
-async function openArrLink(app, instance, itemId) {
+async function openArrLink(app, instance, itemId, seriesId) {
   try {
-    const data = await api(`/api/arr-link?app=${encodeURIComponent(app)}&instance=${encodeURIComponent(instance)}&item_id=${encodeURIComponent(itemId)}`);
+    let url = `/api/arr-link?app=${encodeURIComponent(app)}&instance=${encodeURIComponent(instance)}&item_id=${encodeURIComponent(itemId)}`;
+    if (seriesId) url += `&series_id=${encodeURIComponent(seriesId)}`;
+    const data = await api(url);
     if (data.ok && data.url) {
       window.open(data.url, '_blank');
     } else {

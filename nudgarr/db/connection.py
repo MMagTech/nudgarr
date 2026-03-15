@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS search_history (
     instance_url      TEXT NOT NULL,
     item_type         TEXT NOT NULL,
     item_id           TEXT NOT NULL,
+    series_id         TEXT NOT NULL DEFAULT '',
     title             TEXT NOT NULL DEFAULT '',
     sweep_type        TEXT NOT NULL DEFAULT '',
     library_added     TEXT NOT NULL DEFAULT '',
@@ -145,3 +146,27 @@ def init_db() -> None:
     """
     conn = get_connection()
     _create_schema(conn)
+    _run_migration_v7(conn)
+
+
+def _run_migration_v7(conn: sqlite3.Connection) -> None:
+    """Add series_id column to search_history for Sonarr title link resolution."""
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 7"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(search_history)").fetchall()]
+        if "series_id" not in cols:
+            conn.execute(
+                "ALTER TABLE search_history ADD COLUMN series_id TEXT NOT NULL DEFAULT ''"
+            )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (7, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        print("[Migration v7] Added series_id to search_history")
+    except Exception as exc:
+        print(f"[Migration v7] FAILED: {exc}")

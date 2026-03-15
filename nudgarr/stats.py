@@ -210,4 +210,5 @@ def mark_items_searched(
             sweep_type=sweep_type,
             library_added=item.get("added") or "",
             now_ts=now_s,
+            series_id=str(item.get("series_id") or ""),
         )

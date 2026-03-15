@@ -31,19 +31,22 @@ def upsert_search_history(
     sweep_type: str,
     library_added: str,
     now_ts: str,
+    series_id: str = "",
 ) -> None:
     conn = get_connection()
     conn.execute(
         """
         INSERT INTO search_history
-            (app, instance_name, instance_url, item_type, item_id,
+            (app, instance_name, instance_url, item_type, item_id, series_id,
              title, sweep_type, library_added,
              first_searched_ts, last_searched_ts, search_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT (app, instance_url, item_type, item_id) DO UPDATE SET
             last_searched_ts = excluded.last_searched_ts,
             search_count     = search_history.search_count + 1,
             instance_name    = excluded.instance_name,
+            series_id        = CASE WHEN excluded.series_id != '' THEN excluded.series_id
+                                    ELSE search_history.series_id END,
             title            = CASE WHEN excluded.title != '' THEN excluded.title
                                     ELSE search_history.title END,
             sweep_type       = CASE WHEN excluded.sweep_type != '' THEN excluded.sweep_type
@@ -51,7 +54,7 @@ def upsert_search_history(
             library_added    = CASE WHEN excluded.library_added != '' THEN excluded.library_added
                                     ELSE search_history.library_added END
         """,
-        (app, instance_name, instance_url, item_type, item_id,
+        (app, instance_name, instance_url, item_type, item_id, series_id,
          title, sweep_type, library_added, now_ts, now_ts)
     )
     conn.commit()
@@ -129,7 +132,7 @@ def get_search_history(
 
     rows = conn.execute(
         f"""
-        SELECT app, instance_name, instance_url, item_type, item_id,
+        SELECT app, instance_name, instance_url, item_type, item_id, series_id,
                title, sweep_type, library_added,
                last_searched_ts, search_count
         FROM search_history {where_sql}
@@ -153,6 +156,7 @@ def get_search_history(
             "app": r["app"],
             "instance_name": r["instance_name"],
             "item_id": r["item_id"],
+            "series_id": r["series_id"],
             "title": r["title"],
             "instance": friendly,
             "last_searched": ts,

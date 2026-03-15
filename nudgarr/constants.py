@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "3.2.0"
+VERSION = "4.0.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -24,7 +24,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "cron_expression": "0 */6 * * *",  # default: every 6 hours on the clock
 
     "cooldown_hours": 48,
-    "sample_mode": "random",           # legacy — still accepted as fallback
     "radarr_sample_mode": "random",    # random | alphabetical | oldest_added | newest_added
     "sonarr_sample_mode": "random",    # random | alphabetical | oldest_added | newest_added
 

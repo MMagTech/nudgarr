@@ -5,15 +5,11 @@ Stats recording, import confirmation checking, and cooldown selection.
 
   Stats recording : record_stat_entry
   Import checking : check_imports
-  Cooldown logic  : is_allowed_by_cooldown,
-                    pick_items_with_cooldown, pick_ids_with_cooldown
-  State marking   : mark_items_searched, mark_ids_searched
+  Cooldown logic  : is_allowed_by_cooldown, pick_items_with_cooldown
+  State marking   : mark_items_searched
 
-Cooldown checking and state marking now query the SQLite database
+Cooldown checking and state marking query the SQLite database
 directly via db.py rather than the st_bucket dict pattern.
-
-pick_ids_with_cooldown and mark_ids_searched are legacy helpers kept
-for compatibility with any code still passing plain ID lists.
 
 Imports from within the package: db, notifications, utils.
 """
@@ -27,6 +23,7 @@ import requests
 from nudgarr import db
 from nudgarr.notifications import notify_import
 from nudgarr.utils import iso_z, parse_iso, utcnow
+
 
 # ── Stats recording ───────────────────────────────────────────────────
 
@@ -191,25 +188,6 @@ def pick_items_with_cooldown(
     return chosen, len(eligible), skipped
 
 
-def pick_ids_with_cooldown(
-    ids: List[int],
-    instance_app: str,
-    instance_name: str,
-    instance_url: str,
-    item_type: str,
-    cooldown_hours: int,
-    max_per_run: int,
-    sample_mode: str,
-) -> Tuple[List[int], int, int]:
-    """Legacy helper for plain ID lists."""
-    items = [{"id": i, "title": ""} for i in ids]
-    chosen_items, eligible, skipped = pick_items_with_cooldown(
-        items, instance_app, instance_name, instance_url, item_type,
-        cooldown_hours, max_per_run, sample_mode
-    )
-    return [it["id"] for it in chosen_items], eligible, skipped
-
-
 # ── State marking ─────────────────────────────────────────────────────
 
 def mark_items_searched(
@@ -231,28 +209,5 @@ def mark_items_searched(
             title=item.get("title") or "",
             sweep_type=sweep_type,
             library_added=item.get("added") or "",
-            now_ts=now_s,
-        )
-
-
-def mark_ids_searched(
-    instance_app: str,
-    instance_name: str,
-    instance_url: str,
-    item_type: str,
-    ids: List[int],
-) -> None:
-    """Legacy helper for plain ID lists."""
-    now_s = iso_z(utcnow())
-    for _id in ids:
-        db.upsert_search_history(
-            app=instance_app,
-            instance_name=instance_name,
-            instance_url=instance_url,
-            item_type=item_type,
-            item_id=str(_id),
-            title="",
-            sweep_type="",
-            library_added="",
             now_ts=now_s,
         )

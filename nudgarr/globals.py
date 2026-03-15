@@ -25,7 +25,8 @@ from nudgarr.constants import VERSION
 
 # ── Flask app ─────────────────────────────────────────────────────────
 
-app = Flask(__name__, template_folder="templates")
+app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
+
 
 # ── M1: Persistent secret key ─────────────────────────────────────────
 # Load from /config/nudgarr-secret.key if present, otherwise generate
@@ -54,6 +55,7 @@ def _load_or_create_secret_key() -> str:
         # Sessions will be invalidated on container restart.
         return secrets.token_hex(32)
 
+
 app.secret_key = _load_or_create_secret_key()
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_REFRESH_EACH_REQUEST"] = False
@@ -63,6 +65,7 @@ app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 # cross-site. HTTPS is not planned for this LAN-only tool.
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
+
 # ── L1: Security response headers ─────────────────────────────────────
 @app.after_request
 def _security_headers(response: Response) -> Response:
@@ -70,6 +73,7 @@ def _security_headers(response: Response) -> Response:
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
+
 
 # ── Runtime status ────────────────────────────────────────────────────
 

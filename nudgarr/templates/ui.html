@@ -929,7 +929,7 @@
     #ls-nav-overrides { display: none; }
 
     .ls-ov-rail {
-      width: calc(140px + env(safe-area-inset-left, 0px)); flex-shrink: 0;
+      width: calc(170px + env(safe-area-inset-left, 0px)); flex-shrink: 0;
       border-right: 1px solid rgba(255,255,255,.07);
       display: flex; flex-direction: column;
       overflow-y: auto; scrollbar-width: none;
@@ -938,7 +938,7 @@
     }
     .ls-ov-rail::-webkit-scrollbar { display: none; }
     .ls-ov-rail-item {
-      padding: 7px 10px; cursor: pointer;
+      padding: 9px 12px; cursor: pointer;
       border-left: 2px solid transparent;
       transition: background .12s;
       -webkit-tap-highlight-color: transparent;
@@ -953,7 +953,7 @@
       margin-bottom: 4px; gap: 3px;
     }
     .ls-ov-rail-name {
-      font-size: 11px; font-weight: 600; color: var(--text-dim);
+      font-size: 13px; font-weight: 600; color: var(--text-dim);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       flex: 1; min-width: 0;
     }
@@ -963,7 +963,7 @@
       background: var(--warn); flex-shrink: 0;
     }
     .ls-ov-chip {
-      font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
       background: rgba(99,120,255,.2); border: 1px solid rgba(99,120,255,.3); color: #a8b4ff;
       flex-shrink: 0; line-height: 1.4;
     }
@@ -971,12 +971,23 @@
       background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.1); color: var(--muted);
     }
 
+    .ls-ov-rail-item.ls-ov-disabled { opacity: .38; cursor: default; }
+    .ls-ov-rail-item.ls-ov-disabled.ls-ov-active {
+      opacity: 1; background: rgba(255,255,255,.04);
+      border-left-color: rgba(255,255,255,.15);
+    }
+    .ls-ov-rail-item.ls-ov-disabled.ls-ov-active .ls-ov-rail-name { color: var(--muted); }
+    .ls-ov-panel-disabled { opacity: .38; pointer-events: none; }
+    .ls-ov-disabled-notice {
+      grid-column: 1 / -1; font-size: 11px; color: var(--muted);
+      text-align: center; padding: 6px 0; font-style: italic;
+    }
+
     .ls-ov-panel {
       flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
-      padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
     }
     .ls-ov-body {
-      flex: 1; overflow-y: auto; min-height: 0;
+      flex: 1; overflow: hidden; min-height: 0;
       padding: 4px 12px 4px;
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -2475,7 +2486,7 @@
           <div class="ls-ov-body" id="ls-ov-body">
             <!-- Populated by lsOvRenderPanel() -->
           </div>
-          <div class="ls-ov-foot">
+          <div class="ls-ov-foot" id="ls-ov-foot">
             <button class="ls-ov-foot-reset" id="ls-ov-reset" onclick="lsOvReset()">Reset All to Global</button>
             <span class="ls-ov-foot-mid ls-ov-foot-inherited" id="ls-ov-status">Global Inherited</span>
             <button class="ls-ov-foot-apply" id="ls-ov-apply" onclick="lsOvApply()">Apply</button>
@@ -5010,10 +5021,11 @@ function lsOvRenderRail() {
       const ovCount = Object.keys(inst.overrides || {}).length;
       const isPending = !!LS_OV_PENDING[key];
       const isActive = LS_OV_SEL && LS_OV_SEL.kind === kind && LS_OV_SEL.idx === idx;
+      const isDisabled = inst.enabled === false;
       const chipClass = ovCount > 0 ? 'ls-ov-chip' : 'ls-ov-chip ls-ov-zero';
-      const dotColor = kind === 'sonarr' ? 'var(--ok)' : 'var(--accent)';
-      html += `<div class="ls-ov-rail-item${isActive ? ' ls-ov-active' : ''}"
-          onclick="lsOvSelectInstance('${kind}',${idx})">
+      const dotColor = isDisabled ? 'var(--muted)' : (kind === 'sonarr' ? 'var(--ok)' : 'var(--accent)');
+      html += `<div class="ls-ov-rail-item${isActive ? ' ls-ov-active' : ''}${isDisabled ? ' ls-ov-disabled' : ''}"
+          onclick="${isDisabled ? '' : `lsOvSelectInstance('${kind}',${idx})`}">
         <div class="ls-ov-rail-row1">
           <span style="width:5px;height:5px;border-radius:50%;background:${dotColor};flex-shrink:0;display:inline-block;margin-right:4px"></span>
           <span class="ls-ov-rail-name">${escapeHtml(inst.name)}</span>
@@ -5148,9 +5160,12 @@ function lsOvRenderPanel() {
   const notActive = 'notifications_enabled' in ov || (pending && 'notifications_enabled' in pending) ? ' ls-ov-active' : '';
   const notSub = `Global: ${gNot ? 'On' : 'Off'}`;
 
+  const isInstDisabled = inst.enabled === false;
+
   const body = document.getElementById('ls-ov-body');
   if (body) {
     body.dataset.dirty = pending ? '1' : '0';
+    body.classList.toggle('ls-ov-panel-disabled', isInstDisabled);
     body.innerHTML = `
       ${numField('cooldown_hours','Cooldown Hours')}
       ${modeField}
@@ -5168,7 +5183,8 @@ function lsOvRenderPanel() {
           <span class="ls-ov-toggle-track"></span>
           <span class="ls-ov-toggle-thumb"></span>
         </label>
-      </div>`;
+      </div>
+      ${isInstDisabled ? '<div class="ls-ov-disabled-notice">Instance is disabled. Enable it in Instances to configure overrides.</div>' : ''}`;
 
     // Attach hold listeners programmatically — inline handlers on innerHTML elements
     // are unreliable for sustained mousedown/touchstart hold detection
@@ -5182,6 +5198,12 @@ function lsOvRenderPanel() {
       btn.addEventListener('touchend', () => lsOvHoldEnd(field, dir));
       btn.addEventListener('touchcancel', () => lsOvHoldEnd(field, dir));
     });
+
+    const foot = document.getElementById('ls-ov-foot');
+    if (foot) {
+      foot.style.opacity = isInstDisabled ? '.38' : '';
+      foot.style.pointerEvents = isInstDisabled ? 'none' : '';
+    }
   }
   lsOvUpdateFooter();
 }

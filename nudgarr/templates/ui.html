@@ -1932,28 +1932,28 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v3.1.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v3.2.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🗄️ SQLite Database</div>
-           <div class="help">All history, stats, and exclusions now live in a local SQLite database. Existing data migrates automatically on first start — no action required.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⊙ Per-Instance Overrides</div>
+           <div class="help">Fine-tune cooldown, caps, backlog, and notifications independently for each instance. Enable in Settings and configure in the Overrides tab on desktop or landscape on mobile.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🕐 Cron Scheduling</div>
-           <div class="help">The run interval is now a cron expression — default <code>0 */6 * * *</code>. Set a <code>TZ</code> env var to match your timezone. Nudgarr no longer runs on startup — the first sweep fires when the cron next fires or you press Run Now. Existing intervals are converted automatically on upgrade.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎬 Radarr Availability Filter</div>
+           <div class="help">Movies that haven't reached their minimum availability threshold are now automatically skipped during sweeps.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⏭️ Skip Queued</div>
-           <div class="help">Items already in your download queue are silently skipped during sweeps. They never consume a search slot — your max per run is always filled from items that actually need a nudge.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔗 Clickable Titles</div>
+           <div class="help">Titles in History and Imports are now clickable — tap or click to open the item directly in your Radarr or Sonarr instance.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔄 Import Iteration Tracking</div>
-           <div class="help">The Imports tab now tracks how many times an item has been through the full search-and-download cycle. Re-imports show a ×2, ×3 badge, and turnaround measures from the very first search.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔔 Per-Instance Notifications</div>
+           <div class="help">Sweep complete notifications now show per-instance results. Instances with notifications disabled via override are silently skipped.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔗 Open in Radarr / Sonarr</div>
-           <div class="help">Click any title in History or Imports to jump straight to that item in Radarr or Sonarr. Hover to see which app will open.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🕐 Sweep Log Timestamps</div>
+           <div class="help">Sweep log entries now show a timestamp instead of a cycle number, making it easier to correlate sweeps with external events.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">

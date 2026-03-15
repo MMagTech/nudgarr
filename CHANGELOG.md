@@ -8,7 +8,59 @@ All notable changes to Nudgarr are documented here.
 
 **Per-Instance Overrides**
 
-- Full changelog entry to be completed before main push
+- Seven fields per instance: cooldown hours, max cutoff unmet, max backlog, max missing days, sample mode, backlog enabled, notifications enabled
+- Sparse storage — only fields that differ from global are saved; unset fields inherit global automatically
+- Model B override logic — any field set on an instance fully supersedes the global for that instance
+- Sonarr instances omit max missing days (Radarr-only field)
+- Sample mode uses a `__global__` sentinel for the Use Global option
+- Batch size, sleep, jitter, and auth remain global only
+
+**Desktop overrides UI**
+
+- New Overrides tab between Instances and Sweep with animated slide transition
+- Per-instance panel with all seven fields, Global hint below each field
+- Per-card Apply button with debounce, dirty state tracking, Pending indicator in footer
+- Reset All to Global with confirm dialog
+- One-time modal on first enable explaining overrides behaviour
+- Backlog and Notifications toggle rows show Global: On/Off inline
+
+**Mobile overrides**
+
+- Enable toggle in Quick Settings sheet with animated callout that flips to accent style when active
+- First-time modal on first mobile enable (separate flag from desktop) explaining global vs override relationship and Apply requirement
+- Landscape third nav tab (⊙) hidden until overrides enabled
+- Left rail showing all instances with override count chip and pending dot
+- Left rail and right panel layout in landscape with safe area inset on rail
+- Steppers replace number inputs — hold cooldown to accelerate by 24, all others by 1
+- Stepper buttons use programmatic addEventListener for reliable hold detection
+- Per-instance Apply and Reset All to Global in landscape footer
+- Backlog and Notifications sub-labels simplified to show Global value only
+
+**Notifications**
+
+- Sweep complete notification is now per-instance aware — each line shows the instance name and searched counts; instances with notifications disabled are silently skipped; instances that searched nothing are omitted
+- Import Confirmed notification body updated to `"{title} imported via {instance}."`
+- Error notifications respect per-instance notifications_enabled
+
+**Radarr minimumAvailability filter**
+
+- Movies whose minimumAvailability threshold has not been reached are skipped during cutoff unmet and backlog sweeps
+- Release date resolved from physicalRelease → digitalRelease → inCinemas in that order
+- Per-movie log line printed when a movie is skipped due to availability
+
+**Backend**
+
+- `arr_clients.py`: extracted `_radarr_movies_from_wanted` shared helper used by both cutoff unmet and backlog Radarr fetches, matching the existing Sonarr pattern
+- Sweep log separator now shows timestamp (`--- Sweep 2026-03-14 18:42 UTC ---`) instead of cycle number
+- `PYTHONUNBUFFERED=1` added to Dockerfile — log output appears immediately without buffering
+- Contributor docstrings added to `sweep.py`, `scheduler.py`, `notifications.py`, and `config.py`
+
+**Desktop UI**
+
+- Titles in History and Imports are now clickable — clicking opens the item directly in the configured Radarr or Sonarr instance
+- Instance modal shows a soft amber URL path warning when the entered URL contains a path component
+- Confirm and alert modals moved to body level so they render correctly in all UI modes
+- Tab gap between Instances and Sweep fixed
 
 ---
 

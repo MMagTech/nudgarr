@@ -118,7 +118,7 @@
       color: var(--accent-lt); font-weight: 600; padding: 8px 18px;
     }
     .btn.run-now:hover { background: rgba(91,114,245,.2); border-color: var(--accent); color: #d0daff; box-shadow: 0 0 20px rgba(91,114,245,.18); }
-    .btn.sign-out { padding: 6px 12px; font-size: 12px; border-radius: 999px; }
+    .btn.sign-out, .btn.donate { padding: 6px 12px; font-size: 12px; border-radius: 999px; }
 
     /* ── Modal ── */
     .modal-backdrop {

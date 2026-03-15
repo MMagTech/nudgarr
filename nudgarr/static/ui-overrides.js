@@ -58,7 +58,7 @@ function _getGlobal(kind, field) {
 
 function _ovCardId(kind, idx) { return `ov-card-${kind}-${idx}`; }
 
-function _buildOverrideCard(kind, idx, inst) {
+function _buildOverrideCard(kind, idx, inst, solo = false) {
   const ov = inst.overrides || {};
   const cardId = _ovCardId(kind, idx);
   const ovCount = Object.keys(ov).length;
@@ -153,7 +153,7 @@ function _buildOverrideCard(kind, idx, inst) {
     ? `${notifyVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalNotify ? 'On' : 'Off'}`
     : `${notifyVal ? 'On' : 'Off'} (Global: ${globalNotify ? 'On' : 'Off'})`;
 
-  return `<div class="ov-card" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
+  return `<div class="${'ov-card' + (solo ? ' ov-solo' : '')}" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
         <div class="${badgeClass}" style="${badgeStyle}"><div class="${dotClass}" style="${dotStyle}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
@@ -192,12 +192,18 @@ function renderOverridesCards() {
   const grid = el('overrides-grid');
   if (!grid) return;
   let html = '';
+  let hasAny = false;
   ['radarr', 'sonarr'].forEach(kind => {
-    (CFG.instances[kind] || []).forEach((inst, idx) => {
-      html += _buildOverrideCard(kind, idx, inst);
+    const insts = CFG.instances[kind] || [];
+    if (!insts.length) return;
+    hasAny = true;
+    const label = kind.charAt(0).toUpperCase() + kind.slice(1);
+    html += `<div class="ov-divider"><span class="ov-divider-label">${label}</span><span class="ov-divider-line"></span></div>`;
+    insts.forEach((inst, idx) => {
+      html += _buildOverrideCard(kind, idx, inst, insts.length === 1);
     });
   });
-  grid.innerHTML = html || '<p class="help" style="color:var(--muted)">No instances configured.</p>';
+  grid.innerHTML = hasAny ? html : '<p class="help" style="color:var(--muted)">No instances configured.</p>';
 }
 
 function renderSingleOverrideCard(kind, idx) {

@@ -265,6 +265,7 @@ Nudgarr intentionally supports only Radarr and Sonarr. If you want to add Readar
 - **Sweep:** add a `_sweep_<app>_instance` function in `sweep.py` and call it from `run_sweep`
 - **Database:** the schema is keyed by app name — adding a new app type flows through automatically
 - **UI:** the instance cards, sweep cards, and history filters are all data-driven — adding a new app type flows through automatically once the backend returns data for it
+- **Overrides tab:** `renderOverridesCards()` in `ui-overrides.js` uses `.ov-divider:first-child { margin-top: 0 }` to remove top margin from the first divider. This assumes the loop order `['radarr', 'sonarr']` always places Radarr first. If a third app is added, replace the `:first-child` rule with an explicit `.ov-divider-first` class applied in `renderOverridesCards()` when building the first divider.
 
 ---
 

@@ -184,6 +184,17 @@
       border-bottom-color: rgba(91,114,245,.08);
     }
 
+    .ov-divider {
+      grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;
+      margin: 6px 0 2px;
+    }
+    .ov-divider:first-child { margin-top: 0; }
+    .ov-divider-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted); white-space: nowrap;
+    }
+    .ov-divider-line { flex: 1; height: 1px; background: var(--border); }
+
     /* ── Override cards ── */
     .ov-card {
       border: 1px solid var(--border); background: var(--card);
@@ -191,6 +202,7 @@
       transition: border-color .2s;
     }
     .ov-card.ov-dirty { border-color: rgba(245,158,11,.4); }
+    .ov-card.ov-solo { grid-column: 1 / -1; }
     .ov-card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .ov-badge {
       display: inline-flex; align-items: center; gap: 5px;

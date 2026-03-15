@@ -67,8 +67,6 @@ validate.py                 ← pre-package static analysis tool
 
 All persistence goes through the `nudgarr/db/` package. Import from it as `from nudgarr.db import ...` or `from nudgarr import db`.
 
-There are no JSON state files in v3.1.0+ — on first start after upgrading from an older version, existing JSON files are migrated automatically.
-
 The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FILE` env var). Schema is defined in `_SCHEMA_SQL` in `nudgarr/db/connection.py` and applied by `init_db()`. Migrations are versioned in the `schema_migrations` table. If adding a new migration, write a new `_run_migration_vN` function in `nudgarr/db/connection.py` and call it from `init_db()`. Do not modify or remove existing migration functions — they may have already run on installed databases.
 
 Key tables:

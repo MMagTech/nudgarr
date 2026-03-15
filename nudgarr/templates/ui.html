@@ -925,7 +925,7 @@
     .m-callout-b.m-sub-entering { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
     /* ── Landscape Overrides tab ── */
-    #ls-tab-overrides { display: flex; overflow: hidden; padding: 0; padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+    #ls-tab-overrides { display: flex; overflow: hidden; padding: 0; }
     #ls-nav-overrides { display: none; }
 
     .ls-ov-rail {
@@ -973,6 +973,7 @@
 
     .ls-ov-panel {
       flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+      padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
     }
     .ls-ov-body {
       flex: 1; overflow: visible; min-height: 0;

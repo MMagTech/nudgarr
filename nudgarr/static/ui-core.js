@@ -90,7 +90,7 @@ async function loadAll() {
   else if (ovTab) ovTab.classList.remove('ov-tab-visible');
   // Sync mobile overrides state (portrait sub-labels + landscape nav)
   if (typeof mOvUpdateSubLabels === 'function') mOvUpdateSubLabels();
-  mInitRunBtn();
+  if (typeof mInitRunBtn === 'function') mInitRunBtn();
 }
 // ── Page size memory (shared across History and Stats) ──
 function syncPageSize(source) {

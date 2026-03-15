@@ -75,6 +75,13 @@ def _security_headers(response: Response) -> Response:
     return response
 
 
+# ── L2: Release DB connection at end of each request context ──────────
+@app.teardown_appcontext
+def _close_db_connection(exc: object) -> None:
+    from nudgarr import db
+    db.close_connection()
+
+
 # ── Runtime status ────────────────────────────────────────────────────
 
 STATUS: Dict[str, Any] = {

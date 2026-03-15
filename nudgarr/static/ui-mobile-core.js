@@ -167,7 +167,7 @@ async function mToggleMobileOverrides() {
       if (modal) { modal.style.display = 'flex'; modal.classList.add('m-visible'); }
     }
     // If disabling and currently on overrides tab in landscape, go back to settings
-    if (!newVal && typeof LS_TAB !== 'undefined' && LS_TAB === 2) lsSwitchTab(0);
+    if (!newVal && lsIsOnOverridesTab()) lsSwitchTabSafe(0);
   } catch(e) {
     // Revert toggle on failure
     const togEl = document.getElementById('m-ov-toggle');

@@ -563,7 +563,17 @@ async function mLoadImports(type) {
 }
 
 
-// ── Mobile poll ──
+// ── Module-level bridge ───────────────────────────────────────────────────────
+// Allows ui-mobile-core.js to trigger a landscape tab switch without accessing
+// block-scoped LS_TAB or lsSwitchTab directly (both live inside if(MOBILE)).
+function lsSwitchTabSafe(idx) {
+  if (typeof lsSwitchTab === 'function') lsSwitchTab(idx);
+}
+
+function lsIsOnOverridesTab() {
+  return typeof LS_TAB !== 'undefined' && LS_TAB === 2;
+}
+
 // ── Mobile init ──
 
 if (MOBILE) {

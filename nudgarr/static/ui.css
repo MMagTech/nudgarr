@@ -1,3 +1,17 @@
+    @font-face {
+      font-family: 'Outfit';
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url('/static/fonts/Outfit[wght].woff2') format('woff2-variations');
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-style: normal;
+      font-weight: 100 800;
+      font-display: swap;
+      src: url('/static/fonts/JetBrainsMono[wght].woff2') format('woff2-variations');
+    }
     :root {
       --bg:            #0c0e1a;
       --surface:       #111320;
@@ -351,12 +365,12 @@
     .inst-card {
       border: 1px solid var(--border); border-radius: 10px;
       padding: 12px 14px; margin-top: 8px; background: var(--surface);
-      display: flex; align-items: center; gap: 12px;
+      display: flex; flex-direction: column; gap: 0;
       transition: border-color .15s;
     }
     .inst-card:hover { border-color: var(--border-md); }
-    .inst-card .inst-row1 { display: flex; align-items: center; gap: 10px; }
-    .inst-card .inst-row2 { display: flex; align-items: center; justify-content: space-between; }
+    .inst-card .inst-row1 { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .inst-card .inst-row2 { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 10px; }
     .inst-card .inst-info { flex: 1; min-width: 0; }
     .inst-card .inst-name { font-size: 13px; font-weight: 600; color: var(--text); }
     .inst-card .inst-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -374,10 +388,17 @@
     .sweep-url { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace; }
     .sweep-right { display: flex; align-items: center; gap: 8px; }
     .sweep-lastrun { font-size: 11px; color: var(--muted); }
-    /* 4-column stats grid */
+    /* 4-column stats grid (legacy merged style) */
     .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
     .stat-cell { padding: 10px 12px; border-right: 1px solid var(--border); }
     .stat-cell:last-child { border-right: none; }
+    /* Two-section sweep card layout */
+    .section-band { margin-bottom: 8px; }
+    .section-lbl { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; padding-left: 1px; }
+    .stats-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .stats-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
+    .stats-grid-2 .stat-cell,
+    .stats-grid-4 .stat-cell { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); border-right: 1px solid var(--border); }
     .stat-lbl { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .stat-val { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.1; }
     .stat-val.accent { color: var(--accent-lt); }

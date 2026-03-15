@@ -46,27 +46,39 @@ async function refreshSweep() {
       // Last run stats — use cache if instance absent from this sweep (disabled)
       const cacheKey = `${kind}|${inst.name}`;
       if (sw) {
-        const sr = (sw.searched || 0) + (sw.searched_missing || 0);
+        const sr  = (sw.searched || 0) + (sw.searched_missing || 0);
         const el_ = (sw.eligible || 0) + (sw.eligible_missing || 0);
         SWEEP_DATA_CACHE[cacheKey] = {
           cutoffUnmet: sw.cutoff_unmet_total ?? '—',
-          searched: sr,
-          onCooldown: (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
-          capped: Math.max(0, el_ - sr),
+          backfill:    sw.missing_total ?? 0,
+          eligible:    el_,
+          searched:    sr,
+          onCooldown:  (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
+          capped:      Math.max(0, el_ - sr),
         };
       }
-      const cached = SWEEP_DATA_CACHE[cacheKey] || null;
+      const cached  = SWEEP_DATA_CACHE[cacheKey] || null;
       const hasData = cached != null;
-      const dim = 'dim';
+      const dim     = 'dim';
 
-      const cuVal   = hasData ? cached.cutoffUnmet : '—';
-      const srVal   = hasData ? cached.searched    : '—';
-      const cdVal   = hasData ? cached.onCooldown  : '—';
-      const capVal  = hasData ? cached.capped      : '—';
-      const cuDim   = hasData ? (cached.cutoffUnmet === '—' ? dim : '') : dim;
-      const srDim   = hasData ? 'accent' : dim;
-      const cdDim   = dim;
-      const capDim  = dim;
+      // Library State — retained on disabled cards (reflects library, not run activity)
+      const cuVal  = hasData ? cached.cutoffUnmet : '—';
+      const bfVal  = hasData ? cached.backfill    : '—';
+      const cuDim  = hasData ? (cached.cutoffUnmet === '—' ? dim : '') : dim;
+      const bfDim  = hasData ? '' : dim;
+
+      // This Run — dashed on disabled cards (no run occurred)
+      const elVal  = (!disabled && hasData) ? cached.eligible   : '—';
+      const srVal  = (!disabled && hasData) ? cached.searched   : '—';
+      const cdVal  = (!disabled && hasData) ? cached.onCooldown : '—';
+      const capVal = (!disabled && hasData) ? cached.capped     : '—';
+      const elDim  = (!disabled && hasData) ? ''       : dim;
+      const srDim  = (!disabled && hasData) ? 'accent' : dim;
+      const cdDim  = dim;
+      const capDim = dim;
+
+      // Backfill sub-label is app-specific
+      const bfSub  = kind === 'radarr' ? 'Movies missing' : 'Episodes missing';
 
       // Lifetime grid — show when any lifetime data exists
       const ltSearched = lf ? (lf.searched ?? 0) : null;
@@ -96,11 +108,21 @@ async function refreshSweep() {
               <span class="sweep-lastrun">${escapeHtml(lastRun)}</span>
             </div>
           </div>
-          <div class="stats-grid">
-            <div class="stat-cell"><div class="stat-lbl">Cutoff Unmet</div><div class="stat-val ${cuDim}">${cuVal}</div><div class="stat-sub">Library</div></div>
-            <div class="stat-cell"><div class="stat-lbl">Searched</div><div class="stat-val ${srDim}">${srVal}</div><div class="stat-sub">This run</div></div>
-            <div class="stat-cell"><div class="stat-lbl">Cooldown</div><div class="stat-val ${cdDim}">${cdVal}</div><div class="stat-sub">Skipped</div></div>
-            <div class="stat-cell"><div class="stat-lbl">Capped</div><div class="stat-val ${capDim}">${capVal}</div><div class="stat-sub">Over limit</div></div>
+          <div class="section-band">
+            <div class="section-lbl">Library State</div>
+            <div class="stats-grid-2">
+              <div class="stat-cell"><div class="stat-lbl">Cutoff Unmet</div><div class="stat-val ${cuDim}">${cuVal}</div><div class="stat-sub">In library</div></div>
+              <div class="stat-cell"><div class="stat-lbl">Backfill</div><div class="stat-val ${bfDim}">${bfVal}</div><div class="stat-sub">${bfSub}</div></div>
+            </div>
+          </div>
+          <div class="section-band">
+            <div class="section-lbl">This Run</div>
+            <div class="stats-grid-4">
+              <div class="stat-cell"><div class="stat-lbl">Eligible</div><div class="stat-val ${elDim}">${elVal}</div><div class="stat-sub">In scope</div></div>
+              <div class="stat-cell"><div class="stat-lbl">Searched</div><div class="stat-val ${srDim}">${srVal}</div><div class="stat-sub">Triggered</div></div>
+              <div class="stat-cell"><div class="stat-lbl">Cooldown</div><div class="stat-val ${cdDim}">${cdVal}</div><div class="stat-sub">Skipped</div></div>
+              <div class="stat-cell"><div class="stat-lbl">Capped</div><div class="stat-val ${capDim}">${capVal}</div><div class="stat-sub">Over limit</div></div>
+            </div>
           </div>
           ${lifetimeGrid}
         </div>`;

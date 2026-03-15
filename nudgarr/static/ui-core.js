@@ -47,11 +47,12 @@ async function api(path, opts) {
 }
 
 function updateStatusPill(schedulerEnabled) {
+  const dot = el('dot-scheduler');
   if (schedulerEnabled) {
-    el('dot-scheduler').style.background = 'var(--ok)';
+    dot.classList.add('ok');
     el('txt-scheduler').textContent = 'AUTO';
   } else {
-    el('dot-scheduler').style.background = '#a78bfa';
+    dot.classList.remove('ok');
     el('txt-scheduler').textContent = 'MANUAL';
   }
 }

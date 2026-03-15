@@ -46,7 +46,7 @@ function checkModalUrlPath(val) {
     const isPagePath = PAGE_PATTERNS.some(p => p.test(path));
     const hasDeepPath = path.split('/').filter(Boolean).length > 1;
     if (isPagePath) {
-      msg.innerHTML = `⚠️ URL appears to include a page path. The instance URL should end at the port — e.g. <code style="background:rgba(99,120,255,.12);border:1px solid rgba(99,120,255,.2);border-radius:4px;padding:1px 5px;font-size:11px;color:#a8b4ff">${parsed.origin}</code>`;
+      msg.innerHTML = `⚠️ URL appears to include a page path. The instance URL should end at the port — e.g. <code style="background:rgba(91,114,245,.12);border:1px solid rgba(91,114,245,.2);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--accent-lt)">${parsed.origin}</code>`;
       warn.classList.add('visible');
     } else if (hasDeepPath) {
       msg.innerHTML = `⚠️ URL includes a subpath. If this is a reverse proxy base URL that's fine — otherwise it should end at the port.`;

@@ -6,17 +6,29 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.0.0
 
-**Foundations release — no new features. Clean, contributor-friendly codebase baseline.**
+**Foundations release — structural cleanup, Sonarr link fix, and UI refresh.**
+
+**UI**
+
+- Refreshed visual design — deeper background palette, accent colour updated to `#5b72f5`, new CSS token set including `--accent-lt`, `--radius`, `--border-md`
+- Typography updated to Outfit (UI text) and JetBrains Mono (code/mono elements), served via system font stack with graceful fallback — no external CDN dependency
+- Sweep cards redesigned — lifetime Searched and Sweep Runs now shown below per-run stats; Disabled badge replaces full-card dim; last run moved to card header
+- Header and status bar restructured — three separate pills consolidated into a single segmented status bar; scheduler state uses CSS class toggle instead of inline style
+- Overrides tab label updated to include ⊙ glyph
 
 **Backend cleanup**
 
-- `db.py` — collapsed all migration functions into the base `_SCHEMA_SQL`. Removed `_run_migration`, `_run_migration_v2` through `_run_migration_v6`, `_migrate_exclusions`, `_migrate_state`, `_migrate_stats`. All installs are on the final schema by now; the migration chain served its purpose. `init_db` is now a single schema creation call.
+- `db.py` — collapsed all migration functions into the base `_SCHEMA_SQL`. Removed `_run_migration`, `_run_migration_v2` through `_run_migration_v6`, `_migrate_exclusions`, `_migrate_state`, `_migrate_stats`. All installs are on the final schema by now; the migration chain served its purpose. `init_db` applies the base schema and runs any pending post-reset migrations.
 - `constants.py` — removed legacy `sample_mode` key from `DEFAULT_CONFIG`. Old installs that still had this key will have had it migrated away before v4.0.
 - `sweep.py` — removed `legacy_mode` fallback variable in `run_sweep`. Both per-app sample mode lookups now fall back to `"random"` directly.
 - `stats.py` — removed `pick_ids_with_cooldown` and `mark_ids_searched`. Both had zero call sites in the codebase and were explicitly documented as legacy helpers.
 - `state.py` — removed dead stubs: `load_state`, `ensure_state_structure`, `save_state`, `load_stats`, `save_stats`, `save_exclusions`. All had zero external callers. Active functions (`state_key`, `load_exclusions`, `prune_state_by_retention`) kept.
 - `ui.html` — renamed element IDs `pill-dryrun`, `dot-dryrun`, `txt-dryrun` to `pill-scheduler`, `dot-scheduler`, `txt-scheduler`. These IDs show AUTO/MANUAL scheduler state and never had anything to do with dry run mode, which was scratched.
 - Flake8 — fixed E302/E303/E305 blank line violations in `globals.py`, `state.py`, `stats.py`, `db.py`. CI ignore list trimmed to `E501,W503` only.
+
+**Bug fixes**
+
+- Sonarr clickable titles now correctly open the series page in Sonarr. Previously the arr-link route used the episode ID to look up the series, which would fail. `series_id` is now stored in `search_history`, returned by the history API, and passed through to `/api/arr-link`. Migration v7 adds the column to existing installs.
 
 ---
 

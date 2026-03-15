@@ -150,7 +150,13 @@ def init_db() -> None:
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
-    """Add series_id column to search_history for Sonarr title link resolution."""
+    """Add series_id column to search_history for Sonarr title link resolution.
+
+    NOTE: This migration was added during the v4.0.0 nightly cycle after the
+    schema reset, so it cannot be folded into _SCHEMA_SQL. It handles all
+    existing installs including v3.2.0 upgrades. Future columns added before
+    a major version boundary should follow the same pattern.
+    """
     existing = conn.execute(
         "SELECT version FROM schema_migrations WHERE version = 7"
     ).fetchone()

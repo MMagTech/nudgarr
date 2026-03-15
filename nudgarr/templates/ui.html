@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-  <meta name="theme-color" content="#181a28"/>
+  <meta name="theme-color" content="#111320"/>
   <title>Nudgarr</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2311131f'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%236366f1'%3EN%3C/text%3E%3C/svg%3E"/>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='ui.css') }}">
 </head>
 <body>
@@ -13,24 +13,29 @@
 
   <!-- Header -->
   <div class="header">
-    <div class="brand">
-      <h1><span class="wordmark" id="wordmark">Nudgarr</span></h1>
-      <p>Sweeping your library, one nudge at a time.</p>
+    <div>
+      <div class="wordmark" id="wordmark">Nudgarr</div>
+      <div class="tagline">Sweeping your library, one nudge at a time.</div>
     </div>
     <div class="header-right">
-      <div class="pill" id="pill-scheduler"><span class="dot" id="dot-scheduler"></span><span id="txt-scheduler">Loading…</span></div>
-      <div class="pill" id="pill-lastrun"><span>Last: <span id="lastRun">—</span></span></div>
-      <div class="pill"><span>Next: <span id="nextRun">—</span></span></div>
-      <button class="btn run-now" onclick="runNow()">Run Now</button>
+      <div class="status-bar">
+        <div class="status-seg">
+          <div class="run-dot" id="dot-scheduler"></div>
+          <span id="txt-scheduler">Loading…</span>
+        </div>
+        <div class="status-seg">Last: <strong id="lastRun">—</strong></div>
+        <div class="status-seg">Next: <strong id="nextRun">—</strong></div>
+      </div>
+      <button class="btn run-now" onclick="runNow()">▷ Run Now</button>
       <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
-      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="pill clickable" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Donate</a>
+      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="btn sign-out" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Donate</a>
     </div>
   </div>
 
   <!-- Tabs -->
-  <div class="tabs">
+  <div class="tabs" id="tabs">
     <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
-    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">Overrides</div>
+    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">⊙ Overrides</div>
     <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
@@ -82,7 +87,7 @@
         <div class="row" style="margin-bottom:12px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Radarr</span>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 8px">Movie sweep activity — last run and lifetime totals.</p>
@@ -92,7 +97,7 @@
         <div class="row" style="margin-bottom:12px">
           <div class="tooltip-wrap">
             <span class="section-label" style="margin:0">Sonarr</span>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
           </div>
         </div>
         <p class="help" style="margin:0 0 8px">Episode sweep activity — last run and lifetime totals.</p>
@@ -136,7 +141,7 @@
           <div class="field" style="max-width:240px;">
             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
               <label style="margin:0">Cron Expression</label>
-              <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px; color:#818cf8; opacity:0.7; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; margin-left:8px;">cron generator ↗</a>
+              <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent-lt); opacity:0.7; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; margin-left:8px;">cron generator ↗</a>
             </div>
             <div style="position:relative; display:inline-block; width:100%">
               <input type="text" id="cron_expression" class="cron-expr-input" placeholder="e.g. 0 */6 * * *" oninput="validateCronExpr(); markUnsaved('setMsg')" autocomplete="off" spellcheck="false"/>
@@ -638,8 +643,12 @@
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎨 Refreshed UI</div>
+           <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards that now show lifetime stats alongside per-run counts. Everything works the same; it just looks sharper.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
-           <div class="help">v4.0.0 is a foundations release — no new features, no behaviour changes. The database layer is now a structured package instead of a single large file, and the UI loads from separate static files that your browser can cache independently. Nothing about your settings, data, or workflows has changed.</div>
+           <div class="help">v4.0.0 is a foundations release — no new features, no behaviour changes to your settings or workflows. The database layer is now a structured package instead of a single large file, and the UI loads from separate static files that your browser can cache independently.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -676,7 +685,7 @@
 
   <!-- ══ Per-Instance Overrides Modal ══ -->
   <div class="modal-backdrop" id="overridesInfoModal" style="display:none">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;border-color:rgba(99,120,255,.2)">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;border-color:rgba(91,114,245,.2)">
       <h2 style="margin:0 0 4px">Per-Instance Overrides — How it works</h2>
       <p class="help" style="margin:0 0 16px;color:var(--muted)">Read this once — it won't show again.</p>
       <div style="display:flex;flex-direction:column;gap:7px">
@@ -960,11 +969,11 @@
       <div style="padding:20px 18px 0">
         <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Per-Instance Overrides</div>
         <div style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:12px">Fine-tune cooldown, caps, backlog, and notifications independently for each instance. Configure in landscape, tap ⊙ in the bottom nav.</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(99,120,255,.07);border:1px solid rgba(99,120,255,.15);border-radius:10px;margin-bottom:8px">Quick Settings and the home toggles always edit global values. Instances with overrides applied use their own values instead and won't be affected by the global.</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(99,120,255,.07);border:1px solid rgba(99,120,255,.15);border-radius:10px;margin-bottom:18px">Overrides only take effect once you Apply them on each instance in landscape.</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(91,114,245,.07);border:1px solid rgba(91,114,245,.15);border-radius:10px;margin-bottom:8px">Quick Settings and the home toggles always edit global values. Instances with overrides applied use their own values instead and won't be affected by the global.</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(91,114,245,.07);border:1px solid rgba(91,114,245,.15);border-radius:10px;margin-bottom:18px">Overrides only take effect once you Apply them on each instance in landscape.</div>
       </div>
       <div style="padding:0 18px 20px">
-        <button onclick="mDismissOvModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,rgba(99,120,255,.25),rgba(99,120,255,.15));border:1px solid var(--accent-border);border-radius:12px;color:#c0caff;font-size:14px;font-weight:600;cursor:pointer">Continue</button>
+        <button onclick="mDismissOvModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,rgba(91,114,245,.25),rgba(91,114,245,.15));border:1px solid var(--accent-border);border-radius:12px;color:#d0daff;font-size:14px;font-weight:600;cursor:pointer">Continue</button>
       </div>
     </div>
   </div>

@@ -83,10 +83,10 @@ Add your Apprise-compatible URL, choose which events to be notified on, and use 
     title: "Step 8 — Reading Your Sweep Stats",
     body: `The Sweep tab is your feedback loop — it shows you exactly what happened each run so you can tune Nudgarr to work best for your setup.
 <br><br>
-<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">Library State</strong><br>
+<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br>
 Cutoff Unmet and Backfill reflect the current state of your library as reported by your Radarr and Sonarr instances. They update as your library changes — not as a direct result of sweeps.
 <br><br>
-<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6378ff">This Run</strong><br>
+<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br>
 <strong>Eligible</strong> — how many items were ready to search this run. If this is consistently low your cooldown may be too long.<br><br>
 <strong>On Cooldown</strong> — items that were found but aren't ready yet. This is normal and healthy — it means the system is pacing itself.<br><br>
 <strong>Capped</strong> — items that were eligible but didn't get searched because the per-run cap was reached. If this is consistently high consider raising your Max Per Run gradually.<br><br>

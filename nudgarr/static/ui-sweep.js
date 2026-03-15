@@ -27,14 +27,13 @@ async function refreshSweep() {
     const summaryInsts = summary[kind] || [];
     listEl.innerHTML = insts.map(inst => {
       const instKey = `${kind}|${inst.name}`;
-      const sk = `${kind}|${inst.name}|${(inst.url || '').replace(/\/+$/, '')}`;
       const dotState = health[instKey] || 'checking';
       const disabled = inst.enabled === false;
       const sw = summaryInsts.find(s => s.name === inst.name);
       const modeKey = kind === 'radarr' ? 'radarr_sample_mode' : 'sonarr_sample_mode';
       const mode = cfg[modeKey] || legacyMode || 'random';
 
-      // Lifetime stats no longer shown on card but last_run_utc still used
+      // Lifetime row for this instance
       const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
       const lf = lk ? lifetime[lk] : null;
       if (lf?.last_run_utc) SWEEP_LIFETIME_CACHE[`${kind}|${inst.name}`] = lf.last_run_utc;
@@ -47,76 +46,63 @@ async function refreshSweep() {
       // Last run stats — use cache if instance absent from this sweep (disabled)
       const cacheKey = `${kind}|${inst.name}`;
       if (sw) {
-        // Instance ran this sweep — update cache
-        const el_ = (sw.eligible || 0) + (sw.eligible_missing || 0);
         const sr = (sw.searched || 0) + (sw.searched_missing || 0);
+        const el_ = (sw.eligible || 0) + (sw.eligible_missing || 0);
         SWEEP_DATA_CACHE[cacheKey] = {
-          eligible: el_,
+          cutoffUnmet: sw.cutoff_unmet_total ?? '—',
+          searched: sr,
           onCooldown: (sw.skipped_cooldown || 0) + (sw.skipped_missing_cooldown || 0),
           capped: Math.max(0, el_ - sr),
-          searched: sr,
-          cutoffUnmet: sw.cutoff_unmet_total ?? '—',
-          backfill: sw.missing_total ?? '—',
         };
       }
       const cached = SWEEP_DATA_CACHE[cacheKey] || null;
-      const eligible = cached ? cached.eligible : null;
-      const onCooldown = cached ? cached.onCooldown : null;
-      const capped = cached ? cached.capped : null;
-      const searched = cached ? cached.searched : null;
-      const cutoffUnmet = cached ? cached.cutoffUnmet : null;
-      const backfill = cached ? cached.backfill : null;
       const hasData = cached != null;
+      const dim = 'dim';
 
-      const dimStyle = disabled ? 'opacity:0.45;' : '';
+      const cuVal   = hasData ? cached.cutoffUnmet : '—';
+      const srVal   = hasData ? cached.searched    : '—';
+      const cdVal   = hasData ? cached.onCooldown  : '—';
+      const capVal  = hasData ? cached.capped      : '—';
+      const cuDim   = hasData ? (cached.cutoffUnmet === '—' ? dim : '') : dim;
+      const srDim   = hasData ? 'accent' : dim;
+      const cdDim   = dim;
+      const capDim  = dim;
+
+      // Lifetime grid — show when any lifetime data exists
+      const ltSearched = lf ? (lf.searched ?? 0) : null;
+      const ltRuns     = lf ? (lf.runs     ?? 0) : null;
+      const lifetimeGrid = ltSearched !== null ? `
+        <div class="lifetime-grid">
+          <div class="lifetime-cell"><div class="lifetime-lbl">Lifetime Searched</div><div class="lifetime-val">${ltSearched.toLocaleString()}</div></div>
+          <div class="lifetime-cell"><div class="lifetime-lbl">Sweep Runs</div><div class="lifetime-val">${ltRuns.toLocaleString()}</div></div>
+        </div>` : '';
+
+      const disabledBadge = disabled
+        ? `<span style="font-size:10px;padding:2px 7px;background:var(--accent-dim);color:var(--accent-lt);border:1px solid var(--accent-border);border-radius:4px;font-weight:600;letter-spacing:.04em">Disabled</span>`
+        : '';
 
       return `
-        <div class="inst-card" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
-          <div style="${dimStyle}">
-            <div class="inst-row1">
+        <div class="sweep-card${disabled ? ' disabled-card' : ''}" id="sweepcard-${kind}-${inst.name.replace(/\s+/g,'_')}">
+          <div class="sweep-top">
+            <div class="sweep-name-row">
               <span class="status-dot ${dotState}" id="sdot-sweep-${instKey}"></span>
-              <div class="inst-info">
-                <div class="inst-name">${escapeHtml(inst.name)}</div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
-                  <span class="inst-meta">Sweep Mode: ${fmtMode(mode)}</span>
-                  <span class="inst-meta" style="font-size:11px;white-space:nowrap;flex-shrink:0">Last Run: ${lastRun}</span>
-                </div>
+              <div>
+                <div class="sweep-inst-name">${escapeHtml(inst.name)}</div>
+                <div class="sweep-url">${escapeHtml(fmtMode(mode))}</div>
               </div>
             </div>
-            <div class="sweep-stats-grid" style="position:relative">
-              <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding-bottom:4px">
-                <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff">Library State</span>
-                ${disabled ? '<span style="font-size:10px;padding:2px 7px;background:rgba(99,120,255,.15);color:#6378ff;border:1px solid rgba(99,120,255,.3);border-radius:4px;font-weight:600;letter-spacing:.04em;opacity:1">Disabled</span>' : ''}
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Cutoff Unmet</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? cutoffUnmet : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Backfill</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? backfill : '—'}</span>
-              </div>
-              <hr class="sweep-row-divider">
-              <span style="grid-column:1/-1;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6378ff;padding-bottom:4px;padding-top:2px">This Run</span>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Eligible</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? eligible : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">On Cooldown</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? onCooldown : '—'}</span>
-              </div>
-              <hr class="sweep-row-divider">
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Capped</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? capped : '—'}</span>
-              </div>
-              <div class="sweep-stat">
-                <span class="sweep-stat-label">Searched</span>
-                <span class="sweep-stat-value ${hasData ? '' : 'dim'}">${hasData ? searched : '—'}</span>
-              </div>
+            <div class="sweep-right">
+              ${disabledBadge}
+              <span class="sweep-lastrun">${escapeHtml(lastRun)}</span>
             </div>
           </div>
+          <div class="stats-grid">
+            <div class="stat-cell"><div class="stat-lbl">Cutoff Unmet</div><div class="stat-val ${cuDim}">${cuVal}</div><div class="stat-sub">Library</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Searched</div><div class="stat-val ${srDim}">${srVal}</div><div class="stat-sub">This run</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Cooldown</div><div class="stat-val ${cdDim}">${cdVal}</div><div class="stat-sub">Skipped</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Capped</div><div class="stat-val ${capDim}">${capVal}</div><div class="stat-sub">Over limit</div></div>
+          </div>
+          ${lifetimeGrid}
         </div>`;
     }).join('');
   }
@@ -169,7 +155,7 @@ async function refreshHistory() {
       const appSt = sum.per_instance || {};
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
       if (count === 0) return '';
-      return `<div class="pill"><span style="color:var(--text-dim);font-size:11px">${escapeHtml(inst.name)}:</span><span style="color:var(--text);font-weight:400;font-size:13px">${count}</span></div>`;
+      return `<div class="kpi-card"><span class="kpi-lbl">${escapeHtml(inst.name)}</span><span class="kpi-val">${count}</span></div>`;
     }).join('');
     el('kpis').innerHTML = instPills;
 
@@ -220,7 +206,7 @@ async function refreshHistory() {
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
         <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
-        <td>${it.search_count > 1 ? `<span class="pill" style="font-size:11px;padding:2px 8px;background:rgba(99,120,255,.15);color:#8899ff">×${it.search_count}</span>` : ''}</td>
+        <td>${it.search_count > 1 ? `<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--accent-dim);color:var(--accent-lt);border:1px solid var(--accent-border)">×${it.search_count}</span>` : ''}</td>
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
         <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(it.eligible_again))}</td>
@@ -408,6 +394,11 @@ async function refreshImports() {
       return `
       <tr>
         <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${e.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(e.app)}','${escapeHtml(e.instance)}','${escapeHtml(e.item_id)}','${escapeHtml(e.series_id || '')}')">${escapeHtml(e.title || e.item_id)}</td>
+        <!-- NOTE: e.series_id is undefined here — stat_entries has no series_id column.
+             The fallback to e.item_id in openArrLink is intentional: sweep.py stores
+             the series_id directly as item_id in stat_entries for Sonarr entries.
+             Tracked in GitHub: add series_id to stat_entries or document the relationship
+             explicitly in get_confirmed_entries. -->
         <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
         <td><span class="${tagClass}">${escapeHtml(e.type)}${escapeHtml(iterSuffix)}</span></td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.first_searched_ts))}</td>

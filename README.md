@@ -207,7 +207,7 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first — v4.0.0 removes the SQLite migration code entirely and assumes all installs are already on the final schema.
+**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. One post-reset migration (v7) is included to add the `series_id` column. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
 
 **v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
 

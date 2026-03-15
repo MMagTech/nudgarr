@@ -184,7 +184,7 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
     url_to_name: Dict[str, str] = {}
     for app_name in ("radarr", "sonarr"):
         for inst in cfg.get("instances", {}).get(app_name, []):
-            url_to_name[inst["url"]] = inst["name"]
+            url_to_name[inst["url"].rstrip("/")] = inst["name"]
 
     per_instance: Dict[str, Dict] = {"radarr": {}, "sonarr": {}}
     radarr_total = 0

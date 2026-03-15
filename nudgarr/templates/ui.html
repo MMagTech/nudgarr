@@ -985,12 +985,12 @@
     }
     .ls-ov-field { display: flex; flex-direction: column; gap: 1px; }
     .ls-ov-field label {
-      font-size: 10px; color: var(--muted); font-weight: 600;
+      font-size: 12px; color: var(--muted); font-weight: 500;
       letter-spacing: .02em;
     }
     .ls-ov-field input[type=number], .ls-ov-field select {
       background: var(--card); border: 1px solid var(--border);
-      color: var(--text); border-radius: 6px; font-size: 11px;
+      color: var(--text); border-radius: 6px; font-size: 12px;
       padding: 4px 6px; outline: none; width: 100%;
     }
     .ls-ov-field input.ls-ov-active { border-color: rgba(99,120,255,.45); background: rgba(99,120,255,.08); }
@@ -1000,7 +1000,7 @@
       background-repeat: no-repeat; background-position: right 6px center; padding-right: 18px;
     }
     .ls-ov-field select.ls-ov-active { border-color: rgba(99,120,255,.45); }
-    .ls-ov-field .ls-ov-global { font-size: 8px; color: rgba(124,132,148,.4); margin-top: 1px; }
+    .ls-ov-field .ls-ov-global { font-size: 9px; color: rgba(124,132,148,.4); margin-top: 1px; }
     .ls-ov-stepper {
       display: flex; align-items: center; gap: 0;
       border: 1px solid rgba(255,255,255,.11); border-radius: 9px;
@@ -1009,8 +1009,8 @@
     }
     .ls-ov-stepper.ls-ov-active { border-color: rgba(99,120,255,.45); background: rgba(99,120,255,.08); }
     .ls-ov-stepper-btn {
-      width: 28px; height: 28px; border: none; background: none;
-      color: var(--text-dim); font-size: 15px; cursor: pointer;
+      width: 32px; height: 32px; border: none; background: none;
+      color: var(--text-dim); font-size: 16px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; -webkit-tap-highlight-color: transparent;
       touch-action: none;
@@ -1032,8 +1032,8 @@
       padding: 4px 7px; border-radius: 6px;
       border: 1px solid var(--border); background: rgba(255,255,255,.02);
     }
-    .ls-ov-bl-row .ls-ov-bl-label { font-size: 10px; color: var(--muted); font-weight: 600; }
-    .ls-ov-bl-row .ls-ov-bl-sub { font-size: 8px; color: rgba(124,132,148,.4); }
+    .ls-ov-bl-row .ls-ov-bl-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .ls-ov-bl-row .ls-ov-bl-sub { font-size: 9px; color: rgba(124,132,148,.4); }
     .ls-ov-bl-row.ls-ov-active { border-color: rgba(99,120,255,.35); background: rgba(99,120,255,.05); }
 
     .ls-ov-notify-row {
@@ -1042,8 +1042,8 @@
       padding: 4px 7px; border-radius: 6px;
       border: 1px solid var(--border); background: rgba(255,255,255,.02);
     }
-    .ls-ov-notify-row .ls-ov-notify-label { font-size: 10px; color: var(--muted); font-weight: 600; }
-    .ls-ov-notify-row .ls-ov-notify-sub { font-size: 8px; color: rgba(124,132,148,.4); margin-left: 6px; }
+    .ls-ov-notify-row .ls-ov-notify-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .ls-ov-notify-row .ls-ov-notify-sub { font-size: 9px; color: rgba(124,132,148,.4); margin-left: 6px; }
     .ls-ov-notify-row.ls-ov-active { border-color: rgba(99,120,255,.35); background: rgba(99,120,255,.05); }
 
     /* Inline toggle for ov panel */
@@ -5119,9 +5119,7 @@ function lsOvRenderPanel() {
   const blVal = pending && 'backlog_enabled' in pending ? pending.backlog_enabled
     : ('backlog_enabled' in ov ? ov.backlog_enabled : gBl);
   const blActive = 'backlog_enabled' in ov || (pending && 'backlog_enabled' in pending) ? ' ls-ov-active' : '';
-  const blSub = 'backlog_enabled' in ov
-    ? `${blVal ? 'On (Override)' : 'Off (Override)'}`
-    : `${blVal ? 'On' : 'Off'} (Global: ${gBl ? 'On' : 'Off'})`;
+  const blSub = `Global: ${gBl ? 'On' : 'Off'}`;
   const blField = `<div class="ls-ov-field">
     <label style="visibility:hidden">Backlog</label>
     <div class="ls-ov-bl-row${blActive}" id="ls-ov-bl-row">
@@ -5148,9 +5146,7 @@ function lsOvRenderPanel() {
   const notVal = pending && 'notifications_enabled' in pending ? pending.notifications_enabled
     : ('notifications_enabled' in ov ? ov.notifications_enabled : gNot);
   const notActive = 'notifications_enabled' in ov || (pending && 'notifications_enabled' in pending) ? ' ls-ov-active' : '';
-  const notSub = 'notifications_enabled' in ov
-    ? `${notVal ? 'On (Override)' : 'Off (Override)'}`
-    : `${notVal ? 'On' : 'Off'} (Global: ${gNot ? 'On' : 'Off'})`;
+  const notSub = `Global: ${gNot ? 'On' : 'Off'}`;
 
   const body = document.getElementById('ls-ov-body');
   if (body) {
@@ -5292,7 +5288,7 @@ function lsOvUpdateBlLabel() {
   const rowEl = document.getElementById('ls-ov-bl-row');
   if (!blEl || !lblEl) return;
   const gBl = _getGlobal(kind, 'backlog_enabled');
-  lblEl.textContent = `${blEl.checked ? 'On (Override)' : 'Off (Override)'}`;
+  lblEl.textContent = `Global: ${_getGlobal(kind, 'backlog_enabled') ? 'On' : 'Off'}`;
   if (rowEl) rowEl.classList.add('ls-ov-active');
 }
 
@@ -5303,7 +5299,7 @@ function lsOvUpdateNotifyLabel() {
   const lblEl = document.getElementById('ls-ov-notify-sub');
   const rowEl = document.getElementById('ls-ov-notify-row');
   if (!notEl || !lblEl) return;
-  lblEl.textContent = `${notEl.checked ? 'On (Override)' : 'Off (Override)'}`;
+  lblEl.textContent = `Global: ${_getGlobal(kind, 'notifications_enabled') ? 'On' : 'Off'}`;
   if (rowEl) rowEl.classList.add('ls-ov-active');
 }
 

@@ -1168,7 +1168,6 @@
       padding: 8px 20px;
       padding-left: calc(20px + env(safe-area-inset-left, 0px));
       padding-right: calc(20px + env(safe-area-inset-right, 0px));
-      padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
       scrollbar-width: none;
       transform: translateX(100%);
       transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -5255,10 +5254,21 @@ function lsOvMarkDirty() {
   const body = document.getElementById('ls-ov-body');
   if (body) body.dataset.dirty = '1';
   lsOvUpdateFooter();
-  // Save current DOM values to pending so lsOvRenderPanel reads correctly on re-render
+  // Save current DOM values to pending state without re-rendering the panel
   if (LS_OV_SEL) {
     _lsOvSavePendingFromDOM();
-    lsOvRenderRail();
+    // Just show the pending dot on the active rail item directly
+    const {kind, idx} = LS_OV_SEL;
+    const key = _lsOvKey(kind, idx);
+    const railItem = document.querySelector(`[onclick="lsOvSelectInstance('${kind}',${idx})"]`);
+    if (railItem && !railItem.querySelector('.ls-ov-pending-dot')) {
+      const row1 = railItem.querySelector('.ls-ov-rail-row1');
+      if (row1) {
+        const dot = document.createElement('span');
+        dot.className = 'ls-ov-pending-dot';
+        row1.appendChild(dot);
+      }
+    }
   }
 }
 

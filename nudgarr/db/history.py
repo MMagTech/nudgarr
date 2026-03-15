@@ -191,7 +191,7 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
     sonarr_total = 0
     for r in rows:
         name = url_to_name.get(r["instance_url"], r["instance_url"])
-        sk = f"{name}|{r['instance_url']}"
+        sk = f"{name}|{r['instance_url'].rstrip('/')}"
         per_instance[r["app"]][sk] = r["cnt"]
         if r["app"] == "radarr":
             radarr_total += r["cnt"]

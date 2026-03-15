@@ -565,6 +565,12 @@
       background: var(--bad-dim); border: 1px solid var(--bad-border); color: #fca5a5;
     }
 
+    .save-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    }
+
     /* ── Danger zone ── */
     .danger-section { border: 1px solid var(--bad-border); border-radius: 12px; padding: 14px; background: var(--bad-dim); }
 

@@ -65,7 +65,7 @@
         <div id="sonarrList"></div>
       </div>
 
-      <div class="card full">
+      <div class="save-bar" style="flex-direction:column;align-items:stretch">
         <div class="row">
           <button class="btn primary" onclick="saveAll()">Save Changes</button>
           <button class="btn" onclick="testConnections()">Test Connections</button>
@@ -251,7 +251,7 @@
         <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits.</p>
       </div>
 
-      <div class="row" style="margin-top:16px">
+      <div class="save-bar">
         <button class="btn primary" onclick="saveSettings()">Save Changes</button>
         <span class="msg" id="setMsg"></span>
       </div>
@@ -412,7 +412,7 @@
       </div>
     </div>
 
-    <div class="row" style="margin-top:16px">
+    <div class="save-bar">
       <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
       <span class="msg" id="notifyMsg"></span>
     </div>
@@ -565,7 +565,7 @@
         </div>
       </div>
 
-      <div class="row" style="margin-top:16px">
+      <div class="save-bar">
         <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
         <span class="msg" id="advMsg"></span>
       </div>

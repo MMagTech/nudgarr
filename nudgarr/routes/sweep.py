@@ -124,10 +124,13 @@ def api_test():
     return jsonify({"ok": True, "results": results})
 
 
-def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> None:
+def _test_single_instance(
+    session, app_name: str, inst: dict, results: dict, update_status: bool
+) -> None:
     name = inst.get("name", "")
     if not inst.get("enabled", True):
-        STATUS["instance_health"][f"{app_name}|{name}"] = "disabled"
+        if update_status:
+            STATUS["instance_health"][f"{app_name}|{name}"] = "disabled"
         results[app_name].append({
             "name": name, "url": mask_url(inst.get("url", "")), "ok": True, "disabled": True
         })
@@ -138,7 +141,8 @@ def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> 
                 "name": name, "url": mask_url(inst.get("url", "")),
                 "ok": False, "error": "Invalid or disallowed URL",
             })
-            STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
+            if update_status:
+                STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
             return
         url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
         data = req(session, "GET", url, inst.get("key", ""))
@@ -146,13 +150,15 @@ def _test_single_instance(session, app_name: str, inst: dict, results: dict) -> 
             "name": name, "url": mask_url(inst["url"]), "ok": True,
             "version": data.get("version") if isinstance(data, dict) else None,
         })
-        STATUS["instance_health"][f"{app_name}|{name}"] = "ok"
+        if update_status:
+            STATUS["instance_health"][f"{app_name}|{name}"] = "ok"
     except Exception:
         results[app_name].append({
             "name": name, "url": mask_url(inst.get("url", "")),
             "ok": False, "error": "Connection failed — check URL and API key",
         })
-        STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
+        if update_status:
+            STATUS["instance_health"][f"{app_name}|{name}"] = "bad"
 
 
 @bp.post("/api/test-instance")
@@ -161,6 +167,7 @@ def api_test_instance():
     data = request.get_json(force=True, silent=True) or {}
     kind = data.get("kind", "")
     instances = data.get("instances", {})
+    update_status = bool(data.get("update_status", False))
     if kind not in ("radarr", "sonarr"):
         return jsonify({"ok": False, "error": "Invalid kind"}), 400
     stored = load_or_init_config()
@@ -176,5 +183,5 @@ def api_test_instance():
             if real:
                 inst = dict(inst)
                 inst["key"] = real
-        _test_single_instance(session, kind, inst, results)
+        _test_single_instance(session, kind, inst, results, update_status=update_status)
     return jsonify({"ok": True, "results": results})

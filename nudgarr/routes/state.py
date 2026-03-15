@@ -164,12 +164,15 @@ def api_remove_exclusion():
 def api_arr_link():
     """
     Resolve a Radarr/Sonarr item ID to a direct UI URL in the configured instance.
+    For Sonarr, series_id must be supplied — item_id is the episode ID and cannot
+    be used to look up the series slug.
     Returns {ok: true, url: "http://..."} or {ok: false, error: "..."}.
     """
     import requests as _requests
     app_name = request.args.get("app", "").lower()
     instance_name = request.args.get("instance", "").strip()
     item_id = request.args.get("item_id", "").strip()
+    series_id = request.args.get("series_id", "").strip()
 
     if app_name not in ("radarr", "sonarr") or not instance_name or not item_id:
         return jsonify({"ok": False, "error": "app, instance, and item_id are required"}), 400
@@ -196,8 +199,9 @@ def api_arr_link():
                 return jsonify({"ok": False, "error": "No titleSlug in response"}), 502
             return jsonify({"ok": True, "url": f"{base_url}/movie/{slug}"})
         else:
+            lookup_id = series_id if series_id else item_id
             r = _requests.get(
-                f"{base_url}/api/v3/series/{item_id}",
+                f"{base_url}/api/v3/series/{lookup_id}",
                 headers={"X-Api-Key": key},
                 timeout=10,
             )

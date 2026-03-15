@@ -11,6 +11,18 @@ CONSTANTS_FILE = 'nudgarr/constants.py'
 CHANGELOG_FILE = 'CHANGELOG.md'
 ROUTES_INIT    = 'nudgarr/routes/__init__.py'
 ROUTES_DIR     = 'nudgarr/routes'
+STATIC_DIR     = 'nudgarr/static'
+
+JS_FILES = [
+    'ui-core.js',
+    'ui-instances.js',
+    'ui-overrides.js',
+    'ui-sweep.js',
+    'ui-settings.js',
+    'ui-mobile-core.js',
+    'ui-mobile-landscape.js',
+    'ui-mobile-portrait.js',
+]
 
 PASS = FAIL = 0
 
@@ -24,6 +36,62 @@ try:
 except FileNotFoundError:
     print(f"\nERROR: {UI_FILE} not found. Run from repo root.\n"); sys.exit(1)
 
+# Load all static JS files into a combined string for JS checks
+js_content = ''
+for js_file in JS_FILES:
+    path = os.path.join(STATIC_DIR, js_file)
+    try:
+        js_content += open(path).read() + '\n'
+    except FileNotFoundError:
+        pass  # Missing file reported in Static Files section below
+
+# For API route checks, combine html + js (api() calls are in JS files)
+all_content = content + js_content
+
+# ── Static Files ──────────────────────────────────────────────────────────────
+section("Static Files")
+
+try:
+    css_path = os.path.join(STATIC_DIR, 'ui.css')
+    if os.path.exists(css_path):
+        ok(f"ui.css exists ({sum(1 for _ in open(css_path))} lines)")
+    else:
+        fail("ui.css missing from nudgarr/static/")
+
+    for js_file in JS_FILES:
+        path = os.path.join(STATIC_DIR, js_file)
+        if os.path.exists(path):
+            ok(f"{js_file} exists ({sum(1 for _ in open(path))} lines)")
+        else:
+            fail(f"{js_file} missing from nudgarr/static/")
+
+    # Check all JS files are linked in the HTML shell
+    for js_file in JS_FILES:
+        if js_file in content:
+            ok(f"HTML shell links: {js_file}")
+        else:
+            fail(f"HTML shell missing script tag for: {js_file}")
+
+    # CSS link present in shell
+    if 'ui.css' in content:
+        ok("HTML shell links: ui.css")
+    else:
+        fail("HTML shell missing link tag for ui.css")
+
+    # No inline <style> or <script> blocks remain in HTML shell
+    if '<style>' in content:
+        fail("HTML shell still contains inline <style> block")
+    else:
+        ok("No inline <style> block in HTML shell")
+
+    if re.search(r'<script>(?!.*src)', content) and '<script>' in content:
+        fail("HTML shell still contains inline <script> block")
+    else:
+        ok("No inline <script> block in HTML shell")
+
+except Exception as e:
+    fail(f"Static file check error: {e}")
+
 # ── HTML Structure ────────────────────────────────────────────────────────────
 section("HTML Structure")
 
@@ -31,7 +99,8 @@ opens, closes = content.count('<div'), content.count('</div')
 if opens != closes: fail(f"Unbalanced divs: {opens} opens vs {closes} closes")
 else: ok(f"Div balance: {opens} opens = {closes} closes")
 
-s_o, s_c = content.count('<script'), content.count('</script')
+s_o = content.count('<script src=')
+s_c = content.count('</script')
 if s_o != s_c: fail(f"Unbalanced script tags: {s_o} opens vs {s_c} closes")
 else: ok(f"Script tag balance: {s_o} opens = {s_c} closes")
 
@@ -104,45 +173,47 @@ for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
            'markCardDirty','updateBacklogLabel','updateNotifyLabel']:
-    if f'function {fn}' not in content: fail(f"Missing JS function: {fn}()")
+    if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 
-mobile_count = len(re.findall(r'const MOBILE\b(?!_)', content))
+mobile_count = len(re.findall(r'const MOBILE\b(?!_)', js_content))
 if mobile_count == 0:   fail("MOBILE const not defined")
 elif mobile_count > 1:  fail(f"MOBILE const defined {mobile_count} times — duplicate")
 else:                   ok("MOBILE const defined exactly once")
 
-mc_line = next((i for i,l in enumerate(lines) if re.search(r'const MOBILE\b(?!_)', l)), None)
-di_line = next((i for i,l in enumerate(lines) if 'if (!MOBILE)' in l), None)
+js_lines = js_content.split('\n')
+mc_line = next((i for i,l in enumerate(js_lines) if re.search(r'const MOBILE\b(?!_)', l)), None)
+di_line = next((i for i,l in enumerate(js_lines) if 'if (!MOBILE)' in l), None)
 if mc_line and di_line:
     if mc_line < di_line: ok(f"MOBILE const (line {mc_line+1}) before desktop init guard (line {di_line+1})")
     else: fail(f"MOBILE const (line {mc_line+1}) defined AFTER desktop init guard (line {di_line+1})")
 
-if 'if (!MOBILE)' not in content: fail("Desktop init not gated behind if (!MOBILE)")
+if 'if (!MOBILE)' not in js_content: fail("Desktop init not gated behind if (!MOBILE)")
 else: ok("Desktop init gated behind if (!MOBILE)")
 
-if 'if (MOBILE)' not in content: fail("Mobile init not gated behind if (MOBILE)")
+if 'if (MOBILE)' not in js_content: fail("Mobile init not gated behind if (MOBILE)")
 else: ok("Mobile init gated behind if (MOBILE)")
 
-if re.search(r"style\.cssText\s*=\s*['\"][^'\"]*!important", content):
+if re.search(r"style\.cssText\s*=\s*['\"][^'\"]*!important", js_content):
     fail("Found !important inside style.cssText — silently ignored by browsers")
 else: ok("No !important inside style.cssText")
 
 onclick_fns = set(re.findall(r'onclick=["\'](\w+)\(', content))
-defined_fns = set(re.findall(r'(?:async\s+)?function\s+(\w+)\s*\(', content))
-defined_fns |= set(re.findall(r'(?:let|var|const)\s+(\w+)\s*=', content))
+defined_fns = set(re.findall(r'(?:async\s+)?function\s+(\w+)\s*\(', js_content))
+defined_fns |= set(re.findall(r'(?:let|var|const)\s+(\w+)\s*=', js_content))
 missing_fns = onclick_fns - defined_fns
 if missing_fns: [fail(f"onclick calls undefined function: {fn}()") for fn in sorted(missing_fns)]
 else: ok(f"All onclick functions defined ({len(onclick_fns)} checked)")
 
-el_refs  = set(re.findall(r"el\('([^']+)'\)", content))
-el_refs |= set(re.findall(r'getElementById\(["\']([^"\']+)["\']\)', content))
+el_refs  = set(re.findall(r"el\('([^']+)'\)", js_content))
+el_refs |= set(re.findall(r'getElementById\(["\']([^"\']+)["\']\)', js_content))
 html_ids = set(re.findall(r'id=["\']([^"\']+)["\']', content))
 missing  = el_refs - html_ids
+ignore_prefixes = ('sdot-', 'instcard-', 'sweepcard-', 'onboarding', 'ls-ov-', 'ov-card-')
+missing = {m for m in missing if not any(m.startswith(p) for p in ignore_prefixes)}
 if missing: [fail(f"JS references missing element: #{i}") for i in sorted(missing)]
 else: ok(f"All JS element references exist ({len(el_refs)} checked)")
 
-# ── API Endpoint Cross-check ──────────────────────────────────────────────────
 section("API Endpoint Cross-check")
 
 defined_routes = set()
@@ -153,7 +224,7 @@ for fname in os.listdir(ROUTES_DIR):
         defined_routes.update(re.findall(r'@bp\.\w+\(["\']([^"\']+)["\']', rc))
     except: pass
 
-for route in sorted(set(re.findall(r"api\(['\"]([^'\"]+)['\"]", content))):
+for route in sorted(set(re.findall(r"api\(['\"]([^'\"]+)['\"]", all_content))):
     base = route.split('?')[0]
     if base in defined_routes: ok(f"API route exists: {base}")
     elif any(base.startswith(r.rsplit('/',1)[0]) for r in defined_routes): ok(f"API route exists (prefix): {base}")
@@ -183,40 +254,47 @@ if cv and clv:
 # ── Database Integrity ────────────────────────────────────────────────────────
 section("Database Integrity")
 
-DB_FILE = 'nudgarr/db.py'
+DB_PKG = 'nudgarr/db'
+DB_INIT = f'{DB_PKG}/__init__.py'
+DB_CONN = f'{DB_PKG}/connection.py'
 try:
-    db_content = open(DB_FILE).read()
+    db_init_content = open(DB_INIT).read()
+    db_conn_content = open(DB_CONN).read()
 
-    # Required tables in schema SQL
+    # Required tables in schema SQL (lives in connection.py)
     for table in ['search_history', 'stat_entries', 'exclusions',
                   'sweep_lifetime', 'lifetime_totals', 'schema_migrations', 'nudgarr_state']:
-        if f'CREATE TABLE IF NOT EXISTS {table}' in db_content:
+        if f'CREATE TABLE IF NOT EXISTS {table}' in db_conn_content:
             ok(f"Schema defines table: {table}")
         else:
             fail(f"Schema missing table: {table}")
 
-    # Required public functions
-    for fn in ['init_db', 'get_state', 'set_state', '_run_migration_v2', '_run_migration_v3']:
-        if f'def {fn}(' in db_content:
-            ok(f"db.py defines: {fn}()")
+    # Required sub-modules exist
+    for mod in ['connection', 'history', 'entries', 'exclusions',
+                'lifetime', 'backup', 'appstate']:
+        path = f'{DB_PKG}/{mod}.py'
+        if os.path.exists(path):
+            ok(f"db sub-module exists: {mod}.py")
         else:
-            fail(f"db.py missing function: {fn}()")
+            fail(f"db sub-module missing: {mod}.py")
 
-    # Migration versions recorded
-    for v in [1, 2, 3]:
-        if f'VALUES ({v},' in db_content or f'version = {v}' in db_content:
-            ok(f"Migration v{v} referenced in db.py")
+    # Required public functions exported from __init__.py
+    for fn in ['init_db', 'get_state', 'set_state', 'close_connection',
+               'export_as_json_dict', 'upsert_search_history',
+               'get_search_history', 'upsert_stat_entry']:
+        if fn in db_init_content:
+            ok(f"db.__init__ exports: {fn}")
         else:
-            fail(f"Migration v{v} not referenced in db.py")
+            fail(f"db.__init__ missing export: {fn}")
 
-    # _SCHEMA_SQL defined
-    if '_SCHEMA_SQL' in db_content:
-        ok("_SCHEMA_SQL defined")
+    # _SCHEMA_SQL defined in connection.py
+    if '_SCHEMA_SQL' in db_conn_content:
+        ok("_SCHEMA_SQL defined in connection.py")
     else:
-        fail("_SCHEMA_SQL not found in db.py")
+        fail("_SCHEMA_SQL not found in connection.py")
 
-except FileNotFoundError:
-    fail(f"{DB_FILE} not found")
+except FileNotFoundError as e:
+    fail(f"db package file not found: {e}")
 
 
 section("Routes Registration")

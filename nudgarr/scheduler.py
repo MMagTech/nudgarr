@@ -56,24 +56,27 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
     session = requests.Session()
     last_check_ts = utcnow()
 
-    while not stop_flag["stop"]:
-        time.sleep(60)
-        if stop_flag["stop"]:
-            break
+    try:
+        while not stop_flag["stop"]:
+            time.sleep(60)
+            if stop_flag["stop"]:
+                break
 
-        cfg = load_or_init_config()
-        check_minutes = int(cfg.get("import_check_minutes", 120))
-        if check_minutes <= 0:
-            continue
+            cfg = load_or_init_config()
+            check_minutes = int(cfg.get("import_check_minutes", 120))
+            if check_minutes <= 0:
+                continue
 
-        now = utcnow()
-        elapsed = (now - last_check_ts).total_seconds() / 60
-        if elapsed >= check_minutes:
-            try:
-                check_imports(session, cfg)
-            except Exception as e:
-                print(f"[Stats] Import check error: {e}")
-            last_check_ts = now
+            now = utcnow()
+            elapsed = (now - last_check_ts).total_seconds() / 60
+            if elapsed >= check_minutes:
+                try:
+                    check_imports(session, cfg)
+                except Exception as e:
+                    print(f"[Stats] Import check error: {e}")
+                last_check_ts = now
+    finally:
+        db.close_connection()
 
 
 def _next_cron_utc(expression: str) -> str:
@@ -160,68 +163,71 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     _prev_scheduler_enabled = scheduler_enabled
     _prev_cron_expression = cron_expression
 
-    while not stop_flag["stop"]:
-        cfg = load_or_init_config()
-        scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
-        cron_expression = cfg.get("cron_expression", "0 */6 * * *")
+    try:
+        while not stop_flag["stop"]:
+            cfg = load_or_init_config()
+            scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
+            cron_expression = cfg.get("cron_expression", "0 */6 * * *")
 
-        # Recalculate next_run_utc immediately if config changed
-        config_changed = (
-            scheduler_enabled != _prev_scheduler_enabled
-            or cron_expression != _prev_cron_expression
-        )
-        if config_changed:
-            STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
-            _prev_scheduler_enabled = scheduler_enabled
-            _prev_cron_expression = cron_expression
-
-        should_run = False
-
-        with RUN_LOCK:
-            if STATUS.get("run_requested"):
-                should_run = True
-                STATUS["run_requested"] = False
-
-        # Cron trigger: check if a scheduled fire time just passed (within 90s window)
-        if not should_run and scheduler_enabled and cron_expression:
-            if _cron_due(cron_expression):
-                should_run = True
-
-        if should_run:
-            STATUS["run_in_progress"] = True
-            try:
-                print(f"--- Sweep {iso_z(utcnow())[:16].replace('T', ' ')} UTC ---")
-                summary = run_sweep(cfg, session)
-                STATUS["last_summary"] = summary
-                STATUS["last_run_utc"] = iso_z(utcnow())
-                db.set_state("last_run_utc", STATUS["last_run_utc"])
-                STATUS["last_error"] = None
-                notify_sweep_complete(summary, cfg)
-                for app_name in ("radarr", "sonarr"):
-                    for inst in summary.get(app_name, []):
-                        if "error" in inst and inst.get("notifications_enabled", True):
-                            notify_error(f"'{inst['name']}' is unreachable.", cfg)
-                try:
-                    check_imports(session, cfg)
-                except Exception as ce:
-                    print(f"[Stats] Import check error: {ce}")
-            except Exception as e:
-                STATUS["last_error"] = str(e)
-                print(f"ERROR (sweep): {e}")
-                notify_error(f"Sweep failed: {e}", cfg)
-            finally:
-                STATUS["run_in_progress"] = False
+            # Recalculate next_run_utc immediately if config changed
+            config_changed = (
+                scheduler_enabled != _prev_scheduler_enabled
+                or cron_expression != _prev_cron_expression
+            )
+            if config_changed:
                 STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
+                _prev_scheduler_enabled = scheduler_enabled
+                _prev_cron_expression = cron_expression
 
-        if stop_flag["stop"]:
-            break
+            should_run = False
 
-        # Always wake every 60s to check for due cron fires and config changes
-        deadline = time.monotonic() + 60
-        while not stop_flag["stop"] and time.monotonic() < deadline:
             with RUN_LOCK:
                 if STATUS.get("run_requested"):
-                    break
-            time.sleep(1)
+                    should_run = True
+                    STATUS["run_requested"] = False
 
-    STATUS["scheduler_running"] = False
+            # Cron trigger: check if a scheduled fire time just passed (within 90s window)
+            if not should_run and scheduler_enabled and cron_expression:
+                if _cron_due(cron_expression):
+                    should_run = True
+
+            if should_run:
+                STATUS["run_in_progress"] = True
+                try:
+                    print(f"--- Sweep {iso_z(utcnow())[:16].replace('T', ' ')} UTC ---")
+                    summary = run_sweep(cfg, session)
+                    STATUS["last_summary"] = summary
+                    STATUS["last_run_utc"] = iso_z(utcnow())
+                    db.set_state("last_run_utc", STATUS["last_run_utc"])
+                    STATUS["last_error"] = None
+                    notify_sweep_complete(summary, cfg)
+                    for app_name in ("radarr", "sonarr"):
+                        for inst in summary.get(app_name, []):
+                            if "error" in inst and inst.get("notifications_enabled", True):
+                                notify_error(f"'{inst['name']}' is unreachable.", cfg)
+                    try:
+                        check_imports(session, cfg)
+                    except Exception as ce:
+                        print(f"[Stats] Import check error: {ce}")
+                except Exception as e:
+                    STATUS["last_error"] = str(e)
+                    print(f"ERROR (sweep): {e}")
+                    notify_error(f"Sweep failed: {e}", cfg)
+                finally:
+                    STATUS["run_in_progress"] = False
+                    STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
+
+            if stop_flag["stop"]:
+                break
+
+            # Always wake every 60s to check for due cron fires and config changes
+            deadline = time.monotonic() + 60
+            while not stop_flag["stop"] and time.monotonic() < deadline:
+                with RUN_LOCK:
+                    if STATUS.get("run_requested"):
+                        break
+                time.sleep(1)
+
+    finally:
+        STATUS["scheduler_running"] = False
+        db.close_connection()

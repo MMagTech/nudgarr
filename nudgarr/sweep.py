@@ -297,11 +297,10 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     """
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
     VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
-    legacy_mode = str(cfg.get("sample_mode", "random")).lower()
-    radarr_sample_mode = str(cfg.get("radarr_sample_mode", legacy_mode)).lower()
+    radarr_sample_mode = str(cfg.get("radarr_sample_mode", "random")).lower()
     if radarr_sample_mode not in VALID_MODES:
         radarr_sample_mode = "random"
-    sonarr_sample_mode = str(cfg.get("sonarr_sample_mode", legacy_mode)).lower()
+    sonarr_sample_mode = str(cfg.get("sonarr_sample_mode", "random")).lower()
     if sonarr_sample_mode not in VALID_MODES:
         sonarr_sample_mode = "random"
 

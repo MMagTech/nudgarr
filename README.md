@@ -84,6 +84,26 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 
 ---
 
+## Power user features
+
+Nudgarr works out of the box with sensible defaults. If you're running a more advanced setup — multiple Radarr or Sonarr instances, separate 4K and 1080p libraries, different cooldown strategies per server, or just want tighter control — these features are worth knowing about.
+
+**Per-Instance Overrides** — seven fields can be tuned independently per instance: cooldown, max cutoff unmet, max backlog, max missing days, sample mode, backlog enabled, and notifications enabled. Unset fields inherit the global value. Enable in Advanced → configure in the Overrides tab. [Full details →](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
+
+**Sample modes** — control how items are selected for each sweep. Random keeps indexers guessing; Alphabetical and Oldest/Newest Added let you work through your library systematically. Set globally or per-instance.
+
+**Backlog Nudges** — separate from cutoff unmet sweeps, backlog nudges target items that have never been grabbed. The Missing Added Days filter excludes newly added items so you're only nudging things that have been sitting for a while. Configured independently for Radarr and Sonarr.
+
+**Exclusions** — click the ⊘ icon on any History row to permanently exclude a title from future searches. Exclusions are global across all instances. Manage the full list in the Sweep tab.
+
+**Cooldown** — prevents re-searching the same item too frequently. Default is 48 hours. Lower it on high-frequency setups; raise it if you want to be gentler on indexers.
+
+**Import tracking** — after each sweep, Nudgarr polls Radarr and Sonarr history to confirm which searches resulted in a successful download. Results appear in the Imports tab with turnaround times and lifetime totals.
+
+For a full walkthrough of all settings see the [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference) on the wiki.
+
+---
+
 ## Per-Instance Overrides
 
 The default global settings work great for typical setups with one Radarr and one Sonarr. If you are an Arr-tist running multiple instances — separate 4K and 1080p libraries, different servers, different cooldown strategies — Per-Instance Overrides lets you fine-tune seven fields independently for each one.
@@ -113,7 +133,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v3.2.0` · `3.2.0` · `3.2`
+**Tags:** `latest` · `v4.0.0` · `4.0.0` · `4.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -193,7 +213,7 @@ Defaults to `1000:1000` if not set.
 | `/config/nudgarr-config.json` | All settings |
 | `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
 
-If upgrading from v3.0.0 or earlier, existing JSON files are migrated automatically on first start. The original files are left in place and can be removed once you're satisfied with the upgrade.
+If upgrading from v3.0.0 or earlier, upgrade to v3.2.0 first before moving to v4.0.0.
 
 ---
 
@@ -206,6 +226,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 ---
 
 ## Upgrade notes
+
+**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. One post-reset migration (v7) is included to add the `series_id` column. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
 
 **v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
 

@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "3.1.2"
+VERSION = "3.2.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 STATE_FILE = os.getenv("STATE_FILE", "/config/nudgarr-state.json")
@@ -72,4 +72,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # UI Preferences (v2.5.0)
     "last_seen_version": "",
     "show_support_link": True,
+
+    # Per-Instance Overrides (v3.2.0)
+    "per_instance_overrides_enabled": False,
+    "per_instance_overrides_seen": False,
+    "per_instance_overrides_seen_mobile": False,
 }

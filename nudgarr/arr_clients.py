@@ -5,7 +5,7 @@ All outbound HTTP calls to Radarr and Sonarr. No business logic here —
 these functions fetch data and trigger commands, nothing else.
 
   Radarr : radarr_get_cutoff_unmet_movies, radarr_get_missing_movies,
-           radarr_search_movies
+           radarr_search_movies, radarr_get_queued_movie_ids
   Sonarr : sonarr_get_cutoff_unmet_episodes, sonarr_get_missing_episodes,
            sonarr_search_episodes
 
@@ -27,6 +27,35 @@ from nudgarr.utils import req
 
 # ── Radarr ────────────────────────────────────────────────────────────
 
+def _radarr_movies_from_wanted(
+    session: requests.Session,
+    url: str,
+    key: str,
+    endpoint_path: str,
+    page_size: int = 100,
+    max_pages: int = 5,
+) -> List[Dict[str, Any]]:
+    """Shared pagination helper for Radarr wanted endpoints."""
+    movies: List[Dict[str, Any]] = []
+    for page in range(1, max_pages + 1):
+        endpoint = f"{url.rstrip('/')}{endpoint_path}?page={page}&pageSize={page_size}"
+        data = req(session, "GET", endpoint, key)
+        if not isinstance(data, dict):
+            break
+        records = data.get("records") or []
+        if not records:
+            break
+        for rec in records:
+            # Radarr wanted endpoints return movie objects directly; primary key is "id"
+            mid = rec.get("id") or rec.get("movieId")
+            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")
+            if isinstance(mid, int):
+                min_avail = rec.get("minimumAvailability", "")
+                release_date = rec.get("physicalRelease") or rec.get("digitalRelease") or rec.get("inCinemas") or ""
+                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added, "isAvailable": rec.get("isAvailable", True), "minimumAvailability": min_avail, "releaseDate": release_date})
+    return movies
+
+
 def radarr_get_cutoff_unmet_movies(
     session: requests.Session,
     url: str,
@@ -35,22 +64,9 @@ def radarr_get_cutoff_unmet_movies(
     max_pages: int = 5,
 ) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted→Cutoff Unmet."""
-    movies: List[Dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
-        endpoint = f"{url.rstrip('/')}/api/v3/wanted/cutoff?page={page}&pageSize={page_size}"
-        data = req(session, "GET", endpoint, key)
-        if not isinstance(data, dict):
-            break
-        records = data.get("records") or []
-        if not records:
-            break
-        for rec in records:
-            # Radarr /wanted/cutoff returns movie objects directly; primary key is "id"
-            mid = rec.get("id") or rec.get("movieId")
-            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")
-            if isinstance(mid, int):
-                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added})
-    return movies
+    return _radarr_movies_from_wanted(
+        session, url, key, "/api/v3/wanted/cutoff", page_size, max_pages
+    )
 
 
 def radarr_get_missing_movies(
@@ -61,22 +77,9 @@ def radarr_get_missing_movies(
     max_pages: int = 5,
 ) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted→Missing."""
-    out: List[Dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
-        endpoint = f"{url.rstrip('/')}/api/v3/wanted/missing?page={page}&pageSize={page_size}"
-        data = req(session, "GET", endpoint, key)
-        if not isinstance(data, dict):
-            break
-        records = data.get("records") or []
-        if not records:
-            break
-        for rec in records:
-            # Radarr /wanted/missing returns movie objects directly; primary key is "id"
-            mid = rec.get("id") or rec.get("movieId")
-            added = rec.get("added") or rec.get("addedDate") or rec.get("addedUtc")
-            if isinstance(mid, int):
-                out.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added})
-    return out
+    return _radarr_movies_from_wanted(
+        session, url, key, "/api/v3/wanted/missing", page_size, max_pages
+    )
 
 
 def radarr_get_queued_movie_ids(

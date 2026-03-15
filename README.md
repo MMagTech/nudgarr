@@ -1,7 +1,7 @@
 # Nudgarr
 ### Because RSS sometimes needs a nudge.
 
-Nudgarr keeps your Radarr and Sonarr libraries improving automatically — scheduling searches for missing content and quality upgrades so you don't have to.
+Nudgarr keeps your Radarr and Sonarr libraries improving automatically, scheduling searches for missing content and quality upgrades so you don't have to.
 
 ---
 
@@ -37,6 +37,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - [Setup & Configuration](https://github.com/MMagTech/nudgarr/wiki/Setup-&-Configuration)
 - [How Nudgarr Works](https://github.com/MMagTech/nudgarr/wiki/How-Nudgarr-Works)
 - [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference)
+- [Per-Instance Overrides](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
 - [Exclusions](https://github.com/MMagTech/nudgarr/wiki/Exclusions)
 - [Notifications (Apprise)](https://github.com/MMagTech/nudgarr/wiki/Notifications-(Apprise))
 - [FAQ & Troubleshooting](https://github.com/MMagTech/nudgarr/wiki/FAQ-&-Troubleshooting)
@@ -45,7 +46,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 
 ## What it does
 
-- **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted → Cutoff Unmet queue and triggers a search for a better quality version
+- **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted Cutoff Unmet queue and triggers a search for a better quality version
 - **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering and per-app caps
 - **Skip Queued** — items already downloading are silently skipped; queued items never consume a search slot
 - **Import tracking** — polls Radarr and Sonarr after each sweep to confirm which searches resulted in a successful download
@@ -62,10 +63,12 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Per-app sample modes — Random, Alphabetical, Oldest Added, Newest Added independently for Radarr and Sonarr
 - Configurable cooldown, batch size, sleep, and jitter controls for indexer rate limit compliance
 - Per-app Backlog Nudge toggles with Missing Added Days age filter and per-instance caps
+- Radarr minimumAvailability filter — movies that haven't reached their availability threshold are automatically skipped
 
 **UI**
-- Web UI with Instances, Sweep, Settings, History, Imports, Notifications, and Advanced tabs
+- Web UI with Instances, Sweep, Settings, History, Imports, Notifications, Advanced, and Overrides tabs
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
+- Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
 - Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, and title search
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
@@ -74,10 +77,30 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 **Mobile**
 - Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
 - Four-tab bottom nav: Home · Instances · Sweep · Exclusions
-- Quick Settings — long press Run Now to adjust cooldown and max per run without leaving the home tab
-- Landscape mode — rotating to landscape switches to a compact settings panel; tap Desktop View to access the full UI
+- Quick Settings — long press Run Now to adjust cooldown and max per run without leaving the home tab; Per-Instance Overrides toggle when enabled
+- Landscape mode — rotating to landscape switches to a compact settings panel with Settings, Advanced, and Overrides tabs
 - Bottom sheets for Exclusions and Imports with haptic feedback and swipe-to-dismiss
 - iOS and Android browser toolbar matches the app via `theme-color`
+
+---
+
+## Per-Instance Overrides
+
+The default global settings work great for typical setups with one Radarr and one Sonarr. If you are an Arr-tist running multiple instances — separate 4K and 1080p libraries, different servers, different cooldown strategies — Per-Instance Overrides lets you fine-tune seven fields independently for each one.
+
+| Field | What it controls |
+|-------|-----------------|
+| Cooldown Hours | How long before an item is eligible for re-search on this instance |
+| Max Cutoff Unmet | How many cutoff unmet items are searched per run |
+| Max Backlog | How many missing items are searched per run |
+| Max Missing Days | Age filter for backlog searches (Radarr only) |
+| Sample Mode | How items are picked for this instance |
+| Backlog Enabled | Whether backlog searches run for this instance |
+| Notifications Enabled | Whether notifications fire for this instance |
+
+Unset fields inherit the global value automatically. Enable in Advanced and configure in the Overrides tab on desktop, or rotate to landscape on mobile.
+
+See the [Per-Instance Overrides](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides) wiki page for full details.
 
 ---
 
@@ -90,7 +113,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v3.1.0` · `3.1.0` · `3.1`
+**Tags:** `latest` · `v3.2.0` · `3.2.0` · `3.2`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -184,6 +207,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
+**v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
+
 **v3.1.0** — All data (history, stats, exclusions) moves to a SQLite database. Existing JSON files migrate automatically on first start — no action needed. See the Data files section above for details.
 
 **v3.0.0** — No config changes required. The mobile layout activates automatically on devices under 500px wide.
@@ -195,4 +220,3 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide. For usage questions, the [wiki](https://github.com/MMagTech/nudgarr/wiki) is the first stop.
-

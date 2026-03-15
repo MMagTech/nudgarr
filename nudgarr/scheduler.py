@@ -45,10 +45,13 @@ def start_ui_server() -> None:
 
 
 def import_check_loop(stop_flag: Dict[str, bool]) -> None:
-    """
-    Independent import-check timer. Fires check_imports on its own schedule,
-    completely separate from the sweep interval. Wakes every 60 seconds and
-    checks whether import_check_minutes has elapsed since the last check.
+    """Independent import-check timer running in its own daemon thread.
+
+    Wakes every 60 seconds and checks whether import_check_minutes has elapsed
+    since the last check. Completely decoupled from the sweep schedule — imports
+    are polled on their own interval regardless of when sweeps run.
+
+    Intentionally runs even when the scheduler is disabled (manual-only mode).
     """
     session = requests.Session()
     last_check_ts = utcnow()
@@ -123,9 +126,21 @@ def _cron_due(expression: str) -> bool:
 
 
 def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
+    """Main sweep loop — runs in the main thread for the lifetime of the process.
+
+    Wakes every 60 seconds to check for:
+      - A run-now request from the UI (STATUS["run_requested"])
+      - A cron fire — uses a 90-second window (not 60) to avoid missing a cron
+        tick that falls just outside a 60-second sleep boundary
+
+    Config is reloaded on every iteration so schedule changes take effect
+    without a restart. next_run_utc is recalculated immediately on config change.
+
+    To add a new per-sweep action (e.g. a post-sweep hook), add it in the
+    try block after notify_sweep_complete.
+    """
     STATUS["scheduler_running"] = True
     session = requests.Session()
-    cycle = 0
 
     # Restore last_run_utc from persisted state so UI shows correctly after restart.
     cfg = load_or_init_config()
@@ -173,10 +188,9 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 should_run = True
 
         if should_run:
-            cycle += 1
             STATUS["run_in_progress"] = True
             try:
-                print(f"--- Sweep Cycle #{cycle} ---")
+                print(f"--- Sweep {iso_z(utcnow())[:16].replace('T', ' ')} UTC ---")
                 summary = run_sweep(cfg, session)
                 STATUS["last_summary"] = summary
                 STATUS["last_run_utc"] = iso_z(utcnow())
@@ -185,7 +199,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                 notify_sweep_complete(summary, cfg)
                 for app_name in ("radarr", "sonarr"):
                     for inst in summary.get(app_name, []):
-                        if "error" in inst:
+                        if "error" in inst and inst.get("notifications_enabled", True):
                             notify_error(f"'{inst['name']}' is unreachable.", cfg)
                 try:
                     check_imports(session, cfg)

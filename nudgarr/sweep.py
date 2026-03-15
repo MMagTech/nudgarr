@@ -55,7 +55,28 @@ def _sweep_radarr_instance(
     batch_size: int,
     sleep_seconds: float,
     jitter_seconds: float,
+    missing_max: int,
+    missing_added_days: int,
+    backlog_enabled: bool,
+    notifications_enabled: bool,
 ) -> Dict[str, Any]:
+    """Run one Radarr instance through a full sweep cycle.
+
+    Filtering pipeline (order matters):
+      1. Exclusions — skip titles on the global exclusion list
+      2. Skip Queued — skip movies already in the download queue
+      3. Availability — skip movies whose minimumAvailability hasn't been reached
+      4. Cooldown — skip movies searched too recently (via pick_items_with_cooldown)
+      5. Sample mode + cap — sort eligible items and take up to radarr_max
+
+    Backlog nudges (missing movies) follow the same pipeline minus availability,
+    with an additional age filter (missing_added_days) before cooldown.
+
+    All resolved values (cooldown, caps, modes) come pre-resolved from run_sweep
+    via _resolve() — this function never reads cfg directly for those fields.
+
+    Returns a summary dict consumed by run_sweep and ultimately /api/status.
+    """
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
 
@@ -63,6 +84,13 @@ def _sweep_radarr_instance(
     all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
     queued_movie_ids = radarr_get_queued_movie_ids(session, url, key)
     all_movies = [m for m in all_movies if m["id"] not in queued_movie_ids]
+    skipped_unavailable = [m for m in all_movies if not m.get("isAvailable", True)]
+    all_movies = [m for m in all_movies if m.get("isAvailable", True)]
+    if skipped_unavailable:
+        for m in skipped_unavailable:
+            threshold = m.get("minimumAvailability") or "unknown"
+            release = m.get("releaseDate") or "no date"
+            print(f"[Radarr:{name}] skipped_not_available: {m.get('title', '?')} (minimumAvailability={threshold}, releaseDate={release})")
     STATUS["instance_health"][f"radarr|{name}"] = "ok"
     all_ids = [m["id"] for m in all_movies]
 
@@ -86,19 +114,17 @@ def _sweep_radarr_instance(
             jitter_sleep(sleep_seconds, jitter_seconds)
 
     # Optional: Missing backlog nudges
-    missing_max = int(cfg.get("radarr_missing_max", 1))
-    missing_added_days = int(cfg.get("radarr_missing_added_days", 14))
-    radarr_backlog_enabled = bool(cfg.get("radarr_backlog_enabled", False))
     missing_total = 0
     eligible_missing = 0
     skipped_missing = 0
     searched_missing = 0
     chosen_missing: List[Dict[str, Any]] = []
 
-    if radarr_backlog_enabled and missing_max > 0:
+    if backlog_enabled and missing_max > 0:
         missing_records = radarr_get_missing_movies(session, url, key)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
         missing_records = [m for m in missing_records if m["id"] not in queued_movie_ids]
+        missing_records = [m for m in missing_records if m.get("isAvailable", True)]
         missing_total = len(missing_records)
 
         missing_filtered: List[Dict[str, Any]] = []
@@ -147,6 +173,7 @@ def _sweep_radarr_instance(
         "searched_missing": searched_missing,
         "limit_missing": missing_max,
         "missing_added_days": missing_added_days,
+        "notifications_enabled": notifications_enabled,
     }
 
 
@@ -161,7 +188,18 @@ def _sweep_sonarr_instance(
     batch_size: int,
     sleep_seconds: float,
     jitter_seconds: float,
+    missing_max: int,
+    backlog_enabled: bool,
+    notifications_enabled: bool,
 ) -> Dict[str, Any]:
+    """Run one Sonarr instance through a full sweep cycle.
+
+    Same pipeline as _sweep_radarr_instance but for episodes.
+    Sonarr has no minimumAvailability concept — availability filter is omitted.
+    Backlog nudges also have no age filter (missing_added_days is Radarr-only).
+
+    All resolved values come pre-resolved from run_sweep via _resolve().
+    """
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
 
@@ -191,26 +229,24 @@ def _sweep_sonarr_instance(
         if i + batch_size < len(chosen_items):
             jitter_sleep(sleep_seconds, jitter_seconds)
 
-    sonarr_missing_max = int(cfg.get("sonarr_missing_max", 1))
-    sonarr_backlog_enabled = bool(cfg.get("sonarr_backlog_enabled", False))
     missing_total = 0
     eligible_missing = 0
     skipped_missing = 0
     searched_missing = 0
     chosen_missing: List[Dict[str, Any]] = []
 
-    if sonarr_backlog_enabled and sonarr_missing_max > 0:
+    if backlog_enabled and missing_max > 0:
         missing_records = sonarr_get_missing_episodes(session, url, key)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
         missing_records = [m for m in missing_records if m["id"] not in queued_episode_ids]
         missing_total = len(missing_records)
         chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
             missing_records, "sonarr", name, inst_url, "missing_episode",
-            cooldown_hours, sonarr_missing_max, sonarr_sample_mode
+            cooldown_hours, missing_max, sonarr_sample_mode
         )
         print(f"[Sonarr:{name}] missing_total={missing_total} eligible_missing={eligible_missing} "
               f"skipped_missing_cooldown={skipped_missing} will_search_missing={len(chosen_missing)} "
-              f"limit_missing={sonarr_missing_max}")
+              f"limit_missing={missing_max}")
 
         for i in range(0, len(chosen_missing), batch_size):
             batch_items = chosen_missing[i:i + batch_size]
@@ -237,8 +273,19 @@ def _sweep_sonarr_instance(
         "skipped_missing_cooldown": skipped_missing,
         "will_search_missing": len(chosen_missing),
         "searched_missing": searched_missing,
-        "limit_missing": sonarr_missing_max,
+        "limit_missing": missing_max,
+        "notifications_enabled": notifications_enabled,
     }
+
+
+# ── Override resolver ─────────────────────────────────────────────────
+
+def _resolve(inst: Dict[str, Any], cfg: Dict[str, Any], overrides_enabled: bool,
+             key: str, global_val: Any) -> Any:
+    """Return per-instance override for key if overrides are enabled and set, else global_val."""
+    if not overrides_enabled:
+        return global_val
+    return inst.get("overrides", {}).get(key, global_val)
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────
@@ -276,17 +323,34 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
         "sonarr": [],
     }
 
+    overrides_enabled = bool(cfg.get("per_instance_overrides_enabled", False))
+    # When overrides_enabled is False, _resolve() is a passthrough — all instances
+    # use the global values extracted above. When True, per-instance overrides stored
+    # in inst["overrides"] take precedence over globals for any field they define.
+
     for inst in cfg.get("instances", {}).get("radarr", []):
         if not inst.get("enabled", True):
             print(f"[Radarr:{inst['name']}] disabled — skipping")
             STATUS["instance_health"][f"radarr|{inst['name']}"] = "disabled"
             continue
         name, url = inst["name"], inst["url"]
+        # Resolve per-instance overrides (fall back to global if not set)
+        inst_cooldown = _resolve(inst, cfg, overrides_enabled, "cooldown_hours", cooldown_hours)
+        inst_radarr_max = _resolve(inst, cfg, overrides_enabled, "max_cutoff_unmet", radarr_max)
+        inst_sample_mode = _resolve(inst, cfg, overrides_enabled, "sample_mode", radarr_sample_mode)
+        if inst_sample_mode not in VALID_MODES:
+            inst_sample_mode = radarr_sample_mode
+        inst_missing_max = _resolve(inst, cfg, overrides_enabled, "max_backlog", int(cfg.get("radarr_missing_max", 1)))
+        inst_missing_days = _resolve(inst, cfg, overrides_enabled, "max_missing_days", int(cfg.get("radarr_missing_added_days", 14)))
+        inst_backlog_enabled = _resolve(inst, cfg, overrides_enabled, "backlog_enabled", bool(cfg.get("radarr_backlog_enabled", False)))
+        inst_notifications_enabled = _resolve(inst, cfg, overrides_enabled, "notifications_enabled", bool(cfg.get("notify_enabled", False)))
         try:
             inst_summary = _sweep_radarr_instance(
                 session, inst, cfg, excluded_titles,
-                cooldown_hours, radarr_max, radarr_sample_mode,
+                inst_cooldown, inst_radarr_max, inst_sample_mode,
                 batch_size, sleep_seconds, jitter_seconds,
+                inst_missing_max, inst_missing_days, inst_backlog_enabled,
+                inst_notifications_enabled,
             )
             summary["radarr"].append(inst_summary)
             lk = f"radarr|{state_key(name, url)}"
@@ -316,11 +380,22 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             STATUS["instance_health"][f"sonarr|{inst['name']}"] = "disabled"
             continue
         name, url = inst["name"], inst["url"]
+        # Resolve per-instance overrides (fall back to global if not set)
+        inst_cooldown = _resolve(inst, cfg, overrides_enabled, "cooldown_hours", cooldown_hours)
+        inst_sonarr_max = _resolve(inst, cfg, overrides_enabled, "max_cutoff_unmet", sonarr_max)
+        inst_sample_mode = _resolve(inst, cfg, overrides_enabled, "sample_mode", sonarr_sample_mode)
+        if inst_sample_mode not in VALID_MODES:
+            inst_sample_mode = sonarr_sample_mode
+        inst_missing_max = _resolve(inst, cfg, overrides_enabled, "max_backlog", int(cfg.get("sonarr_missing_max", 1)))
+        inst_backlog_enabled = _resolve(inst, cfg, overrides_enabled, "backlog_enabled", bool(cfg.get("sonarr_backlog_enabled", False)))
+        inst_notifications_enabled = _resolve(inst, cfg, overrides_enabled, "notifications_enabled", bool(cfg.get("notify_enabled", False)))
         try:
             inst_summary = _sweep_sonarr_instance(
                 session, inst, cfg, excluded_titles,
-                cooldown_hours, sonarr_max, sonarr_sample_mode,
+                inst_cooldown, inst_sonarr_max, inst_sample_mode,
                 batch_size, sleep_seconds, jitter_seconds,
+                inst_missing_max, inst_backlog_enabled,
+                inst_notifications_enabled,
             )
             summary["sonarr"].append(inst_summary)
             lk = f"sonarr|{state_key(name, url)}"

@@ -13,6 +13,9 @@ COPY nudgarr/ /app/nudgarr/
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Ensure Python output is flushed immediately to Docker logs
+ENV PYTHONUNBUFFERED=1
+
 VOLUME ["/config"]
 EXPOSE 8085
 

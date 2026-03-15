@@ -20,6 +20,8 @@ from nudgarr.utils import load_json, save_json_atomic
 
 
 def deep_copy(obj: Any) -> Any:
+    """JSON round-trip deep clone. Safer than copy.deepcopy for config dicts
+    since it strips any non-serialisable objects and guarantees a plain dict."""
     return json.loads(json.dumps(obj))
 
 
@@ -77,6 +79,30 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     for f in ("name", "url", "key"):
                         if not item.get(f):
                             errs.append(f"instances.{app}[{i}].{f} is required")
+                    # Validate overrides block if present — only check fields that exist
+                    overrides = item.get("overrides", {})
+                    if not isinstance(overrides, dict):
+                        errs.append(f"instances.{app}[{i}].overrides must be an object")
+                    else:
+                        for ov_key in ("cooldown_hours", "max_cutoff_unmet", "max_backlog", "max_missing_days"):
+                            v = overrides.get(ov_key)
+                            if v is not None and (not isinstance(v, int) or v < 0):
+                                errs.append(f"instances.{app}[{i}].overrides.{ov_key} must be an int >= 0")
+                        sm = overrides.get("sample_mode")
+                        VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
+                        if sm is not None and sm not in VALID_MODES:
+                            errs.append(f"instances.{app}[{i}].overrides.sample_mode must be one of {VALID_MODES}")
+                        be = overrides.get("backlog_enabled")
+                        if be is not None and not isinstance(be, bool):
+                            errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")
+                        ne = overrides.get("notifications_enabled")
+                        if ne is not None and not isinstance(ne, bool):
+                            errs.append(f"instances.{app}[{i}].overrides.notifications_enabled must be boolean")
+
+    for bool_key in ("per_instance_overrides_enabled", "per_instance_overrides_seen", "per_instance_overrides_seen_mobile"):
+        v = cfg.get(bool_key)
+        if v is not None and not isinstance(v, bool):
+            errs.append(f"{bool_key} must be boolean")
 
     return (len(errs) == 0), errs
 

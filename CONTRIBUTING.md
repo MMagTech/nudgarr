@@ -8,7 +8,7 @@ Nudgarr is a lightweight project — the goal is to keep it that way. If you're 
 
 ## Project structure
 
-As of v3.1.0, Nudgarr uses a SQLite database for all persistence via `db.py`.
+As of v4.0.0, Nudgarr uses a SQLite database for all persistence via the `nudgarr/db/` package.
 
 ```
 nudgarr/                    ← Python package
@@ -16,8 +16,16 @@ nudgarr/                    ← Python package
   constants.py              ← VERSION, file paths, DEFAULT_CONFIG
   utils.py                  ← shared helpers: time, file I/O, HTTP, URL validation, jitter
   config.py                 ← load, validate, and deep-copy config
-  db.py                     ← SQLite persistence layer: schema, migrations, all read/write ops
-  state.py                  ← exclusions and history helpers built on top of db.py
+  db/                       ← SQLite persistence layer (package)
+    __init__.py             ← public API — re-exports everything below
+    connection.py           ← thread-local connection, _SCHEMA_SQL, init_db, close_connection
+    history.py              ← search_history table
+    entries.py              ← stat_entries table
+    exclusions.py           ← exclusions table
+    lifetime.py             ← sweep_lifetime and lifetime_totals tables
+    appstate.py             ← nudgarr_state key/value table
+    backup.py               ← JSON export helper
+  state.py                  ← exclusions and history helpers built on top of nudgarr.db
   auth.py                   ← password hashing, lockout, session checks
   notifications.py          ← Apprise wrappers (sweep complete, import, error)
   arr_clients.py            ← Radarr and Sonarr API calls
@@ -34,10 +42,20 @@ nudgarr/                    ← Python package
     stats.py                ← /api/stats, /api/stats/clear, check-imports
     notifications.py        ← /api/notifications/test
     diagnostics.py          ← /api/diagnostic
+  static/                   ← JS and CSS served as static assets
+    ui-core.js              ← bootstrap, status polling, tab switching, desktop run
+    ui-instances.js         ← instances tab, instance modal, connection tests
+    ui-sweep.js             ← sweep tab, per-instance stats cards
+    ui-settings.js          ← settings, notifications, advanced, onboarding, What's New
+    ui-overrides.js         ← per-instance overrides tab and modal
+    ui-mobile-core.js       ← mobile bootstrap, shared mobile helpers
+    ui-mobile-portrait.js   ← portrait layout, bottom sheets, quick settings
+    ui-mobile-landscape.js  ← landscape layout, rail/panel, overrides steppers
+    ui.css                  ← all styles (desktop and mobile)
   templates/                ← HTML served by Flask render_template()
     login.html              ← login page
     setup.html              ← first-run setup page
-    ui.html                 ← main single-page application (~3500 lines)
+    ui.html                 ← HTML shell — loads static JS and CSS, defines all element IDs
 main.py                     ← entry point: signals, startup ping, thread launch
 nudgarr.py                  ← compatibility shim for source runners (deprecated)
 validate.py                 ← pre-package static analysis tool
@@ -47,9 +65,11 @@ validate.py                 ← pre-package static analysis tool
 
 ## Database
 
-All persistence goes through `db.py`. There are no JSON state files in v3.1.0 — on first start after upgrading from an older version, existing JSON files are migrated automatically.
+All persistence goes through the `nudgarr/db/` package. Import from it as `from nudgarr.db import ...` or `from nudgarr import db`.
 
-The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FILE` env var). Schema is defined in `_SCHEMA_SQL` and created by `_create_schema()`. Migrations are versioned in the `schema_migrations` table — do not modify existing migration functions, only add new ones.
+There are no JSON state files in v3.1.0+ — on first start after upgrading from an older version, existing JSON files are migrated automatically.
+
+The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FILE` env var). Schema is defined in `_SCHEMA_SQL` in `nudgarr/db/connection.py` and applied by `init_db()`. Migrations are versioned in the `schema_migrations` table. If adding a new migration, write a new `_run_migration_vN` function in `nudgarr/db/connection.py` and call it from `init_db()`. Do not modify or remove existing migration functions — they may have already run on installed databases.
 
 Key tables:
 
@@ -166,18 +186,18 @@ The sweep logic lives entirely in `sweep.py`. `_sweep_radarr_instance` and `_swe
 
 ### Changing database schema
 
-1. Add new columns or tables to `_SCHEMA_SQL` in `db.py` for fresh installs
-2. Write a new `_run_migration_vN` function that applies the change to existing databases
-3. Call it from `init_db()` in the migration chain
+1. Add new columns or tables to `_SCHEMA_SQL` in `nudgarr/db/connection.py` for fresh installs
+2. Write a new `_run_migration_vN` function in `nudgarr/db/connection.py` that applies the change to existing databases
+3. Call it from `init_db()` in `nudgarr/db/connection.py` in the migration chain
 4. Never modify existing migration functions — they may have already run on user databases
 
 ### Changing the UI
 
-The frontend is a single-page app in `nudgarr/templates/ui.html`. It's plain HTML, CSS, and vanilla JavaScript — no build step required. The JS communicates with the backend exclusively via the REST API endpoints.
+The frontend is a multi-file static app — no build step required. `nudgarr/templates/ui.html` is the HTML shell: it defines all element IDs and loads JS and CSS from `nudgarr/static/`. The JS files are split by domain (see project structure above). All files are plain vanilla JavaScript and CSS.
 
-The file has two distinct UI sections. The desktop UI renders on screens 500px and wider. The mobile UI — marked with `<!-- MOBILE UI -->` — renders on screens under 500px and is a separate layout with its own HTML, CSS, and JS functions. Mobile functions are prefixed with `m` (e.g. `mHaptic`, `mSheetOpen`) to avoid collisions with desktop functions.
+The desktop UI renders on screens 500px and wider. The mobile UI renders on screens under 500px and is a separate layout split across `ui-mobile-core.js`, `ui-mobile-portrait.js`, and `ui-mobile-landscape.js`. Mobile functions are prefixed with `m` (e.g. `mHaptic`, `mSheetOpen`) to avoid collisions with desktop functions.
 
-When adding new HTML elements that are referenced by `el('some-id')` in JS, make sure the `id` attribute exists in the HTML. The `validate.py` tool will catch mismatches.
+When adding new HTML elements that are referenced by `el('some-id')` in JS, make sure the `id` attribute exists in `ui.html`. The `validate.py` tool will catch mismatches.
 
 ### Changing authentication
 
@@ -204,7 +224,7 @@ This checks:
 | JavaScript sanity | Required functions present, onclick references defined, element IDs matched |
 | API endpoint cross-check | Every `api('/api/...')` call in the UI has a matching backend route |
 | Version consistency | `constants.py` VERSION matches the latest entry in `CHANGELOG.md` |
-| Database integrity | Required tables, functions, and migration versions present in `db.py` |
+| Database integrity | Required tables, functions, and schema SQL present in `nudgarr/db/` |
 | Routes registration | All blueprint modules registered in `routes/__init__.py` |
 
 ---
@@ -224,20 +244,17 @@ Run them locally before pushing:
 
 ```bash
 # Syntax
-for f in main.py nudgarr/*.py nudgarr/routes/*.py; do python -m py_compile "$f"; done
+for f in main.py nudgarr/*.py nudgarr/routes/*.py nudgarr/db/*.py; do python -m py_compile "$f"; done
 
 # Lint
 pip install flake8
-flake8 main.py nudgarr/ --max-line-length=120 --ignore=E122,E226,E231,E302,E303,E305,E306,E402,E501,W503
+flake8 main.py nudgarr/ --max-line-length=120 --ignore=E501,W503
 
 # JS (requires Node.js)
-python3 -c "
-import re
-html = open('nudgarr/templates/ui.html').read()
-m = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
-open('/tmp/check.js', 'w').write(m.group(1))
-"
-node --check /tmp/check.js
+for f in nudgarr/static/*.js; do node --check "$f" && echo "OK: $f"; done
+
+# Element ID consistency
+python3 validate.py
 ```
 
 ---

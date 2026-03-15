@@ -113,7 +113,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v3.2.0` · `3.2.0` · `3.2`
+**Tags:** `latest` · `v4.0.0` · `4.0.0` · `4.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -193,7 +193,7 @@ Defaults to `1000:1000` if not set.
 | `/config/nudgarr-config.json` | All settings |
 | `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
 
-If upgrading from v3.0.0 or earlier, existing JSON files are migrated automatically on first start. The original files are left in place and can be removed once you're satisfied with the upgrade.
+If upgrading from v3.0.0 or earlier, upgrade to v3.2.0 first before moving to v4.0.0.
 
 ---
 
@@ -206,6 +206,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 ---
 
 ## Upgrade notes
+
+**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first — v4.0.0 removes the SQLite migration code entirely and assumes all installs are already on the final schema.
 
 **v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
 

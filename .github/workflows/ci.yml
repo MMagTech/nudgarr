@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "nightly", "dev"]
+  pull_request:
+    branches: ["main", "nightly", "dev"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile main.py
+          python -m py_compile nudgarr/__init__.py
+          for f in nudgarr/*.py nudgarr/routes/*.py; do
+            python -m py_compile "$f"
+          done
+          echo "Python syntax OK"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Lint
+        run: |
+          flake8 main.py nudgarr/ \
+            --max-line-length=120 \
+            --ignore=E122,E226,E231,E302,E303,E305,E306,E402,E501,W503 \
+            --count \
+            --statistics
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Check JS syntax
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+          with open('nudgarr/templates/ui.html') as f:
+              html = f.read()
+          m = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
+          if not m:
+              print("No script block found")
+              sys.exit(1)
+          with open('/tmp/nudgarr_check.js', 'w') as f:
+              f.write(m.group(1))
+          print(f"Extracted {len(m.group(1))} chars of JS")
+          EOF
+          node --check /tmp/nudgarr_check.js && echo "JS syntax OK"
+
+      - name: Check element ID consistency
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+          with open('nudgarr/templates/ui.html') as f:
+              html = f.read()
+          # Find all el('id') calls
+          el_calls = set(re.findall(r"el\(['\"]([^'\"]+)['\"]\)", html))
+          # Find all id="..." attributes
+          html_ids = set(re.findall(r'id=["\']([^"\']+)["\']', html))
+          # Find mismatches
+          missing = el_calls - html_ids
+          # Filter out known dynamic IDs (generated at runtime)
+          ignore_prefixes = ('sdot-', 'instcard-', 'sweepcard-', 'onboarding')
+          missing = {m for m in missing if not any(m.startswith(p) for p in ignore_prefixes)}
+          if missing:
+              print("FAIL — el() calls with no matching id in HTML:")
+              for m in sorted(missing):
+                  print(f"  {m}")
+              sys.exit(1)
+          print(f"Element ID consistency OK — checked {len(el_calls)} el() calls")
+          EOF
+
+
+      - name: Run validate.py
+        run: python3 validate.py

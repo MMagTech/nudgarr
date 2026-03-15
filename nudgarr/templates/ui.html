@@ -1282,7 +1282,7 @@
       height: calc(52px + env(safe-area-inset-bottom, 0px)); background: var(--surface);
       border-top: 1px solid rgba(255,255,255,0.07);
       display: flex; align-items: flex-start; justify-content: space-around;
-      flex-shrink: 0;
+      flex-shrink: 0; position: relative;
       padding-top: 4px;
       padding-bottom: env(safe-area-inset-bottom, 0px);
       padding-left: env(safe-area-inset-left, 0px);
@@ -2287,15 +2287,6 @@
 <!-- ══════════════════════════════ LANDSCAPE UI ══════════════════════════════ -->
 <div id="landscape-ui">
 
-  <!-- Header -->
-  <div id="ls-header">
-    <span class="ls-wordmark">Nudgarr</span>
-    <div class="ls-save-indicator" id="ls-save-ind">
-      <div class="ls-save-dot"></div>
-      Saved
-    </div>
-  </div>
-
   <!-- Tab viewport -->
   <div id="ls-viewport">
     <div class="ls-tab-track">
@@ -2509,6 +2500,10 @@
     <div class="ls-nav-item" id="ls-nav-overrides" onclick="lsSwitchTab(2)">
       <span class="ls-nav-icon">⊙</span>
       <span class="ls-nav-label">Overrides</span>
+    </div>
+    <div class="ls-save-indicator" id="ls-save-ind" style="position:absolute;right:12px;top:50%;transform:translateY(-50%)">
+      <div class="ls-save-dot"></div>
+      Saved
     </div>
   </nav>
 

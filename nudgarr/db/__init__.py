@@ -21,7 +21,6 @@ from nudgarr.db.connection import (
     get_connection,
     close_connection,
     init_db,
-    _SCHEMA_SQL,
 )
 
 from nudgarr.db.history import (
@@ -67,7 +66,6 @@ __all__ = [
     "get_connection",
     "close_connection",
     "init_db",
-    # history
     "upsert_search_history",
     "get_last_searched_ts",
     "get_last_searched_ts_bulk",

@@ -13,7 +13,7 @@ stat_entries table — all read/write operations.
 """
 
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from nudgarr.db.connection import get_connection
 from nudgarr.utils import iso_z, parse_iso, utcnow

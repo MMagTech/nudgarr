@@ -617,7 +617,7 @@
       </div>
       <div class="field">
         <label>URL</label>
-        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878" oninput="checkModalUrlPath(this.value)"/>
+        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878" oninput="checkModalUrlPath(this.value); clearModalTest()"/>
         <div class="amber-warn amber-warn-collapsible" id="modalUrlWarn">
           <p class="help amber-warn-body" id="modalUrlWarnMsg"></p>
         </div>
@@ -625,13 +625,22 @@
       <div class="field">
         <label id="modalKeyLabel">API Key</label>
         <div class="key-wrap">
-          <input id="modalKey" type="password" placeholder="Instance API Key"/>
+          <input id="modalKey" type="password" placeholder="Instance API Key" oninput="clearModalTest()"/>
           <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
         </div>
       </div>
-      <div class="row">
-        <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
-        <button class="btn sm primary" onclick="saveModal()">Apply</button>
+      <div class="modal-test-result" id="modalTestResult">
+        <div class="modal-test-result-inner" id="modalTestResultInner">
+          <div class="status-dot" id="modalTestDot"></div>
+          <span id="modalTestMsg"></span>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <button class="btn sm" id="modalTestBtn" onclick="testModalConnection()">Test connection</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
+          <button class="btn sm primary" onclick="saveModal()">Apply</button>
+        </div>
       </div>
     </div>
   </div>

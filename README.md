@@ -84,6 +84,26 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 
 ---
 
+## Power user features
+
+Nudgarr works out of the box with sensible defaults. If you're running a more advanced setup — multiple Radarr or Sonarr instances, separate 4K and 1080p libraries, different cooldown strategies per server, or just want tighter control — these features are worth knowing about.
+
+**Per-Instance Overrides** — seven fields can be tuned independently per instance: cooldown, max cutoff unmet, max backlog, max missing days, sample mode, backlog enabled, and notifications enabled. Unset fields inherit the global value. Enable in Advanced → configure in the Overrides tab. [Full details →](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
+
+**Sample modes** — control how items are selected for each sweep. Random keeps indexers guessing; Alphabetical and Oldest/Newest Added let you work through your library systematically. Set globally or per-instance.
+
+**Backlog Nudges** — separate from cutoff unmet sweeps, backlog nudges target items that have never been grabbed. The Missing Added Days filter excludes newly added items so you're only nudging things that have been sitting for a while. Configured independently for Radarr and Sonarr.
+
+**Exclusions** — click the ⊘ icon on any History row to permanently exclude a title from future searches. Exclusions are global across all instances. Manage the full list in the Sweep tab.
+
+**Cooldown** — prevents re-searching the same item too frequently. Default is 48 hours. Lower it on high-frequency setups; raise it if you want to be gentler on indexers.
+
+**Import tracking** — after each sweep, Nudgarr polls Radarr and Sonarr history to confirm which searches resulted in a successful download. Results appear in the Imports tab with turnaround times and lifetime totals.
+
+For a full walkthrough of all settings see the [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference) on the wiki.
+
+---
+
 ## Per-Instance Overrides
 
 The default global settings work great for typical setups with one Radarr and one Sonarr. If you are an Arr-tist running multiple instances — separate 4K and 1080p libraries, different servers, different cooldown strategies — Per-Instance Overrides lets you fine-tune seven fields independently for each one.

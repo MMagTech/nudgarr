@@ -33,6 +33,69 @@ function renderInstances(kind) {
 
 let MODAL_KIND = '';
 let MODAL_IDX = -1;
+let _modalTestDone = false;
+let _modalTestOk = null;
+let _modalTestVersion = null;
+
+function clearModalTest() {
+  _modalTestDone = false;
+  _modalTestOk = null;
+  _modalTestVersion = null;
+  const wrap = el('modalTestResult');
+  if (wrap) wrap.classList.remove('visible');
+}
+
+async function testModalConnection() {
+  const name = el('modalName').value.trim() || (MODAL_KIND === 'radarr' ? 'Radarr' : 'Sonarr');
+  const url = el('modalUrl').value.trim();
+  const key = el('modalKey').value.trim();
+  const keyIsMasked = key.startsWith('••••••••');
+  if (!url || (!key && !keyIsMasked)) { showAlert('Enter a URL and API key before testing.'); return; }
+
+  const btn = el('modalTestBtn');
+  const wrap = el('modalTestResult');
+  const inner = el('modalTestResultInner');
+  const dot = el('modalTestDot');
+  const msg = el('modalTestMsg');
+
+  btn.disabled = true;
+  inner.className = 'modal-test-result-inner checking';
+  dot.className = 'status-dot checking';
+  msg.textContent = 'Testing connection\u2026';
+  wrap.classList.add('visible');
+
+  try {
+    const tempInst = { name, url, key: keyIsMasked ? (MODAL_IDX >= 0 ? CFG.instances[MODAL_KIND][MODAL_IDX].key : '') : key };
+    const tempCfg = JSON.parse(JSON.stringify(CFG));
+    if (MODAL_IDX >= 0) {
+      tempCfg.instances[MODAL_KIND][MODAL_IDX] = Object.assign({}, tempCfg.instances[MODAL_KIND][MODAL_IDX], tempInst);
+    } else {
+      tempCfg.instances[MODAL_KIND] = tempCfg.instances[MODAL_KIND] || [];
+      tempCfg.instances[MODAL_KIND] = [...tempCfg.instances[MODAL_KIND], tempInst];
+    }
+    const out = await api('/api/test-instance', { method: 'POST', body: JSON.stringify({ kind: MODAL_KIND, instances: tempCfg.instances, update_status: false }) });
+    const idx = MODAL_IDX >= 0 ? MODAL_IDX : (tempCfg.instances[MODAL_KIND].length - 1);
+    const results = out.results[MODAL_KIND] || [];
+    const match = results[idx] || results.find(r => r.name === name);
+    if (match && match.ok) {
+      _modalTestDone = true; _modalTestOk = true; _modalTestVersion = match.version || null;
+      inner.className = 'modal-test-result-inner ok';
+      dot.className = 'status-dot ok';
+      msg.textContent = 'Connected' + (_modalTestVersion ? ' \u2014 ' + (MODAL_KIND === 'radarr' ? 'Radarr' : 'Sonarr') + ' v' + _modalTestVersion : '');
+    } else {
+      _modalTestDone = true; _modalTestOk = false;
+      inner.className = 'modal-test-result-inner bad';
+      dot.className = 'status-dot bad';
+      msg.textContent = (match && match.error) ? match.error : 'Could not connect \u2014 check URL and API key';
+    }
+  } catch(e) {
+    _modalTestDone = true; _modalTestOk = false;
+    inner.className = 'modal-test-result-inner bad';
+    dot.className = 'status-dot bad';
+    msg.textContent = 'Could not connect \u2014 check URL and API key';
+  }
+  btn.disabled = false;
+}
 
 function checkModalUrlPath(val) {
   const warn = el('modalUrlWarn');
@@ -76,6 +139,7 @@ function openModal(kind, idx) {
   el('keyToggleBtn').textContent = 'Show';
   el('modalKeyLabel').textContent = isEdit ? 'API Key (Masked)' : 'API Key (Masked After Save)';
   el('instModal').style.display = 'flex';
+  clearModalTest();
   // Clear URL warning on fresh open and check if editing an existing URL
   const urlWarn = el('modalUrlWarn');
   if (urlWarn) urlWarn.classList.remove('visible');
@@ -89,6 +153,7 @@ function closeModal(e) {
 
 function closeModalDirect() {
   el('instModal').style.display = 'none';
+  clearModalTest();
 }
 
 function toggleKeyVis() {
@@ -108,7 +173,7 @@ async function saveModal() {
   CFG.instances = CFG.instances || {radarr:[], sonarr:[]};
   if (MODAL_IDX >= 0) {
     const existing = CFG.instances[MODAL_KIND][MODAL_IDX];
-    CFG.instances[MODAL_KIND][MODAL_IDX] = {name, url, key, enabled: existing.enabled};
+    CFG.instances[MODAL_KIND][MODAL_IDX] = {...existing, name, url, key, enabled: existing.enabled};
   } else {
     CFG.instances[MODAL_KIND].push({name, url, key});
   }
@@ -117,18 +182,24 @@ async function saveModal() {
   el('saveMsg').textContent = MODAL_IDX >= 0 ? 'Unsaved Changes' : 'Unsaved Changes';
   el('saveMsg').className = 'msg unsaved';
 
-  // Silently test the new/edited instance using in-memory values
+  // If a manual test was already run on these credentials use the cached
+  // result directly — no second request needed.
   const idx = MODAL_IDX >= 0 ? MODAL_IDX : CFG.instances[MODAL_KIND].length - 1;
   const dot = el(`sdot-${MODAL_KIND}-${idx}`);
-  if (dot) dot.className = 'status-dot checking';
-  try {
-    const testPayload = { kind: MODAL_KIND, instances: CFG.instances };
-    const out = await api('/api/test-instance', {method:'POST', body: JSON.stringify(testPayload)});
-    const results = out.results[MODAL_KIND] || [];
-    const match = results.find(r => r.name === name);
-    if (dot && match) dot.className = 'status-dot ' + (match.ok ? 'ok' : 'bad');
-  } catch(e) {
-    if (dot) dot.className = 'status-dot bad';
+  if (_modalTestDone) {
+    if (dot) dot.className = 'status-dot ' + (_modalTestOk ? 'ok' : 'bad');
+  } else {
+    // Silent post-apply test — same as existing behaviour
+    if (dot) dot.className = 'status-dot checking';
+    try {
+      const testPayload = { kind: MODAL_KIND, instances: CFG.instances };
+      const out = await api('/api/test-instance', {method:'POST', body: JSON.stringify({...testPayload, update_status: true})});
+      const results = out.results[MODAL_KIND] || [];
+      const match = results.find(r => r.name === name);
+      if (dot && match) dot.className = 'status-dot ' + (match.ok ? 'ok' : 'bad');
+    } catch(e) {
+      if (dot) dot.className = 'status-dot bad';
+    }
   }
 }
 

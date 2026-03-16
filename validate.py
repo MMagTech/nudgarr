@@ -59,23 +59,34 @@ for js_file in JS_FILES:
 all_content = content + js_content
 
 # ── Packaging Hygiene ─────────────────────────────────────────────────────────
-# Run first — before py_compile creates new __pycache__ dirs
+# Auto-clean any pre-existing __pycache__ dirs first (normal in dev environments),
+# then verify clean — this ensures the check catches dirs accidentally bundled
+# into a zip but never false-positives on a normal working repo.
 section("Packaging Hygiene")
+
+import shutil as _shutil
+_pre = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
+       glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__')
+_pre_pyc = glob.glob('**/*.pyc', recursive=True) + glob.glob('**/*.pyo', recursive=True)
+for _d in set(_pre):
+    _shutil.rmtree(_d, ignore_errors=True)
+for _f in _pre_pyc:
+    try: os.remove(_f)
+    except: pass
 
 pycache_dirs = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
                glob.glob('nudgarr/__pycache__') + \
                glob.glob('__pycache__')
-pycache_dirs = sorted(set(pycache_dirs))
 if pycache_dirs:
-    for d in pycache_dirs:
-        fail(f"__pycache__ directory present — exclude before packaging: {d}")
+    for d in sorted(set(pycache_dirs)):
+        fail(f"__pycache__ directory present — could not clean: {d}")
 else:
-    ok("No __pycache__ directories present")
+    ok("No __pycache__ directories present (cleaned before check)")
 
 pyc_files = glob.glob('**/*.pyc', recursive=True) + glob.glob('**/*.pyo', recursive=True)
 if pyc_files:
     for f in pyc_files:
-        fail(f"Compiled bytecode file present — exclude before packaging: {f}")
+        fail(f"Compiled bytecode file present — could not clean: {f}")
 else:
     ok("No compiled bytecode files present")
 

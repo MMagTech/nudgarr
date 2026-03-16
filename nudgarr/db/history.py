@@ -242,6 +242,7 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
 def prune_search_history(retention_days: int) -> int:
     """Delete search_history rows whose last_searched_ts is older than retention_days.
     Returns the number of rows deleted. No-op if retention_days <= 0."""
+    if retention_days <= 0:
         return 0
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))
     conn = get_connection()
@@ -254,4 +255,6 @@ def prune_search_history(retention_days: int) -> int:
 
 def clear_search_history() -> None:
     """Delete all rows from search_history. sweep_lifetime is not affected."""
+    conn = get_connection()
+    conn.execute("DELETE FROM search_history")
     conn.commit()

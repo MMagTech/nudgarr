@@ -250,6 +250,8 @@ def rename_instance_in_history(app: str, instance_url: str, new_name: str) -> No
 
 def clear_stat_entries() -> None:
     """Delete all rows from stat_entries. Lifetime totals are not affected."""
+    conn = get_connection()
+    conn.execute("DELETE FROM stat_entries")
     conn.commit()
 
 
@@ -258,6 +260,7 @@ def prune_stat_entries(retention_days: int) -> int:
     Unimported (pending) entries are intentionally preserved regardless of age
     so in-flight import checks are never interrupted. Returns the number of
     rows deleted. No-op if retention_days <= 0."""
+    if retention_days <= 0:
         return 0
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))
     conn = get_connection()

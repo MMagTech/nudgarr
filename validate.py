@@ -4,7 +4,7 @@ Nudgarr pre-package HTML validator.
 Run before zipping to catch structural issues early.
 Usage: python3 validate.py  (from repo root)
 """
-import sys, re, os
+import sys, re, os, ast, glob, py_compile
 
 UI_FILE        = 'nudgarr/templates/ui.html'
 CONSTANTS_FILE = 'nudgarr/constants.py'
@@ -57,6 +57,45 @@ for js_file in JS_FILES:
 
 # For API route checks, combine html + js (api() calls are in JS files)
 all_content = content + js_content
+
+# ── Python Syntax ─────────────────────────────────────────────────────────────
+section("Python Syntax")
+
+py_files = (
+    [f for f in ['main.py', 'nudgarr.py'] if os.path.exists(f)]
+    + glob.glob('nudgarr/*.py')
+    + glob.glob('nudgarr/routes/*.py')
+    + glob.glob('nudgarr/db/*.py')
+)
+for f in sorted(py_files):
+    try:
+        py_compile.compile(f, doraise=True)
+        ok(f"Syntax OK: {f}")
+    except py_compile.PyCompileError as e:
+        fail(f"Syntax error: {e}")
+
+# ── Database Connection Integrity ─────────────────────────────────────────────
+section("Database Connection Integrity")
+
+for f in sorted(glob.glob('nudgarr/db/*.py')):
+    if os.path.basename(f) in ('__init__.py', 'connection.py'):
+        continue
+    try:
+        tree = ast.parse(open(f).read())
+    except SyntaxError:
+        continue  # Already caught above
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if node.name.startswith('_') and node.name != '__init__':
+            continue
+        src = ast.unparse(node)
+        uses_conn    = 'conn.' in src
+        has_get_conn = 'get_connection()' in src
+        if uses_conn and not has_get_conn:
+            fail(f"{f}:{node.lineno} — {node.name}() uses conn but never calls get_connection()")
+        elif uses_conn:
+            ok(f"{f}: {node.name}() — conn usage and get_connection() both present")
 
 # ── Static Files ──────────────────────────────────────────────────────────────
 section("Static Files")

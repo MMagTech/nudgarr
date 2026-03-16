@@ -16,6 +16,7 @@ from nudgarr.utils import iso_z, utcnow
 
 def get_exclusions() -> List[Dict]:
     """Return all exclusion rows ordered by most recently added."""
+    conn = get_connection()
     rows = conn.execute(
         "SELECT title, excluded_at FROM exclusions ORDER BY excluded_at DESC"
     ).fetchall()
@@ -25,6 +26,7 @@ def get_exclusions() -> List[Dict]:
 def add_exclusion(title: str) -> int:
     """Add a title to the exclusions list (case-insensitive dedup via INSERT OR IGNORE).
     Returns the new total exclusion count."""
+    conn = get_connection()
     conn.execute(
         "INSERT OR IGNORE INTO exclusions (title, excluded_at) VALUES (?, ?)",
         (title.strip(), iso_z(utcnow()))
@@ -36,6 +38,7 @@ def add_exclusion(title: str) -> int:
 def remove_exclusion(title: str) -> int:
     """Remove a title from the exclusions list (case-insensitive match).
     Returns the new total exclusion count."""
+    conn = get_connection()
     conn.execute(
         "DELETE FROM exclusions WHERE title = ? COLLATE NOCASE",
         (title.strip(),)

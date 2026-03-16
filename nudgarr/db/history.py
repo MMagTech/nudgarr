@@ -33,6 +33,11 @@ def upsert_search_history(
     now_ts: str,
     series_id: str = "",
 ) -> None:
+    """Insert or update a search_history row for one searched item.
+    On conflict (same app, instance_url, item_type, item_id), increments
+    search_count and updates last_searched_ts. sweep_type, library_added,
+    series_id, and title are updated only when the incoming value is non-empty,
+    preserving the original value if the caller passes an empty string."""
     conn = get_connection()
     conn.execute(
         """
@@ -67,6 +72,7 @@ def get_last_searched_ts(
     item_type: str,
     item_id: str,
 ) -> Optional[str]:
+    """Return the last_searched_ts ISO string for one item, or None if not in history."""
     conn = get_connection()
     row = conn.execute(
         """
@@ -110,6 +116,10 @@ def get_search_history(
     cooldown_hours: int = 48,
     instance_name_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[int, List[Dict]]:
+    """Return paginated search history rows with computed cooldown metadata.
+    instance_key accepts the composite 'name|url' format and extracts the URL
+    portion internally for the database query. eligible_again is computed per row
+    from last_searched_ts + cooldown_hours. Returns (total, items)."""
     conn = get_connection()
     params: list = []
     where = []
@@ -169,7 +179,9 @@ def get_search_history(
 
 
 def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    # Local import avoids circular dependency (state imports db)
+    """Return entry counts, file size, and instance metadata for the History tab header.
+    state_key is imported locally here to avoid a circular import
+    (nudgarr.state imports nudgarr.db, so importing at module level would cycle)."""
     from nudgarr.state import state_key as make_state_key
 
     conn = get_connection()
@@ -228,7 +240,8 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def prune_search_history(retention_days: int) -> int:
-    if retention_days <= 0:
+    """Delete search_history rows whose last_searched_ts is older than retention_days.
+    Returns the number of rows deleted. No-op if retention_days <= 0."""
         return 0
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))
     conn = get_connection()
@@ -240,6 +253,5 @@ def prune_search_history(retention_days: int) -> int:
 
 
 def clear_search_history() -> None:
-    conn = get_connection()
-    conn.execute("DELETE FROM search_history")
+    """Delete all rows from search_history. sweep_lifetime is not affected."""
     conn.commit()

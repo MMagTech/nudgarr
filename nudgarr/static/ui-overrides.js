@@ -58,6 +58,14 @@ function _getGlobal(kind, field) {
 
 function _ovCardId(kind, idx) { return `ov-card-${kind}-${idx}`; }
 
+// _buildOverrideCard — renders the HTML for a single per-instance override card.
+// Defines three inner builders: numField (numeric inputs with reset button),
+// modeField (Sample Mode select with Use Global sentinel), and backlogField
+// (toggle with live label). Fields with an active override get the ov-active class
+// to highlight them visually. Disabled instances are fully dimmed and pointer-events
+// are removed so their fields cannot be edited. The notifications footer row is
+// rendered separately at the bottom of each card.
+// Returns a raw HTML string for innerHTML injection by renderOverridesCards().
 function _buildOverrideCard(kind, idx, inst, solo = false) {
   const ov = inst.overrides || {};
   const cardId = _ovCardId(kind, idx);
@@ -248,6 +256,13 @@ function updateNotifyLabel(kind, idx) {
   if (row) row.classList.add('ov-active');
 }
 
+// applyOverrides — reads the current DOM state of one card and writes a new
+// overrides object to the server via /api/instance/overrides.
+// Write/delete rules: an empty string input removes that field from the override
+// dict (falls back to global); sample_mode set to '__global__' removes the override;
+// backlog_enabled and notifications_enabled are written whenever their current value
+// differs from the global, or if an override already existed (to allow explicit
+// matching-global saves that still show ov-active until Reset is clicked).
 async function applyOverrides(kind, idx) {
   const cardId = _ovCardId(kind, idx);
   const inst = (CFG.instances[kind] || [])[idx];

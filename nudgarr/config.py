@@ -26,6 +26,10 @@ def deep_copy(obj: Any) -> Any:
 
 
 def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Validate a config dict against all required field types and constraints.
+    Checks scheduler fields, cron expression, sample modes, numeric bounds,
+    instance structure, and the per-instance overrides block (v3.2.0+).
+    Returns (ok, errors) where ok is False if any errors were found."""
     errs: List[str] = []
 
     if not isinstance(cfg.get("scheduler_enabled"), bool):
@@ -108,6 +112,12 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
 
 def load_or_init_config() -> Dict[str, Any]:
+    """Load config from disk, merge with DEFAULT_CONFIG, and return the result.
+    If the file is missing or unreadable, seeds it from defaults and returns that.
+    Applies the v3.1.0 run_interval_minutes -> cron_expression migration if needed,
+    drops legacy keys (run_interval_minutes, cron_enabled), and writes back to disk
+    only when the merged result differs from what was on disk (e.g. new default keys
+    were added). Falls back to defaults if validation fails after merging."""
     cfg = load_json(CONFIG_FILE, None)
     if not isinstance(cfg, dict):
         cfg = deep_copy(DEFAULT_CONFIG)

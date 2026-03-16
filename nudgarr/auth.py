@@ -77,6 +77,10 @@ LOCKOUT_SCHEDULE = [
 
 
 def get_lockout_seconds(count: int) -> int:
+    """Return the lockout duration in seconds for the given failure count.
+    Iterates LOCKOUT_SCHEDULE and takes the highest matching threshold
+    (accumulates, not first-match), so the duration escalates with repeated failures.
+    Returns 0 if no threshold has been reached yet."""
     duration = 0
     for threshold, seconds in LOCKOUT_SCHEDULE:
         if count >= threshold:
@@ -110,6 +114,7 @@ def record_auth_failure(ip: str) -> int:
 
 
 def clear_auth_failures(ip: str) -> None:
+    """Reset the failure count and lockout timer for the given IP. Called on successful login."""
     with _AUTH_LOCK:
         _AUTH_FAILURES.pop(ip, None)
 

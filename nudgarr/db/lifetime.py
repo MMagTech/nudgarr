@@ -23,6 +23,9 @@ def upsert_sweep_lifetime(
     searched_delta: int = 0,
     last_run_utc: Optional[str] = None,
 ) -> None:
+    """Insert or update lifetime sweep counters for one instance.
+    All delta parameters are additive — they are added to the existing values,
+    not used as absolute replacements. last_run_utc overwrites the stored value."""
     conn = get_connection()
     conn.execute(
         """
@@ -41,13 +44,13 @@ def upsert_sweep_lifetime(
 
 
 def get_sweep_lifetime() -> Dict[str, Any]:
-    conn = get_connection()
+    """Return all sweep_lifetime rows as {instance_key: row_dict}."""
     rows = conn.execute("SELECT * FROM sweep_lifetime").fetchall()
     return {r["instance_key"]: dict(r) for r in rows}
 
 
 def get_sweep_lifetime_row(instance_key: str) -> Optional[Dict]:
-    conn = get_connection()
+    """Return the sweep_lifetime row for one instance, or None if not found."""
     row = conn.execute(
         "SELECT * FROM sweep_lifetime WHERE instance_key = ?", (instance_key,)
     ).fetchone()
@@ -55,7 +58,7 @@ def get_sweep_lifetime_row(instance_key: str) -> Optional[Dict]:
 
 
 def increment_lifetime_total(key: str, delta: int = 1) -> None:
-    conn = get_connection()
+    """Add delta to the lifetime_totals counter for key ('movies' or 'shows')."""
     conn.execute(
         "UPDATE lifetime_totals SET value = value + ? WHERE key = ?",
         (delta, key)
@@ -64,7 +67,7 @@ def increment_lifetime_total(key: str, delta: int = 1) -> None:
 
 
 def get_lifetime_totals() -> Dict[str, int]:
-    conn = get_connection()
+    """Return {movies: N, shows: N} lifetime import counters. Never returns None."""
     rows = conn.execute("SELECT key, value FROM lifetime_totals").fetchall()
     result = {"movies": 0, "shows": 0}
     for r in rows:

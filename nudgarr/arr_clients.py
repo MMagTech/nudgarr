@@ -108,6 +108,8 @@ def radarr_search_movies(
     key: str,
     movie_ids: List[int],
 ) -> None:
+    """Trigger a MoviesSearch command for the given movie IDs. Returns None.
+    No-op if movie_ids is empty."""
     if not movie_ids:
         return
     cmd = f"{url.rstrip('/')}/api/v3/command"
@@ -228,6 +230,8 @@ def sonarr_search_episodes(
     key: str,
     episode_ids: List[int],
 ) -> None:
+    """Trigger an EpisodeSearch command for the given episode IDs. Returns None.
+    No-op if episode_ids is empty."""
     if not episode_ids:
         return
     cmd = f"{url.rstrip('/')}/api/v3/command"

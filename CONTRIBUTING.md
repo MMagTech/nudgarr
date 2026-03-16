@@ -45,13 +45,19 @@ nudgarr/                    ← Python package
   static/                   ← JS and CSS served as static assets
     ui-core.js              ← bootstrap, status polling, tab switching, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
-    ui-sweep.js             ← sweep tab, per-instance stats cards
+    ui-sweep.js             ← sweep tab, history tab, imports/stats tab, exclusions
     ui-settings.js          ← settings, notifications, advanced, onboarding, What's New
     ui-overrides.js         ← per-instance overrides tab and modal
-    ui-mobile-core.js       ← mobile bootstrap, shared mobile helpers
-    ui-mobile-portrait.js   ← portrait layout, bottom sheets, quick settings
-    ui-mobile-landscape.js  ← landscape layout, rail/panel, overrides steppers
-    ui.css                  ← all styles (desktop and mobile)
+    ui-mobile-core.js              ← shared mobile helpers, poll cycle, bridge functions
+    ui-mobile-landscape.js         ← landscape Overrides tab — rail, panel, lsOv* functions
+    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state
+    ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs
+    ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
+    ui-mobile-portrait-settings.js ← portrait Settings tab
+    ui-mobile-portrait.js          ← portrait tab switcher, swipe gesture, mobile init block
+    ui.css                         ← desktop styles
+    ui-mobile.css                  ← portrait mobile styles
+    ui-landscape.css               ← landscape styles
   templates/                ← HTML served by Flask render_template()
     login.html              ← login page
     setup.html              ← first-run setup page
@@ -113,7 +119,7 @@ main.py  ←─ imports from routes, scheduler, globals
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
-4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies cooldown logic from `stats.py`, calls the search API, then records results via `db.py`
+4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies cooldown logic from `stats.py`, calls the search API, then records results via `nudgarr/db/`
 5. `run_sweep` returns a summary dict
 6. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
 7. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep
@@ -125,7 +131,7 @@ main.py  ←─ imports from routes, scheduler, globals
 1. `main.py` calls `register_blueprints()` which registers all 7 route blueprints with the Flask app
 2. A request arrives at one of the 31 endpoints
 3. The `@requires_auth` decorator in `auth.py` checks session validity and runs a CSRF origin check on POST requests before the handler runs
-4. The handler reads/writes state via `db.py` and `state.py`, config via `config.py`, and updates `STATUS` in `globals.py`
+4. The handler reads/writes state via `nudgarr/db/` and `state.py`, config via `config.py`, and updates `STATUS` in `globals.py`
 5. Flask serialises the response as JSON (most endpoints) or renders a template
 
 ---
@@ -235,7 +241,7 @@ The CI workflow (`.github/workflows/ci.yml`) runs four checks on every push:
 |---|---|
 | Python syntax | `py_compile` on every `.py` file |
 | Flake8 lint | Style and import checks, max line length 120 |
-| JS syntax | Extracts the `<script>` block from `ui.html` and runs `node --check` |
+| JS syntax | Runs `node --check` on every `.js` file in `nudgarr/static/` |
 | Element ID consistency | Verifies every `el('id')` call in `ui.html` has a matching `id` attribute |
 
 Run them locally before pushing:

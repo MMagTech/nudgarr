@@ -13,6 +13,10 @@ from nudgarr.db.lifetime import get_lifetime_totals, get_sweep_lifetime
 
 
 def export_as_json_dict() -> Dict[str, Any]:
+    """Serialise all database tables to a JSON-serialisable dict.
+    Returns {state, stats, exclusions} where state contains search_history
+    and sweep_lifetime, stats contains stat_entries and lifetime totals,
+    and exclusions contains the full exclusions list."""
     conn = get_connection()
 
     sh_rows = conn.execute("SELECT * FROM search_history").fetchall()

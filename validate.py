@@ -21,7 +21,17 @@ JS_FILES = [
     'ui-settings.js',
     'ui-mobile-core.js',
     'ui-mobile-landscape.js',
+    'ui-mobile-landscape-exec.js',
+    'ui-mobile-portrait-home.js',
+    'ui-mobile-portrait-history.js',
+    'ui-mobile-portrait-settings.js',
     'ui-mobile-portrait.js',
+]
+
+CSS_FILES = [
+    'ui.css',
+    'ui-mobile.css',
+    'ui-landscape.css',
 ]
 
 PASS = FAIL = 0
@@ -52,11 +62,12 @@ all_content = content + js_content
 section("Static Files")
 
 try:
-    css_path = os.path.join(STATIC_DIR, 'ui.css')
-    if os.path.exists(css_path):
-        ok(f"ui.css exists ({sum(1 for _ in open(css_path))} lines)")
-    else:
-        fail("ui.css missing from nudgarr/static/")
+    for css_file in CSS_FILES:
+        css_path = os.path.join(STATIC_DIR, css_file)
+        if os.path.exists(css_path):
+            ok(f"{css_file} exists ({sum(1 for _ in open(css_path))} lines)")
+        else:
+            fail(f"{css_file} missing from nudgarr/static/")
 
     for js_file in JS_FILES:
         path = os.path.join(STATIC_DIR, js_file)
@@ -72,11 +83,12 @@ try:
         else:
             fail(f"HTML shell missing script tag for: {js_file}")
 
-    # CSS link present in shell
-    if 'ui.css' in content:
-        ok("HTML shell links: ui.css")
-    else:
-        fail("HTML shell missing link tag for ui.css")
+    # Check all CSS files are linked in the HTML shell
+    for css_file in CSS_FILES:
+        if css_file in content:
+            ok(f"HTML shell links: {css_file}")
+        else:
+            fail(f"HTML shell missing link tag for: {css_file}")
 
     # No inline <style> or <script> blocks remain in HTML shell
     if '<style>' in content:

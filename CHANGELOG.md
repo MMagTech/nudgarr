@@ -16,11 +16,13 @@ All notable changes to Nudgarr are documented here.
 - Header and status bar restructured — three separate pills consolidated into a single segmented status bar; scheduler state uses CSS class toggle instead of inline style
 - Overrides tab label updated to include ⊙ glyph
 - Instance modal now has an explicit Test connection button. Shows a live result (checking → connected with version, or error message) before you apply. Result is cached — pressing Apply immediately after a successful test reuses it without a second request.
+- Save bar styling unified across Instances, Settings, Notifications, and Advanced tabs using a shared `.save-bar` class. Overrides section divider spacing and line weight adjusted.
 
 **Bug fixes**
 
 - Sonarr clickable titles now correctly open the series page in Sonarr. Previously the arr-link route used the episode ID to look up the series, which would fail. `series_id` is now stored in `search_history`, returned by the history API, and passed through to `/api/arr-link`. Migration v7 adds the column to existing installs.
 - Editing an existing instance no longer clears its Per-Instance Override values. The previous save path rebuilt the instance object with only four fields, dropping any stored overrides.
+- History summary now normalises trailing slashes on both the `url_to_name` lookup and the grouping key, preventing duplicate or missing history pills when a URL was stored inconsistently across sweeps.
 
 **Backend cleanup**
 

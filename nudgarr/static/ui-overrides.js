@@ -66,7 +66,7 @@ function _ovCardId(kind, idx) { return `ov-card-${kind}-${idx}`; }
 // are removed so their fields cannot be edited. The notifications footer row is
 // rendered separately at the bottom of each card.
 // Returns a raw HTML string for innerHTML injection by renderOverridesCards().
-function _buildOverrideCard(kind, idx, inst) {
+function _buildOverrideCard(kind, idx, inst, solo = false) {
   const ov = inst.overrides || {};
   const cardId = _ovCardId(kind, idx);
   const ovCount = Object.keys(ov).length;
@@ -161,7 +161,7 @@ function _buildOverrideCard(kind, idx, inst) {
     ? `${notifyVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalNotify ? 'On' : 'Off'}`
     : `${notifyVal ? 'On' : 'Off'} (Global: ${globalNotify ? 'On' : 'Off'})`;
 
-  return `<div class="ov-card" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
+  return `<div class="${'ov-card' + (solo ? ' ov-solo' : '')}" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
         <div class="${badgeClass}" style="${badgeStyle}"><div class="${dotClass}" style="${dotStyle}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
@@ -208,19 +208,20 @@ function renderOverridesCards() {
     const label = kind.charAt(0).toUpperCase() + kind.slice(1);
     html += `<div class="ov-divider"><span class="ov-divider-label">${label}</span><span class="ov-divider-line"></span></div>`;
     insts.forEach((inst, idx) => {
-      html += _buildOverrideCard(kind, idx, inst);
+      html += _buildOverrideCard(kind, idx, inst, insts.length === 1);
     });
   });
   grid.innerHTML = hasAny ? html : '<p class="help" style="color:var(--muted)">No instances configured.</p>';
 }
 
 function renderSingleOverrideCard(kind, idx) {
-  const inst = (CFG.instances[kind] || [])[idx];
+  const insts = CFG.instances[kind] || [];
+  const inst = insts[idx];
   if (!inst) return;
   const cardId = _ovCardId(kind, idx);
   const existing = el(cardId);
   if (!existing) return;
-  const newHtml = _buildOverrideCard(kind, idx, inst);
+  const newHtml = _buildOverrideCard(kind, idx, inst, insts.length === 1);
   existing.outerHTML = newHtml;
 }
 

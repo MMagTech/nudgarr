@@ -208,7 +208,8 @@
       transition: border-color .2s;
     }
     .ov-card.ov-dirty { border-color: rgba(245,158,11,.4); }
-    .ov-card.ov-solo { grid-column: 1 / -1; }
+    .ov-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    @media(max-width: 720px) { .ov-grid { grid-template-columns: 1fr; } }
     .ov-card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .ov-badge {
       display: inline-flex; align-items: center; gap: 5px;

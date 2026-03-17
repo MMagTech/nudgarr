@@ -116,9 +116,6 @@ function mSyncNotifyEvents() {
   const enabled = !!CFG.notify_enabled;
   const tog = document.getElementById('m-toggle-notify-settings');
   if (tog) tog.classList.toggle('m-on', enabled);
-  // Sync Home toggle too
-  const homeTog = document.getElementById('m-toggle-notify');
-  if (homeTog) homeTog.classList.toggle('m-on', enabled);
   const events = document.getElementById('m-notify-events');
   if (events) events.style.opacity = enabled ? '' : '.38';
   if (events) events.style.pointerEvents = enabled ? '' : 'none';

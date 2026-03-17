@@ -47,8 +47,6 @@ function mUpdateHome(cfg, st) {
   if (autoSub) autoSub.textContent = cfg.scheduler_enabled ? describeCron(cfg.cron_expression || '') : 'Manual';
   const tAuto = document.getElementById('m-toggle-auto');
   if (tAuto) tAuto.classList.toggle('m-on', !!autoActive);
-  const tNotify = document.getElementById('m-toggle-notify');
-  if (tNotify) tNotify.classList.toggle('m-on', !!cfg.notify_enabled);
 
   mRenderInstanceRows();
 }
@@ -137,11 +135,6 @@ async function mSaveCfgKeys(updates) {
 function mToggleAuto() {
   mHaptic(40);
   mSaveCfgKeys({scheduler_enabled: !CFG.scheduler_enabled});
-}
-
-function mToggleNotify() {
-  mHaptic(40);
-  mSaveCfgKeys({notify_enabled: !CFG.notify_enabled});
 }
 
 function mToggleRadarrBacklog() {

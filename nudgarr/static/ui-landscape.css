@@ -124,6 +124,9 @@
     .ls-cron-header {
       display: flex; align-items: center; justify-content: space-between; width: 100%;
     }
+    .ls-container-time {
+      font-size: 10px; color: var(--muted); opacity: .6; white-space: nowrap;
+    }
     .ls-cron-link {
       font-size: 10px; color: var(--accent-lt); opacity: .7;
       text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;

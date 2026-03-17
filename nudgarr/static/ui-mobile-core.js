@@ -160,6 +160,7 @@ async function mPollCycle() {
     const st = await api('/api/status');
     STATUS_CACHE = st.instance_health || {};
     if (CFG) mUpdateHome(CFG, st);
+    if (typeof lsUpdateContainerTime === 'function') lsUpdateContainerTime(st.container_time);
     if (M_TAB === 'sweep') {
       await refreshSweep();
       mRenderSweep();

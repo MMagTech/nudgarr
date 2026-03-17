@@ -61,6 +61,11 @@ function lsPopulate() {
   if (typeof mOvUpdateSubLabels === 'function') mOvUpdateSubLabels();
 }
 
+function lsUpdateContainerTime(timeStr) {
+  const el = document.getElementById('ls-container-time');
+  if (el) el.textContent = timeStr ? 'Container: ' + timeStr : '';
+}
+
 function lsToggleBacklog(app) {
   mHaptic(40);
   const key = app + '_backlog_enabled';

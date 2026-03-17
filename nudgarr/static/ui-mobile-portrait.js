@@ -100,6 +100,7 @@ if (MOBILE) {
     const st = await api('/api/status');
     STATUS_CACHE = st.instance_health || {};
     mUpdateHome(CFG, st);
+    if (typeof lsUpdateContainerTime === 'function') lsUpdateContainerTime(st.container_time);
     mRenderInstances();
     mPopulateSettings();
     mOvUpdateSubLabels();

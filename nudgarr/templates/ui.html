@@ -658,6 +658,10 @@
            <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards. The instance modal now has a Test connection button — check your URL and API key before applying.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
+           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog and Execution tabs alongside Overrides.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
            <div class="help">v4.0.0 is a foundations release — no new features, no behaviour changes to your settings or workflows. The database layer is now a structured package instead of a single large file, and the UI loads from separate static files that your browser can cache independently.</div>
          </div>
@@ -803,13 +807,6 @@
           <div class="m-toggle-sub" id="m-auto-sub">—</div>
         </div>
         <div class="m-toggle" id="m-toggle-auto" onclick="mToggleAuto()"></div>
-      </div>
-      <div class="m-toggle-row">
-        <div>
-          <div class="m-toggle-label">Notifications</div>
-          <div class="m-toggle-sub">Apprise alerts</div>
-        </div>
-        <div class="m-toggle" id="m-toggle-notify" onclick="mToggleNotify()"></div>
       </div>
     </div>
 
@@ -1154,7 +1151,10 @@
             <div class="ls-row ls-row-col" id="ls-cron-row">
               <div class="ls-cron-header">
                 <div class="ls-row-label">Cron Expression</div>
-                <a href="https://crontab.guru" target="_blank" rel="noopener" class="ls-cron-link">cron generator ↗</a>
+                <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                  <span id="ls-container-time" class="ls-container-time"></span>
+                  <a href="https://crontab.guru" target="_blank" rel="noopener" class="ls-cron-link">cron generator ↗</a>
+                </div>
               </div>
               <input type="text" id="ls-cron-input" class="ls-cron-input" placeholder="0 */12 * * *" oninput="lsValidateCron()" />
               <div class="ls-cron-hint" id="ls-cron-hint"></div>

@@ -15,7 +15,9 @@ This quick walkthrough covers the key things to know before your first run. It i
     title: "Step 1 — Add Your Instances",
     body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
 <br><br>
-You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.
+<br><br>
+<span style="display:block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.6">On mobile, instance management requires a desktop browser. Once your instances are configured you can monitor and enable/disable them from the Home screen.</span>`
   },
   {
     title: "Step 2 — Scheduler",

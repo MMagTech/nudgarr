@@ -52,7 +52,12 @@ def _radarr_movies_from_wanted(
             if isinstance(mid, int):
                 min_avail = rec.get("minimumAvailability", "")
                 release_date = rec.get("physicalRelease") or rec.get("digitalRelease") or rec.get("inCinemas") or ""
-                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added, "isAvailable": rec.get("isAvailable", True), "minimumAvailability": min_avail, "releaseDate": release_date})
+                quality_from = ""
+                try:
+                    quality_from = rec["movieFile"]["quality"]["quality"]["name"] or ""
+                except (KeyError, TypeError):
+                    pass
+                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added, "isAvailable": rec.get("isAvailable", True), "minimumAvailability": min_avail, "releaseDate": release_date, "quality_from": quality_from})
     return movies
 
 
@@ -172,7 +177,12 @@ def _sonarr_episodes_from_wanted(
                         title += f" · {ep_title}"
                 else:
                     title = ep_title or f"Episode {eid}"
-                episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added})
+                quality_from = ""
+                try:
+                    quality_from = rec["episodeFile"]["quality"]["quality"]["name"] or ""
+                except (KeyError, TypeError):
+                    pass
+                episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added, "quality_from": quality_from})
     return episodes
 
 

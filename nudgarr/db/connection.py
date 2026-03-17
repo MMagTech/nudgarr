@@ -86,7 +86,9 @@ CREATE TABLE IF NOT EXISTS stat_entries (
     first_searched_ts TEXT NOT NULL,
     last_searched_ts  TEXT NOT NULL,
     imported          INTEGER NOT NULL DEFAULT 0,
-    imported_ts       TEXT
+    imported_ts       TEXT,
+    quality_from      TEXT,
+    quality_to        TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_stat_entries_active
     ON stat_entries (app, instance, item_id, type) WHERE imported = 0;
@@ -147,6 +149,7 @@ def init_db() -> None:
     conn = get_connection()
     _create_schema(conn)
     _run_migration_v7(conn)
+    _run_migration_v8(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -176,3 +179,32 @@ def _run_migration_v7(conn: sqlite3.Connection) -> None:
         print("[Migration v7] Added series_id to search_history")
     except Exception as exc:
         print(f"[Migration v7] FAILED: {exc}")
+
+
+def _run_migration_v8(conn: sqlite3.Connection) -> None:
+    """Add quality_from and quality_to columns to stat_entries.
+
+    Stores the quality name at search time (quality_from) and at import
+    confirmation (quality_to) so the Imports tab can display upgrade detail.
+    Both columns are nullable — rows with no quality data show nothing in the UI.
+    Covers upgrades from v3.2.x and v4.0.x.
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 8"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(stat_entries)").fetchall()]
+        if "quality_from" not in cols:
+            conn.execute("ALTER TABLE stat_entries ADD COLUMN quality_from TEXT")
+        if "quality_to" not in cols:
+            conn.execute("ALTER TABLE stat_entries ADD COLUMN quality_to TEXT")
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (8, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        print("[Migration v8] Added quality_from and quality_to to stat_entries")
+    except Exception as exc:
+        print(f"[Migration v8] FAILED: {exc}")

@@ -27,6 +27,7 @@ def upsert_stat_entry(
     title: str,
     entry_type: str,
     searched_ts: str,
+    quality_from: str = "",
 ) -> None:
     """Insert or update an unimported stat entry for import-checking.
     The ON CONFLICT targets the partial unique index on
@@ -38,15 +39,17 @@ def upsert_stat_entry(
         """
         INSERT INTO stat_entries
             (app, instance, instance_url, item_id, title, type,
-             first_searched_ts, last_searched_ts, imported)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+             first_searched_ts, last_searched_ts, imported, quality_from)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
         ON CONFLICT (app, instance, item_id, type) WHERE imported = 0 DO UPDATE SET
             last_searched_ts = excluded.last_searched_ts,
             instance_url = excluded.instance_url,
             title = CASE WHEN excluded.title != '' THEN excluded.title
-                         ELSE stat_entries.title END
+                         ELSE stat_entries.title END,
+            quality_from = CASE WHEN excluded.quality_from != '' THEN excluded.quality_from
+                                ELSE stat_entries.quality_from END
         """,
-        (app, instance, instance_url, item_id, title, entry_type, searched_ts, searched_ts)
+        (app, instance, instance_url, item_id, title, entry_type, searched_ts, searched_ts, quality_from or "")
     )
     conn.commit()
 
@@ -58,6 +61,7 @@ def confirm_stat_entry(
     item_id: str,
     entry_type: str,
     imported_ts: str,
+    quality_to: str = "",
 ) -> bool:
     """Mark a stat entry as imported and increment its iteration counter.
     Uses a two-phase lookup: by instance name first, then by URL as a fallback
@@ -94,10 +98,10 @@ def confirm_stat_entry(
         conn.execute(
             """
             UPDATE stat_entries
-            SET type = ?, imported_ts = ?, iteration = ?, instance = ?
+            SET type = ?, imported_ts = ?, iteration = ?, instance = ?, quality_to = ?
             WHERE id = ?
             """,
-            (entry_type, imported_ts, new_iteration, instance, existing["id"])
+            (entry_type, imported_ts, new_iteration, instance, quality_to or None, existing["id"])
         )
         conn.execute(
             """
@@ -113,11 +117,11 @@ def confirm_stat_entry(
     cur = conn.execute(
         """
         UPDATE stat_entries
-        SET imported = 1, imported_ts = ?, iteration = 1, instance = ?
+        SET imported = 1, imported_ts = ?, iteration = 1, instance = ?, quality_to = ?
         WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
           AND (instance = ? OR instance_url = ?)
         """,
-        (imported_ts, instance, app, item_id, entry_type, instance, instance_url)
+        (imported_ts, instance, quality_to or None, app, item_id, entry_type, instance, instance_url)
     )
     conn.commit()
     return cur.rowcount > 0
@@ -185,7 +189,8 @@ def get_confirmed_entries(
     rows = conn.execute(
         f"""
         SELECT app, instance, item_id, title, type, iteration,
-               first_searched_ts, last_searched_ts, imported_ts
+               first_searched_ts, last_searched_ts, imported_ts,
+               quality_from, quality_to
         FROM stat_entries {where_sql}
         ORDER BY imported_ts DESC
         LIMIT ? OFFSET ?

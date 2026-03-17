@@ -377,6 +377,14 @@ async function clearState() {
 // Rebuilds both the instance dropdown and the type dropdown dynamically from
 // available data (preserving prior selections across refreshes), updates the
 // lifetime total cards (movies/shows), and renders the sortable paginated table.
+function buildUpgradeCell(e) {
+  const from = e.quality_from || '';
+  const to   = e.quality_to   || '';
+  if (!from && !to) return '';
+  const label = from ? `${escapeHtml(from)} → ${escapeHtml(to)}` : `→ ${escapeHtml(to)}`;
+  return `<span class="tooltip-icon tip-down" style="cursor:help">i<div class="tooltip-box" style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:12px">${label}</div></span>`;
+}
+
 async function refreshImports() {
   try {
     const inst = el('importsInstance') ? el('importsInstance').value : '';
@@ -432,6 +440,7 @@ async function refreshImports() {
              explicitly in get_confirmed_entries. -->
         <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
         <td><span class="${tagClass}">${escapeHtml(e.type)}${escapeHtml(iterSuffix)}</span></td>
+        <td style="text-align:center">${buildUpgradeCell(e)}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.first_searched_ts))}</td>
         <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(e.imported_ts))}</td>
         <td style="color:var(--text-dim);font-size:12px">${escapeHtml(e.turnaround || '—')}</td>
@@ -444,6 +453,7 @@ async function refreshImports() {
           <th class="sortable ${IMPORTS_SORT.col==='title' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="title" onclick="sortImports('title')">Title</th>
           <th class="sortable ${IMPORTS_SORT.col==='instance' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="instance" onclick="sortImports('instance')">Instance</th>
           <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
+          <th style="text-align:center">Upgrade</th>
           <th class="sortable ${IMPORTS_SORT.col==='first_searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="first_searched_ts" onclick="sortImports('first_searched_ts')">Last Searched</th>
           <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>
           <th>Turnaround <span class="tooltip-icon tip-down">i<div class="tooltip-box">Time from when Nudgarr first searched this item to when it was confirmed imported. Resets if the item is imported again at a higher quality.</div></span></th>

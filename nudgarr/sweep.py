@@ -108,7 +108,7 @@ def _sweep_radarr_instance(
         radarr_search_movies(session, url, key, batch_ids)
         mark_items_searched("radarr", name, inst_url, "movie", batch_items, "Cutoff")
         for m in batch_items:
-            record_stat_entry("radarr", name, inst_url, str(m["id"]), m.get("title", ""), "Upgraded", iso_z(utcnow()))
+            record_stat_entry("radarr", name, inst_url, str(m["id"]), m.get("title", ""), "Upgraded", iso_z(utcnow()), m.get("quality_from", ""))
         searched += len(batch_items)
         if i + batch_size < len(chosen_items):
             jitter_sleep(sleep_seconds, jitter_seconds)
@@ -152,7 +152,7 @@ def _sweep_radarr_instance(
             radarr_search_movies(session, url, key, batch_ids)
             mark_items_searched("radarr", name, inst_url, "missing_movie", batch_items, "Backlog")
             for m in batch_items:
-                record_stat_entry("radarr", name, inst_url, str(m["id"]), m.get("title", ""), "Acquired", iso_z(utcnow()))
+                record_stat_entry("radarr", name, inst_url, str(m["id"]), m.get("title", ""), "Acquired", iso_z(utcnow()), m.get("quality_from", ""))
             searched_missing += len(batch_items)
             if i + batch_size < len(chosen_missing):
                 jitter_sleep(sleep_seconds, jitter_seconds)
@@ -224,7 +224,7 @@ def _sweep_sonarr_instance(
         sonarr_search_episodes(session, url, key, batch_ids)
         mark_items_searched("sonarr", name, inst_url, "episode", batch_items, "Cutoff")
         for e in batch_items:
-            record_stat_entry("sonarr", name, inst_url, str(e.get("series_id") or e["id"]), e.get("title", ""), "Upgraded", iso_z(utcnow()))
+            record_stat_entry("sonarr", name, inst_url, str(e.get("series_id") or e["id"]), e.get("title", ""), "Upgraded", iso_z(utcnow()), e.get("quality_from", ""))
         searched += len(batch_items)
         if i + batch_size < len(chosen_items):
             jitter_sleep(sleep_seconds, jitter_seconds)
@@ -254,7 +254,7 @@ def _sweep_sonarr_instance(
             sonarr_search_episodes(session, url, key, batch_ids)
             mark_items_searched("sonarr", name, inst_url, "missing_episode", batch_items, "Backlog")
             for e in batch_items:
-                record_stat_entry("sonarr", name, inst_url, str(e.get("series_id") or e["id"]), e.get("title", ""), "Acquired", iso_z(utcnow()))
+                record_stat_entry("sonarr", name, inst_url, str(e.get("series_id") or e["id"]), e.get("title", ""), "Acquired", iso_z(utcnow()), e.get("quality_from", ""))
             searched_missing += len(batch_items)
             if i + batch_size < len(chosen_missing):
                 jitter_sleep(sleep_seconds, jitter_seconds)

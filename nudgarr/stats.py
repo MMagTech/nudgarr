@@ -35,9 +35,10 @@ def record_stat_entry(
     title: str,
     entry_type: str,
     searched_ts: str,
+    quality_from: str = "",
 ) -> None:
     """Record a searched item for later import checking."""
-    db.upsert_stat_entry(app, instance_name, instance_url, str(item_id), title, entry_type, searched_ts)
+    db.upsert_stat_entry(app, instance_name, instance_url, str(item_id), title, entry_type, searched_ts, quality_from)
 
 
 # ── Import checking ───────────────────────────────────────────────────
@@ -91,7 +92,12 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             ev_dt = parse_iso(ev.get("date", ""))
                             if ev_dt and (dt is None or ev_dt > dt):
                                 imported_ts = iso_z(ev_dt)
-                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts):
+                                quality_to = ""
+                                try:
+                                    quality_to = ev["quality"]["quality"]["name"] or ""
+                                except (KeyError, TypeError):
+                                    pass
+                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts, quality_to):
                                     db.increment_lifetime_total("movies")
                                     overrides_on = cfg.get("per_instance_overrides_enabled", False)
                                     ov = inst.get("overrides", {}) if overrides_on else {}
@@ -115,7 +121,12 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                             ev_dt = parse_iso(ev.get("date", ""))
                             if ev_dt and (dt is None or ev_dt > dt):
                                 imported_ts = iso_z(ev_dt)
-                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts):
+                                quality_to = ""
+                                try:
+                                    quality_to = ev["quality"]["quality"]["name"] or ""
+                                except (KeyError, TypeError):
+                                    pass
+                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts, quality_to):
                                     db.increment_lifetime_total("shows")
                                     overrides_on = cfg.get("per_instance_overrides_enabled", False)
                                     ov = inst.get("overrides", {}) if overrides_on else {}

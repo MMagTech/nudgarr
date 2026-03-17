@@ -87,8 +87,7 @@ CREATE TABLE IF NOT EXISTS stat_entries (
     last_searched_ts  TEXT NOT NULL,
     imported          INTEGER NOT NULL DEFAULT 0,
     imported_ts       TEXT,
-    quality_from      TEXT,
-    quality_to        TEXT
+    quality_from      TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_stat_entries_active
     ON stat_entries (app, instance, item_id, type) WHERE imported = 0;
@@ -159,7 +158,6 @@ def init_db() -> None:
     _create_schema(conn)
     _run_migration_v7(conn)
     _run_migration_v8(conn)
-    _run_migration_v9(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -192,12 +190,13 @@ def _run_migration_v7(conn: sqlite3.Connection) -> None:
 
 
 def _run_migration_v8(conn: sqlite3.Connection) -> None:
-    """Add quality_from and quality_to columns to stat_entries.
+    """Create quality_history table for per-import upgrade tracking.
 
-    Stores the quality name at search time (quality_from) and at import
-    confirmation (quality_to) so the Imports tab can display upgrade detail.
-    Both columns are nullable — rows with no quality data show nothing in the UI.
-    Covers upgrades from v3.2.x and v4.0.x.
+    Each confirmed import event gets a row recording quality_from and quality_to,
+    enabling the full upgrade path to be displayed in the Imports tab tooltip.
+    ON DELETE CASCADE means rows are automatically removed when the parent
+    stat_entries row is deleted — clear and prune require no changes.
+    Covers upgrades from v3.2.x. Fresh installs get the table via _SCHEMA_SQL.
     """
     existing = conn.execute(
         "SELECT version FROM schema_migrations WHERE version = 8"
@@ -205,35 +204,12 @@ def _run_migration_v8(conn: sqlite3.Connection) -> None:
     if existing:
         return
     try:
+        # Add quality_from to stat_entries for temporary storage between sweep
+        # and import confirmation. The value moves to quality_history on confirm
+        # and is never retained on the confirmed row.
         cols = [r[1] for r in conn.execute("PRAGMA table_info(stat_entries)").fetchall()]
         if "quality_from" not in cols:
             conn.execute("ALTER TABLE stat_entries ADD COLUMN quality_from TEXT")
-        if "quality_to" not in cols:
-            conn.execute("ALTER TABLE stat_entries ADD COLUMN quality_to TEXT")
-        conn.execute(
-            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (8, ?)",
-            (iso_z(utcnow()),)
-        )
-        conn.commit()
-        print("[Migration v8] Added quality_from and quality_to to stat_entries")
-    except Exception as exc:
-        print(f"[Migration v8] FAILED: {exc}")
-
-
-def _run_migration_v9(conn: sqlite3.Connection) -> None:
-    """Create quality_history table for per-import upgrade tracking.
-
-    Each confirmed import event gets a row recording quality_from and quality_to.
-    ON DELETE CASCADE means rows are automatically removed when the parent
-    stat_entries row is deleted — clear and prune require no changes.
-    Covers upgrades from v3.2.x and v4.0.x.
-    """
-    existing = conn.execute(
-        "SELECT version FROM schema_migrations WHERE version = 9"
-    ).fetchone()
-    if existing:
-        return
-    try:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS quality_history (
@@ -249,10 +225,10 @@ def _run_migration_v9(conn: sqlite3.Connection) -> None:
             "CREATE INDEX IF NOT EXISTS idx_qh_entry_id ON quality_history (entry_id)"
         )
         conn.execute(
-            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (9, ?)",
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (8, ?)",
             (iso_z(utcnow()),)
         )
         conn.commit()
-        print("[Migration v9] Created quality_history table")
+        print("[Migration v8] Created quality_history table")
     except Exception as exc:
-        print(f"[Migration v9] FAILED: {exc}")
+        print(f"[Migration v8] FAILED: {exc}")

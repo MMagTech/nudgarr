@@ -5,9 +5,10 @@ All outbound HTTP calls to Radarr and Sonarr. No business logic here —
 these functions fetch data and trigger commands, nothing else.
 
   Radarr : radarr_get_cutoff_unmet_movies, radarr_get_missing_movies,
-           radarr_search_movies, radarr_get_queued_movie_ids
+           radarr_search_movies, radarr_get_queued_movie_ids,
+           radarr_get_movie_quality
   Sonarr : sonarr_get_cutoff_unmet_episodes, sonarr_get_missing_episodes,
-           sonarr_search_episodes
+           sonarr_search_episodes, sonarr_get_episode_quality
 
 All functions accept a requests.Session and the instance url + key.
 Pagination is handled internally; callers receive a flat list.
@@ -248,3 +249,47 @@ def sonarr_search_episodes(
     payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
     req(session, "POST", cmd, key, payload)
     print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
+
+
+def radarr_get_movie_quality(
+    session: requests.Session,
+    url: str,
+    key: str,
+    movie_id: int,
+) -> str:
+    """Return the current file quality name for a Radarr movie, or empty string
+    if no file exists or the request fails. Used by the backlog sweep to capture
+    quality_from for items that already have a file despite appearing in the
+    missing list."""
+    try:
+        endpoint = f"{url.rstrip('/')}/api/v3/movie/{movie_id}"
+        data = req(session, "GET", endpoint, key)
+        if isinstance(data, dict):
+            return data["movieFile"]["quality"]["quality"]["name"] or ""
+    except (KeyError, TypeError):
+        pass
+    except Exception:
+        pass
+    return ""
+
+
+def sonarr_get_episode_quality(
+    session: requests.Session,
+    url: str,
+    key: str,
+    episode_id: int,
+) -> str:
+    """Return the current file quality name for a Sonarr episode, or empty string
+    if no file exists or the request fails. Used by the backlog sweep to capture
+    quality_from for items that already have a file despite appearing in the
+    missing list."""
+    try:
+        endpoint = f"{url.rstrip('/')}/api/v3/episode/{episode_id}"
+        data = req(session, "GET", endpoint, key)
+        if isinstance(data, dict):
+            return data["episodeFile"]["quality"]["quality"]["name"] or ""
+    except (KeyError, TypeError):
+        pass
+    except Exception:
+        pass
+    return ""

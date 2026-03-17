@@ -26,10 +26,12 @@ from nudgarr.arr_clients import (
     radarr_get_cutoff_unmet_movies,
     radarr_get_missing_movies,
     radarr_get_queued_movie_ids,
+    radarr_get_movie_quality,
     radarr_search_movies,
     sonarr_get_cutoff_unmet_episodes,
     sonarr_get_missing_episodes,
     sonarr_get_queued_episode_ids,
+    sonarr_get_episode_quality,
     sonarr_search_episodes,
 )
 from nudgarr.globals import STATUS
@@ -149,6 +151,13 @@ def _sweep_radarr_instance(
         for i in range(0, len(chosen_missing), batch_size):
             batch_items = chosen_missing[i:i + batch_size]
             batch_ids = [m["id"] for m in batch_items]
+            # Fetch existing file quality for each backlog item before searching.
+            # Items in the missing list occasionally already have a file — reading
+            # quality_from here ensures the upgrade history is accurate rather than
+            # showing a second Acquired entry when the item already had a file.
+            for m in batch_items:
+                if not m.get("quality_from"):
+                    m["quality_from"] = radarr_get_movie_quality(session, url, key, m["id"])
             radarr_search_movies(session, url, key, batch_ids)
             mark_items_searched("radarr", name, inst_url, "missing_movie", batch_items, "Backlog")
             for m in batch_items:
@@ -251,6 +260,10 @@ def _sweep_sonarr_instance(
         for i in range(0, len(chosen_missing), batch_size):
             batch_items = chosen_missing[i:i + batch_size]
             batch_ids = [e["id"] for e in batch_items]
+            # Fetch existing file quality for each backlog item before searching.
+            for e in batch_items:
+                if not e.get("quality_from"):
+                    e["quality_from"] = sonarr_get_episode_quality(session, url, key, e["id"])
             sonarr_search_episodes(session, url, key, batch_ids)
             mark_items_searched("sonarr", name, inst_url, "missing_episode", batch_items, "Backlog")
             for e in batch_items:

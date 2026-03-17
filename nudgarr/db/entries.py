@@ -4,9 +4,9 @@ nudgarr/db/entries.py
 stat_entries table — all read/write operations.
 
   upsert_stat_entry()       -- insert or update the active (unimported) row
-  confirm_stat_entry()      -- mark a row as imported
+  confirm_stat_entry()      -- mark a row as imported; insert quality_history row
   get_unconfirmed_entries() -- entries eligible for import checking
-  get_confirmed_entries()   -- paginated confirmed imports with filters
+  get_confirmed_entries()   -- paginated confirmed imports with quality history
   rename_instance_in_history() -- update instance name after a rename
   clear_stat_entries()      -- delete all rows
   prune_stat_entries()      -- delete old unimported rows
@@ -64,11 +64,29 @@ def confirm_stat_entry(
     quality_to: str = "",
 ) -> bool:
     """Mark a stat entry as imported and increment its iteration counter.
+    Inserts a quality_history row when quality_to is present so the full
+    upgrade path is preserved across multiple import cycles.
     Uses a two-phase lookup: by instance name first, then by URL as a fallback
     to handle instance renames gracefully. If a confirmed row already exists for
     this item, updates it in place (one row per item). Returns True if a row
     was successfully confirmed, False if no matching unimported row was found."""
     conn = get_connection()
+
+    # Read the unconfirmed row first — we need quality_from before it is deleted.
+    pending = conn.execute(
+        """
+        SELECT id, quality_from FROM stat_entries
+        WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
+          AND (instance = ? OR instance_url = ?)
+        LIMIT 1
+        """,
+        (app, item_id, entry_type, instance, instance_url)
+    ).fetchone()
+
+    if not pending:
+        return False
+
+    quality_from = pending["quality_from"] or None
 
     # Check for an existing imported row for this item (any type).
     # If one exists we update it in place — one row per item, badge reflects
@@ -95,29 +113,14 @@ def confirm_stat_entry(
 
     if existing:
         new_iteration = (existing["iteration"] + 1) if existing["type"] == entry_type else 1
-
-        # Read quality_from from the unconfirmed row before it gets deleted.
-        # This is the value captured at sweep time from the existing file —
-        # without this step it would be lost when the unconfirmed row is removed.
-        unconfirmed = conn.execute(
-            """
-            SELECT quality_from FROM stat_entries
-            WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
-              AND (instance = ? OR instance_url = ?)
-            LIMIT 1
-            """,
-            (app, item_id, entry_type, instance, instance_url)
-        ).fetchone()
-        quality_from = (unconfirmed["quality_from"] if unconfirmed else None) or None
-
+        entry_id = existing["id"]
         conn.execute(
             """
             UPDATE stat_entries
-            SET type = ?, imported_ts = ?, iteration = ?, instance = ?,
-                quality_to = ?, quality_from = COALESCE(?, quality_from)
+            SET type = ?, imported_ts = ?, iteration = ?, instance = ?
             WHERE id = ?
             """,
-            (entry_type, imported_ts, new_iteration, instance, quality_to or None, quality_from, existing["id"])
+            (entry_type, imported_ts, new_iteration, instance, entry_id)
         )
         conn.execute(
             """
@@ -127,20 +130,31 @@ def confirm_stat_entry(
             """,
             (app, item_id, entry_type, instance, instance_url)
         )
-        conn.commit()
-        return True
+    else:
+        conn.execute(
+            """
+            UPDATE stat_entries
+            SET imported = 1, imported_ts = ?, iteration = 1, instance = ?
+            WHERE id = ?
+            """,
+            (imported_ts, instance, pending["id"])
+        )
+        entry_id = pending["id"]
 
-    cur = conn.execute(
-        """
-        UPDATE stat_entries
-        SET imported = 1, imported_ts = ?, iteration = 1, instance = ?, quality_to = ?
-        WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
-          AND (instance = ? OR instance_url = ?)
-        """,
-        (imported_ts, instance, quality_to or None, app, item_id, entry_type, instance, instance_url)
-    )
+    # Insert a quality_history row if quality_to was captured.
+    # quality_from may be None for first-time acquisitions — stored as NULL,
+    # displayed as "Acquired →" in the UI.
+    if quality_to:
+        conn.execute(
+            """
+            INSERT INTO quality_history (entry_id, quality_from, quality_to, imported_ts)
+            VALUES (?, ?, ?, ?)
+            """,
+            (entry_id, quality_from, quality_to, imported_ts)
+        )
+
     conn.commit()
-    return cur.rowcount > 0
+    return True
 
 
 def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
@@ -178,8 +192,8 @@ def get_confirmed_entries(
     """Return paginated confirmed (imported) stat entries with optional filters.
     Returns a three-tuple: (total, entries, available_types) where total is the
     unfiltered count, entries is the current page of dicts with a computed
-    turnaround field, and available_types is the distinct list of entry types
-    present for the current instance filter (used to populate the type dropdown)."""
+    turnaround field and quality_history list, and available_types is the
+    distinct list of entry types present for the current instance filter."""
     conn = get_connection()
     where = ["imported = 1"]
     params: list = []
@@ -204,9 +218,8 @@ def get_confirmed_entries(
 
     rows = conn.execute(
         f"""
-        SELECT app, instance, item_id, title, type, iteration,
-               first_searched_ts, last_searched_ts, imported_ts,
-               quality_from, quality_to
+        SELECT id, app, instance, item_id, title, type, iteration,
+               first_searched_ts, last_searched_ts, imported_ts
         FROM stat_entries {where_sql}
         ORDER BY imported_ts DESC
         LIMIT ? OFFSET ?
@@ -214,10 +227,34 @@ def get_confirmed_entries(
         params + [limit, offset]
     ).fetchall()
 
+    # Fetch quality history for all entries in one query, then group by entry_id.
+    # Ordered oldest-first so the UI can render the chronological upgrade path
+    # without needing to sort client-side.
+    entry_ids = [r["id"] for r in rows]
+    history_map: Dict[int, List[Dict]] = {eid: [] for eid in entry_ids}
+    if entry_ids:
+        placeholders = ",".join("?" * len(entry_ids))
+        history_rows = conn.execute(
+            f"""
+            SELECT entry_id, quality_from, quality_to, imported_ts
+            FROM quality_history
+            WHERE entry_id IN ({placeholders})
+            ORDER BY entry_id, imported_ts ASC
+            """,
+            entry_ids
+        ).fetchall()
+        for hr in history_rows:
+            history_map[hr["entry_id"]].append({
+                "quality_from": hr["quality_from"],
+                "quality_to": hr["quality_to"],
+                "imported_ts": hr["imported_ts"],
+            })
+
     entries = []
     for r in rows:
         entry = dict(r)
         entry["turnaround"] = _calc_turnaround(r["first_searched_ts"], r["imported_ts"])
+        entry["quality_history"] = history_map.get(r["id"], [])
         entries.append(entry)
 
     return total, entries, available_types
@@ -270,7 +307,8 @@ def rename_instance_in_history(app: str, instance_url: str, new_name: str) -> No
 
 
 def clear_stat_entries() -> None:
-    """Delete all rows from stat_entries. Lifetime totals are not affected."""
+    """Delete all rows from stat_entries. Lifetime totals are not affected.
+    quality_history rows are removed automatically via ON DELETE CASCADE."""
     conn = get_connection()
     conn.execute("DELETE FROM stat_entries")
     conn.commit()
@@ -279,8 +317,9 @@ def clear_stat_entries() -> None:
 def prune_stat_entries(retention_days: int) -> int:
     """Delete confirmed (imported = 1) stat entries older than retention_days.
     Unimported (pending) entries are intentionally preserved regardless of age
-    so in-flight import checks are never interrupted. Returns the number of
-    rows deleted. No-op if retention_days <= 0."""
+    so in-flight import checks are never interrupted. quality_history rows are
+    removed automatically via ON DELETE CASCADE. Returns the number of rows
+    deleted. No-op if retention_days <= 0."""
     if retention_days <= 0:
         return 0
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))

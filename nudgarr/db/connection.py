@@ -130,6 +130,15 @@ CREATE TABLE IF NOT EXISTS nudgarr_state (
     key    TEXT NOT NULL PRIMARY KEY,
     value  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS quality_history (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id     INTEGER NOT NULL REFERENCES stat_entries(id) ON DELETE CASCADE,
+    quality_from TEXT,
+    quality_to   TEXT NOT NULL,
+    imported_ts  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qh_entry_id ON quality_history (entry_id);
 """
 
 
@@ -150,6 +159,7 @@ def init_db() -> None:
     _create_schema(conn)
     _run_migration_v7(conn)
     _run_migration_v8(conn)
+    _run_migration_v9(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -208,3 +218,41 @@ def _run_migration_v8(conn: sqlite3.Connection) -> None:
         print("[Migration v8] Added quality_from and quality_to to stat_entries")
     except Exception as exc:
         print(f"[Migration v8] FAILED: {exc}")
+
+
+def _run_migration_v9(conn: sqlite3.Connection) -> None:
+    """Create quality_history table for per-import upgrade tracking.
+
+    Each confirmed import event gets a row recording quality_from and quality_to.
+    ON DELETE CASCADE means rows are automatically removed when the parent
+    stat_entries row is deleted — clear and prune require no changes.
+    Covers upgrades from v3.2.x and v4.0.x.
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 9"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quality_history (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_id     INTEGER NOT NULL REFERENCES stat_entries(id) ON DELETE CASCADE,
+                quality_from TEXT,
+                quality_to   TEXT NOT NULL,
+                imported_ts  TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_qh_entry_id ON quality_history (entry_id)"
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (9, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        print("[Migration v9] Created quality_history table")
+    except Exception as exc:
+        print(f"[Migration v9] FAILED: {exc}")

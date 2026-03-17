@@ -378,11 +378,34 @@ async function clearState() {
 // available data (preserving prior selections across refreshes), updates the
 // lifetime total cards (movies/shows), and renders the sortable paginated table.
 function buildUpgradeCell(e) {
-  const from = e.quality_from || '';
-  const to   = e.quality_to   || '';
-  if (!from && !to) return '';
-  const label = from ? `${escapeHtml(from)} → ${escapeHtml(to)}` : `→ ${escapeHtml(to)}`;
-  return `<span class="tooltip-icon tip-down" style="cursor:help">i<div class="tooltip-box" style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:12px">${label}</div></span>`;
+  const history = e.quality_history || [];
+  if (!history.length) return '';
+
+  const rows = history.map(h => {
+    const from = h.quality_from
+      ? `<span style="color:var(--text-dim)">${escapeHtml(h.quality_from)}</span>`
+      : `<span style="color:#4ade80;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">Acquired</span>`;
+    const to   = `<span style="color:var(--text)">${escapeHtml(h.quality_to)}</span>`;
+    const date = h.imported_ts ? `<span style="color:var(--muted);font-size:10px;flex-shrink:0">${escapeHtml(fmtDate(h.imported_ts))}</span>` : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)">`
+      + `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;display:flex;align-items:center;gap:5px">${from}<span style="color:var(--accent-lt)">→</span>${to}</span>`
+      + date
+      + `</div>`;
+  }).join('');
+
+  const header = `<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Upgrade history</div>`;
+  const inner  = `<div style="min-width:260px">${header}${rows}</div>`;
+
+  return `<div style="position:relative;display:inline-flex;align-items:center;justify-content:center">`
+    + `<span class="tooltip-icon" style="cursor:help">i`
+    + `<div class="tooltip-box" style="white-space:normal;padding:10px 13px;width:auto;left:calc(100% + 8px);bottom:auto;top:50%;transform:translateY(-50%)">${inner}</div>`
+    + `</span></div>`;
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 async function refreshImports() {
@@ -428,7 +451,7 @@ async function refreshImports() {
 
     const sorted = sortItems(data.entries, IMPORTS_SORT.col, IMPORTS_SORT.dir);
     const rows = sorted.map(e => {
-      const iterSuffix = (e.iteration && e.iteration > 1) ? ` ×${e.iteration}` : '';
+      const countCell = (e.iteration && e.iteration > 1) ? `<span style="display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-dim);background:rgba(255,255,255,.05);border:1px solid var(--border-md);border-radius:6px;padding:1px 7px">×${e.iteration}</span>` : '';
       const tagClass = e.type === 'Acquired' ? 'tag acquired' : 'tag';
       return `
       <tr>
@@ -439,7 +462,8 @@ async function refreshImports() {
              Tracked in GitHub: add series_id to stat_entries or document the relationship
              explicitly in get_confirmed_entries. -->
         <td style="color:var(--text-dim)">${escapeHtml(e.instance)}</td>
-        <td><span class="${tagClass}">${escapeHtml(e.type)}${escapeHtml(iterSuffix)}</span></td>
+        <td><span class="${tagClass}">${escapeHtml(e.type)}</span></td>
+        <td style="text-align:center">${countCell}</td>
         <td style="text-align:center">${buildUpgradeCell(e)}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(e.first_searched_ts))}</td>
         <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(e.imported_ts))}</td>
@@ -453,6 +477,7 @@ async function refreshImports() {
           <th class="sortable ${IMPORTS_SORT.col==='title' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="title" onclick="sortImports('title')">Title</th>
           <th class="sortable ${IMPORTS_SORT.col==='instance' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="instance" onclick="sortImports('instance')">Instance</th>
           <th class="sortable ${IMPORTS_SORT.col==='type' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="type" onclick="sortImports('type')">Type</th>
+          <th style="text-align:center">Count</th>
           <th style="text-align:center">Upgrade</th>
           <th class="sortable ${IMPORTS_SORT.col==='first_searched_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="first_searched_ts" onclick="sortImports('first_searched_ts')">Last Searched</th>
           <th class="sortable ${IMPORTS_SORT.col==='imported_ts' ? 'sort-'+IMPORTS_SORT.dir : ''}" data-col="imported_ts" onclick="sortImports('imported_ts')">Imported</th>

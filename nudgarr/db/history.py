@@ -115,11 +115,14 @@ def get_search_history(
     limit: int = 250,
     cooldown_hours: int = 48,
     instance_name_map: Optional[Dict[str, str]] = None,
+    cooldown_map: Optional[Dict[str, int]] = None,
 ) -> Tuple[int, List[Dict]]:
     """Return paginated search history rows with computed cooldown metadata.
     instance_key accepts the composite 'name|url' format and extracts the URL
     portion internally for the database query. eligible_again is computed per row
-    from last_searched_ts + cooldown_hours. Returns (total, items)."""
+    using cooldown_map[instance_url] when present, falling back to cooldown_hours.
+    This ensures per-instance cooldown overrides are reflected in the display.
+    Returns (total, items)."""
     conn = get_connection()
     params: list = []
     where = []
@@ -158,7 +161,9 @@ def get_search_history(
         eligible = ""
         dt = parse_iso(ts) if ts else None
         if dt is not None:
-            eligible = iso_z(dt + timedelta(hours=cooldown_hours))
+            url = r["instance_url"].rstrip("/")
+            row_cooldown = (cooldown_map or {}).get(url, cooldown_hours)
+            eligible = iso_z(dt + timedelta(hours=row_cooldown))
         sk = f"{r['instance_name']}|{r['instance_url']}"
         friendly = (instance_name_map or {}).get(sk, r["instance_name"])
         items.append({

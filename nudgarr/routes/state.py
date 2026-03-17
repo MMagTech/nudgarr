@@ -58,13 +58,25 @@ def api_state_items():
     offset = int(request.args.get("offset", "0"))
     limit = int(request.args.get("limit", "250"))
     cooldown_hours = int(cfg.get("cooldown_hours", 48))
+    overrides_enabled = bool(cfg.get("per_instance_overrides_enabled", False))
 
     # Build friendly name map: state_key → name
+    # Build per-instance cooldown map: instance_url → effective cooldown_hours.
+    # When overrides are enabled and an instance has its own cooldown_hours set,
+    # that value is used instead of the global so eligible_again reflects the
+    # same cooldown the sweep actually enforces.
     name_map = {}
+    cooldown_map = {}
     for cur_app in ("radarr", "sonarr"):
         for inst in cfg.get("instances", {}).get(cur_app, []):
             sk = state_key(inst["name"], inst["url"])
             name_map[sk] = inst["name"]
+            url = inst["url"].rstrip("/")
+            if overrides_enabled:
+                ov_cooldown = inst.get("overrides", {}).get("cooldown_hours")
+                cooldown_map[url] = int(ov_cooldown) if ov_cooldown is not None else cooldown_hours
+            else:
+                cooldown_map[url] = cooldown_hours
 
     total, items = db.get_search_history(
         app_filter=app_name,
@@ -73,6 +85,7 @@ def api_state_items():
         limit=limit,
         cooldown_hours=cooldown_hours,
         instance_name_map=name_map,
+        cooldown_map=cooldown_map,
     )
     return jsonify({"total": total, "items": items})
 

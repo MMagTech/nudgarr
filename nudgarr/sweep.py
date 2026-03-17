@@ -107,6 +107,13 @@ def _sweep_radarr_instance(
     for i in range(0, len(chosen_items), batch_size):
         batch_items = chosen_items[i:i + batch_size]
         batch_ids = [m["id"] for m in batch_items]
+        # Fetch existing file quality for each cutoff item before searching.
+        # The wanted/cutoff endpoint does not reliably include the full movieFile
+        # object in its response — a direct movie lookup is the only reliable way
+        # to get the current file quality for quality_from.
+        for m in batch_items:
+            if not m.get("quality_from"):
+                m["quality_from"] = radarr_get_movie_quality(session, url, key, m["id"])
         radarr_search_movies(session, url, key, batch_ids)
         mark_items_searched("radarr", name, inst_url, "movie", batch_items, "Cutoff")
         for m in batch_items:
@@ -230,6 +237,13 @@ def _sweep_sonarr_instance(
     for i in range(0, len(chosen_items), batch_size):
         batch_items = chosen_items[i:i + batch_size]
         batch_ids = [e["id"] for e in batch_items]
+        # Fetch existing file quality for each cutoff item before searching.
+        # The wanted/cutoff endpoint does not reliably include the full episodeFile
+        # object — a direct episode lookup is the only reliable way to get
+        # the current file quality for quality_from.
+        for e in batch_items:
+            if not e.get("quality_from"):
+                e["quality_from"] = sonarr_get_episode_quality(session, url, key, e["id"])
         sonarr_search_episodes(session, url, key, batch_ids)
         mark_items_searched("sonarr", name, inst_url, "episode", batch_items, "Cutoff")
         for e in batch_items:

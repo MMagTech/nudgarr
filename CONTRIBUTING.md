@@ -81,6 +81,7 @@ Key tables:
 |---|---|
 | `search_history` | Every item Nudgarr has searched, with cooldown timestamps |
 | `stat_entries` | Items pending import confirmation and confirmed imports |
+| `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
 | `exclusions` | Titles excluded from sweeps |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |

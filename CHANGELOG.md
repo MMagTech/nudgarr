@@ -6,7 +6,18 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.0.0
 
-**Foundations release — structural cleanup, Sonarr link fix, and UI refresh.**
+**Foundations release — structural cleanup, Sonarr link fix, UI refresh, and quality upgrade tracking.**
+
+**Quality upgrade tracking**
+
+- Imports tab gains an Upgrade column showing the full quality upgrade path per item as a hover tooltip — e.g. Acquired → WEBDL-720p on first download, then WEBDL-720p → Bluray-1080p on each subsequent upgrade
+- Each confirmed import event is recorded in a new `quality_history` table with `quality_from`, `quality_to`, and timestamp; history is displayed chronologically oldest-first so the upgrade journey reads naturally top to bottom
+- Acquired label used for first-download rows where no prior file existed
+- Cutoff unmet and backlog sweeps both fire an additional `GET /api/v3/movie/{id}` or `GET /api/v3/episode/{id}` per chosen item before searching to read the current file quality as `quality_from` — the wanted/cutoff endpoint does not reliably include the full file object in its response so a direct lookup is required
+- `quality_to` captured from the `downloadFolderImported` history event at import confirmation time
+- `quality_history` rows cascade-delete automatically when the parent `stat_entries` row is removed — Clear Imports and prune require no changes
+- Iteration count moved out of the type badge into a dedicated Count column (×N pill, empty when iteration is 1) — consistent with the History tab pattern; type badge now shows type only
+- Migration v8 adds `quality_from` to `stat_entries` and creates the `quality_history` table for v3.2 upgrades; fresh installs get both via `_SCHEMA_SQL`
 
 **UI**
 

@@ -13,7 +13,8 @@ Page renders and authentication endpoints.
 
 from datetime import datetime
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session
+from nudgarr.constants import VERSION
+
 
 from nudgarr.auth import (
     check_auth_lockout,
@@ -35,7 +36,7 @@ bp = Blueprint("auth", __name__)
 @bp.get("/")
 @requires_auth
 def index():
-    return render_template("ui.html")
+    return render_template("ui.html", VERSION=VERSION)
 
 
 @bp.get("/login")

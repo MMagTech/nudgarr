@@ -114,6 +114,7 @@ if (MOBILE) {
       if (showEl) showEl.textContent = stats.shows_total ?? '\u2014';
     } catch(e) {}
     mInitRunBtn();
+    mInitUpdateBanner();
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
     if (typeof lsPopulate === 'function') lsPopulate();

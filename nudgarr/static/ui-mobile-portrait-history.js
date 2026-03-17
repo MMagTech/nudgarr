@@ -196,10 +196,15 @@ async function mLoadImports(type) {
       const tagClass = e.type === 'Acquired' ? 'tag acquired' : 'tag';
       const iterSuffix = (e.iteration && e.iteration > 1) ? ' \u00d7' + e.iteration : '';
       const tagHtml = e.type ? '<span class="' + tagClass + '">' + escapeHtml(e.type) + escapeHtml(iterSuffix) + '</span>' : '';
-      return '<div class="m-import-row">'
-        + '<div class="m-import-row-left"><div class="m-import-row-title">' + title + '</div>' + tagHtml + '</div>'
-        + '<span class="m-import-row-date">' + escapeHtml(date) + '</span>'
-        + '</div>';
+      const history = e.quality_history || [];
+      const latest = history.length ? history[history.length - 1] : null;
+      const qualityHtml = latest
+        ? '<div class="m-import-quality">'
+          + (latest.quality_from ? escapeHtml(latest.quality_from) + ' <span class="m-import-quality-arrow">\u2192</span> ' : '<span class="m-import-quality-arrow">\u2192</span> ')
+          + escapeHtml(latest.quality_to || '')
+          + '</div>'
+        : '';
+      return '<div class="m-import-row">'        + '<div class="m-import-row-top">'        + '<div class="m-import-row-title">' + title + '</div>'        + '<span class="m-import-row-date">' + escapeHtml(date) + '</span>'        + '</div>'        + '<div class="m-import-row-bottom">' + tagHtml + qualityHtml + '</div>'        + '</div>';
     }).join('');
   } catch(err) {
     bodyEl.innerHTML = '<p class="m-empty m-empty-err">Failed to load imports.</p>';

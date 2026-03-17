@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#111320"/>
+  <meta name="nudgarr-version" content="{{ VERSION }}">
   <title>Nudgarr</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='ui.css') }}">
@@ -708,7 +709,7 @@
           <div style="font-weight:600;font-size:13px;margin-bottom:3px">🌐 Global values are the starting point</div>
           <div class="help">Override any field on any card independently. Unset fields always fall back to global.</div>
         </div>
-        <div style="padding:10px 13px;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.25);border-radius:10px">
+        <div style="padding:10px 13px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.25);border-radius:10px">
           <div style="font-weight:600;font-size:13px;margin-bottom:3px;color:#fcd34d">⚠️ Search volume multiplies per instance</div>
           <div class="help">Each instance runs independently. 4 instances × max 15 = up to 60 searches per sweep. Check your indexer before raising any per-instance caps.</div>
         </div>
@@ -761,7 +762,12 @@
 <!-- Mobile shell -->
 <div id="mobile-ui">
 
-  <!-- ── Home tab ── -->
+  <!-- ── Update banner — shown on version mismatch ── -->
+  <div id="m-update-banner" style="display:none">
+    <span class="m-update-icon">⟳</span>
+    <span class="m-update-text">Update Available — Tap to Reload</span>
+  </div>
+
   <div class="m-tab m-active" id="m-home">
     <div class="m-wordmark">Nudgarr</div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>

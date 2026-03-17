@@ -323,7 +323,7 @@ function validateCronExpr() {
     const interval = cronIntervalMinutes(val);
     const tooFrequent = interval !== null && interval < 60;
     if (tooFrequent) {
-      icon.style.color = '#f59e0b';
+      icon.style.color = '#fbbf24';
       hint.className = 'cron-hint-line cron-warn';
       hint.innerHTML = '⚠ May stress indexers';
     } else {
@@ -471,7 +471,7 @@ function checkCooldownWarning() {
   const expr = (el('cron_expression') && el('cron_expression').value.trim()) || '';
   const cronMins = cronIntervalMinutes(expr);
   const cronHours = cronMins !== null ? cronMins / 60 : null;
-  const shouldWarn = cronHours !== null && cooldown > 0 && cooldown < cronHours;
+  const shouldWarn = cronHours !== null && cooldown < cronHours;
   if (shouldWarn) {
     if (warn.textContent === '') {
       warn.textContent = '⚠️ Cooldown < cron interval — repeated searches likely';

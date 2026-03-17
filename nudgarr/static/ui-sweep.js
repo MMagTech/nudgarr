@@ -237,7 +237,7 @@ async function refreshHistory() {
         <td>${it.search_count > 1 ? `<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--accent-dim);color:var(--accent-lt);border:1px solid var(--accent-border)">×${it.search_count}</span>` : ''}</td>
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
-        <td style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(it.eligible_again))}</td>
+        <td style="color:rgba(176,188,240,.6)">${it.eligible_again === 'Next Sweep' ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>' : escapeHtml(fmtTime(it.eligible_again))}</td>
       </tr>
     `}).join('');
 

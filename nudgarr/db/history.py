@@ -163,7 +163,7 @@ def get_search_history(
         if dt is not None:
             url = r["instance_url"].rstrip("/")
             row_cooldown = (cooldown_map or {}).get(url, cooldown_hours)
-            eligible = iso_z(dt + timedelta(hours=row_cooldown))
+            eligible = "Next Sweep" if row_cooldown <= 0 else iso_z(dt + timedelta(hours=row_cooldown))
         sk = f"{r['instance_name']}|{r['instance_url']}"
         friendly = (instance_name_map or {}).get(sk, r["instance_name"])
         items.append({

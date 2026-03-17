@@ -95,13 +95,29 @@ def confirm_stat_entry(
 
     if existing:
         new_iteration = (existing["iteration"] + 1) if existing["type"] == entry_type else 1
+
+        # Read quality_from from the unconfirmed row before it gets deleted.
+        # This is the value captured at sweep time from the existing file —
+        # without this step it would be lost when the unconfirmed row is removed.
+        unconfirmed = conn.execute(
+            """
+            SELECT quality_from FROM stat_entries
+            WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
+              AND (instance = ? OR instance_url = ?)
+            LIMIT 1
+            """,
+            (app, item_id, entry_type, instance, instance_url)
+        ).fetchone()
+        quality_from = (unconfirmed["quality_from"] if unconfirmed else None) or None
+
         conn.execute(
             """
             UPDATE stat_entries
-            SET type = ?, imported_ts = ?, iteration = ?, instance = ?, quality_to = ?
+            SET type = ?, imported_ts = ?, iteration = ?, instance = ?,
+                quality_to = ?, quality_from = COALESCE(?, quality_from)
             WHERE id = ?
             """,
-            (entry_type, imported_ts, new_iteration, instance, quality_to or None, existing["id"])
+            (entry_type, imported_ts, new_iteration, instance, quality_to or None, quality_from, existing["id"])
         )
         conn.execute(
             """

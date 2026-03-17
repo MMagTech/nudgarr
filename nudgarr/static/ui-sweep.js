@@ -168,6 +168,12 @@ function toggleExclusionsFilter() {
   PAGE = 0;
   refreshHistory();
 }
+// refreshHistory — fetches and renders the History tab in full.
+// Responsibilities: rebuilds the instance dropdown (preserving the selected value),
+// updates the KPI pill row with per-instance search counts, applies the exclusion
+// filter client-side when active (fetches all items and filters locally so excluded
+// titles are not constrained to the current page), renders the sortable table,
+// and manages pagination visibility and the page-info label.
 async function refreshHistory() {
   try {
     const sum = await api('/api/state/summary');
@@ -367,7 +373,10 @@ async function clearState() {
   PAGE = 0; refreshHistory();
 }
 
-// ── Stats tab ──
+// refreshImports — fetches and renders the Stats/Imports tab.
+// Rebuilds both the instance dropdown and the type dropdown dynamically from
+// available data (preserving prior selections across refreshes), updates the
+// lifetime total cards (movies/shows), and renders the sortable paginated table.
 async function refreshImports() {
   try {
     const inst = el('importsInstance') ? el('importsInstance').value : '';
@@ -469,8 +478,6 @@ async function clearStats() {
   refreshImports();
 }
 
-// ── Advanced tab ──
-// ── Notifications tab ──
 // ── Run Now ──
 async function runNow() {
   try {

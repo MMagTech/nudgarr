@@ -4,7 +4,7 @@ Nudgarr pre-package HTML validator.
 Run before zipping to catch structural issues early.
 Usage: python3 validate.py  (from repo root)
 """
-import sys, re, os
+import sys, re, os, ast, glob, py_compile
 
 UI_FILE        = 'nudgarr/templates/ui.html'
 CONSTANTS_FILE = 'nudgarr/constants.py'
@@ -21,7 +21,17 @@ JS_FILES = [
     'ui-settings.js',
     'ui-mobile-core.js',
     'ui-mobile-landscape.js',
+    'ui-mobile-landscape-exec.js',
+    'ui-mobile-portrait-home.js',
+    'ui-mobile-portrait-history.js',
+    'ui-mobile-portrait-settings.js',
     'ui-mobile-portrait.js',
+]
+
+CSS_FILES = [
+    'ui.css',
+    'ui-mobile.css',
+    'ui-landscape.css',
 ]
 
 PASS = FAIL = 0
@@ -48,15 +58,150 @@ for js_file in JS_FILES:
 # For API route checks, combine html + js (api() calls are in JS files)
 all_content = content + js_content
 
+# ── Packaging Hygiene ─────────────────────────────────────────────────────────
+# Auto-clean any pre-existing __pycache__ dirs first (normal in dev environments),
+# then verify clean — this ensures the check catches dirs accidentally bundled
+# into a zip but never false-positives on a normal working repo.
+section("Packaging Hygiene")
+
+import shutil as _shutil
+_pre = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
+       glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__')
+_pre_pyc = glob.glob('**/*.pyc', recursive=True) + glob.glob('**/*.pyo', recursive=True)
+for _d in set(_pre):
+    _shutil.rmtree(_d, ignore_errors=True)
+for _f in _pre_pyc:
+    try: os.remove(_f)
+    except: pass
+
+pycache_dirs = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
+               glob.glob('nudgarr/__pycache__') + \
+               glob.glob('__pycache__')
+if pycache_dirs:
+    for d in sorted(set(pycache_dirs)):
+        fail(f"__pycache__ directory present — could not clean: {d}")
+else:
+    ok("No __pycache__ directories present (cleaned before check)")
+
+pyc_files = glob.glob('**/*.pyc', recursive=True) + glob.glob('**/*.pyo', recursive=True)
+if pyc_files:
+    for f in pyc_files:
+        fail(f"Compiled bytecode file present — could not clean: {f}")
+else:
+    ok("No compiled bytecode files present")
+
+# ── Python Syntax ─────────────────────────────────────────────────────────────
+section("Python Syntax")
+
+py_files = (
+    [f for f in ['main.py', 'nudgarr.py'] if os.path.exists(f)]
+    + glob.glob('nudgarr/*.py')
+    + glob.glob('nudgarr/routes/*.py')
+    + glob.glob('nudgarr/db/*.py')
+)
+for f in sorted(py_files):
+    try:
+        py_compile.compile(f, doraise=True)
+        ok(f"Syntax OK: {f}")
+    except py_compile.PyCompileError as e:
+        fail(f"Syntax error: {e}")
+
+# ── Stub Function Detection ───────────────────────────────────────────────────
+section("Stub Function Detection")
+
+# Functions with return type annotations that promise a non-None value.
+# If they contain no return statement they implicitly return None — silent bug.
+NON_NONE_RETURN_TYPES = ('str', 'int', 'bool', 'list', 'dict', 'List', 'Dict',
+                          'Optional', 'Tuple', 'Set', 'Any')
+
+stub_py_files = (
+    [f for f in ['main.py', 'nudgarr.py'] if os.path.exists(f)]
+    + glob.glob('nudgarr/*.py')
+    + glob.glob('nudgarr/routes/*.py')
+    + glob.glob('nudgarr/db/*.py')
+)
+for f in sorted(stub_py_files):
+    try:
+        tree = ast.parse(open(f).read())
+    except SyntaxError:
+        continue  # Already caught above
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if node.name.startswith('_') and node.name != '__init__':
+            continue
+        body = node.body
+
+        # 1. Docstring-only stub — body is a single Expr wrapping a string constant
+        is_docstring_stub = (
+            len(body) == 1
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        )
+        if is_docstring_stub:
+            fail(f"{f}:{node.lineno} — {node.name}() has no body (docstring only)")
+            continue
+
+        # 2. Pass-only stub — body is a single Pass statement (with optional docstring)
+        non_doc = [s for s in body if not (
+            isinstance(s, ast.Expr)
+            and isinstance(s.value, ast.Constant)
+            and isinstance(s.value.value, str)
+        )]
+        is_pass_stub = len(non_doc) == 1 and isinstance(non_doc[0], ast.Pass)
+        if is_pass_stub:
+            fail(f"{f}:{node.lineno} — {node.name}() body is only `pass` (stub)")
+            continue
+
+        # 3. Annotated return type promises non-None but function has no return statement
+        if node.returns is not None:
+            ret_src = ast.unparse(node.returns)
+            promises_value = any(t in ret_src for t in NON_NONE_RETURN_TYPES)
+            has_return = any(
+                isinstance(n, ast.Return) and n.value is not None
+                for n in ast.walk(node)
+            )
+            if promises_value and not has_return:
+                fail(f"{f}:{node.lineno} — {node.name}() -> {ret_src} but has no return statement")
+
+# ── Database Connection Integrity ─────────────────────────────────────────────
+section("Database Connection Integrity")
+
+for f in sorted(glob.glob('nudgarr/db/*.py')):
+    if os.path.basename(f) in ('__init__.py', 'connection.py'):
+        continue
+    try:
+        tree = ast.parse(open(f).read())
+    except SyntaxError:
+        continue  # Already caught above
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if node.name.startswith('_') and node.name != '__init__':
+            continue
+        src = ast.unparse(node)
+        uses_conn    = 'conn.' in src
+        has_get_conn = 'get_connection()' in src
+        has_execute  = 'conn.execute(' in src
+        has_commit   = 'conn.commit()' in src
+        if uses_conn and not has_get_conn:
+            fail(f"{f}:{node.lineno} — {node.name}() uses conn but never calls get_connection()")
+        elif uses_conn:
+            ok(f"{f}: {node.name}() — conn usage and get_connection() both present")
+        if has_commit and not has_execute:
+            fail(f"{f}:{node.lineno} — {node.name}() calls conn.commit() with no conn.execute() — likely a stripped body")
+
 # ── Static Files ──────────────────────────────────────────────────────────────
 section("Static Files")
 
 try:
-    css_path = os.path.join(STATIC_DIR, 'ui.css')
-    if os.path.exists(css_path):
-        ok(f"ui.css exists ({sum(1 for _ in open(css_path))} lines)")
-    else:
-        fail("ui.css missing from nudgarr/static/")
+    for css_file in CSS_FILES:
+        css_path = os.path.join(STATIC_DIR, css_file)
+        if os.path.exists(css_path):
+            ok(f"{css_file} exists ({sum(1 for _ in open(css_path))} lines)")
+        else:
+            fail(f"{css_file} missing from nudgarr/static/")
 
     for js_file in JS_FILES:
         path = os.path.join(STATIC_DIR, js_file)
@@ -72,11 +217,12 @@ try:
         else:
             fail(f"HTML shell missing script tag for: {js_file}")
 
-    # CSS link present in shell
-    if 'ui.css' in content:
-        ok("HTML shell links: ui.css")
-    else:
-        fail("HTML shell missing link tag for ui.css")
+    # Check all CSS files are linked in the HTML shell
+    for css_file in CSS_FILES:
+        if css_file in content:
+            ok(f"HTML shell links: {css_file}")
+        else:
+            fail(f"HTML shell missing link tag for: {css_file}")
 
     # No inline <style> or <script> blocks remain in HTML shell
     if '<style>' in content:
@@ -306,6 +452,41 @@ try:
         if mod in ri: ok(f"Route module registered: {mod}")
         else: fail(f"Route module not registered in routes/__init__.py: {mod}")
 except FileNotFoundError: fail(f"{ROUTES_INIT} not found")
+
+# ── Route Handler Return Check ────────────────────────────────────────────────
+section("Route Handler Return Check")
+
+for fname in sorted(os.listdir(ROUTES_DIR)):
+    if not fname.endswith('.py') or fname == '__init__.py':
+        continue
+    fpath = os.path.join(ROUTES_DIR, fname)
+    try:
+        tree = ast.parse(open(fpath).read())
+    except SyntaxError:
+        continue
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        is_route = any(
+            'route' in ast.unparse(d) or 'requires_auth' in ast.unparse(d)
+            for d in node.decorator_list
+        )
+        if not is_route:
+            continue
+        has_return = any(
+            isinstance(n, ast.Return) and n.value is not None
+            for n in ast.walk(node)
+        )
+        if has_return:
+            ok(f"{fname}: {node.name}() has return statement")
+        else:
+            fail(f"{fname}:{node.lineno} — route handler {node.name}() has no return statement")
+
+# ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
+import shutil
+for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
+         glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):
+    shutil.rmtree(d, ignore_errors=True)
 
 # ── Result ────────────────────────────────────────────────────────────────────
 print(f"\n{'=' * 58}")

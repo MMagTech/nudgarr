@@ -1,4 +1,9 @@
-// ── Onboarding Walkthrough ──
+// ── Settings, Advanced, Notifications, and modal logic ─────────────────────────
+// Owns: Onboarding walkthrough, tab switching (_doShowTab, _onTabShown), Settings
+// form (scheduler, cron, cooldown, sample mode, batch/sleep/jitter), Advanced form
+// (backlog, retention, auth, imports, UI prefs, per-instance overrides toggle),
+// Notifications form, cron validation (validateCronExpr, describeCron), cooldown
+// and newest-added warnings, What's New modal, support-link sync, and save helpers.
 const ONBOARDING_STEPS = [
   {
     title: "Welcome to Nudgarr",
@@ -10,7 +15,9 @@ This quick walkthrough covers the key things to know before your first run. It i
     title: "Step 1 — Add Your Instances",
     body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
 <br><br>
-You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.`
+You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.
+<br><br>
+<span style="display:block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.6">On mobile, instance management requires a desktop browser. Once your instances are configured you can monitor and enable/disable them from the Home screen.</span>`
   },
   {
     title: "Step 2 — Scheduler",
@@ -201,6 +208,11 @@ function _doShowTab(name) {
   }
 }
 
+// _onTabShown — called after every tab transition. Handles tab-specific side effects:
+// resets history sort state and exclusion filter on re-entry, lazily initialises
+// empty table skeletons before the first data fetch, routes data refreshes to the
+// correct function (refreshHistory, refreshImports, refreshSweep), and re-syncs
+// form fields for Advanced and Notifications if they have no pending unsaved changes.
 function _onTabShown(name) {
   // Reset header support pill to saved state on every tab switch
   const sl = el('supportLink');
@@ -402,6 +414,10 @@ function fillSettings() {
   checkCooldownWarning();
 }
 
+// saveSettings — validates the cron expression client-side before submitting.
+// If the scheduler is enabled with an invalid expression it adds cron-glow to
+// the input and returns early. The void offsetWidth call forces a reflow so the
+// CSS animation restarts even if the class was already present from a prior attempt.
 async function saveSettings() {
   try {
     const enabled = el('scheduler_enabled').checked;
@@ -413,7 +429,7 @@ async function saveSettings() {
     if (enabled && !exprValid) {
       const input = el('cron_expression');
       input.classList.remove('cron-glow');
-      void input.offsetWidth; // force reflow to restart animation
+      void input.offsetWidth; // force reflow so the glow animation restarts even if already present
       input.classList.add('cron-invalid', 'cron-glow');
       el('setMsg').textContent = 'Enter a valid cron expression first';
       el('setMsg').className = 'msg err';

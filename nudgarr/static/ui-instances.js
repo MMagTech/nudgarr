@@ -33,6 +33,10 @@ function renderInstances(kind) {
 
 let MODAL_KIND = '';
 let MODAL_IDX = -1;
+// _modalTestDone/_modalTestOk/_modalTestVersion — cache the result of a manual
+// connection test fired from inside the Add/Edit modal. When the user clicks Save
+// immediately after a successful test, saveModal() reuses the cached result instead
+// of firing a redundant second request. Cleared by clearModalTest() on every modal open.
 let _modalTestDone = false;
 let _modalTestOk = null;
 let _modalTestVersion = null;
@@ -45,6 +49,11 @@ function clearModalTest() {
   if (wrap) wrap.classList.remove('visible');
 }
 
+// testModalConnection — builds a temporary config copy with the modal's current
+// field values, POSTs it to /api/test-instance, then resolves the result by index
+// first (existing instance) and by name as a fallback (new instance being added).
+// Caches the outcome in _modalTestDone/_modalTestOk so saveModal() can skip a
+// second request if the user saves immediately after a successful test.
 async function testModalConnection() {
   const name = el('modalName').value.trim() || (MODAL_KIND === 'radarr' ? 'Radarr' : 'Sonarr');
   const url = el('modalUrl').value.trim();
@@ -211,6 +220,10 @@ function editInstance(kind, idx) {
   openModal(kind, idx);
 }
 
+// toggleInstance — enables or disables one instance via /api/instance/toggle.
+// Does a surgical DOM update (touching only the toggled card, never rebuilding the list)
+// then fires a delayed health check for newly-enabled instances. Adds the dot key to
+// TOGGLE_IN_PROGRESS while waiting so the 5-second poll doesn't race the update.
 async function toggleInstance(kind, idx) {
   const dotKey = `${kind}-${idx}`;
   try {
@@ -289,6 +302,10 @@ async function saveAll() {
   }
 }
 
+// testConnections — tests all configured instances via /api/test. Runs a minimum
+// 2-second display delay (Promise.all race) so the checking dots are visible before
+// results arrive. Handles disabled instances separately (dot stays grey). On failure,
+// auto-fades the results panel after 4 seconds so it doesn't linger.
 async function testConnections() {
   el('testResults').style.display = 'none';
   el('testResultsInner').innerHTML = '';

@@ -76,10 +76,11 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 
 **Mobile**
 - Purpose-built layout for devices under 500px wide — activates automatically, no separate app or URL
-- Four-tab bottom nav: Home · Instances · Sweep · Exclusions
-- Quick Settings — long press Run Now to adjust cooldown and max per run without leaving the home tab; Per-Instance Overrides toggle when enabled
-- Landscape mode — rotating to landscape switches to a compact settings panel with Settings, Advanced, and Overrides tabs
-- Bottom sheets for Exclusions and Imports with haptic feedback and swipe-to-dismiss
+- Four-tab bottom nav: Home · Sweep · History · Settings
+- History tab includes inner tabs for History, Add from History, and Exclusions
+- Settings tab — adjust Cooldown, Cutoff Max, Sample Mode, Notifications, and Per-Instance Overrides without leaving mobile
+- Landscape mode — rotating to landscape opens Backlog, Execution, and Overrides tabs with full stepper controls
+- Bottom sheets for Imports with haptic feedback and swipe-to-dismiss
 - iOS and Android browser toolbar matches the app via `theme-color`
 
 ---
@@ -212,8 +213,6 @@ Defaults to `1000:1000` if not set.
 |------|---------|
 | `/config/nudgarr-config.json` | All settings |
 | `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
-
-If upgrading from v3.0.0 or earlier, upgrade to v3.2.0 first before moving to v4.0.0.
 
 ---
 

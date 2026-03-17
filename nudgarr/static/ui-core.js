@@ -1,10 +1,15 @@
+// ── Core globals, polling loop, API wrapper, tab switching, and activity ping ──
+// Loaded first. Provides shared state and utilities consumed by all other UI modules.
+
 const MOBILE = Math.min(window.screen.width, window.screen.height) <= 500;
-let CFG = null;
-let PAGE = 0;
-let HISTORY_TOTAL = 0;
-let IMPORTS_PAGE = 0;
-let IMPORTS_TOTAL = 0;
-let ALL_INSTANCES = [];
+let CFG = null;            // Live config object; refreshed by loadAll() and after each save
+let PAGE = 0;              // Current page index for the History tab
+let HISTORY_TOTAL = 0;     // Total history item count from the last fetch (used for pagination)
+let IMPORTS_PAGE = 0;      // Current page index for the Imports/Stats tab
+let IMPORTS_TOTAL = 0;     // Total import count from the last fetch (used for pagination)
+let ALL_INSTANCES = [];    // Flat ordered list of {key, name, app} built from CFG; used by dropdowns
+// confirmResolve — stores the Promise resolver for the shared confirm-modal pattern.
+// Set by showConfirm(), called by the OK/Cancel buttons, cleared after each use.
 let confirmResolve = null;
 let ACTIVE_TAB = 'instances';
 let HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
@@ -115,6 +120,9 @@ async function openArrLink(app, instance, itemId, seriesId) {
 }
 
 
+// _wasRunning — tracks whether a sweep was in progress on the previous poll tick.
+// When it flips from true to false the just-completed run triggers a one-time
+// history/sweep refresh without waiting for the 30-second auto-refresh window.
 let _wasRunning = false;
 async function refreshStatus() {
   try {
@@ -185,6 +193,9 @@ function refreshDotsFromStatus(health) {
   });
 }
 
+// AUTO_REFRESH_LAST — Date.now() timestamp of the last data-tab auto-refresh.
+// pollCycle() checks this to throttle background refreshes to once every 30 seconds,
+// independent of the 5-second status-pill poll.
 let AUTO_REFRESH_LAST = 0;
 async function pollCycle() {
   await refreshStatus();

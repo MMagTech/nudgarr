@@ -28,6 +28,11 @@ def upsert_stat_entry(
     entry_type: str,
     searched_ts: str,
 ) -> None:
+    """Insert or update an unimported stat entry for import-checking.
+    The ON CONFLICT targets the partial unique index on
+    (app, instance, item_id, type) WHERE imported = 0, so each
+    active (unimported) item gets one row per type. Confirmed (imported = 1)
+    rows are managed separately by confirm_stat_entry()."""
     conn = get_connection()
     conn.execute(
         """
@@ -54,6 +59,11 @@ def confirm_stat_entry(
     entry_type: str,
     imported_ts: str,
 ) -> bool:
+    """Mark a stat entry as imported and increment its iteration counter.
+    Uses a two-phase lookup: by instance name first, then by URL as a fallback
+    to handle instance renames gracefully. If a confirmed row already exists for
+    this item, updates it in place (one row per item). Returns True if a row
+    was successfully confirmed, False if no matching unimported row was found."""
     conn = get_connection()
 
     # Check for an existing imported row for this item (any type).
@@ -114,6 +124,10 @@ def confirm_stat_entry(
 
 
 def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
+    """Return unimported stat entries that are ready for import checking.
+    When check_minutes <= 0, returns all unimported entries with no time filter.
+    Otherwise returns only entries whose last_searched_ts is at least
+    check_minutes ago, so recently-searched items are not checked prematurely."""
     conn = get_connection()
     if check_minutes <= 0:
         rows = conn.execute(
@@ -141,6 +155,11 @@ def get_confirmed_entries(
     offset: int = 0,
     limit: int = 25,
 ) -> Tuple[int, List[Dict], List[str]]:
+    """Return paginated confirmed (imported) stat entries with optional filters.
+    Returns a three-tuple: (total, entries, available_types) where total is the
+    unfiltered count, entries is the current page of dicts with a computed
+    turnaround field, and available_types is the distinct list of entry types
+    present for the current instance filter (used to populate the type dropdown)."""
     conn = get_connection()
     where = ["imported = 1"]
     params: list = []
@@ -230,12 +249,17 @@ def rename_instance_in_history(app: str, instance_url: str, new_name: str) -> No
 
 
 def clear_stat_entries() -> None:
+    """Delete all rows from stat_entries. Lifetime totals are not affected."""
     conn = get_connection()
     conn.execute("DELETE FROM stat_entries")
     conn.commit()
 
 
 def prune_stat_entries(retention_days: int) -> int:
+    """Delete confirmed (imported = 1) stat entries older than retention_days.
+    Unimported (pending) entries are intentionally preserved regardless of age
+    so in-flight import checks are never interrupted. Returns the number of
+    rows deleted. No-op if retention_days <= 0."""
     if retention_days <= 0:
         return 0
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))

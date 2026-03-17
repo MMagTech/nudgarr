@@ -7,6 +7,8 @@
   <title>Nudgarr</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='ui.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui-mobile.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui-landscape.css') }}">
 </head>
 <body>
 <div class="wrap">
@@ -65,7 +67,7 @@
         <div id="sonarrList"></div>
       </div>
 
-      <div class="card full">
+      <div class="save-bar full" style="flex-direction:column;align-items:stretch">
         <div class="row">
           <button class="btn primary" onclick="saveAll()">Save Changes</button>
           <button class="btn" onclick="testConnections()">Test Connections</button>
@@ -168,7 +170,7 @@
         <div class="grid cols2" style="gap:12px;margin-top:12px">
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Max Movies (Per Instance)</label>
+              <label>Radarr Cutoff Max (Per Instance)</label>
               <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
@@ -194,7 +196,7 @@
         <div class="grid cols2" style="gap:12px;margin-top:12px">
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Max Episodes (Per Instance)</label>
+              <label>Sonarr Cutoff Max (Per Instance)</label>
               <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
@@ -251,7 +253,7 @@
         <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits.</p>
       </div>
 
-      <div class="row" style="margin-top:16px">
+      <div class="save-bar">
         <button class="btn primary" onclick="saveSettings()">Save Changes</button>
         <span class="msg" id="setMsg"></span>
       </div>
@@ -410,11 +412,11 @@
           <div class="help">Fires when a sweep fails or an instance becomes unreachable</div>
         </div>
       </div>
-    </div>
 
-    <div class="row" style="margin-top:16px">
-      <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
-      <span class="msg" id="notifyMsg"></span>
+      <div class="save-bar full">
+        <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
+        <span class="msg" id="notifyMsg"></span>
+      </div>
     </div>
   </div>
 
@@ -440,7 +442,7 @@
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <div class="tooltip-wrap">
-                <label>Radarr Missing Max (Per Instance)</label>
+                <label>Missing Max (Per Instance)</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
               <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
@@ -449,10 +451,10 @@
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Radarr Missing Added Days</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Setting this to 0 disables the filter entirely and makes all missing items immediately eligible regardless of when they were added.</div></span>
+                <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Set to 0 to remove the age filter and search all missing items regardless of when they were added.</div></span>
               </div>
               <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
-              <div class="help">Only search missing items added more than this many days ago (0 Disables)</div>
+              <div class="help">Only search missing items older than this many days. 0 = no age filter.</div>
             </div>
           </div>
           </div>
@@ -472,7 +474,7 @@
           <div class="grid cols2" style="gap:12px">
             <div class="field">
               <div class="tooltip-wrap">
-                <label>Sonarr Missing Max (Per Instance)</label>
+                <label>Missing Max (Per Instance)</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
               </div>
               <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
@@ -514,7 +516,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Episodes totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
             </div>
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
-            <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed (0 Disables).</div>
+            <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed (0 Disables)</div>
           </div>
           <div class="hr"></div>
           <p class="section-label">Stats</p>
@@ -565,7 +567,7 @@
         </div>
       </div>
 
-      <div class="row" style="margin-top:16px">
+      <div class="save-bar">
         <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
         <span class="msg" id="advMsg"></span>
       </div>
@@ -654,6 +656,10 @@
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎨 Refreshed UI</div>
            <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards. The instance modal now has a Test connection button — check your URL and API key before applying.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
+           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog and Execution tabs alongside Overrides.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
@@ -755,123 +761,234 @@
 <!-- Mobile shell -->
 <div id="mobile-ui">
 
-  <!-- Home tab -->
+  <!-- ── Home tab ── -->
   <div class="m-tab m-active" id="m-home">
-    <div class="m-home-header">
-      <h1>Nudgarr</h1>
-    </div>
+    <div class="m-wordmark">Nudgarr</div>
     <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
 
-    <button class="m-run-btn" id="m-run-btn">▶ Run Now</button>
+    <button class="m-run-btn" id="m-run-btn">
+      <div class="m-run-btn-icon" id="m-run-btn-icon">▶</div>
+      <span id="m-run-btn-label">Run Now</span>
+    </button>
     <div class="m-run-hint-wrap" id="m-run-hint-wrap">
-      <div class="m-run-hint"><span>↑ Hold to Configure ↑</span></div>
+      <div class="m-run-hint"><span>Tap to run a manual sweep</span></div>
     </div>
 
-    <div class="m-time-row">
-      <div class="m-time-card">
-        <div class="m-tc-label">Last Run</div>
-        <div class="m-tc-value" id="m-last-run">—</div>
+    <div class="m-stat-grid">
+      <div class="m-stat-card">
+        <div class="m-stat-card-label">Last Run</div>
+        <div class="m-stat-card-value" id="m-last-run">—</div>
+        <div class="m-stat-card-sub" id="m-last-run-sub">—</div>
       </div>
-      <div class="m-time-card">
-        <div class="m-tc-label">Next Run</div>
-        <div class="m-tc-value" id="m-next-run">—</div>
+      <div class="m-stat-card">
+        <div class="m-stat-card-label">Next Run</div>
+        <div class="m-stat-card-value" id="m-next-run">—</div>
+        <div class="m-stat-card-sub" id="m-next-run-sub">—</div>
       </div>
-      <div class="m-import-pill" onclick="mOpenImports('movies')">
-        <span class="m-import-pill-icon">🎬</span>
-        <div class="m-import-pill-info">
-          <div class="m-import-pill-label">Movies</div>
-          <div class="m-import-pill-value" id="m-movies-total">—</div>
+      <div class="m-stat-card m-stat-card-tap" onclick="mOpenImports('movies')">
+        <div class="m-stat-card-label">🎬 Movies</div>
+        <div class="m-stat-card-value" id="m-movies-total">—</div>
+        <div class="m-stat-card-sub">Confirmed imports</div>
+        <span class="m-stat-card-arr">›</span>
+      </div>
+      <div class="m-stat-card m-stat-card-tap" onclick="mOpenImports('shows')">
+        <div class="m-stat-card-label">📺 Episodes</div>
+        <div class="m-stat-card-value" id="m-shows-total">—</div>
+        <div class="m-stat-card-sub">Confirmed imports</div>
+        <span class="m-stat-card-arr">›</span>
+      </div>
+    </div>
+
+    <div class="m-section-label">Automation</div>
+    <div class="m-card">
+      <div class="m-toggle-row">
+        <div>
+          <div class="m-toggle-label">Auto Schedule</div>
+          <div class="m-toggle-sub" id="m-auto-sub">—</div>
         </div>
-        <span class="m-import-pill-chevron">›</span>
-      </div>
-      <div class="m-import-pill" onclick="mOpenImports('shows')">
-        <span class="m-import-pill-icon">📺</span>
-        <div class="m-import-pill-info">
-          <div class="m-import-pill-label">Episodes</div>
-          <div class="m-import-pill-value" id="m-shows-total">—</div>
-        </div>
-        <span class="m-import-pill-chevron">›</span>
+        <div class="m-toggle" id="m-toggle-auto" onclick="mToggleAuto()"></div>
       </div>
     </div>
 
-    <div class="m-sweep-banner hidden" id="m-running-pill">
-      <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.5s ease-in-out infinite;display:inline-block;flex-shrink:0"></span>
-      Sweep in progress…
-    </div>
-
-    <div class="m-divider"></div>
-
-    <div class="m-toggle-row">
-      <div>
-        <div class="m-toggle-label">Automatic Sweeps</div>
-        <div class="m-toggle-sub" id="m-auto-sub">—</div>
-      </div>
-      <div class="m-toggle" id="m-toggle-auto" onclick="mToggleAuto()"></div>
-    </div>
-
-    <div class="m-toggle-row">
-      <div>
-        <div class="m-toggle-label">Notifications</div>
-        <div class="m-toggle-sub">Apprise alerts</div>
-      </div>
-      <div class="m-toggle" id="m-toggle-notify" onclick="mToggleNotify()"></div>
-    </div>
-
-    <div class="m-toggle-row">
-      <div class="m-stepper-left">
-        <div class="m-toggle-label">Radarr Backlog</div>
-        <div class="m-sub-wrap">
-          <span class="m-sub-a" id="m-radarr-backlog-sub-a">Search Missing Movies</span>
-          <span class="m-sub-b m-sub-override" id="m-radarr-backlog-sub-b"></span>
-        </div>
-      </div>
-      <div class="m-toggle" id="m-toggle-radarr-backlog" onclick="mToggleRadarrBacklog()"></div>
-    </div>
-
-    <div class="m-toggle-row">
-      <div class="m-stepper-left">
-        <div class="m-toggle-label">Sonarr Backlog</div>
-        <div class="m-sub-wrap">
-          <span class="m-sub-a" id="m-sonarr-backlog-sub-a">Search Missing Episodes</span>
-          <span class="m-sub-b m-sub-override" id="m-sonarr-backlog-sub-b"></span>
-        </div>
-      </div>
-      <div class="m-toggle" id="m-toggle-sonarr-backlog" onclick="mToggleSonarrBacklog()"></div>
-    </div>
+    <div class="m-section-label">Instances</div>
+    <div class="m-card" id="m-instance-rows"></div>
 
   </div>
 
-  <!-- Instances tab -->
-  <div class="m-tab" id="m-instances">
-    <div id="m-inst-list"></div>
-  </div>
-
-  <!-- Sweep tab -->
+  <!-- ── Sweep tab ── -->
   <div class="m-tab" id="m-sweep">
     <div id="m-sweep-list"></div>
   </div>
 
-  <!-- Bottom nav -->
+  <!-- ── History tab ── -->
+  <div class="m-tab" id="m-history">
+    <div class="m-inner-tab-bar">
+      <div class="m-inner-tab m-inner-tab-active" id="m-htab-history" onclick="mSwitchExclTab('history')">History</div>
+      <div class="m-inner-tab" id="m-htab-add" onclick="mSwitchExclTab('add')">Add</div>
+      <div class="m-inner-tab" id="m-htab-excluded" onclick="mSwitchExclTab('excluded')">Excluded <span class="m-count-badge" id="m-excl-count">0</span></div>
+    </div>
+    <div class="m-history-pane" id="m-hist-pane-history">
+      <div id="m-hist-list"></div>
+    </div>
+    <div class="m-history-pane" id="m-hist-pane-add" style="display:none">
+      <div id="m-excl-hist"></div>
+    </div>
+    <div class="m-history-pane" id="m-hist-pane-excluded" style="display:none">
+      <div id="m-excl-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Settings tab ── -->
+  <div class="m-tab" id="m-settings">
+
+    <div class="m-section-label">Global</div>
+    <div class="m-card">
+      <div class="m-stepper-row">
+        <div>
+          <div class="m-stepper-label">Cooldown</div>
+          <div class="m-stepper-sub">Hours between searches · hold +24</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" id="m-s-cool-dec" ontouchstart="event.preventDefault();mSHoldStart('cooldown',-1);mBtnPress(this)" ontouchend="mSHoldEnd('cooldown',-1)" ontouchcancel="mSHoldEnd('cooldown',-1)" onmousedown="mSHoldStart('cooldown',-1);mBtnPress(this)" onmouseup="mSHoldEnd('cooldown',-1)" onmouseleave="mSHoldEnd('cooldown',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-cooldown">48</div>
+          <button class="m-stepper-btn" id="m-s-cool-inc" ontouchstart="event.preventDefault();mSHoldStart('cooldown',1);mBtnPress(this)" ontouchend="mSHoldEnd('cooldown',1)" ontouchcancel="mSHoldEnd('cooldown',1)" onmousedown="mSHoldStart('cooldown',1);mBtnPress(this)" onmouseup="mSHoldEnd('cooldown',1)" onmouseleave="mSHoldEnd('cooldown',1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Radarr</div>
+    <div class="m-card">
+      <div class="m-stepper-row">
+        <div>
+          <div class="m-stepper-label">Cutoff Max</div>
+          <div class="m-stepper-sub">Cutoff searches per run · 0 disables</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-cutoff',-1);mBtnPress(this)" ontouchend="mSHoldEnd('r-cutoff',-1)" ontouchcancel="mSHoldEnd('r-cutoff',-1)" onmousedown="mSHoldStart('r-cutoff',-1);mBtnPress(this)" onmouseup="mSHoldEnd('r-cutoff',-1)" onmouseleave="mSHoldEnd('r-cutoff',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-r-cutoff">3</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-cutoff',1)" ontouchcancel="mSHoldEnd('r-cutoff',1)" onmousedown="mSHoldStart('r-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-cutoff',1)" onmouseleave="mSHoldEnd('r-cutoff',1)">+</button>
+        </div>
+      </div>
+      <div class="m-seg-row">
+        <div class="m-stepper-label">Sample Mode</div>
+        <div class="m-seg" id="m-seg-radarr">
+          <div class="m-seg-opt m-seg-active" onclick="mSetSeg('radarr','random',this)">Random</div>
+          <div class="m-seg-opt" onclick="mSetSeg('radarr','alphabetical',this)">Alpha</div>
+          <div class="m-seg-opt" onclick="mSetSeg('radarr','oldest_added',this)">Oldest</div>
+          <div class="m-seg-opt" onclick="mSetSeg('radarr','newest_added',this)">Newest</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Sonarr</div>
+    <div class="m-card">
+      <div class="m-stepper-row">
+        <div>
+          <div class="m-stepper-label">Cutoff Max</div>
+          <div class="m-stepper-sub">Cutoff searches per run · 0 disables</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',-1)" ontouchcancel="mSHoldEnd('s-cutoff',-1)" onmousedown="mSHoldStart('s-cutoff',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',-1)" onmouseleave="mSHoldEnd('s-cutoff',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-s-cutoff">5</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',1)" ontouchcancel="mSHoldEnd('s-cutoff',1)" onmousedown="mSHoldStart('s-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',1)" onmouseleave="mSHoldEnd('s-cutoff',1)">+</button>
+        </div>
+      </div>
+      <div class="m-seg-row">
+        <div class="m-stepper-label">Sample Mode</div>
+        <div class="m-seg" id="m-seg-sonarr">
+          <div class="m-seg-opt m-seg-active" onclick="mSetSeg('sonarr','random',this)">Random</div>
+          <div class="m-seg-opt" onclick="mSetSeg('sonarr','alphabetical',this)">Alpha</div>
+          <div class="m-seg-opt" onclick="mSetSeg('sonarr','oldest_added',this)">Oldest</div>
+          <div class="m-seg-opt" onclick="mSetSeg('sonarr','newest_added',this)">Newest</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Notifications</div>
+    <div class="m-card" id="m-notify-card">
+      <div class="m-toggle-row">
+        <div>
+          <div class="m-toggle-label">Enable Notifications</div>
+          <div class="m-toggle-sub">Via Apprise · configure URL on desktop</div>
+        </div>
+        <div class="m-toggle" id="m-toggle-notify-settings" onclick="mToggleNotifySettings()"></div>
+      </div>
+      <div id="m-notify-events">
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Sweep Complete</div>
+            <div class="m-toggle-sub">When a sweep searches items</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-sweep" onclick="mToggleNotifyEvent('sweep_complete')"></div>
+        </div>
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Import Confirmed</div>
+            <div class="m-toggle-sub">When a searched item downloads</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-import" onclick="mToggleNotifyEvent('import')"></div>
+        </div>
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Error</div>
+            <div class="m-toggle-sub">When a sweep fails or instance unreachable</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-error" onclick="mToggleNotifyEvent('error')"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Features</div>
+    <div class="m-card">
+      <div class="m-toggle-row">
+        <div>
+          <div class="m-toggle-label">Per-Instance Overrides</div>
+          <div class="m-toggle-sub" id="m-ov-toggle-sub">Disabled</div>
+        </div>
+        <div class="m-toggle" id="m-ov-toggle" onclick="mToggleMobileOverrides()"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Hidden Instances tab (required by validate.py) ── -->
+  <div class="m-tab" id="m-instances" style="display:none">
+    <div id="m-inst-list"></div>
+  </div>
+
+  <!-- ── Bottom nav ── -->
   <nav id="m-nav">
     <div class="m-nav-item m-active" id="m-nav-home" onclick="mSwitchTab('home')">
       <span class="m-nav-icon">⌂</span>
       <span class="m-nav-label">Home</span>
     </div>
-    <div class="m-nav-item" id="m-nav-instances" onclick="mSwitchTab('instances')">
-      <span class="m-nav-icon">⬡</span>
-      <span class="m-nav-label">Instances</span>
-    </div>
     <div class="m-nav-item" id="m-nav-sweep" onclick="mSwitchTab('sweep')">
-      <span class="m-nav-icon m-nav-icon-sm">↻</span>
+      <span class="m-nav-icon">↻</span>
       <span class="m-nav-label">Sweep</span>
     </div>
-    <div class="m-nav-item" id="m-nav-exclusions" onclick="mOpenExclusions()">
-      <span class="m-nav-icon">⊘</span>
-      <span class="m-nav-label">Exclusions</span>
+    <div class="m-nav-item" id="m-nav-history" onclick="mSwitchTab('history')">
+      <span class="m-nav-icon">⧗</span>
+      <span class="m-nav-label">History</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-settings" onclick="mSwitchTab('settings')">
+      <span class="m-nav-icon">☰</span>
+      <span class="m-nav-label">Settings</span>
     </div>
   </nav>
 
-  <!-- Exclusions bottom sheet -->
+  <!-- ── Imports bottom sheet ── -->
+  <div class="m-sheet-backdrop" id="m-imports-sheet">
+    <div class="m-sheet">
+      <div class="m-sheet-handle" id="m-imports-handle"></div>
+      <div class="m-sheet-header">
+        <span class="m-sheet-title" id="m-imports-sheet-title">Imports</span>
+        <div class="m-sheet-close" onclick="mCloseImports()">✕</div>
+      </div>
+      <div class="m-sheet-body" id="m-imports-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Exclusions sheet (kept for API compatibility) ── -->
   <div class="m-sheet-backdrop" id="m-excl-sheet">
     <div class="m-sheet">
       <div class="m-sheet-handle" id="m-excl-handle"></div>
@@ -879,335 +996,202 @@
         <span class="m-sheet-title">Exclusions</span>
         <div class="m-sheet-close" onclick="mCloseExclusions()">✕</div>
       </div>
-      <div class="m-inner-tabs">
-        <div class="m-inner-tab m-active" id="m-excl-tab-excl" onclick="mSwitchExclTab('excl')">
-          Excluded <span class="m-count-badge" id="m-excl-count">0</span>
-        </div>
-        <div class="m-inner-tab" id="m-excl-tab-add" onclick="mSwitchExclTab('add')">
-          Add from History
-        </div>
-      </div>
-      <div class="m-sheet-body">
-        <div id="m-excl-list"></div>
-        <div id="m-excl-hist" style="display:none"></div>
-      </div>
+      <div class="m-sheet-body" id="m-excl-sheet-body"></div>
     </div>
   </div>
 
-  <!-- Imports bottom sheet -->
-  <div class="m-sheet-backdrop" id="m-imports-sheet">
-    <div class="m-sheet">
-      <div class="m-sheet-handle" id="m-imports-handle"></div>
-      <div class="m-sheet-header">
-        <span class="m-sheet-title" id="m-imports-sheet-title">Movies</span>
-        <div class="m-sheet-close" onclick="mCloseImports()">✕</div>
-      </div>
-      <div class="m-sheet-body" id="m-imports-sheet-body"></div>
-    </div>
-  </div>
-
-  <!-- Quick Settings bottom sheet -->
-  <div class="m-sheet-backdrop" id="m-qs-sheet">
-    <div class="m-sheet m-qs-sheet">
-      <div class="m-sheet-handle" id="m-qs-handle"></div>
-      <div class="m-sheet-header">
-        <span class="m-sheet-title">Quick Settings</span>
-        <div class="m-sheet-close" onclick="mCloseQS()">✕</div>
-      </div>
-      <div class="m-sheet-body m-qs-sheet-body">
-        <div class="m-stepper-row">
-          <div class="m-stepper-left">
-            <div class="m-stepper-label">Cooldown</div>
-            <div class="m-sub-wrap">
-              <span class="m-sub-a" id="m-qs-cooldown-sub-a">Hours</span>
-              <span class="m-sub-b m-sub-override" id="m-qs-cooldown-sub-b"></span>
-            </div>
-          </div>
-          <div class="m-stepper">
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',-1);mBtnPress(this)" onmouseup="mQSHoldEnd('cooldown',-1)" onmouseleave="mQSHoldEnd('cooldown',-1)" ontouchstart="event.preventDefault();mQSHoldStart('cooldown',-1);mBtnPress(this)" ontouchend="mQSHoldEnd('cooldown',-1)" ontouchcancel="mQSHoldEnd('cooldown',-1)">−</button>
-            <div class="m-stepper-val" id="m-qs-cooldown">48</div>
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('cooldown',1);mBtnPress(this)" onmouseup="mQSHoldEnd('cooldown',1)" onmouseleave="mQSHoldEnd('cooldown',1)" ontouchstart="event.preventDefault();mQSHoldStart('cooldown',1);mBtnPress(this)" ontouchend="mQSHoldEnd('cooldown',1)" ontouchcancel="mQSHoldEnd('cooldown',1)">+</button>
-          </div>
-        </div>
-        <div class="m-stepper-row">
-          <div class="m-stepper-left">
-            <div class="m-stepper-label">Max Movies</div>
-            <div class="m-sub-wrap">
-              <span class="m-sub-a" id="m-qs-movies-sub-a">Per Run · 0 Disables</span>
-              <span class="m-sub-b m-sub-override" id="m-qs-movies-sub-b"></span>
-            </div>
-          </div>
-          <div class="m-stepper">
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',-1);mBtnPress(this)" onmouseup="mQSHoldEnd('movies',-1)" onmouseleave="mQSHoldEnd('movies',-1)" ontouchstart="event.preventDefault();mQSHoldStart('movies',-1);mBtnPress(this)" ontouchend="mQSHoldEnd('movies',-1)" ontouchcancel="mQSHoldEnd('movies',-1)">−</button>
-            <div class="m-stepper-val" id="m-qs-movies">1</div>
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('movies',1);mBtnPress(this)" onmouseup="mQSHoldEnd('movies',1)" onmouseleave="mQSHoldEnd('movies',1)" ontouchstart="event.preventDefault();mQSHoldStart('movies',1);mBtnPress(this)" ontouchend="mQSHoldEnd('movies',1)" ontouchcancel="mQSHoldEnd('movies',1)">+</button>
-          </div>
-        </div>
-        <div class="m-stepper-row">
-          <div class="m-stepper-left">
-            <div class="m-stepper-label">Max Episodes</div>
-            <div class="m-sub-wrap">
-              <span class="m-sub-a" id="m-qs-episodes-sub-a">Per Run · 0 Disables</span>
-              <span class="m-sub-b m-sub-override" id="m-qs-episodes-sub-b"></span>
-            </div>
-          </div>
-          <div class="m-stepper">
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',-1);mBtnPress(this)" onmouseup="mQSHoldEnd('episodes',-1)" onmouseleave="mQSHoldEnd('episodes',-1)" ontouchstart="event.preventDefault();mQSHoldStart('episodes',-1);mBtnPress(this)" ontouchend="mQSHoldEnd('episodes',-1)" ontouchcancel="mQSHoldEnd('episodes',-1)">−</button>
-            <div class="m-stepper-val" id="m-qs-episodes">1</div>
-            <button class="m-stepper-btn" onmousedown="mQSHoldStart('episodes',1);mBtnPress(this)" onmouseup="mQSHoldEnd('episodes',1)" onmouseleave="mQSHoldEnd('episodes',1)" ontouchstart="event.preventDefault();mQSHoldStart('episodes',1);mBtnPress(this)" ontouchend="mQSHoldEnd('episodes',1)" ontouchcancel="mQSHoldEnd('episodes',1)">+</button>
-          </div>
-        </div>
-        <div class="m-stepper-row">
-          <div class="m-stepper-left">
-            <div class="m-stepper-label">Per-Instance Overrides</div>
-            <div class="m-toggle-sub" id="m-ov-toggle-sub">Disabled</div>
-          </div>
-          <div class="m-toggle" id="m-ov-toggle" onclick="mToggleMobileOverrides()"></div>
-        </div>
-      </div>
-      <div class="m-callout-wrap">
-        <span class="m-callout-a" id="m-callout-default">Full Settings Available on Desktop</span>
-        <span class="m-callout-b" id="m-callout-active">⊙ Overrides Active — Configure in Landscape</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Mobile Overrides first-time modal -->
+  <!-- ── Mobile Overrides first-time modal ── -->
   <div class="m-sheet-backdrop" id="m-ov-modal" style="display:none">
-    <div class="m-sheet m-qs-sheet" style="border-radius:20px;margin:16px">
+    <div class="m-sheet m-sheet-auto" style="border-radius:20px;margin:16px">
       <div style="padding:20px 18px 0">
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Per-Instance Overrides</div>
-        <div style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:12px">Fine-tune cooldown, caps, backlog, and notifications independently for each instance. Configure in landscape, tap ⊙ in the bottom nav.</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(91,114,245,.07);border:1px solid rgba(91,114,245,.15);border-radius:10px;margin-bottom:8px">Quick Settings and the home toggles always edit global values. Instances with overrides applied use their own values instead and won't be affected by the global.</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;padding:10px 12px;background:rgba(91,114,245,.07);border:1px solid rgba(91,114,245,.15);border-radius:10px;margin-bottom:18px">Overrides only take effect once you Apply them on each instance in landscape.</div>
+        <div class="m-modal-title">Per-Instance Overrides</div>
+        <div class="m-modal-body">Fine-tune cooldown, caps, backlog, and notifications independently for each instance. Configure in landscape — tap ⊙ in the bottom nav.</div>
+        <div class="m-modal-note">Quick Settings and home toggles always edit global values. Instances with overrides use their own values instead.</div>
+        <div class="m-modal-note">Overrides only take effect once you Apply them on each instance in landscape.</div>
       </div>
-      <div style="padding:0 18px 20px">
-        <button onclick="mDismissOvModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,rgba(91,114,245,.25),rgba(91,114,245,.15));border:1px solid var(--accent-border);border-radius:12px;color:#d0daff;font-size:14px;font-weight:600;cursor:pointer">Continue</button>
+      <div style="padding:0 18px 20px;margin-top:16px">
+        <button onclick="mDismissOvModal()" class="m-modal-btn">Continue</button>
       </div>
     </div>
   </div>
+
 </div>
 
 <!-- ══════════════════════════════ LANDSCAPE UI ══════════════════════════════ -->
 <div id="landscape-ui">
 
-  <!-- Tab viewport -->
+  <div id="ls-header">
+    <div class="ls-wordmark">Nudgarr</div>
+    <div class="ls-save-indicator" id="ls-save-ind">
+      <div class="ls-save-dot"></div>Saved
+    </div>
+    <button class="ls-desktop-btn" onclick="lsSwitchToDesktop()">Desktop View</button>
+  </div>
+
   <div id="ls-viewport">
     <div class="ls-tab-track">
 
-      <!-- ── Settings tab ── -->
-      <div class="ls-tab ls-tab-active" id="ls-tab-settings">
-
-        <!-- Left: Search -->
-        <div class="ls-col">
-          <div class="ls-col-label">Search</div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Max Movies</div>
-              <div class="ls-row-sub">Per Run · 0 Disables</div>
+      <!-- ── Backlog tab ── -->
+      <div class="ls-tab ls-tab-active" id="ls-tab-backlog">
+        <div class="ls-two-col">
+          <div class="ls-col">
+            <div class="ls-col-label">Radarr</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Backlog</div>
+                <div class="ls-row-sub">Search missing movies</div>
+              </div>
+              <div class="ls-toggle" id="ls-tog-radarr-backlog" onclick="lsToggleBacklog('radarr')"></div>
             </div>
-            <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',-1)" onmouseup="lsHoldEnd('movies',-1)" onmouseleave="lsHoldEnd('movies',-1)" ontouchstart="event.preventDefault();lsHoldStart('movies',-1)" ontouchend="lsHoldEnd('movies',-1)" ontouchcancel="lsHoldEnd('movies',-1)">−</button>
-              <div class="ls-stepper-val" id="ls-v-movies">1</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('movies',1)" onmouseup="lsHoldEnd('movies',1)" onmouseleave="lsHoldEnd('movies',1)" ontouchstart="event.preventDefault();lsHoldStart('movies',1)" ontouchend="lsHoldEnd('movies',1)" ontouchcancel="lsHoldEnd('movies',1)">+</button>
-            </div>
-          </div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Max Episodes</div>
-              <div class="ls-row-sub">Per Run · 0 Disables</div>
-            </div>
-            <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',-1)" onmouseup="lsHoldEnd('episodes',-1)" onmouseleave="lsHoldEnd('episodes',-1)" ontouchstart="event.preventDefault();lsHoldStart('episodes',-1)" ontouchend="lsHoldEnd('episodes',-1)" ontouchcancel="lsHoldEnd('episodes',-1)">−</button>
-              <div class="ls-stepper-val" id="ls-v-episodes">1</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('episodes',1)" onmouseup="lsHoldEnd('episodes',1)" onmouseleave="lsHoldEnd('episodes',1)" ontouchstart="event.preventDefault();lsHoldStart('episodes',1)" ontouchend="lsHoldEnd('episodes',1)" ontouchcancel="lsHoldEnd('episodes',1)">+</button>
-            </div>
-          </div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Radarr Mode</div>
-              <div class="ls-row-sub">How Items Are Picked</div>
-            </div>
-            <div class="ls-seg" id="ls-seg-radarr">
-              <div class="ls-seg-opt ls-active" onclick="lsSeg('radarr','random',this)">Rnd</div>
-              <div class="ls-seg-opt" onclick="lsSeg('radarr','alphabetical',this)">A–Z</div>
-              <div class="ls-seg-opt" onclick="lsSeg('radarr','oldest_added',this)">Old</div>
-              <div class="ls-seg-opt" onclick="lsSeg('radarr','newest_added',this)">New</div>
+            <div id="ls-radarr-backlog-fields">
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Max Missing</div>
+                  <div class="ls-row-sub">Missing searches per run</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd('r-missing',-1)" onmouseleave="lsHoldEnd('r-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd('r-missing',-1)" ontouchcancel="lsHoldEnd('r-missing',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',1)" onmouseup="lsHoldEnd('r-missing',1)" onmouseleave="lsHoldEnd('r-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',1)" ontouchend="lsHoldEnd('r-missing',1)" ontouchcancel="lsHoldEnd('r-missing',1)">+</button>
+                </div>
+              </div>
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Missing Added Days</div>
+                  <div class="ls-row-sub">Days since added · 0 = no filter</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',-1)" onmouseup="lsHoldEnd('r-days',-1)" onmouseleave="lsHoldEnd('r-days',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',-1)" ontouchend="lsHoldEnd('r-days',-1)" ontouchcancel="lsHoldEnd('r-days',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-r-days">14</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd('r-days',1)" onmouseleave="lsHoldEnd('r-days',1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd('r-days',1)" ontouchcancel="lsHoldEnd('r-days',1)">+</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Sonarr Mode</div>
-              <div class="ls-row-sub">How Items Are Picked</div>
-            </div>
-            <div class="ls-seg" id="ls-seg-sonarr">
-              <div class="ls-seg-opt ls-active" onclick="lsSeg('sonarr','random',this)">Rnd</div>
-              <div class="ls-seg-opt" onclick="lsSeg('sonarr','alphabetical',this)">A–Z</div>
-              <div class="ls-seg-opt" onclick="lsSeg('sonarr','oldest_added',this)">Old</div>
-              <div class="ls-seg-opt" onclick="lsSeg('sonarr','newest_added',this)">New</div>
-            </div>
-          </div>
-        </div>
+          <div class="ls-col-divider"></div>
 
-        <!-- Divider -->
-        <div class="ls-col-divider"></div>
-
-        <!-- Right: Timing -->
-        <div class="ls-col">
-          <div class="ls-col-label">Timing</div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Cooldown</div>
-              <div class="ls-row-sub">Hours Between Re-Searches</div>
+          <div class="ls-col">
+            <div class="ls-col-label">Sonarr</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Backlog</div>
+                <div class="ls-row-sub">Search missing episodes</div>
+              </div>
+              <div class="ls-toggle" id="ls-tog-sonarr-backlog" onclick="lsToggleBacklog('sonarr')"></div>
             </div>
-            <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',-1)" onmouseup="lsHoldEnd('cooldown',-1)" onmouseleave="lsHoldEnd('cooldown',-1)" ontouchstart="event.preventDefault();lsHoldStart('cooldown',-1)" ontouchend="lsHoldEnd('cooldown',-1)" ontouchcancel="lsHoldEnd('cooldown',-1)">−</button>
-              <div class="ls-stepper-val" id="ls-v-cooldown">48</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('cooldown',1)" onmouseup="lsHoldEnd('cooldown',1)" onmouseleave="lsHoldEnd('cooldown',1)" ontouchstart="event.preventDefault();lsHoldStart('cooldown',1)" ontouchend="lsHoldEnd('cooldown',1)" ontouchcancel="lsHoldEnd('cooldown',1)">+</button>
-            </div>
-          </div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Batch Size</div>
-              <div class="ls-row-sub">Searches Per Batch</div>
-            </div>
-            <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',-1)" onmouseup="lsHoldEnd('batch',-1)" onmouseleave="lsHoldEnd('batch',-1)" ontouchstart="event.preventDefault();lsHoldStart('batch',-1)" ontouchend="lsHoldEnd('batch',-1)" ontouchcancel="lsHoldEnd('batch',-1)">−</button>
-              <div class="ls-stepper-val" id="ls-v-batch">1</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',1)" onmouseup="lsHoldEnd('batch',1)" onmouseleave="lsHoldEnd('batch',1)" ontouchstart="event.preventDefault();lsHoldStart('batch',1)" ontouchend="lsHoldEnd('batch',1)" ontouchcancel="lsHoldEnd('batch',1)">+</button>
-            </div>
-          </div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Sleep Seconds</div>
-              <div class="ls-row-sub">Pause Between Batches</div>
-            </div>
-            <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',-1)" onmouseup="lsHoldEnd('sleep',-1)" onmouseleave="lsHoldEnd('sleep',-1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',-1)" ontouchend="lsHoldEnd('sleep',-1)" ontouchcancel="lsHoldEnd('sleep',-1)">−</button>
-              <div class="ls-stepper-val" id="ls-v-sleep">5</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',1)" onmouseup="lsHoldEnd('sleep',1)" onmouseleave="lsHoldEnd('sleep',1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',1)" ontouchend="lsHoldEnd('sleep',1)" ontouchcancel="lsHoldEnd('sleep',1)">+</button>
-            </div>
-          </div>
-
-          <div class="ls-row">
-            <div class="ls-row-left">
-              <div class="ls-row-label">Jitter Seconds</div>
-              <div class="ls-row-sub">Random Extra Pause</div>
-            </div>
-            <div class="ls-stepper">
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',-1)" onmouseup="lsHoldEnd('jitter',-1)" onmouseleave="lsHoldEnd('jitter',-1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',-1)" ontouchend="lsHoldEnd('jitter',-1)" ontouchcancel="lsHoldEnd('jitter',-1)">−</button>
-              <div class="ls-stepper-val" id="ls-v-jitter">2</div>
-              <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',1)" onmouseup="lsHoldEnd('jitter',1)" onmouseleave="lsHoldEnd('jitter',1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',1)" ontouchend="lsHoldEnd('jitter',1)" ontouchcancel="lsHoldEnd('jitter',1)">+</button>
+            <div id="ls-sonarr-backlog-fields">
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Max Missing</div>
+                  <div class="ls-row-sub">Missing searches per run</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd('s-missing',-1)" onmouseleave="lsHoldEnd('s-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd('s-missing',-1)" ontouchcancel="lsHoldEnd('s-missing',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd('s-missing',1)" onmouseleave="lsHoldEnd('s-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd('s-missing',1)" ontouchcancel="lsHoldEnd('s-missing',1)">+</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-      </div><!-- /settings tab -->
-
-      <!-- ── Advanced tab ── -->
-      <div class="ls-tab" id="ls-tab-advanced">
-
-        <div class="ls-section">Radarr Backlog</div>
-
-        <div class="ls-row">
-          <div class="ls-row-left">
-            <div class="ls-row-label">Max Missing</div>
-            <div class="ls-row-sub">Movies Per Run</div>
+      <!-- ── Execution tab ── -->
+      <div class="ls-tab" id="ls-tab-execution">
+        <div class="ls-two-col">
+          <div class="ls-col">
+            <div class="ls-col-label">Throttling</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Batch Size</div>
+                <div class="ls-row-sub">Searches per instance per run</div>
+              </div>
+              <div class="ls-stepper">
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',-1)" onmouseup="lsHoldEnd('batch',-1)" onmouseleave="lsHoldEnd('batch',-1)" ontouchstart="event.preventDefault();lsHoldStart('batch',-1)" ontouchend="lsHoldEnd('batch',-1)" ontouchcancel="lsHoldEnd('batch',-1)">−</button>
+                <div class="ls-stepper-val" id="ls-v-batch">1</div>
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',1)" onmouseup="lsHoldEnd('batch',1)" onmouseleave="lsHoldEnd('batch',1)" ontouchstart="event.preventDefault();lsHoldStart('batch',1)" ontouchend="lsHoldEnd('batch',1)" ontouchcancel="lsHoldEnd('batch',1)">+</button>
+              </div>
+            </div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Sleep Seconds</div>
+                <div class="ls-row-sub">Delay between API calls</div>
+              </div>
+              <div class="ls-stepper">
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',-1)" onmouseup="lsHoldEnd('sleep',-1)" onmouseleave="lsHoldEnd('sleep',-1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',-1)" ontouchend="lsHoldEnd('sleep',-1)" ontouchcancel="lsHoldEnd('sleep',-1)">−</button>
+                <div class="ls-stepper-val" id="ls-v-sleep">5</div>
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',1)" onmouseup="lsHoldEnd('sleep',1)" onmouseleave="lsHoldEnd('sleep',1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',1)" ontouchend="lsHoldEnd('sleep',1)" ontouchcancel="lsHoldEnd('sleep',1)">+</button>
+              </div>
+            </div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Jitter Seconds</div>
+                <div class="ls-row-sub">Random delay variance</div>
+              </div>
+              <div class="ls-stepper">
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',-1)" onmouseup="lsHoldEnd('jitter',-1)" onmouseleave="lsHoldEnd('jitter',-1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',-1)" ontouchend="lsHoldEnd('jitter',-1)" ontouchcancel="lsHoldEnd('jitter',-1)">−</button>
+                <div class="ls-stepper-val" id="ls-v-jitter">2</div>
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',1)" onmouseup="lsHoldEnd('jitter',1)" onmouseleave="lsHoldEnd('jitter',1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',1)" ontouchend="lsHoldEnd('jitter',1)" ontouchcancel="lsHoldEnd('jitter',1)">+</button>
+              </div>
+            </div>
           </div>
-          <div class="ls-stepper">
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd('r-missing',-1)" onmouseleave="lsHoldEnd('r-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd('r-missing',-1)" ontouchcancel="lsHoldEnd('r-missing',-1)">−</button>
-            <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',1)" onmouseup="lsHoldEnd('r-missing',1)" onmouseleave="lsHoldEnd('r-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',1)" ontouchend="lsHoldEnd('r-missing',1)" ontouchcancel="lsHoldEnd('r-missing',1)">+</button>
+
+          <div class="ls-col-divider"></div>
+
+          <div class="ls-col">
+            <div class="ls-col-label">Scheduler</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Auto Schedule</div>
+                <div class="ls-row-sub" id="ls-auto-sub">—</div>
+              </div>
+              <div class="ls-toggle" id="ls-tog-auto" onclick="lsToggleAuto()"></div>
+            </div>
+            <div class="ls-row ls-row-col" id="ls-cron-row">
+              <div class="ls-cron-header">
+                <div class="ls-row-label">Cron Expression</div>
+                <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                  <span id="ls-container-time" class="ls-container-time"></span>
+                  <a href="https://crontab.guru" target="_blank" rel="noopener" class="ls-cron-link">cron generator ↗</a>
+                </div>
+              </div>
+              <input type="text" id="ls-cron-input" class="ls-cron-input" placeholder="0 */12 * * *" oninput="lsValidateCron()" />
+              <div class="ls-cron-hint" id="ls-cron-hint"></div>
+            </div>
           </div>
         </div>
-
-        <div class="ls-row">
-          <div class="ls-row-left">
-            <div class="ls-row-label">Added Within</div>
-            <div class="ls-row-sub">Days</div>
-          </div>
-          <div class="ls-stepper">
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',-1)" onmouseup="lsHoldEnd('r-days',-1)" onmouseleave="lsHoldEnd('r-days',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',-1)" ontouchend="lsHoldEnd('r-days',-1)" ontouchcancel="lsHoldEnd('r-days',-1)">−</button>
-            <div class="ls-stepper-val" id="ls-v-r-days">14</div>
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd('r-days',1)" onmouseleave="lsHoldEnd('r-days',1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd('r-days',1)" ontouchcancel="lsHoldEnd('r-days',1)">+</button>
-          </div>
-        </div>
-
-        <div class="ls-section">Sonarr Backlog</div>
-
-        <div class="ls-row">
-          <div class="ls-row-left">
-            <div class="ls-row-label">Max Missing</div>
-            <div class="ls-row-sub">Episodes Per Run</div>
-          </div>
-          <div class="ls-stepper">
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd('s-missing',-1)" onmouseleave="lsHoldEnd('s-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd('s-missing',-1)" ontouchcancel="lsHoldEnd('s-missing',-1)">−</button>
-            <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
-            <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd('s-missing',1)" onmouseleave="lsHoldEnd('s-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd('s-missing',1)" ontouchcancel="lsHoldEnd('s-missing',1)">+</button>
-          </div>
-        </div>
-
-        <div class="ls-section">Desktop</div>
-
-        <div class="ls-row" style="grid-column: 1 / -1;">
-          <div class="ls-row-left">
-            <div class="ls-row-label">Full Desktop View</div>
-            <div class="ls-row-sub">Rotate To Portrait To Return</div>
-          </div>
-          <button class="ls-desktop-btn" onclick="lsSwitchToDesktop()">Switch</button>
-        </div>
-
-      </div><!-- /advanced tab -->
+      </div>
 
       <!-- ── Overrides tab ── -->
       <div class="ls-tab" id="ls-tab-overrides">
-
-        <!-- Rail -->
-        <div class="ls-ov-rail" id="ls-ov-rail">
-          <!-- Populated by lsOvRenderRail() -->
-        </div>
-
-        <!-- Panel -->
-        <div class="ls-ov-panel" id="ls-ov-panel">
-          <div class="ls-ov-body" id="ls-ov-body">
-            <!-- Populated by lsOvRenderPanel() -->
-          </div>
+        <div class="ls-ov-rail" id="ls-ov-rail"></div>
+        <div class="ls-ov-panel">
+          <div class="ls-ov-panel-name" id="ls-ov-panel-name">—</div>
+          <div class="ls-ov-body" id="ls-ov-body"></div>
           <div class="ls-ov-foot" id="ls-ov-foot">
-            <button class="ls-ov-foot-reset" id="ls-ov-reset" onclick="lsOvReset()">Reset All to Global</button>
-            <span class="ls-ov-foot-mid ls-ov-foot-inherited" id="ls-ov-status">Global Inherited</span>
+            <button class="ls-ov-foot-reset" onclick="lsOvReset()">Reset to Global</button>
+            <div class="ls-ov-foot-mid" id="ls-ov-status"></div>
             <button class="ls-ov-foot-apply" id="ls-ov-apply" onclick="lsOvApply()">Apply</button>
           </div>
         </div>
+      </div>
 
-      </div><!-- /overrides tab -->
-
-    </div><!-- /track -->
-  </div><!-- /viewport -->
-
-  <!-- Bottom nav -->
-  <nav id="ls-nav">
-    <div class="ls-nav-item ls-active" id="ls-nav-settings" onclick="lsSwitchTab(0)">
-      <span class="ls-nav-icon">☰</span>
-      <span class="ls-nav-label">Settings</span>
     </div>
-    <div class="ls-nav-item" id="ls-nav-advanced" onclick="lsSwitchTab(1)">
-      <span class="ls-nav-icon">⬡</span>
-      <span class="ls-nav-label">Advanced</span>
+  </div>
+
+  <nav id="ls-nav">
+    <div class="ls-nav-item ls-active" id="ls-nav-backlog" onclick="lsSwitchTab(0)">
+      <span class="ls-nav-icon">◫</span>
+      <span class="ls-nav-label">Backlog</span>
+    </div>
+    <div class="ls-nav-item" id="ls-nav-execution" onclick="lsSwitchTab(1)">
+      <span class="ls-nav-icon">⧖</span>
+      <span class="ls-nav-label">Execution</span>
     </div>
     <div class="ls-nav-item" id="ls-nav-overrides" onclick="lsSwitchTab(2)">
       <span class="ls-nav-icon">⊙</span>
       <span class="ls-nav-label">Overrides</span>
-    </div>
-    <div class="ls-save-indicator" id="ls-save-ind" style="position:absolute;right:12px;top:50%;transform:translateY(-50%)">
-      <div class="ls-save-dot"></div>
-      Saved
     </div>
   </nav>
 
@@ -1219,6 +1203,10 @@
 <script src="{{ url_for('static', filename='ui-settings.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-mobile-core.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-mobile-landscape.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-landscape-exec.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait-home.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait-history.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait-settings.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-mobile-portrait.js') }}"></script>
 </body>
 </html>

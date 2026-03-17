@@ -134,6 +134,10 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
 # ── Cooldown selection ────────────────────────────────────────────────
 
 def is_allowed_by_cooldown(last_ts: Any, cooldown_hours: int) -> bool:
+    """Return True if the item is eligible to be searched again.
+    Always returns True when cooldown_hours <= 0 (cooldown disabled) or when
+    last_ts is None (item has never been searched). Otherwise checks whether
+    enough time has elapsed since last_ts."""
     if cooldown_hours <= 0:
         return True
     if not last_ts:
@@ -198,6 +202,9 @@ def mark_items_searched(
     items: List[Dict[str, Any]],
     sweep_type: str = "",
 ) -> None:
+    """Write a search_history record for every item in items. No return value.
+    Upserts each row — increments search_count and updates last_searched_ts
+    if the item already exists in history."""
     now_s = iso_z(utcnow())
     for item in items:
         db.upsert_search_history(

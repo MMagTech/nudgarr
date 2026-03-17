@@ -16,11 +16,21 @@ All notable changes to Nudgarr are documented here.
 - Header and status bar restructured — three separate pills consolidated into a single segmented status bar; scheduler state uses CSS class toggle instead of inline style
 - Overrides tab label updated to include ⊙ glyph
 - Instance modal now has an explicit Test connection button. Shows a live result (checking → connected with version, or error message) before you apply. Result is cached — pressing Apply immediately after a successful test reuses it without a second request.
+- Save bar styling unified across Instances, Settings, Notifications, and Advanced tabs using a shared `.save-bar` class. Overrides section divider spacing and line weight adjusted.
+
+**Mobile**
+
+- Portrait nav restructured — four tabs now Home · Sweep · History · Settings; Instances hidden, Exclusions promoted into History as an inner tab alongside History and Add from History
+- Home tab redesigned — stat grid (Last Run, Next Run, Movies, Episodes tap cards); instance health rows inline; Auto Schedule and Notifications toggles on home; Run Now button redesigned with animated icon and running state
+- Quick Settings sheet removed — Cooldown, Cutoff Max, Sample Mode, Notifications, and Per-Instance Overrides toggle now live in a dedicated Settings tab with stepper and segmented controls
+- Landscape nav tabs renamed from Settings + Advanced to Backlog + Execution; Backlog tab covers per-app missing search controls; Execution tab covers Batch, Sleep, Jitter, and a cron field with live validation
+- Landscape Overrides panel gains an instance name header with Radarr/Sonarr app badges; Desktop View button moved from Advanced tab to the header
 
 **Bug fixes**
 
 - Sonarr clickable titles now correctly open the series page in Sonarr. Previously the arr-link route used the episode ID to look up the series, which would fail. `series_id` is now stored in `search_history`, returned by the history API, and passed through to `/api/arr-link`. Migration v7 adds the column to existing installs.
 - Editing an existing instance no longer clears its Per-Instance Override values. The previous save path rebuilt the instance object with only four fields, dropping any stored overrides.
+- History summary now normalises trailing slashes on both the `url_to_name` lookup and the grouping key, preventing duplicate or missing history pills when a URL was stored inconsistently across sweeps.
 
 **Backend cleanup**
 
@@ -31,6 +41,7 @@ All notable changes to Nudgarr are documented here.
 - `state.py` — removed dead stubs: `load_state`, `ensure_state_structure`, `save_state`, `load_stats`, `save_stats`, `save_exclusions`. All had zero external callers. Active functions (`state_key`, `load_exclusions`, `prune_state_by_retention`) kept.
 - `ui.html` — renamed element IDs `pill-dryrun`, `dot-dryrun`, `txt-dryrun` to `pill-scheduler`, `dot-scheduler`, `txt-scheduler`. These IDs show AUTO/MANUAL scheduler state and never had anything to do with dry run mode, which was scratched.
 - Flake8 — fixed E302/E303/E305 blank line violations in `globals.py`, `state.py`, `stats.py`, `db.py`. CI ignore list trimmed to `E501,W503` only.
+- Frontend structure — `ui-mobile-portrait.js` split into `ui-mobile-portrait.js` (tab switcher and init, 118 lines), `ui-mobile-portrait-home.js`, `ui-mobile-portrait-history.js`, and `ui-mobile-portrait-settings.js`; `ui.css` split into `ui.css` (desktop, 585 lines), `ui-mobile.css` (portrait, 415 lines), and `ui-landscape.css` (landscape, 294 lines). `validate.py` updated to check all 15 static files and 3 CSS link tags (230 checks total).
 
 ---
 

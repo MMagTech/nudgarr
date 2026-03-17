@@ -28,6 +28,7 @@ from nudgarr.utils import iso_z, utcnow
 
 
 def print_banner(cfg: Dict[str, Any]) -> None:
+    """Print the startup banner and key runtime paths to stdout."""
     print("")
     print("====================================")
     print(f" Nudgarr v{VERSION}")
@@ -41,6 +42,7 @@ def print_banner(cfg: Dict[str, Any]) -> None:
 
 
 def start_ui_server() -> None:
+    """Start the Flask development server. Blocking — must be run in a dedicated thread."""
     app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
 
 

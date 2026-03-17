@@ -33,6 +33,11 @@ def upsert_search_history(
     now_ts: str,
     series_id: str = "",
 ) -> None:
+    """Insert or update a search_history row for one searched item.
+    On conflict (same app, instance_url, item_type, item_id), increments
+    search_count and updates last_searched_ts. sweep_type, library_added,
+    series_id, and title are updated only when the incoming value is non-empty,
+    preserving the original value if the caller passes an empty string."""
     conn = get_connection()
     conn.execute(
         """
@@ -67,6 +72,7 @@ def get_last_searched_ts(
     item_type: str,
     item_id: str,
 ) -> Optional[str]:
+    """Return the last_searched_ts ISO string for one item, or None if not in history."""
     conn = get_connection()
     row = conn.execute(
         """
@@ -109,7 +115,14 @@ def get_search_history(
     limit: int = 250,
     cooldown_hours: int = 48,
     instance_name_map: Optional[Dict[str, str]] = None,
+    cooldown_map: Optional[Dict[str, int]] = None,
 ) -> Tuple[int, List[Dict]]:
+    """Return paginated search history rows with computed cooldown metadata.
+    instance_key accepts the composite 'name|url' format and extracts the URL
+    portion internally for the database query. eligible_again is computed per row
+    using cooldown_map[instance_url] when present, falling back to cooldown_hours.
+    This ensures per-instance cooldown overrides are reflected in the display.
+    Returns (total, items)."""
     conn = get_connection()
     params: list = []
     where = []
@@ -148,7 +161,9 @@ def get_search_history(
         eligible = ""
         dt = parse_iso(ts) if ts else None
         if dt is not None:
-            eligible = iso_z(dt + timedelta(hours=cooldown_hours))
+            url = r["instance_url"].rstrip("/")
+            row_cooldown = (cooldown_map or {}).get(url, cooldown_hours)
+            eligible = iso_z(dt + timedelta(hours=row_cooldown))
         sk = f"{r['instance_name']}|{r['instance_url']}"
         friendly = (instance_name_map or {}).get(sk, r["instance_name"])
         items.append({
@@ -169,7 +184,9 @@ def get_search_history(
 
 
 def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    # Local import avoids circular dependency (state imports db)
+    """Return entry counts, file size, and instance metadata for the History tab header.
+    state_key is imported locally here to avoid a circular import
+    (nudgarr.state imports nudgarr.db, so importing at module level would cycle)."""
     from nudgarr.state import state_key as make_state_key
 
     conn = get_connection()
@@ -184,14 +201,14 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
     url_to_name: Dict[str, str] = {}
     for app_name in ("radarr", "sonarr"):
         for inst in cfg.get("instances", {}).get(app_name, []):
-            url_to_name[inst["url"]] = inst["name"]
+            url_to_name[inst["url"].rstrip("/")] = inst["name"]
 
     per_instance: Dict[str, Dict] = {"radarr": {}, "sonarr": {}}
     radarr_total = 0
     sonarr_total = 0
     for r in rows:
         name = url_to_name.get(r["instance_url"], r["instance_url"])
-        sk = f"{name}|{r['instance_url']}"
+        sk = f"{name}|{r['instance_url'].rstrip('/')}"
         per_instance[r["app"]][sk] = r["cnt"]
         if r["app"] == "radarr":
             radarr_total += r["cnt"]
@@ -228,6 +245,8 @@ def get_search_history_summary(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def prune_search_history(retention_days: int) -> int:
+    """Delete search_history rows whose last_searched_ts is older than retention_days.
+    Returns the number of rows deleted. No-op if retention_days <= 0."""
     if retention_days <= 0:
         return 0
     cutoff = iso_z(utcnow() - timedelta(days=retention_days))
@@ -240,6 +259,7 @@ def prune_search_history(retention_days: int) -> int:
 
 
 def clear_search_history() -> None:
+    """Delete all rows from search_history. sweep_lifetime is not affected."""
     conn = get_connection()
     conn.execute("DELETE FROM search_history")
     conn.commit()

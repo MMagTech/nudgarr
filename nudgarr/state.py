@@ -18,6 +18,11 @@ from typing import Any, Dict, List
 
 from nudgarr import db
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 # ── Key helper (used by routes and sweep) ─────────────────────────────
 

@@ -73,4 +73,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "per_instance_overrides_enabled": False,
     "per_instance_overrides_seen": False,
     "per_instance_overrides_seen_mobile": False,
+
+    # Logging (v4.0.0)
+    "log_level": "INFO",   # DEBUG | INFO | WARNING | ERROR
 }
+
+# Valid sample modes for radarr_sample_mode, sonarr_sample_mode, and per-instance overrides.
+# Single definition — sweep.py and config.py import this instead of defining their own.
+VALID_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")

@@ -38,6 +38,11 @@ from flask import jsonify, redirect, request, session
 
 from nudgarr.config import load_or_init_config
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 # ── Session ───────────────────────────────────────────────────────────
 

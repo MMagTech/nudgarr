@@ -17,6 +17,11 @@ from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.stats import check_imports
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 bp = Blueprint("stats", __name__)
 
 
@@ -73,5 +78,6 @@ def api_check_imports_now():
     try:
         check_imports(session, cfg_override)
     except Exception:
-        return jsonify({"ok": False, "error": "Import check failed — check logs for details"})
+        logger.exception("Manual import check failed")
+        return jsonify({"ok": False, "error": "Import check failed — check logs for details"}), 500
     return jsonify({"ok": True})

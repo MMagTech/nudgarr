@@ -585,7 +585,18 @@
 
       <div class="card">
         <p class="section-label" style="display:flex;align-items:baseline;gap:8px">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
-        <p class="help" style="margin:0 0 12px">Back up your data or grab a diagnostic to share on GitHub.</p>
+        <p class="help" style="margin:0 0 16px">Back up your data or grab a diagnostic to share on GitHub.</p>
+        <div class="field" style="margin-bottom:16px">
+          <label>Log Level</label>
+          <select id="log_level" onchange="markUnsaved('advMsg')">
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO">INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+          </select>
+          <div class="help">Controls verbosity in Docker logs and nudgarr.log in your config folder. INFO is recommended. Use DEBUG when troubleshooting a sweep issue.</div>
+        </div>
+        <div class="hr"></div>
         <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
           <button class="btn sm" onclick="backupAll()">Backup All</button>
           <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>

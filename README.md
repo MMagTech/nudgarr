@@ -72,6 +72,8 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
 - Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, title search, and quality upgrade history per item
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
+- Configurable log level (DEBUG / INFO / WARNING / ERROR) set live from the Advanced tab with no container restart
+- Diagnostic download includes the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing with the community when troubleshooting
 - First-run onboarding walkthrough and What's New modal on upgrade
 
 **Mobile**
@@ -213,6 +215,7 @@ Defaults to `1000:1000` if not set.
 |------|---------|
 | `/config/nudgarr-config.json` | All settings |
 | `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
+| `/config/logs/nudgarr.log` | Rotating log file — 5 MB per file, 3 backups. Log level set in Advanced tab. |
 
 ---
 

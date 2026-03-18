@@ -20,6 +20,11 @@ from nudgarr.constants import DB_FILE
 from nudgarr.db.connection import get_connection
 from nudgarr.utils import iso_z, parse_iso, utcnow
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 def upsert_search_history(
     app: str,
@@ -87,12 +92,13 @@ def get_last_searched_ts(
 
 def get_last_searched_ts_bulk(
     app: str,
-    instance_name: str,
     instance_url: str,
     item_type: str,
     item_ids: List[str],
 ) -> Dict[str, str]:
-    """Return {item_id: last_searched_ts} for a list of items in one query."""
+    """Return {item_id: last_searched_ts} for a list of items in one query.
+    Filters by app, instance_url, and item_type — instance_name is not used
+    because instance_url is the reliable unique identifier in the DB."""
     if not item_ids:
         return {}
     conn = get_connection()
@@ -262,4 +268,64 @@ def clear_search_history() -> None:
     """Delete all rows from search_history. sweep_lifetime is not affected."""
     conn = get_connection()
     conn.execute("DELETE FROM search_history")
+    conn.commit()
+
+
+def count_search_history() -> int:
+    """Return total row count of search_history."""
+    return get_connection().execute("SELECT COUNT(*) FROM search_history").fetchone()[0]
+
+
+def get_search_history_counts() -> list:
+    """Return raw (app, instance_url, cnt) rows for diagnostic use.
+    Returns a list of sqlite3.Row objects with app, instance_url, cnt fields."""
+    return get_connection().execute(
+        """
+        SELECT app, instance_url, COUNT(*) as cnt
+        FROM search_history
+        GROUP BY app, instance_url
+        """
+    ).fetchall()
+
+
+def batch_upsert_search_history(items: List[Dict]) -> None:
+    """Write multiple search_history rows in a single transaction.
+
+    Each item must be a dict with the same keys accepted by upsert_search_history.
+    A single commit covers the entire batch so a mid-batch failure rolls back cleanly
+    rather than leaving partially-written rows.
+    """
+    if not items:
+        return
+    conn = get_connection()
+    now_s = items[0].get("now_ts", "")  # all items in a batch share the same timestamp
+    for item in items:
+        conn.execute(
+            """
+            INSERT INTO search_history
+                (app, instance_name, instance_url, item_type, item_id, series_id,
+                 title, sweep_type, library_added,
+                 first_searched_ts, last_searched_ts, search_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ON CONFLICT (app, instance_url, item_type, item_id) DO UPDATE SET
+                last_searched_ts = excluded.last_searched_ts,
+                search_count     = search_history.search_count + 1,
+                instance_name    = excluded.instance_name,
+                series_id        = CASE WHEN excluded.series_id != '' THEN excluded.series_id
+                                        ELSE search_history.series_id END,
+                title            = CASE WHEN excluded.title != '' THEN excluded.title
+                                        ELSE search_history.title END,
+                sweep_type       = CASE WHEN excluded.sweep_type != '' THEN excluded.sweep_type
+                                        ELSE search_history.sweep_type END,
+                library_added    = CASE WHEN excluded.library_added != '' THEN excluded.library_added
+                                        ELSE search_history.library_added END
+            """,
+            (
+                item["app"], item["instance_name"], item["instance_url"],
+                item["item_type"], item["item_id"], item.get("series_id", ""),
+                item.get("title", ""), item.get("sweep_type", ""),
+                item.get("library_added", ""),
+                item.get("now_ts", now_s), item.get("now_ts", now_s),
+            )
+        )
     conn.commit()

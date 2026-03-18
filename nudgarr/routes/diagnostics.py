@@ -6,17 +6,43 @@ Diagnostic download endpoint.
   GET /api/diagnostic -- download a plain-text diagnostic report
 """
 
-from flask import Blueprint, Response
-
+import logging
 import os
+import re
+
+from flask import Blueprint, Response
 
 from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import STATUS
+from nudgarr.log_setup import LOG_FILE
+from nudgarr.utils import mask_url
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("diagnostics", __name__)
+
+# Pattern that identifies a URL in a log line for masking
+_URL_RE = re.compile(r'https?://\S+')
+
+
+def _mask_log_line(line: str) -> str:
+    """Apply mask_url() to every URL found in a log line."""
+    return _URL_RE.sub(lambda m: mask_url(m.group(0)), line)
+
+
+def _read_log_tail(n: int = 250) -> list:
+    """Return the last n lines of nudgarr.log with URLs masked.
+    Returns an empty list if the file does not exist or cannot be read."""
+    try:
+        with open(LOG_FILE, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        tail = lines[-n:] if len(lines) > n else lines
+        return [_mask_log_line(ln.rstrip("\n")) for ln in tail]
+    except OSError:
+        return []
 
 
 @bp.get("/api/diagnostic")
@@ -35,13 +61,7 @@ def api_diagnostic():
     for inst in sonarr_instances:
         valid_urls[("sonarr", inst["url"].rstrip("/"))] = inst["name"]
 
-    summary_rows = db.get_connection().execute(
-        """
-        SELECT app, instance_url, COUNT(*) as cnt
-        FROM search_history
-        GROUP BY app, instance_url
-        """
-    ).fetchall()
+    summary_rows = db.get_search_history_counts()
 
     instance_counts = []
     for r in summary_rows:
@@ -79,11 +99,12 @@ def api_diagnostic():
         db_size = "unavailable"
 
     # Total history entry count
-    total_history = db.get_connection().execute("SELECT COUNT(*) FROM search_history").fetchone()[0]
-    total_stats = db.get_connection().execute("SELECT COUNT(*) FROM stat_entries WHERE imported = 1").fetchone()[0]
+    total_history = db.count_search_history()
+    total_stats = db.count_confirmed_entries()
 
     lines = [
         f"Nudgarr v{VERSION}",
+        f"Log level: {cfg.get('log_level', 'INFO')}",
         f"Port: {PORT}",
         f"Last run: {STATUS.get('last_run_utc') or 'Never'}",
         f"Next run: {STATUS.get('next_run_utc') or 'N/A'}",
@@ -125,6 +146,15 @@ def api_diagnostic():
         "",
         "History entry counts by instance:",
     ] + (instance_counts or ["  No entries."])
+
+    # Log tail — last 250 lines from nudgarr.log with URLs masked.
+    # Log output may contain local hostnames and media titles.
+    log_tail = _read_log_tail(250)
+    lines += [
+        "",
+        f"--- Recent log (last {len(log_tail)} lines from nudgarr.log) ---",
+        "# URLs masked. May contain hostnames and media titles.",
+    ] + (log_tail if log_tail else ["  (log file not found or empty)"])
 
     text = "\n".join(lines)
     return Response(

@@ -185,10 +185,10 @@ async function mPollCycle() {
       await refreshSweep();
       mRenderSweep();
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[mobile] mPollCycle failed:', e.message);
+  }
 }
-
-// ── Landscape bridge functions ─────────────────────────────────────────────
 
 function lsSwitchTabSafe(idx) {
   if (typeof lsSwitchTab === 'function') lsSwitchTab(idx);

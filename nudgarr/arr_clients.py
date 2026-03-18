@@ -19,11 +19,14 @@ wire them into sweep.py.
 Imports from within the package: utils only.
 """
 
+import logging
 from typing import Any, Dict, List
 
 import requests
 
 from nudgarr.utils import req
+
+logger = logging.getLogger(__name__)
 
 
 # ── Radarr ────────────────────────────────────────────────────────────
@@ -69,7 +72,7 @@ def radarr_get_cutoff_unmet_movies(
     page_size: int = 100,
     max_pages: int = 5,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted→Cutoff Unmet."""
+    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Cutoff Unmet."""
     return _radarr_movies_from_wanted(
         session, url, key, "/api/v3/wanted/cutoff", page_size, max_pages
     )
@@ -82,7 +85,7 @@ def radarr_get_missing_movies(
     page_size: int = 100,
     max_pages: int = 5,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted→Missing."""
+    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Missing."""
     return _radarr_movies_from_wanted(
         session, url, key, "/api/v3/wanted/missing", page_size, max_pages
     )
@@ -104,7 +107,8 @@ def radarr_get_queued_movie_ids(
                 if isinstance(mid, int):
                     queued.add(mid)
     except Exception:
-        pass
+        # L-F4: warn with traceback so queue failures are diagnosable without being fatal
+        logger.warning("[Radarr] radarr_get_queued_movie_ids failed — queued IDs unavailable", exc_info=True)
     return queued
 
 
@@ -113,6 +117,7 @@ def radarr_search_movies(
     url: str,
     key: str,
     movie_ids: List[int],
+    instance_name: str = "",
 ) -> None:
     """Trigger a MoviesSearch command for the given movie IDs. Returns None.
     No-op if movie_ids is empty."""
@@ -121,7 +126,9 @@ def radarr_search_movies(
     cmd = f"{url.rstrip('/')}/api/v3/command"
     payload = {"name": "MoviesSearch", "movieIds": movie_ids}
     req(session, "POST", cmd, key, payload)
-    print(f"[Radarr] Started MoviesSearch for {len(movie_ids)} movie(s)")
+    # L-F13: include instance name so multiple Radarr instances are distinguishable in logs
+    label = f"Radarr:{instance_name}" if instance_name else "Radarr"
+    logger.info("[%s] Started MoviesSearch for %d movie(s)", label, len(movie_ids))
 
 
 # ── Sonarr ────────────────────────────────────────────────────────────
@@ -140,7 +147,9 @@ def _sonarr_get_series_map(
                 if isinstance(s.get("id"), int) and isinstance(s.get("title"), str):
                     series_map[s["id"]] = s["title"]
     except Exception:
-        pass
+        # L-F4: warn with traceback — a failure here causes every episode to show
+        # as "Episode {id}" for the entire sweep run, which is a data quality issue
+        logger.warning("[Sonarr] _sonarr_get_series_map failed — episode titles will fall back to ID-based names", exc_info=True)
     return series_map
 
 
@@ -193,9 +202,15 @@ def sonarr_get_cutoff_unmet_episodes(
     key: str,
     page_size: int = 100,
     max_pages: int = 5,
+    series_map: Dict[int, str] = None,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted→Cutoff Unmet."""
-    series_map = _sonarr_get_series_map(session, url, key)
+    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Cutoff Unmet.
+
+    series_map is optional. If provided, the series list fetch is skipped — pass it when
+    calling both cutoff and missing in the same sweep to avoid fetching /api/v3/series twice.
+    """
+    if series_map is None:
+        series_map = _sonarr_get_series_map(session, url, key)
     return _sonarr_episodes_from_wanted(
         session, url, key, "/api/v3/wanted/cutoff", series_map, page_size, max_pages
     )
@@ -207,9 +222,15 @@ def sonarr_get_missing_episodes(
     key: str,
     page_size: int = 100,
     max_pages: int = 5,
+    series_map: Dict[int, str] = None,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted→Missing."""
-    series_map = _sonarr_get_series_map(session, url, key)
+    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Missing.
+
+    series_map is optional. If provided, the series list fetch is skipped — pass it when
+    calling both cutoff and missing in the same sweep to avoid fetching /api/v3/series twice.
+    """
+    if series_map is None:
+        series_map = _sonarr_get_series_map(session, url, key)
     return _sonarr_episodes_from_wanted(
         session, url, key, "/api/v3/wanted/missing", series_map, page_size, max_pages
     )
@@ -231,7 +252,8 @@ def sonarr_get_queued_episode_ids(
                 if isinstance(eid, int):
                     queued.add(eid)
     except Exception:
-        pass
+        # L-F4: warn with traceback so queue failures are diagnosable without being fatal
+        logger.warning("[Sonarr] sonarr_get_queued_episode_ids failed — queued IDs unavailable", exc_info=True)
     return queued
 
 
@@ -240,6 +262,7 @@ def sonarr_search_episodes(
     url: str,
     key: str,
     episode_ids: List[int],
+    instance_name: str = "",
 ) -> None:
     """Trigger an EpisodeSearch command for the given episode IDs. Returns None.
     No-op if episode_ids is empty."""
@@ -248,7 +271,9 @@ def sonarr_search_episodes(
     cmd = f"{url.rstrip('/')}/api/v3/command"
     payload = {"name": "EpisodeSearch", "episodeIds": episode_ids}
     req(session, "POST", cmd, key, payload)
-    print(f"[Sonarr] Started EpisodeSearch for {len(episode_ids)} episode(s)")
+    # L-F13: include instance name so multiple Sonarr instances are distinguishable in logs
+    label = f"Sonarr:{instance_name}" if instance_name else "Sonarr"
+    logger.info("[%s] Started EpisodeSearch for %d episode(s)", label, len(episode_ids))
 
 
 def radarr_get_movie_quality(
@@ -269,7 +294,9 @@ def radarr_get_movie_quality(
     except (KeyError, TypeError):
         pass
     except Exception:
-        pass
+        # L-F5: debug level — repeated failures produce blank quality_from values
+        # which is acceptable; this makes the pattern diagnosable at debug level
+        logger.debug("[Radarr] quality fetch failed for movie_id=%d — quality_from will be empty", movie_id)
     return ""
 
 
@@ -291,5 +318,6 @@ def sonarr_get_episode_quality(
     except (KeyError, TypeError):
         pass
     except Exception:
-        pass
+        # L-F5: debug level — repeated failures produce blank quality_from values
+        logger.debug("[Sonarr] quality fetch failed for episode_id=%d — quality_from will be empty", episode_id)
     return ""

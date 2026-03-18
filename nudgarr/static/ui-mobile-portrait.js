@@ -112,7 +112,9 @@ if (MOBILE) {
       const showEl = document.getElementById('m-shows-total');
       if (movEl) movEl.textContent = stats.movies_total ?? '\u2014';
       if (showEl) showEl.textContent = stats.shows_total ?? '\u2014';
-    } catch(e) {}
+    } catch(e) {
+      console.warn('[mobile] stats fetch failed:', e.message);
+    }
     mInitRunBtn();
     mInitUpdateBanner();
     maybeShowOnboarding();

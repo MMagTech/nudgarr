@@ -11,6 +11,11 @@ from typing import Any, Dict
 from nudgarr.db.connection import get_connection
 from nudgarr.db.lifetime import get_lifetime_totals, get_sweep_lifetime
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 def export_as_json_dict() -> Dict[str, Any]:
     """Serialise all database tables to a JSON-serialisable dict.

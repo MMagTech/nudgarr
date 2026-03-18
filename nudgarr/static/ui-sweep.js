@@ -503,7 +503,7 @@ async function checkImportsNow() {
     await api('/api/stats/check-imports', {method:'POST'});
     await refreshImports();
   } catch(e) {
-    console.error('Import check failed:', e);
+    showAlert('Import check failed: ' + e.message);
   }
 }
 

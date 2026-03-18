@@ -18,6 +18,11 @@ from typing import Dict, List, Optional, Tuple
 from nudgarr.db.connection import get_connection
 from nudgarr.utils import iso_z, parse_iso, utcnow
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 def upsert_stat_entry(
     app: str,
@@ -330,3 +335,46 @@ def prune_stat_entries(retention_days: int) -> int:
     )
     conn.commit()
     return cur.rowcount
+
+
+def count_confirmed_entries() -> int:
+    """Return count of confirmed (imported=1) stat entries."""
+    return get_connection().execute(
+        "SELECT COUNT(*) FROM stat_entries WHERE imported = 1"
+    ).fetchone()[0]
+
+
+def batch_upsert_stat_entries(entries: list) -> None:
+    """Write multiple stat_entry rows in a single transaction.
+
+    Each entry must be a dict with keys: app, instance, instance_url, item_id,
+    title, entry_type, searched_ts, quality_from.
+    A single commit covers the entire batch so a mid-batch failure rolls back
+    cleanly rather than leaving partially-written rows.
+    """
+    if not entries:
+        return
+    conn = get_connection()
+    for entry in entries:
+        conn.execute(
+            """
+            INSERT INTO stat_entries
+                (app, instance, instance_url, item_id, title, type,
+                 first_searched_ts, last_searched_ts, imported, quality_from)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            ON CONFLICT (app, instance, item_id, type) WHERE imported = 0 DO UPDATE SET
+                last_searched_ts = excluded.last_searched_ts,
+                instance_url = excluded.instance_url,
+                title = CASE WHEN excluded.title != '' THEN excluded.title
+                             ELSE stat_entries.title END,
+                quality_from = CASE WHEN excluded.quality_from != '' THEN excluded.quality_from
+                                    ELSE stat_entries.quality_from END
+            """,
+            (
+                entry["app"], entry["instance"], entry["instance_url"],
+                entry["item_id"], entry.get("title", ""), entry["entry_type"],
+                entry["searched_ts"], entry["searched_ts"],
+                entry.get("quality_from", "") or "",
+            )
+        )
+    conn.commit()

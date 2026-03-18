@@ -482,6 +482,47 @@ for fname in sorted(os.listdir(ROUTES_DIR)):
         else:
             fail(f"{fname}:{node.lineno} — route handler {node.name}() has no return statement")
 
+# ── Logging Adoption ──────────────────────────────────────────────────────────
+# Every operational Python module must adopt the logging module.
+# Glob-based so new files are covered automatically without editing this list.
+# Excluded: __init__.py files (re-export only) and constants.py (no logic).
+section("Logging Adoption")
+
+_LOGGING_EXCLUDE = {'__init__.py', 'constants.py'}
+_logging_py_files = (
+    [f for f in glob.glob('nudgarr/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
+    + [f for f in glob.glob('nudgarr/db/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
+    + [f for f in glob.glob('nudgarr/routes/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
+    + (['main.py'] if os.path.exists('main.py') else [])
+)
+for f in sorted(_logging_py_files):
+    try:
+        src = open(f).read()
+        if 'logging.getLogger' in src:
+            ok(f"logging.getLogger present: {f}")
+        else:
+            fail(f"Missing logging.getLogger: {f}")
+        if 'RotatingFileHandler' in src or f != 'nudgarr/log_setup.py':
+            pass  # RotatingFileHandler check handled separately below
+    except OSError:
+        fail(f"Could not read: {f}")
+
+# RotatingFileHandler must be present in log_setup.py
+try:
+    _log_setup_src = open('nudgarr/log_setup.py').read()
+    if 'RotatingFileHandler' in _log_setup_src:
+        ok("RotatingFileHandler present in log_setup.py")
+    else:
+        fail("RotatingFileHandler missing from log_setup.py")
+except OSError:
+    fail("nudgarr/log_setup.py not found")
+
+# Global JS error boundary must be present in ui-core.js
+if 'unhandledrejection' in js_content:
+    ok("Global unhandledrejection handler present in JS")
+else:
+    fail("Global unhandledrejection handler missing from JS (expected in ui-core.js)")
+
 # ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \

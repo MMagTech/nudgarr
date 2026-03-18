@@ -13,6 +13,11 @@ from typing import Optional
 
 from nudgarr.db.connection import get_connection
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 def get_state(key: str) -> Optional[str]:
     """Retrieve a persisted state value by key."""

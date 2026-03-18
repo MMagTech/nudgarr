@@ -21,12 +21,18 @@ import json
 import os
 import zipfile
 
+import requests as _requests
 from flask import Blueprint, Response, jsonify, request
 
 from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.state import prune_state_by_retention, state_key
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 
 bp = Blueprint("state", __name__)
@@ -155,8 +161,8 @@ def api_add_exclusion():
     title = (data.get("title") or "").strip()
     if not title:
         return jsonify({"error": "title required"}), 400
-    count = db.add_exclusion(title)
-    return jsonify({"ok": True, "count": count})
+    db.add_exclusion(title)
+    return jsonify({"ok": True})
 
 
 @bp.post("/api/exclusions/remove")
@@ -166,8 +172,8 @@ def api_remove_exclusion():
     title = (data.get("title") or "").strip()
     if not title:
         return jsonify({"error": "title required"}), 400
-    count = db.remove_exclusion(title)
-    return jsonify({"ok": True, "count": count})
+    db.remove_exclusion(title)
+    return jsonify({"ok": True})
 
 
 # ── Arr link ──────────────────────────────────────────────────────────
@@ -181,7 +187,6 @@ def api_arr_link():
     be used to look up the series slug.
     Returns {ok: true, url: "http://..."} or {ok: false, error: "..."}.
     """
-    import requests as _requests
     app_name = request.args.get("app", "").lower()
     instance_name = request.args.get("instance", "").strip()
     item_id = request.args.get("item_id", "").strip()

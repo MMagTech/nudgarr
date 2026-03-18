@@ -17,6 +17,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, sessio
 from nudgarr.constants import VERSION
 
 from nudgarr.auth import (
+
     check_auth_lockout,
     clear_auth_failures,
     hash_password,
@@ -29,6 +30,10 @@ from nudgarr.auth import (
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE
 from nudgarr.utils import save_json_atomic
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("auth", __name__)
 

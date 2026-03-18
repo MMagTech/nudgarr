@@ -11,12 +11,15 @@ database initialisation.
 Imports from within the package: constants, utils only.
 """
 
+import logging
 import os
 import sqlite3
 import threading
 
 from nudgarr.constants import DB_FILE
 from nudgarr.utils import iso_z, utcnow  # noqa: F401 — re-used by sibling modules
+
+logger = logging.getLogger(__name__)
 
 # ── Thread-local connection ───────────────────────────────────────────
 
@@ -184,9 +187,9 @@ def _run_migration_v7(conn: sqlite3.Connection) -> None:
             (iso_z(utcnow()),)
         )
         conn.commit()
-        print("[Migration v7] Added series_id to search_history")
+        logger.info("[Migration v7] Added series_id to search_history")
     except Exception as exc:
-        print(f"[Migration v7] FAILED: {exc}")
+        logger.exception("[Migration v7] FAILED")
 
 
 def _run_migration_v8(conn: sqlite3.Connection) -> None:
@@ -197,6 +200,12 @@ def _run_migration_v8(conn: sqlite3.Connection) -> None:
     ON DELETE CASCADE means rows are automatically removed when the parent
     stat_entries row is deleted — clear and prune require no changes.
     Covers upgrades from v3.2.x. Fresh installs get the table via _SCHEMA_SQL.
+
+    NOTE: quality_history is also defined in _SCHEMA_SQL for fresh installs.
+    It must also appear here because upgrades from v3.2.x do not have the table.
+    Both paths are required — this is not accidental duplication.
+    Future columns added to quality_history before a major version boundary
+    must be added to _SCHEMA_SQL AND a new migration function.
     """
     existing = conn.execute(
         "SELECT version FROM schema_migrations WHERE version = 8"
@@ -229,6 +238,6 @@ def _run_migration_v8(conn: sqlite3.Connection) -> None:
             (iso_z(utcnow()),)
         )
         conn.commit()
-        print("[Migration v8] Created quality_history table")
+        logger.info("[Migration v8] Created quality_history table")
     except Exception as exc:
-        print(f"[Migration v8] FAILED: {exc}")
+        logger.exception("[Migration v8] FAILED")

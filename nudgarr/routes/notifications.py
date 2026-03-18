@@ -12,6 +12,11 @@ from nudgarr.auth import requires_auth
 from nudgarr.notifications import APPRISE_AVAILABLE
 from nudgarr.utils import is_safe_url
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 bp = Blueprint("notifications", __name__)
 
 

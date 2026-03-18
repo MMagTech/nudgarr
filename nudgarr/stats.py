@@ -14,6 +14,7 @@ directly via db.py rather than the st_bucket dict pattern.
 Imports from within the package: db, notifications, utils.
 """
 
+import logging
 import random
 from datetime import timedelta
 from typing import Any, Dict, List, Tuple
@@ -23,6 +24,8 @@ import requests
 from nudgarr import db
 from nudgarr.notifications import notify_import
 from nudgarr.utils import iso_z, parse_iso, utcnow
+
+logger = logging.getLogger(__name__)
 
 
 # ── Stats recording ───────────────────────────────────────────────────
@@ -37,11 +40,85 @@ def record_stat_entry(
     searched_ts: str,
     quality_from: str = "",
 ) -> None:
-    """Record a searched item for later import checking."""
+    """Record a searched item for later import checking (single-item convenience wrapper)."""
     db.upsert_stat_entry(app, instance_name, instance_url, str(item_id), title, entry_type, searched_ts, quality_from)
 
 
+def batch_record_stat_entries(
+    app: str,
+    instance_name: str,
+    instance_url: str,
+    items: List[Dict[str, Any]],
+    entry_type: str,
+    searched_ts: str,
+) -> None:
+    """Record multiple searched items in a single transaction.
+
+    items must be dicts with at least: id, title (optional), quality_from (optional).
+    For Sonarr episode entries the caller should pass series_id as item_id.
+    All rows committed in one transaction — faster and atomic vs. one commit per item.
+    """
+    if not items:
+        return
+    entries = [
+        {
+            "app": app,
+            "instance": instance_name,
+            "instance_url": instance_url,
+            "item_id": str(item.get("series_id") or item["id"]),
+            "title": item.get("title") or "",
+            "entry_type": entry_type,
+            "searched_ts": searched_ts,
+            "quality_from": item.get("quality_from") or "",
+        }
+        for item in items
+    ]
+    db.batch_upsert_stat_entries(entries)
+
+
 # ── Import checking ───────────────────────────────────────────────────
+
+def _process_import_events(
+    events: list,
+    entry: dict,
+    dt: Any,
+    app: str,
+    instance_name: str,
+    instance_url: str,
+    item_id: str,
+    entry_type: str,
+    lifetime_key: str,
+    inst: dict,
+    cfg: dict,
+) -> bool:
+    """Process a flat list of arr history events for one entry.
+
+    Looks for a downloadFolderImported event after the last searched timestamp.
+    Confirms the stat entry, increments the lifetime counter, and fires a
+    notification if enabled. Returns True if the entry was confirmed.
+    """
+    for ev in events:
+        if ev.get("eventType") == "downloadFolderImported":
+            ev_dt = parse_iso(ev.get("date", ""))
+            if ev_dt and (dt is None or ev_dt > dt):
+                imported_ts = iso_z(ev_dt)
+                quality_to = ""
+                try:
+                    quality_to = ev["quality"]["quality"]["name"] or ""
+                except (KeyError, TypeError):
+                    pass
+                if db.confirm_stat_entry(app, instance_name, instance_url,
+                                         item_id, entry_type, imported_ts, quality_to):
+                    db.increment_lifetime_total(lifetime_key)
+                    overrides_on = cfg.get("per_instance_overrides_enabled", False)
+                    ov = inst.get("overrides", {}) if overrides_on else {}
+                    notify_on = ov.get("notifications_enabled", cfg.get("notify_enabled", False))
+                    if notify_on:
+                        notify_import(entry.get("title", "Unknown"), entry_type,
+                                      instance_name, cfg)
+                    return True
+    return False
+
 
 def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
     """Poll Radarr/Sonarr history for import events on recently searched items."""
@@ -64,7 +141,9 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
         app = entry.get("app", "radarr")
         instance_name = entry.get("instance", "")
         instance_url = (entry.get("instance_url") or "").rstrip("/")
-        inst = instance_map.get((app, instance_name)) or (instance_map_by_url.get((app, instance_url)) if instance_url else None)
+        inst = instance_map.get((app, instance_name)) or (
+            instance_map_by_url.get((app, instance_url)) if instance_url else None
+        )
         if not inst:
             continue
 
@@ -87,25 +166,10 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                     events = r.json()
                     if not isinstance(events, list):
                         events = []
-                    for ev in events:
-                        if ev.get("eventType") == "downloadFolderImported":
-                            ev_dt = parse_iso(ev.get("date", ""))
-                            if ev_dt and (dt is None or ev_dt > dt):
-                                imported_ts = iso_z(ev_dt)
-                                quality_to = ""
-                                try:
-                                    quality_to = ev["quality"]["quality"]["name"] or ""
-                                except (KeyError, TypeError):
-                                    pass
-                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts, quality_to):
-                                    db.increment_lifetime_total("movies")
-                                    overrides_on = cfg.get("per_instance_overrides_enabled", False)
-                                    ov = inst.get("overrides", {}) if overrides_on else {}
-                                    notify_on = ov.get("notifications_enabled", cfg.get("notify_enabled", False))
-                                    if notify_on:
-                                        notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
-                                    updated = True
-                                break
+                    if _process_import_events(events, entry, dt, app, instance_name,
+                                              instance_url, item_id, entry_type,
+                                              "movies", inst, cfg):
+                        updated = True
             else:
                 r = session_obj.get(
                     f"{url}/api/v3/history/series",
@@ -116,30 +180,17 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                 if r.ok:
                     data = r.json()
                     events = data if isinstance(data, list) else data.get("records", [])
-                    for ev in events:
-                        if ev.get("eventType") == "downloadFolderImported":
-                            ev_dt = parse_iso(ev.get("date", ""))
-                            if ev_dt and (dt is None or ev_dt > dt):
-                                imported_ts = iso_z(ev_dt)
-                                quality_to = ""
-                                try:
-                                    quality_to = ev["quality"]["quality"]["name"] or ""
-                                except (KeyError, TypeError):
-                                    pass
-                                if db.confirm_stat_entry(app, instance_name, instance_url, item_id, entry_type, imported_ts, quality_to):
-                                    db.increment_lifetime_total("shows")
-                                    overrides_on = cfg.get("per_instance_overrides_enabled", False)
-                                    ov = inst.get("overrides", {}) if overrides_on else {}
-                                    notify_on = ov.get("notifications_enabled", cfg.get("notify_enabled", False))
-                                    if notify_on:
-                                        notify_import(entry.get("title", "Unknown"), entry_type, instance_name, cfg)
-                                    updated = True
-                                break
-        except Exception as e:
-            print(f"[Stats] Import check failed for {instance_name}/{item_id}: {e}")
+                    if _process_import_events(events, entry, dt, app, instance_name,
+                                              instance_url, item_id, entry_type,
+                                              "shows", inst, cfg):
+                        updated = True
+        except Exception:
+            # L-F11: full traceback — network errors show str(e) which is adequate,
+            # but unexpected code errors (malformed DB row, etc.) need the traceback
+            logger.exception("[Stats] Import check failed for %s/%s", instance_name, item_id)
 
     if updated:
-        print("[Stats] Import check complete — updated confirmed imports")
+        logger.info("[Stats] Import check complete — updated confirmed imports")
 
 
 # ── Cooldown selection ────────────────────────────────────────────────
@@ -180,7 +231,7 @@ def pick_items_with_cooldown(
     # Fetch all cooldown timestamps in one query instead of one per item
     item_ids = [str(item["id"]) for item in items]
     ts_map = db.get_last_searched_ts_bulk(
-        instance_app, instance_name, instance_url, item_type, item_ids
+        instance_app, instance_url, item_type, item_ids
     )
 
     for item in items:
@@ -189,6 +240,9 @@ def pick_items_with_cooldown(
             eligible.append(item)
         else:
             skipped += 1
+            logger.debug("[%s:%s] cooldown skip: %s — last searched %s, cooldown=%dh",
+                         instance_app, instance_name, item.get("title", item["id"]),
+                         last_ts, cooldown_hours)
 
     if sample_mode == "random":
         random.shuffle(eligible)
@@ -215,18 +269,23 @@ def mark_items_searched(
 ) -> None:
     """Write a search_history record for every item in items. No return value.
     Upserts each row — increments search_count and updates last_searched_ts
-    if the item already exists in history."""
+    if the item already exists in history. All rows committed in one transaction."""
+    if not items:
+        return
     now_s = iso_z(utcnow())
-    for item in items:
-        db.upsert_search_history(
-            app=instance_app,
-            instance_name=instance_name,
-            instance_url=instance_url,
-            item_type=item_type,
-            item_id=str(item["id"]),
-            title=item.get("title") or "",
-            sweep_type=sweep_type,
-            library_added=item.get("added") or "",
-            now_ts=now_s,
-            series_id=str(item.get("series_id") or ""),
-        )
+    batch = [
+        {
+            "app": instance_app,
+            "instance_name": instance_name,
+            "instance_url": instance_url,
+            "item_type": item_type,
+            "item_id": str(item["id"]),
+            "title": item.get("title") or "",
+            "sweep_type": sweep_type,
+            "library_added": item.get("added") or "",
+            "now_ts": now_s,
+            "series_id": str(item.get("series_id") or ""),
+        }
+        for item in items
+    ]
+    db.batch_upsert_search_history(batch)

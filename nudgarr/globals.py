@@ -82,6 +82,25 @@ def _close_db_connection(exc: object) -> None:
     db.close_connection()
 
 
+# ── L3: JSON error handlers for 400, 404, 500 ─────────────────────────
+# Without these Flask returns HTML error pages which break the frontend's
+# api() wrapper (expects JSON) and expose framework internals to the user.
+@app.errorhandler(400)
+def _error_400(e):
+    return __import__("flask").jsonify({"error": "Bad request", "detail": str(e)}), 400
+
+
+@app.errorhandler(404)
+def _error_404(e):
+    return __import__("flask").jsonify({"error": "Not found"}), 404
+
+
+@app.errorhandler(500)
+def _error_500(e):
+    logging.getLogger(__name__).exception("Unhandled 500 error")
+    return __import__("flask").jsonify({"error": "Internal server error — check logs"}), 500
+
+
 # ── Runtime status ────────────────────────────────────────────────────
 
 STATUS: Dict[str, Any] = {

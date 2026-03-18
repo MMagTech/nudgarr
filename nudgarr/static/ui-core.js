@@ -159,7 +159,9 @@ async function refreshStatus() {
     updateStatusPill(CFG?.scheduler_enabled);
     updateContainerTime(st.container_time);
     refreshDotsFromStatus(st.instance_health || {});
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[poll] refreshStatus failed:', e.message);
+  }
 }
 
 // Tracks instances mid-toggle so poll doesn't race their dot
@@ -225,9 +227,22 @@ if (!MOBILE) {
     });
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
-  });
+  }).catch(e => showAlert('Failed to load — please refresh the page. (' + e.message + ')'));
   setInterval(pollCycle, 5000);
 }
+
+// ── Global error boundary ──────────────────────────────────────────────────
+// Catches unhandled promise rejections and JS exceptions across all six modules.
+// Logs to console only — does not block the user with an alert for background
+// poll failures. Gives enough signal for a user who opens devtools to copy and
+// paste into a bug report.
+window.addEventListener('unhandledrejection', function(ev) {
+  const msg = ev.reason?.message || String(ev.reason);
+  console.error('[unhandled rejection]', msg, ev.reason);
+});
+window.addEventListener('error', function(ev) {
+  console.error('[unhandled error]', ev.message, ev.filename + ':' + ev.lineno);
+});
 
 // ══════════════════════════════════════════════════════════════════════════
 // MOBILE UI

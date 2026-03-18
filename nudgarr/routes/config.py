@@ -26,6 +26,11 @@ from nudgarr.constants import CONFIG_FILE, VERSION
 from nudgarr.globals import STATUS
 from nudgarr.utils import req, save_json_atomic
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 bp = Blueprint("config", __name__)
 
 # Sentinel prefix used to represent a masked but unchanged API key.
@@ -96,7 +101,11 @@ def api_set_config():
     ok, errs = validate_config(cfg)
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_set_config")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     # Apply renames to history and imports
     for app_name, url, new_name in renames:
         db.rename_instance_in_history(app_name, url, new_name)
@@ -114,6 +123,13 @@ def api_set_config():
     else:
         STATUS["next_run_utc"] = None
 
+    # Apply log level immediately so it takes effect without restart
+    try:
+        from nudgarr.log_setup import apply_log_level
+        apply_log_level(cfg.get("log_level", "INFO"))
+    except Exception:
+        pass
+
     return jsonify({"ok": True, "message": "Config saved", "config_file": CONFIG_FILE})
 
 
@@ -122,7 +138,11 @@ def api_set_config():
 def api_reset_config():
     from nudgarr.constants import DEFAULT_CONFIG
     cfg = deep_copy(DEFAULT_CONFIG)
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_reset_config")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     return jsonify({"ok": True})
 
 
@@ -132,7 +152,11 @@ def api_onboarding_complete():
     cfg = load_or_init_config()
     cfg["onboarding_complete"] = True
     cfg["last_seen_version"] = VERSION
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_onboarding_complete")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     return jsonify({"ok": True})
 
 
@@ -141,7 +165,11 @@ def api_onboarding_complete():
 def api_whats_new_dismiss():
     cfg = load_or_init_config()
     cfg["last_seen_version"] = VERSION
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_whats_new_dismiss")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     return jsonify({"ok": True})
 
 
@@ -161,7 +189,11 @@ def api_instance_toggle():
     was_enabled = inst.get("enabled", True)
     inst["enabled"] = not was_enabled
     now_enabled = inst["enabled"]
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_instance_toggle")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     name = inst.get("name", "")
     key = f"{kind}|{name}"
     if now_enabled:
@@ -204,7 +236,11 @@ def api_instance_overrides():
         instances[idx]["overrides"] = overrides
     else:
         instances[idx].pop("overrides", None)
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_instance_overrides")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     return jsonify({"ok": True})
 
 
@@ -224,5 +260,9 @@ def api_overrides_toggle():
     cfg["per_instance_overrides_enabled"] = enabled
     if enabled and not cfg.get("per_instance_overrides_seen", False):
         cfg["per_instance_overrides_seen"] = True
-    save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_overrides_toggle")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
     return jsonify({"ok": True, "enabled": enabled})

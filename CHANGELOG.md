@@ -52,7 +52,30 @@ All notable changes to Nudgarr are documented here.
 - `state.py` — removed dead stubs: `load_state`, `ensure_state_structure`, `save_state`, `load_stats`, `save_stats`, `save_exclusions`. All had zero external callers. Active functions (`state_key`, `load_exclusions`, `prune_state_by_retention`) kept.
 - `ui.html` — renamed element IDs `pill-dryrun`, `dot-dryrun`, `txt-dryrun` to `pill-scheduler`, `dot-scheduler`, `txt-scheduler`. These IDs show AUTO/MANUAL scheduler state and never had anything to do with dry run mode, which was scratched.
 - Flake8 — fixed E302/E303/E305 blank line violations in `globals.py`, `state.py`, `stats.py`, `db.py`. CI ignore list trimmed to `E501,W503` only.
-- Frontend structure — `ui-mobile-portrait.js` split into `ui-mobile-portrait.js` (tab switcher and init, 118 lines), `ui-mobile-portrait-home.js`, `ui-mobile-portrait-history.js`, and `ui-mobile-portrait-settings.js`; `ui.css` split into `ui.css` (desktop, 585 lines), `ui-mobile.css` (portrait, 415 lines), and `ui-landscape.css` (landscape, 294 lines). `validate.py` updated to check all 15 static files and 3 CSS link tags (230 checks total).
+- Frontend structure — `ui-mobile-portrait.js` split into `ui-mobile-portrait.js` (tab switcher and init, 118 lines), `ui-mobile-portrait-home.js`, `ui-mobile-portrait-history.js`, and `ui-mobile-portrait-settings.js`; `ui.css` split into `ui.css` (desktop, 585 lines), `ui-mobile.css` (portrait, 415 lines), and `ui-landscape.css` (landscape, 294 lines). `validate.py` updated to check all 15 static files and 3 CSS link tags (261 checks total).
+
+**Logging and error handling**
+
+- Structured logging throughout — all operational modules now use Python's `logging` module with `logging.getLogger(__name__)`. Log output goes to both stdout (Docker log driver) and a rotating file at `/config/logs/nudgarr.log` (5 MB per file, 3 backups, 20 MB total cap).
+- Log level configurable live from the Advanced tab — choose DEBUG, INFO, WARNING, or ERROR. Takes effect immediately without a container restart. Default is INFO.
+- Diagnostic download now includes the current log level and the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing when troubleshooting.
+- Flask error handlers registered for 400, 404, and 500 — all return JSON instead of Flask's default HTML error pages, which previously broke the frontend API wrapper and exposed framework internals.
+- Config write failures now return a 500 with a readable error message (`Failed to write config — check disk space and permissions`) instead of an unhandled exception. Covers all seven config-writing routes.
+- Import check route now correctly returns 500 on failure. Previously returned 200 with `{ok: false}`, which the frontend treated as success and swallowed the error silently.
+- `loadAll()` on the desktop now shows an alert if the backend is unavailable on cold start instead of rendering a blank page with no message.
+- `checkImportsNow()` now surfaces a user-visible alert on failure instead of logging to the console only.
+- Global `unhandledrejection` and `error` handlers added to catch uncaught exceptions and unhandled promise rejections — logged to console rather than disappearing silently.
+- Mobile version mismatch banner — if the page version does not match the running server version after a container update, a tap-to-reload banner appears at the top of the mobile UI.
+
+**Performance and reliability**
+
+- Search history and stat entry writes are now batched — a single SQLite transaction covers the entire sweep batch instead of one commit per item. At higher Max per Run values this meaningfully reduces WAL flushes on spinning storage.
+- Sonarr series map fetched once per instance per sweep instead of twice when both cutoff and backlog are enabled — previously two full `GET /api/v3/series` calls fired per Sonarr instance.
+- Per-instance cooldown now correctly reflected in History tab `eligible_again` timestamps — previously always used the global cooldown value regardless of instance overrides.
+- `VALID_SAMPLE_MODES` consolidated into `constants.py` — was defined identically in `config.py` (twice) and `sweep.py`.
+- `get_last_searched_ts_bulk` unused `instance_name` parameter removed — the SQL query filtered by `instance_url` only; the parameter implied a fallback that did not exist.
+- Shared `_process_import_events` helper extracted in `stats.py` — the Radarr and Sonarr import check branches were structurally identical with ~30 lines duplicated verbatim.
+- Diagnostics route raw `get_connection()` calls replaced with proper db-layer helpers (`count_search_history`, `count_confirmed_entries`, `get_search_history_counts`).
 
 ---
 

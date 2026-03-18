@@ -10,6 +10,7 @@ Wires everything together:
   6. Runs the scheduler loop in the main thread
 """
 
+import logging
 import signal
 import threading
 
@@ -18,9 +19,12 @@ import requests
 from nudgarr import db
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import STATUS
+from nudgarr.log_setup import setup_logging
 from nudgarr.routes import register_blueprints
 from nudgarr.scheduler import import_check_loop, print_banner, scheduler_loop, start_ui_server
 from nudgarr.utils import req
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -29,16 +33,20 @@ def main() -> None:
     # Initialise database (schema creation + one-time JSON migration if needed)
     db.init_db()
 
+    # Load config early so log_level is available before the banner prints.
+    # setup_logging must be called before any nudgarr module emits a log line.
+    cfg = load_or_init_config()
+    setup_logging(cfg.get("log_level", "INFO"))
+
     stop_flag = {"stop": False}
 
     def handle_signal(signum, frame):
-        print("\nShutdown signal received. Stopping…")
+        logger.info("Shutdown signal received. Stopping...")
         stop_flag["stop"] = True
 
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    cfg = load_or_init_config()
     print_banner(cfg)
 
     # Background health ping — parallel, non-blocking, populates dots within ~1s
@@ -61,8 +69,10 @@ def main() -> None:
                 _url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
                 req(_session, "GET", _url, inst["key"], timeout=5)
                 STATUS["instance_health"][f"{app_name}|{inst['name']}"] = "ok"
+                logger.debug("[%s:%s] startup health ping OK", app_name, inst["name"])
             except Exception:
                 STATUS["instance_health"][f"{app_name}|{inst['name']}"] = "bad"
+                logger.warning("[%s:%s] startup health ping FAILED", app_name, inst["name"])
 
         threads = [threading.Thread(target=_ping, args=(a, i), daemon=True) for a, i in instances]
         for t in threads:
@@ -81,7 +91,7 @@ def main() -> None:
     # Run scheduler loop in main thread
     scheduler_loop(stop_flag)
 
-    print("Nudgarr exiting.")
+    logger.info("Nudgarr exiting.")
 
 
 if __name__ == "__main__":

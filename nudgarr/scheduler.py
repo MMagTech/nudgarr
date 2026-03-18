@@ -10,6 +10,7 @@ Background sweep engine.
 """
 
 import datetime as _dt
+import json
 import logging
 import os
 import time
@@ -148,7 +149,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     STATUS["scheduler_running"] = True
     session = requests.Session()
 
-    # Restore last_run_utc from persisted state so UI shows correctly after restart.
+    # Restore last_run_utc and last_summary from persisted state so UI shows correctly after restart.
     cfg = load_or_init_config()
     scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
     cron_expression = cfg.get("cron_expression", "0 */6 * * *")
@@ -156,6 +157,13 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     persisted_last_run = db.get_state("last_run_utc")
     if persisted_last_run:
         STATUS["last_run_utc"] = persisted_last_run
+
+    persisted_summary = db.get_state("last_summary")
+    if persisted_summary:
+        try:
+            STATUS["last_summary"] = json.loads(persisted_summary)
+        except (ValueError, TypeError):
+            logger.warning("Could not restore last_summary from state — will repopulate after next sweep")
 
     # Set initial next_run_utc
     if scheduler_enabled and cron_expression:
@@ -202,6 +210,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                     STATUS["last_summary"] = summary
                     STATUS["last_run_utc"] = iso_z(utcnow())
                     db.set_state("last_run_utc", STATUS["last_run_utc"])
+                    db.set_state("last_summary", json.dumps(summary))
                     STATUS["last_error"] = None
                     notify_sweep_complete(summary, cfg)
                     for app_name in ("radarr", "sonarr"):

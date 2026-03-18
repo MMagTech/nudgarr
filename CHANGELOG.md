@@ -42,6 +42,7 @@ All notable changes to Nudgarr are documented here.
 - Sonarr clickable titles now correctly open the series page in Sonarr. Previously the arr-link route used the episode ID to look up the series, which would fail. `series_id` is now stored in `search_history`, returned by the history API, and passed through to `/api/arr-link`. Migration v7 adds the column to existing installs.
 - Editing an existing instance no longer clears its Per-Instance Override values. The previous save path rebuilt the instance object with only four fields, dropping any stored overrides.
 - History summary now normalises trailing slashes on both the `url_to_name` lookup and the grouping key, preventing duplicate or missing history pills when a URL was stored inconsistently across sweeps.
+- Sweep tab stats now persist across container restarts. `last_summary` is written to `nudgarr_state` after each sweep and restored on startup alongside `last_run_utc`. Previously the Sweep tab showed empty cards until the next sweep completed after a restart.
 
 **Backend cleanup**
 

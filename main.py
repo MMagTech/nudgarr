@@ -28,15 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    # Load config and initialise logging first — before any nudgarr module emits a log line.
+    # setup_logging must run before register_blueprints and db.init_db or the level
+    # set in Advanced → Log Level will be ignored on restart.
+    cfg = load_or_init_config()
+    setup_logging(cfg.get("log_level", "INFO"))
+
     register_blueprints()
 
     # Initialise database (schema creation + one-time JSON migration if needed)
     db.init_db()
-
-    # Load config early so log_level is available before the banner prints.
-    # setup_logging must be called before any nudgarr module emits a log line.
-    cfg = load_or_init_config()
-    setup_logging(cfg.get("log_level", "INFO"))
 
     stop_flag = {"stop": False}
 

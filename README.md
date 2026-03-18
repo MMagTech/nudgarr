@@ -70,7 +70,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
-- Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, and title search
+- Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, title search, and quality upgrade history per item
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
 - First-run onboarding walkthrough and What's New modal on upgrade
 
@@ -226,7 +226,7 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. One post-reset migration (v7) is included to add the `series_id` column. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
+**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. Two post-reset migrations are included: v7 adds the `series_id` column to `search_history`, and v8 adds quality upgrade tracking. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
 
 **v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
 

@@ -188,7 +188,7 @@ def _run_migration_v7(conn: sqlite3.Connection) -> None:
         )
         conn.commit()
         logger.info("[Migration v7] Added series_id to search_history")
-    except Exception as exc:
+    except Exception:
         logger.exception("[Migration v7] FAILED")
 
 
@@ -239,5 +239,5 @@ def _run_migration_v8(conn: sqlite3.Connection) -> None:
         )
         conn.commit()
         logger.info("[Migration v8] Created quality_history table")
-    except Exception as exc:
+    except Exception:
         logger.exception("[Migration v8] FAILED")

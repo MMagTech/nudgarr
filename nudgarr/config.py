@@ -16,10 +16,10 @@ import json
 import logging
 from typing import Any, Dict, List, Tuple
 
-logger = logging.getLogger(__name__)
-
 from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES
 from nudgarr.utils import load_json, save_json_atomic
+
+logger = logging.getLogger(__name__)
 
 
 def deep_copy(obj: Any) -> Any:

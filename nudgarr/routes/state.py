@@ -18,6 +18,7 @@ State inspection, file downloads, and exclusion list management.
 
 import io
 import json
+import logging
 import os
 import zipfile
 
@@ -29,16 +30,12 @@ from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.state import prune_state_by_retention, state_key
 
-import logging
-
 logger = logging.getLogger(__name__)
-
-
 
 bp = Blueprint("state", __name__)
 
-
 # ── State ─────────────────────────────────────────────────────────────
+
 
 @bp.get("/api/state/summary")
 @requires_auth
@@ -111,8 +108,8 @@ def api_state_clear():
     db.clear_search_history()
     return jsonify({"ok": True})
 
-
 # ── File downloads ────────────────────────────────────────────────────
+
 
 @bp.get("/api/file/config")
 @requires_auth
@@ -145,8 +142,8 @@ def api_file_backup():
         headers={"Content-Disposition": "attachment; filename=nudgarr-backup.zip"},
     )
 
-
 # ── Exclusions ────────────────────────────────────────────────────────
+
 
 @bp.get("/api/exclusions")
 @requires_auth
@@ -175,8 +172,8 @@ def api_remove_exclusion():
     db.remove_exclusion(title)
     return jsonify({"ok": True})
 
-
 # ── Arr link ──────────────────────────────────────────────────────────
+
 
 @bp.get("/api/arr-link")
 @requires_auth

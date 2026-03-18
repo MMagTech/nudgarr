@@ -11,12 +11,11 @@ exclusions table — all read/write operations.
 from typing import Dict, List
 
 from nudgarr.db.connection import get_connection
-from nudgarr.utils import iso_z, utcnow
-
 import logging
 
-logger = logging.getLogger(__name__)
+from nudgarr.utils import iso_z, utcnow
 
+logger = logging.getLogger(__name__)
 
 
 def get_exclusions() -> List[Dict]:

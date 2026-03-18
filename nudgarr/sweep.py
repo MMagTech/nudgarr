@@ -22,8 +22,6 @@ from typing import Any, Dict, List, Set
 
 import requests
 
-logger = logging.getLogger(__name__)
-
 from nudgarr import db
 from nudgarr.arr_clients import (
     radarr_get_cutoff_unmet_movies,
@@ -47,6 +45,8 @@ from nudgarr.stats import (
     pick_items_with_cooldown,
 )
 from nudgarr.utils import iso_z, jitter_sleep, mask_url, parse_iso, utcnow
+
+logger = logging.getLogger(__name__)
 
 
 # ── Private per-instance helpers ──────────────────────────────────────

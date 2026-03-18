@@ -16,7 +16,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 def export_as_json_dict() -> Dict[str, Any]:
     """Serialise all database tables to a JSON-serialisable dict.
     Returns {state, stats, exclusions} where state contains search_history

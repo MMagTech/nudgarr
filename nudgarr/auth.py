@@ -43,7 +43,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 # ── Session ───────────────────────────────────────────────────────────
 
 SESSION_TIMEOUT_MINUTES = 30  # default, overridden by config

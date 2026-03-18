@@ -18,15 +18,14 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import requests
-
 import logging
+
+import requests
 
 logger = logging.getLogger(__name__)
 
-
-
 # ── Time ──────────────────────────────────────────────────────────────
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -44,8 +43,8 @@ def parse_iso(s: str) -> Optional[datetime]:
     except Exception:
         return None
 
-
 # ── File I/O ──────────────────────────────────────────────────────────
+
 
 def ensure_dir(path: str) -> None:
     d = os.path.dirname(path)
@@ -82,8 +81,8 @@ def save_json_atomic(path: str, data: Any, *, pretty: bool) -> None:
             pass
         raise
 
-
 # ── Network ───────────────────────────────────────────────────────────
+
 
 def is_safe_url(url: str) -> bool:
     """
@@ -134,8 +133,8 @@ def req(session: requests.Session, method: str, url: str, key: str,
             return r.text
     return None
 
-
 # ── Timing ────────────────────────────────────────────────────────────
+
 
 def jitter_sleep(base_s: float, jitter_s: float) -> None:
     delay = base_s + (random.random() * jitter_s if jitter_s > 0 else 0)

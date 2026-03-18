@@ -25,7 +25,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 def upsert_search_history(
     app: str,
     instance_name: str,

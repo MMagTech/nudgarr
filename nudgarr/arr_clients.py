@@ -4,11 +4,12 @@ nudgarr/arr_clients.py
 All outbound HTTP calls to Radarr and Sonarr. No business logic here —
 these functions fetch data and trigger commands, nothing else.
 
-  Radarr : radarr_get_cutoff_unmet_movies, radarr_get_missing_movies,
-           radarr_search_movies, radarr_get_queued_movie_ids,
-           radarr_get_movie_quality
-  Sonarr : sonarr_get_cutoff_unmet_episodes, sonarr_get_missing_episodes,
-           sonarr_search_episodes, sonarr_get_episode_quality
+  Shared  : arr_get_tag_map
+  Radarr  : radarr_get_cutoff_unmet_movies, radarr_get_missing_movies,
+            radarr_search_movies, radarr_get_queued_movie_ids,
+            radarr_get_movie_quality
+  Sonarr  : sonarr_get_cutoff_unmet_episodes, sonarr_get_missing_episodes,
+            sonarr_search_episodes, sonarr_get_episode_quality
 
 All functions accept a requests.Session and the instance url + key.
 Pagination is handled internally; callers receive a flat list.
@@ -24,7 +25,7 @@ from typing import Any, Dict, List
 
 import requests
 
-from nudgarr.utils import req
+from nudgarr.utils import mask_url, req
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ def _radarr_movies_from_wanted(
                     quality_from = rec["movieFile"]["quality"]["quality"]["name"] or ""
                 except (KeyError, TypeError):
                     pass
-                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added, "isAvailable": rec.get("isAvailable", True), "minimumAvailability": min_avail, "releaseDate": release_date, "quality_from": quality_from})
+                movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added, "isAvailable": rec.get("isAvailable", True), "minimumAvailability": min_avail, "releaseDate": release_date, "quality_from": quality_from, "qualityProfileId": rec.get("qualityProfileId"), "tagIds": rec.get("tags") or []})
     return movies
 
 
@@ -131,26 +132,56 @@ def radarr_search_movies(
     logger.info("[%s] Started MoviesSearch for %d movie(s)", label, len(movie_ids))
 
 
-# ── Sonarr ────────────────────────────────────────────────────────────
+# ── Shared ────────────────────────────────────────────────────────────
 
-def _sonarr_get_series_map(
+def arr_get_tag_map(
     session: requests.Session,
     url: str,
     key: str,
 ) -> Dict[int, str]:
-    """Fetch all series from Sonarr and return {series_id: title} map."""
-    series_map: Dict[int, str] = {}
+    """Fetch all tags from a Radarr or Sonarr instance and return {tag_id: label}.
+
+    Both apps share the same /api/v3/tag endpoint. Returns an empty dict on
+    failure so callers degrade gracefully (numeric IDs shown instead of labels).
+    """
+    tag_map: Dict[int, str] = {}
+    try:
+        data = req(session, "GET", f"{url.rstrip('/')}/api/v3/tag", key)
+        if isinstance(data, list):
+            for t in data:
+                if isinstance(t.get("id"), int) and isinstance(t.get("label"), str):
+                    tag_map[t["id"]] = t["label"]
+    except Exception:
+        # L-F4: warn with traceback — failure here means filter logging falls back
+        # to numeric IDs rather than labels, which is acceptable but worth flagging
+        logger.warning("arr_get_tag_map failed for %s — tag labels unavailable", mask_url(url), exc_info=True)
+    return tag_map
+
+
+# ── Sonarr ────────────────────────────────────────────────────────────
+
+def _sonarr_get_series_meta(
+    session: requests.Session,
+    url: str,
+    key: str,
+) -> Dict[int, Dict[str, Any]]:
+    """Fetch all series from Sonarr and return {series_id: {title, qualityProfileId, tagIds}} map."""
+    series_meta: Dict[int, Dict[str, Any]] = {}
     try:
         series_data = req(session, "GET", f"{url.rstrip('/')}/api/v3/series", key)
         if isinstance(series_data, list):
             for s in series_data:
                 if isinstance(s.get("id"), int) and isinstance(s.get("title"), str):
-                    series_map[s["id"]] = s["title"]
+                    series_meta[s["id"]] = {
+                        "title": s["title"],
+                        "qualityProfileId": s.get("qualityProfileId"),
+                        "tagIds": s.get("tags") or [],
+                    }
     except Exception:
         # L-F4: warn with traceback — a failure here causes every episode to show
         # as "Episode {id}" for the entire sweep run, which is a data quality issue
-        logger.warning("[Sonarr] _sonarr_get_series_map failed — episode titles will fall back to ID-based names", exc_info=True)
-    return series_map
+        logger.warning("[Sonarr] _sonarr_get_series_meta failed — episode titles will fall back to ID-based names", exc_info=True)
+    return series_meta
 
 
 def _sonarr_episodes_from_wanted(
@@ -158,7 +189,7 @@ def _sonarr_episodes_from_wanted(
     url: str,
     key: str,
     endpoint_path: str,
-    series_map: Dict[int, str],
+    series_meta: Dict[int, Dict[str, Any]],
     page_size: int = 100,
     max_pages: int = 5,
 ) -> List[Dict[str, Any]]:
@@ -176,7 +207,8 @@ def _sonarr_episodes_from_wanted(
             eid = rec.get("id") or rec.get("episodeId")
             if isinstance(eid, int):
                 series_id = rec.get("seriesId")
-                series_title = series_map.get(series_id) if series_id else None
+                meta = series_meta.get(series_id) if series_id else None
+                series_title = meta.get("title") if meta else None
                 season = rec.get("seasonNumber")
                 ep_num = rec.get("episodeNumber")
                 ep_title = rec.get("title")
@@ -192,7 +224,15 @@ def _sonarr_episodes_from_wanted(
                     quality_from = rec["episodeFile"]["quality"]["quality"]["name"] or ""
                 except (KeyError, TypeError):
                     pass
-                episodes.append({"id": eid, "series_id": series_id, "title": title, "added": added, "quality_from": quality_from})
+                episodes.append({
+                    "id": eid,
+                    "series_id": series_id,
+                    "title": title,
+                    "added": added,
+                    "quality_from": quality_from,
+                    "qualityProfileId": meta.get("qualityProfileId") if meta else None,
+                    "tagIds": meta.get("tagIds") or [] if meta else [],
+                })
     return episodes
 
 
@@ -202,17 +242,17 @@ def sonarr_get_cutoff_unmet_episodes(
     key: str,
     page_size: int = 100,
     max_pages: int = 5,
-    series_map: Dict[int, str] = None,
+    series_meta: Dict[int, Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Cutoff Unmet.
 
-    series_map is optional. If provided, the series list fetch is skipped — pass it when
+    series_meta is optional. If provided, the series list fetch is skipped — pass it when
     calling both cutoff and missing in the same sweep to avoid fetching /api/v3/series twice.
     """
-    if series_map is None:
-        series_map = _sonarr_get_series_map(session, url, key)
+    if series_meta is None:
+        series_meta = _sonarr_get_series_meta(session, url, key)
     return _sonarr_episodes_from_wanted(
-        session, url, key, "/api/v3/wanted/cutoff", series_map, page_size, max_pages
+        session, url, key, "/api/v3/wanted/cutoff", series_meta, page_size, max_pages
     )
 
 
@@ -222,17 +262,17 @@ def sonarr_get_missing_episodes(
     key: str,
     page_size: int = 100,
     max_pages: int = 5,
-    series_map: Dict[int, str] = None,
+    series_meta: Dict[int, Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Missing.
 
-    series_map is optional. If provided, the series list fetch is skipped — pass it when
+    series_meta is optional. If provided, the series list fetch is skipped — pass it when
     calling both cutoff and missing in the same sweep to avoid fetching /api/v3/series twice.
     """
-    if series_map is None:
-        series_map = _sonarr_get_series_map(session, url, key)
+    if series_meta is None:
+        series_meta = _sonarr_get_series_meta(session, url, key)
     return _sonarr_episodes_from_wanted(
-        session, url, key, "/api/v3/wanted/missing", series_map, page_size, max_pages
+        session, url, key, "/api/v3/wanted/missing", series_meta, page_size, max_pages
     )
 
 

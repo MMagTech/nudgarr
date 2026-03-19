@@ -38,6 +38,7 @@ nudgarr/                    ← Python package
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup
     config.py               ← /api/config, /api/instance/toggle, onboarding
+    arr.py                  ← /api/arr/tags, /api/arr/profiles (arr proxy endpoints)
     sweep.py                ← /api/status, /api/run-now, /api/test, /api/test-instance
     state.py                ← /api/state/*, /api/file/*, /api/exclusions*
     stats.py                ← /api/stats, /api/stats/clear, check-imports
@@ -49,8 +50,9 @@ nudgarr/                    ← Python package
     ui-sweep.js             ← sweep tab, history tab, imports/stats tab, exclusions
     ui-settings.js          ← settings, notifications, advanced, onboarding, What's New
     ui-overrides.js         ← per-instance overrides tab and modal
+    ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
     ui-mobile-core.js              ← shared mobile helpers, poll cycle, bridge functions
-    ui-mobile-landscape.js         ← landscape Overrides tab — rail, panel, lsOv* functions
+    ui-mobile-landscape.js         ← landscape Overrides and Filters tabs — lsOv* and lsFilters* functions
     ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state
     ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs
     ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
@@ -122,7 +124,7 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
-4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
+4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions and tag/profile filters from the instance's `sweep_filters` config, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
 5. `run_sweep` returns a summary dict
 6. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
 7. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep

@@ -261,6 +261,7 @@ function _onTabShown(name) {
     if (!msg || !msg.textContent.includes('Unsaved')) fillNotifications();
   }
   if (name === 'overrides') renderOverridesCards();
+  if (name === 'filters') fillFilters();
 }
 // ── Settings tab ──
 function updateContainerTime(timeStr) {
@@ -457,40 +458,25 @@ async function saveSettings() {
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
     fadeNewestAddedWarnings();
+    flashCooldownDisabledNote();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
 }
 
-// ── Cooldown warning ──
-let _warnFlashTimer = null;
+// ── Cooldown note ──
+const _COOLDOWN_HELP_DEFAULT = 'Minimum hours before the same movie or episode can be searched again (0 Disables)';
+const _COOLDOWN_HELP_ZERO    = 'Cooldown is disabled. Items may repeat each sweep.';
+
 function checkCooldownWarning() {
+  const helpEl   = el('cooldownHelpText');
+  if (!helpEl) return;
   const cooldown = parseFloat(el('cooldown_hours').value || '48');
-  const warn = el('cooldownWarnMsg');
-  if (!warn) return;
-  const expr = (el('cron_expression') && el('cron_expression').value.trim()) || '';
-  const cronMins = cronIntervalMinutes(expr);
-  const cronHours = cronMins !== null ? cronMins / 60 : null;
-  const cronTooFast = cronHours !== null && cooldown > 0 && cronHours < cooldown;
-  const noThrottle  = cooldown === 0 && cronHours !== null && cronHours < 1;
-  const shouldWarn  = cronTooFast || noThrottle;
-  const warnMsg = cronTooFast
-    ? '\u26a0\ufe0f Scheduler outpaces cooldown, searches will be skipped'
-    : '\u26a0\ufe0f No cooldown and frequent sweeps, indexers bans at risk';
-  if (shouldWarn) {
-    if (warn.textContent === '') {
-      warn.textContent = warnMsg;
-      warn.className = 'warn-flash';
-      if (_warnFlashTimer) clearTimeout(_warnFlashTimer);
-      _warnFlashTimer = setTimeout(() => { warn.className = 'warn-steady'; }, 3000);
-    } else {
-      warn.textContent = warnMsg;
-    }
-  } else {
-    warn.textContent = '';
-    warn.className = '';
-    if (_warnFlashTimer) { clearTimeout(_warnFlashTimer); _warnFlashTimer = null; }
-  }
+  helpEl.textContent = cooldown <= 0 ? _COOLDOWN_HELP_ZERO : _COOLDOWN_HELP_DEFAULT;
+}
+
+function flashCooldownDisabledNote() {
+  checkCooldownWarning();
 }
 
 // ── Newest Added warning ──

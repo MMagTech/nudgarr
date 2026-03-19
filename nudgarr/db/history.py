@@ -132,29 +132,36 @@ def get_search_history(
     params: list = []
     where = []
     if app_filter:
-        where.append("app = ?")
+        where.append("sh.app = ?")
         params.append(app_filter)
     if instance_key:
         parts = instance_key.split("|", 1)
         if len(parts) > 1:
-            where.append("instance_url = ?")
+            where.append("sh.instance_url = ?")
             params.append(parts[1])
         else:
-            where.append("instance_url = ?")
+            where.append("sh.instance_url = ?")
             params.append(parts[0])
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     total = conn.execute(
-        f"SELECT COUNT(*) FROM search_history {where_sql}", params
+        f"SELECT COUNT(*) FROM search_history sh {where_sql}", params
     ).fetchone()[0]
 
     rows = conn.execute(
         f"""
-        SELECT app, instance_name, instance_url, item_type, item_id, series_id,
-               title, sweep_type, library_added,
-               last_searched_ts, search_count
-        FROM search_history {where_sql}
-        ORDER BY last_searched_ts DESC
+        SELECT sh.app, sh.instance_name, sh.instance_url, sh.item_type, sh.item_id, sh.series_id,
+               sh.title, sh.sweep_type, sh.library_added,
+               sh.last_searched_ts, sh.search_count,
+               se.iteration AS import_iteration
+        FROM search_history sh
+        LEFT JOIN stat_entries se
+          ON se.app = sh.app
+         AND se.instance_url = sh.instance_url
+         AND se.item_id = sh.item_id
+         AND se.imported = 1
+        {where_sql}
+        ORDER BY sh.last_searched_ts DESC
         LIMIT ? OFFSET ?
         """,
         params + [limit, offset]
@@ -184,6 +191,7 @@ def get_search_history(
             "sweep_type": r["sweep_type"],
             "library_added": r["library_added"],
             "search_count": r["search_count"],
+            "import_iteration": r["import_iteration"] or 0,
         })
     return total, items
 

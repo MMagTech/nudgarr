@@ -39,8 +39,9 @@
   <div class="tabs" id="tabs">
     <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
     <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">⊙ Overrides</div>
-    <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
     <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
+    <div class="tab tab-filters" id="tab-btn-filters" data-tab="filters" onclick="showTab('filters')">Filters</div>
+    <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
     <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
     <div class="tab" data-tab="imports" onclick="showTab('imports')">Imports</div>
     <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
@@ -157,7 +158,7 @@
       </div>
 
       <div class="card">
-        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p><span id="cooldownWarnMsg"></span></div>
+        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p></div>
         <div class="grid cols1" style="gap:12px">
           <div class="field">
             <div class="tooltip-wrap">
@@ -165,7 +166,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
             </div>
             <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
-            <div class="help">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
+            <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
           </div>
         </div>
         <div class="grid cols2" style="gap:12px;margin-top:12px">
@@ -259,6 +260,64 @@
         <span class="msg" id="setMsg"></span>
       </div>
     </div>
+  </div>
+
+  <!-- ══════════════════════════════ FILTERS ══════════════════════════════ -->
+  <div class="section" id="tab-filters">
+
+    <!-- No instances configured state -->
+    <div id="filters-no-instances" style="display:none">
+      <div class="card" style="text-align:center;padding:48px 24px">
+        <div style="font-size:28px;opacity:.35;margin-bottom:12px">⊘</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-dim);margin-bottom:6px">No instances configured</div>
+        <div class="help">Add a Radarr or Sonarr instance on the <a href="#" onclick="showTab('instances');return false">Instances tab</a> before configuring filters.</div>
+      </div>
+    </div>
+
+    <!-- Main filters content -->
+    <div id="filters-content">
+      <div style="margin-bottom:16px">
+        <div style="font-size:15px;font-weight:600;margin-bottom:3px">Tag &amp; Quality Profile Filters</div>
+        <div class="help">Exclude items from sweep by tag or quality profile. Applied per instance. Changes take effect on the next sweep.</div>
+      </div>
+
+      <div class="grid cols2">
+
+        <!-- Radarr filter box -->
+        <div class="card" id="filters-radarr-box">
+          <div class="card-hdr" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <div style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0"></div>
+              <span style="font-size:13px;font-weight:600">Radarr</span>
+              <select id="filter-radarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px" onchange="onFilterInstanceChange('radarr')"></select>
+            </div>
+            <button class="btn sm" id="filter-radarr-load-btn" onclick="loadArrData('radarr')">Load Tags &amp; Profiles</button>
+          </div>
+
+          <div id="filter-radarr-body">
+            <div class="help" style="text-align:center;padding:20px 0">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</div>
+          </div>
+        </div>
+
+        <!-- Sonarr filter box -->
+        <div class="card" id="filters-sonarr-box">
+          <div class="card-hdr" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <div style="width:7px;height:7px;border-radius:50%;background:var(--ok);flex-shrink:0"></div>
+              <span style="font-size:13px;font-weight:600">Sonarr</span>
+              <select id="filter-sonarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px" onchange="onFilterInstanceChange('sonarr')"></select>
+            </div>
+            <button class="btn sm" id="filter-sonarr-load-btn" onclick="loadArrData('sonarr')">Load Tags &amp; Profiles</button>
+          </div>
+
+          <div id="filter-sonarr-body">
+            <div class="help" style="text-align:center;padding:20px 0">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
   <!-- ══════════════════════════════ HISTORY ══════════════════════════════ -->
@@ -666,16 +725,20 @@
            <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards. The instance modal now has a Test connection button — check your URL and API key before applying.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
-           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog and Execution tabs alongside Overrides.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔍 Quality Upgrade Tracking</div>
            <div class="help">Each import now records the quality path — what the file was before the search and what it upgraded to. Find it in the Imports tab as a new Upgrade column with a hover tooltip showing the full upgrade history per item.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏷️ Tag &amp; Quality Profile Filters</div>
+           <div class="help">A new Filters tab lets you exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs — they never consume a search slot. Load tags and profiles live from each instance, select what to exclude, and Apply. Available in the desktop Filters tab and the landscape Filters nav tab on mobile.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
+           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog, Execution, Overrides, and Filters tabs.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
-           <div class="help">v4.0.0 is a foundations release — no new features, no behaviour changes to your settings or workflows. The database layer is now a structured package instead of a single large file, and the UI loads from separate static files that your browser can cache independently.</div>
+           <div class="help">Structured logging throughout — all output goes to stdout and a rotating log file at /config/logs/nudgarr.log (5 MB per file, 3 backups, 20 MB total cap). Log level is configurable live from the Advanced tab. Sweep and import writes are now batched into single transactions. The frontend is now split across dedicated static files (one per domain) that your browser can cache independently, and the backend routes are organised into focused blueprints — each file covers one area. Contributor docstrings added throughout so the codebase is easier to navigate.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -841,7 +904,6 @@
   <div class="m-tab" id="m-history">
     <div class="m-inner-tab-bar">
       <div class="m-inner-tab m-inner-tab-active" id="m-htab-history" onclick="mSwitchExclTab('history')">History</div>
-      <div class="m-inner-tab" id="m-htab-add" onclick="mSwitchExclTab('add')">Add</div>
       <div class="m-inner-tab" id="m-htab-excluded" onclick="mSwitchExclTab('excluded')">Excluded <span class="m-count-badge" id="m-excl-count">0</span></div>
     </div>
     <div class="m-history-pane" id="m-hist-pane-history">
@@ -1194,6 +1256,19 @@
         </div>
       </div>
 
+      <!-- ── Filters tab ── -->
+      <div class="ls-tab" id="ls-tab-filters">
+        <div class="ls-ov-rail" id="ls-filters-rail"></div>
+        <div class="ls-ov-panel">
+          <div class="ls-ov-body" id="ls-filters-body"></div>
+          <div class="ls-ov-foot" id="ls-filters-foot">
+            <button class="ls-ov-foot-reset" id="ls-filters-load-btn" onclick="lsFiltersLoad()">Load</button>
+            <div class="ls-ov-foot-mid" id="ls-filters-status"></div>
+            <button class="ls-ov-foot-apply" id="ls-filters-apply" onclick="lsFiltersApply()">Apply</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1210,6 +1285,10 @@
       <span class="ls-nav-icon">⊙</span>
       <span class="ls-nav-label">Overrides</span>
     </div>
+    <div class="ls-nav-item" id="ls-nav-filters" onclick="lsSwitchTab(3)">
+      <span class="ls-nav-icon">⊘</span>
+      <span class="ls-nav-label">Filters</span>
+    </div>
   </nav>
 
 </div><!-- /landscape-ui -->
@@ -1218,6 +1297,7 @@
 <script src="{{ url_for('static', filename='ui-overrides.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-sweep.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-settings.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-filters.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-mobile-core.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-mobile-landscape.js') }}"></script>
 <script src="{{ url_for('static', filename='ui-mobile-landscape-exec.js') }}"></script>

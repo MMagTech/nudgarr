@@ -42,6 +42,19 @@ function fmtTime(s) {
   try { return new Date(s).toLocaleString(); } catch(e) { return s; }
 }
 
+function fmtTimePadded(s) {
+  if (!s) return '—';
+  try {
+    const d = new Date(s);
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const dy = String(d.getDate()).padStart(2, '0');
+    let h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return mo + '/' + dy + ', ' + h + ':' + mi + ' ' + ampm;
+  } catch(e) { return s; }
+}
+
 async function api(path, opts) {
   const r = await fetch(path, opts || {});
   if (r.status === 401) { window.location.href = '/login'; return; }

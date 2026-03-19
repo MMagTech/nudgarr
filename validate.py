@@ -19,6 +19,7 @@ JS_FILES = [
     'ui-overrides.js',
     'ui-sweep.js',
     'ui-settings.js',
+    'ui-filters.js',
     'ui-mobile-core.js',
     'ui-mobile-landscape.js',
     'ui-mobile-landscape-exec.js',
@@ -287,7 +288,8 @@ for label, pat in {
     '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
     '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
-    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"'
+    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"',
+    '#ls-tab-filters':'id="ls-tab-filters"', '#ls-nav-filters':'id="ls-nav-filters"'
 }.items():
     if pat not in content: fail(f"Missing element: {label}")
     else: ok(f"Found: {label}")
@@ -318,7 +320,8 @@ for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
            'toggleOverridesFeature','dismissOverridesModal',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
-           'markCardDirty','updateBacklogLabel','updateNotifyLabel']:
+           'markCardDirty','updateBacklogLabel','updateNotifyLabel',
+           'fillFilters','loadArrData','saveFilters']:
     if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 

@@ -6,7 +6,28 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.0.0
 
-**Foundations release — structural cleanup, Sonarr link fix, UI refresh, and quality upgrade tracking.**
+**Quality upgrade tracking, tag and profile filtering, structured logging, mobile redesign, and a full backend and frontend restructure.**
+
+**Tag and Quality Profile Filtering**
+
+- New Filters tab (between Settings and Sweep) lets you exclude items from sweep by tag or quality profile, configured independently per instance
+- Items matching an excluded tag or profile are filtered out of the sweep pipeline after title exclusions and before cooldown — they never consume a search slot
+- Both cutoff unmet and backlog pipelines apply the same filters, so excluded items are skipped in all sweep modes
+- Tags and profiles are fetched live from each arr instance via two new proxy endpoints (`GET /api/arr/tags`, `GET /api/arr/profiles`) — API keys never leave the server
+- Selections saved as `sweep_filters` on the instance config object — persists across page refresh and container restart
+- Per-instance: each instance has its own independent filter configuration
+- Debug logging per filtered item (`skipped_tag: Title (tag=4K-Only)`, `skipped_profile: Title (profile=Ultra-HD)`) and aggregate info counts (`skipped_tag=2 skipped_profile=1`) in the sweep log
+- Disabled instances show their last saved filters read-only with an "All Instances Disabled" label — filters are preserved and reactivate when the instance is re-enabled
+- Desktop Filters tab: two-column grid, Radarr (blue) and Sonarr (green) boxes, per-box instance selector (dropdown for multiple instances), Load Tags & Profiles button, scrollable tag and profile lists with pill display and search, per-box Apply
+- Landscape mobile fourth nav tab (⊘ Filters): rail listing all instances with filter count chip, panel with Filtered Tags and Filtered Quality Profiles sections, Load/Refresh and Apply in footer, amber save dot on Apply
+- Tab order updated: Instances — Overrides — Settings — Filters — Sweep — History — Imports — Notifications — Advanced
+
+**Landscape mobile Overrides refresh**
+
+- Rail updated to match Filters style — larger coloured dot (7px), override count shown as an accent pill on its own line ("2 Overrides") instead of a grey inline badge
+- Panel header (instance name + app badge) removed — fields start immediately with no wasted vertical space
+- Footer status text updated to title case — "No Overrides Set" replaces "Global Inherited"
+- Apply now fires the amber save indicator in the landscape header, consistent with Backlog/Execution saves
 
 **Quality upgrade tracking**
 
@@ -62,6 +83,9 @@ All notable changes to Nudgarr are documented here.
 - Log level now correctly applies on container restart. Previously `register_blueprints()` and `db.init_db()` ran before `setup_logging()`, allowing Python's logging machinery to partially initialise before the configured level was applied. Startup order corrected so `setup_logging` always runs first.
 - Werkzeug startup banner suppressed — `Serving Flask app` and `Debug mode: off` lines no longer appear in container logs. These were unrelated to Nudgarr's Log Level setting and caused confusion when DEBUG was enabled. Actual Werkzeug errors still surface.
 - Startup banner now labels the log level clearly as `(Nudgarr verbosity — set in Advanced tab)` to distinguish it from Flask's separate debug mode.
+- Each sweep header now includes the active log level — `--- Sweep 2026-03-18 23:49 UTC --- [log level: DEBUG]` — so diagnostics clearly show what verbosity was in effect for each run without hunting through startup banners.
+- Log Level dropdown moved inline with the Backup All, Download Diagnostic, and Open Issue buttons in the Support & Diagnostics card. Options prefixed with `Log:` so the selected value is always self-describing. Helper text removed.
+- Support & Diagnostics card description updated to "Data backup and diagnostic tools."
 - Diagnostic download now includes the current log level and the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing when troubleshooting.
 - Flask error handlers registered for 400, 404, and 500 — all return JSON instead of Flask's default HTML error pages, which previously broke the frontend API wrapper and exposed framework internals.
 - Config write failures now return a 500 with a readable error message (`Failed to write config — check disk space and permissions`) instead of an unhandled exception. Covers all seven config-writing routes.

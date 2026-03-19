@@ -195,8 +195,8 @@ function lsTriggerSave() {
   }, 800);
 }
 
-const LS_NAV_ITEMS = ['ls-nav-backlog','ls-nav-execution','ls-nav-overrides'];
-const LS_TAB_IDS   = ['ls-tab-backlog','ls-tab-execution','ls-tab-overrides'];
+const LS_NAV_ITEMS = ['ls-nav-backlog','ls-nav-execution','ls-nav-overrides','ls-nav-filters'];
+const LS_TAB_IDS   = ['ls-tab-backlog','ls-tab-execution','ls-tab-overrides','ls-tab-filters'];
 
 function lsSwitchTab(idx) {
   if (LS_TAB === 2 && idx !== 2 && lsOvHasPending()) {
@@ -221,6 +221,7 @@ function _lsDoSwitchTab(idx) {
     if (n) n.classList.toggle('ls-active', i === idx);
   });
   if (idx === 2) lsOvRenderRail();
+  if (idx === 3) lsFiltersRenderRail();
 }
 
 function lsSwitchToDesktop() {

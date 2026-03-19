@@ -24,6 +24,7 @@ import requests
 
 from nudgarr import db
 from nudgarr.arr_clients import (
+    arr_get_tag_map,
     radarr_get_cutoff_unmet_movies,
     radarr_get_missing_movies,
     radarr_get_queued_movie_ids,
@@ -34,7 +35,7 @@ from nudgarr.arr_clients import (
     sonarr_get_queued_episode_ids,
     sonarr_get_episode_quality,
     sonarr_search_episodes,
-    _sonarr_get_series_map,
+    _sonarr_get_series_meta,
 )
 from nudgarr.constants import VALID_SAMPLE_MODES
 from nudgarr.globals import STATUS
@@ -87,8 +88,46 @@ def _sweep_radarr_instance(
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
 
+    # Read per-instance sweep filters — empty sets mean no filtering applied
+    sweep_filters = inst.get("sweep_filters", {})
+    excluded_tags = set(int(t) for t in sweep_filters.get("excluded_tags", []))
+    excluded_profiles = set(int(p) for p in sweep_filters.get("excluded_profiles", []))
+
+    # Fetch tag map once if tag filtering is active — used for debug log labels only
+    tag_map = arr_get_tag_map(session, url, key) if excluded_tags else {}
+
     all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
     all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
+
+    # Tag filter — skip movies whose tagIds intersect the excluded set
+    skipped_tag = 0
+    if excluded_tags:
+        filtered = []
+        for m in all_movies:
+            hits = excluded_tags & set(m.get("tagIds") or [])
+            if hits:
+                for tid in hits:
+                    logger.debug("[Radarr:%s] skipped_tag: %s (tag=%s)",
+                                 name, m.get("title", "?"), tag_map.get(tid, tid))
+                skipped_tag += len(hits)
+            else:
+                filtered.append(m)
+        all_movies = filtered
+
+    # Profile filter — skip movies whose qualityProfileId is in the excluded set
+    skipped_profile = 0
+    if excluded_profiles:
+        filtered = []
+        for m in all_movies:
+            pid = m.get("qualityProfileId")
+            if pid in excluded_profiles:
+                logger.debug("[Radarr:%s] skipped_profile: %s (profile_id=%s)",
+                             name, m.get("title", "?"), pid)
+                skipped_profile += 1
+            else:
+                filtered.append(m)
+        all_movies = filtered
+
     queued_movie_ids = radarr_get_queued_movie_ids(session, url, key)
     all_movies = [m for m in all_movies if m["id"] not in queued_movie_ids]
     skipped_unavailable = [m for m in all_movies if not m.get("isAvailable", True)]
@@ -106,8 +145,8 @@ def _sweep_radarr_instance(
         all_movies, "radarr", name, inst_url, "movie",
         cooldown_hours, radarr_max, radarr_sample_mode
     )
-    logger.info("[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_cooldown=%d will_search=%d limit=%d",
-                name, len(all_ids), eligible, skipped, len(chosen_items), radarr_max)
+    logger.info("[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d skipped_profile=%d skipped_cooldown=%d will_search=%d limit=%d",
+                name, len(all_ids), eligible, skipped_tag, skipped_profile, skipped, len(chosen_items), radarr_max)
 
     searched = 0
     for i in range(0, len(chosen_items), batch_size):
@@ -139,6 +178,34 @@ def _sweep_radarr_instance(
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
         missing_records = [m for m in missing_records if m["id"] not in queued_movie_ids]
         missing_records = [m for m in missing_records if m.get("isAvailable", True)]
+
+        # Tag filter — backlog pipeline
+        if excluded_tags:
+            filtered = []
+            for m in missing_records:
+                hits = excluded_tags & set(m.get("tagIds") or [])
+                if hits:
+                    for tid in hits:
+                        logger.debug("[Radarr:%s] skipped_tag (backlog): %s (tag=%s)",
+                                     name, m.get("title", "?"), tag_map.get(tid, tid))
+                    skipped_tag += len(hits)
+                else:
+                    filtered.append(m)
+            missing_records = filtered
+
+        # Profile filter — backlog pipeline
+        if excluded_profiles:
+            filtered = []
+            for m in missing_records:
+                pid = m.get("qualityProfileId")
+                if pid in excluded_profiles:
+                    logger.debug("[Radarr:%s] skipped_profile (backlog): %s (profile_id=%s)",
+                                 name, m.get("title", "?"), pid)
+                    skipped_profile += 1
+                else:
+                    filtered.append(m)
+            missing_records = filtered
+
         missing_total = len(missing_records)
 
         missing_filtered: List[Dict[str, Any]] = []
@@ -222,12 +289,50 @@ def _sweep_sonarr_instance(
     name, url, key = inst["name"], inst["url"], inst["key"]
     inst_url = url.rstrip("/")
 
-    # Fetch series map once per instance — passed to both cutoff and missing
-    # to avoid a redundant /api/v3/series call when backlog is enabled.
-    _series_map = _sonarr_get_series_map(session, url, key)
+    # Read per-instance sweep filters — empty sets mean no filtering applied
+    sweep_filters = inst.get("sweep_filters", {})
+    excluded_tags = set(int(t) for t in sweep_filters.get("excluded_tags", []))
+    excluded_profiles = set(int(p) for p in sweep_filters.get("excluded_profiles", []))
 
-    all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key, series_map=_series_map)
+    # Fetch tag map once if tag filtering is active — used for debug log labels only
+    tag_map = arr_get_tag_map(session, url, key) if excluded_tags else {}
+
+    # Fetch series meta once per instance — passed to both cutoff and missing
+    # to avoid a redundant /api/v3/series call when backlog is enabled.
+    _series_meta = _sonarr_get_series_meta(session, url, key)
+
+    all_episodes = sonarr_get_cutoff_unmet_episodes(session, url, key, series_meta=_series_meta)
     all_episodes = [e for e in all_episodes if (e.get("title") or "").lower() not in excluded_titles]
+
+    # Tag filter — skip episodes whose series tagIds intersect the excluded set
+    skipped_tag = 0
+    if excluded_tags:
+        filtered = []
+        for e in all_episodes:
+            hits = excluded_tags & set(e.get("tagIds") or [])
+            if hits:
+                for tid in hits:
+                    logger.debug("[Sonarr:%s] skipped_tag: %s (tag=%s)",
+                                 name, e.get("title", "?"), tag_map.get(tid, tid))
+                skipped_tag += len(hits)
+            else:
+                filtered.append(e)
+        all_episodes = filtered
+
+    # Profile filter — skip episodes whose series qualityProfileId is in the excluded set
+    skipped_profile = 0
+    if excluded_profiles:
+        filtered = []
+        for e in all_episodes:
+            pid = e.get("qualityProfileId")
+            if pid in excluded_profiles:
+                logger.debug("[Sonarr:%s] skipped_profile: %s (profile_id=%s)",
+                             name, e.get("title", "?"), pid)
+                skipped_profile += 1
+            else:
+                filtered.append(e)
+        all_episodes = filtered
+
     queued_episode_ids = sonarr_get_queued_episode_ids(session, url, key)
     all_episodes = [e for e in all_episodes if e["id"] not in queued_episode_ids]
     STATUS["instance_health"][f"sonarr|{name}"] = "ok"
@@ -237,8 +342,8 @@ def _sweep_sonarr_instance(
         all_episodes, "sonarr", name, inst_url, "episode",
         cooldown_hours, sonarr_max, sonarr_sample_mode
     )
-    logger.info("[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_cooldown=%d will_search=%d limit=%d",
-                name, len(all_ids), eligible, skipped, len(chosen_items), sonarr_max)
+    logger.info("[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d skipped_profile=%d skipped_cooldown=%d will_search=%d limit=%d",
+                name, len(all_ids), eligible, skipped_tag, skipped_profile, skipped, len(chosen_items), sonarr_max)
 
     searched = 0
     for i in range(0, len(chosen_items), batch_size):
@@ -265,9 +370,37 @@ def _sweep_sonarr_instance(
     chosen_missing: List[Dict[str, Any]] = []
 
     if backlog_enabled and missing_max > 0:
-        missing_records = sonarr_get_missing_episodes(session, url, key, series_map=_series_map)
+        missing_records = sonarr_get_missing_episodes(session, url, key, series_meta=_series_meta)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
         missing_records = [m for m in missing_records if m["id"] not in queued_episode_ids]
+
+        # Tag filter — backlog pipeline
+        if excluded_tags:
+            filtered = []
+            for e in missing_records:
+                hits = excluded_tags & set(e.get("tagIds") or [])
+                if hits:
+                    for tid in hits:
+                        logger.debug("[Sonarr:%s] skipped_tag (backlog): %s (tag=%s)",
+                                     name, e.get("title", "?"), tag_map.get(tid, tid))
+                    skipped_tag += len(hits)
+                else:
+                    filtered.append(e)
+            missing_records = filtered
+
+        # Profile filter — backlog pipeline
+        if excluded_profiles:
+            filtered = []
+            for e in missing_records:
+                pid = e.get("qualityProfileId")
+                if pid in excluded_profiles:
+                    logger.debug("[Sonarr:%s] skipped_profile (backlog): %s (profile_id=%s)",
+                                 name, e.get("title", "?"), pid)
+                    skipped_profile += 1
+                else:
+                    filtered.append(e)
+            missing_records = filtered
+
         missing_total = len(missing_records)
         chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
             missing_records, "sonarr", name, inst_url, "missing_episode",

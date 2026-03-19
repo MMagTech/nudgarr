@@ -40,7 +40,7 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     logger.info("Config: %s", CONFIG_FILE)
     logger.info("DB:     %s", DB_FILE)
     logger.info("UI:     http://<host>:%s/", PORT)
-    logger.info("Log level: %s", cfg.get("log_level", "INFO"))
+    logger.info("Log level: %s  (Nudgarr verbosity — set in Advanced tab)", cfg.get("log_level", "INFO"))
 
 
 def start_ui_server() -> None:

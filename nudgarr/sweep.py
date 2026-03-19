@@ -113,13 +113,13 @@ def _sweep_radarr_instance(
     for i in range(0, len(chosen_items), batch_size):
         batch_items = chosen_items[i:i + batch_size]
         batch_ids = [m["id"] for m in batch_items]
-        # Fetch existing file quality for each cutoff item before searching.
-        # The wanted/cutoff endpoint does not reliably include the full movieFile
-        # object in its response — a direct movie lookup is the only reliable way
-        # to get the current file quality for quality_from.
         for m in batch_items:
+            logger.debug("[Radarr:%s] cutoff item: %s (id=%s quality_from=%s)",
+                         name, m.get("title", "?"), m["id"], m.get("quality_from", ""))
             if not m.get("quality_from"):
                 m["quality_from"] = radarr_get_movie_quality(session, url, key, m["id"])
+                logger.debug("[Radarr:%s] quality_from fallback fetch: %s → %s",
+                             name, m.get("title", "?"), m.get("quality_from") or "(empty)")
         radarr_search_movies(session, url, key, batch_ids, instance_name=name)
         mark_items_searched("radarr", name, inst_url, "movie", batch_items, "Cutoff")
         batch_record_stat_entries("radarr", name, inst_url, batch_items, "Upgraded", iso_z(utcnow()))
@@ -162,13 +162,13 @@ def _sweep_radarr_instance(
         for i in range(0, len(chosen_missing), batch_size):
             batch_items = chosen_missing[i:i + batch_size]
             batch_ids = [m["id"] for m in batch_items]
-            # Fetch existing file quality for each backlog item before searching.
-            # Items in the missing list occasionally already have a file — reading
-            # quality_from here ensures the upgrade history is accurate rather than
-            # showing a second Acquired entry when the item already had a file.
             for m in batch_items:
+                logger.debug("[Radarr:%s] backlog item: %s (id=%s quality_from=%s)",
+                             name, m.get("title", "?"), m["id"], m.get("quality_from", ""))
                 if not m.get("quality_from"):
                     m["quality_from"] = radarr_get_movie_quality(session, url, key, m["id"])
+                    logger.debug("[Radarr:%s] quality_from fallback fetch: %s → %s",
+                                 name, m.get("title", "?"), m.get("quality_from") or "(empty)")
             radarr_search_movies(session, url, key, batch_ids, instance_name=name)
             mark_items_searched("radarr", name, inst_url, "missing_movie", batch_items, "Backlog")
             batch_record_stat_entries("radarr", name, inst_url, batch_items, "Acquired", iso_z(utcnow()))
@@ -244,13 +244,13 @@ def _sweep_sonarr_instance(
     for i in range(0, len(chosen_items), batch_size):
         batch_items = chosen_items[i:i + batch_size]
         batch_ids = [e["id"] for e in batch_items]
-        # Fetch existing file quality for each cutoff item before searching.
-        # The wanted/cutoff endpoint does not reliably include the full episodeFile
-        # object — a direct episode lookup is the only reliable way to get
-        # the current file quality for quality_from.
         for e in batch_items:
+            logger.debug("[Sonarr:%s] cutoff item: %s (id=%s quality_from=%s)",
+                         name, e.get("title", "?"), e["id"], e.get("quality_from", ""))
             if not e.get("quality_from"):
                 e["quality_from"] = sonarr_get_episode_quality(session, url, key, e["id"])
+                logger.debug("[Sonarr:%s] quality_from fallback fetch: %s → %s",
+                             name, e.get("title", "?"), e.get("quality_from") or "(empty)")
         sonarr_search_episodes(session, url, key, batch_ids, instance_name=name)
         mark_items_searched("sonarr", name, inst_url, "episode", batch_items, "Cutoff")
         batch_record_stat_entries("sonarr", name, inst_url, batch_items, "Upgraded", iso_z(utcnow()))
@@ -279,10 +279,13 @@ def _sweep_sonarr_instance(
         for i in range(0, len(chosen_missing), batch_size):
             batch_items = chosen_missing[i:i + batch_size]
             batch_ids = [e["id"] for e in batch_items]
-            # Fetch existing file quality for each backlog item before searching.
             for e in batch_items:
+                logger.debug("[Sonarr:%s] backlog item: %s (id=%s quality_from=%s)",
+                             name, e.get("title", "?"), e["id"], e.get("quality_from", ""))
                 if not e.get("quality_from"):
                     e["quality_from"] = sonarr_get_episode_quality(session, url, key, e["id"])
+                    logger.debug("[Sonarr:%s] quality_from fallback fetch: %s → %s",
+                                 name, e.get("title", "?"), e.get("quality_from") or "(empty)")
             sonarr_search_episodes(session, url, key, batch_ids, instance_name=name)
             mark_items_searched("sonarr", name, inst_url, "missing_episode", batch_items, "Backlog")
             batch_record_stat_entries("sonarr", name, inst_url, batch_items, "Acquired", iso_z(utcnow()))

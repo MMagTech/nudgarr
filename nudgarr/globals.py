@@ -63,7 +63,7 @@ app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 # SameSite=Lax breaks session cookies in reverse-proxy and iframe
 # environments (Unraid, Synology) because POST requests are treated as
 # cross-site. HTTPS is not planned for this LAN-only tool.
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("werkzeug").setLevel(logging.CRITICAL)
 
 
 # ── L1: Security response headers ─────────────────────────────────────

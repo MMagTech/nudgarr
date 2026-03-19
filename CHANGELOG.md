@@ -59,6 +59,9 @@ All notable changes to Nudgarr are documented here.
 
 - Structured logging throughout — all operational modules now use Python's `logging` module with `logging.getLogger(__name__)`. Log output goes to both stdout (Docker log driver) and a rotating file at `/config/logs/nudgarr.log` (5 MB per file, 3 backups, 20 MB total cap).
 - Log level configurable live from the Advanced tab — choose DEBUG, INFO, WARNING, or ERROR. Takes effect immediately without a container restart. Default is INFO.
+- Log level now correctly applies on container restart. Previously `register_blueprints()` and `db.init_db()` ran before `setup_logging()`, allowing Python's logging machinery to partially initialise before the configured level was applied. Startup order corrected so `setup_logging` always runs first.
+- Werkzeug startup banner suppressed — `Serving Flask app` and `Debug mode: off` lines no longer appear in container logs. These were unrelated to Nudgarr's Log Level setting and caused confusion when DEBUG was enabled. Actual Werkzeug errors still surface.
+- Startup banner now labels the log level clearly as `(Nudgarr verbosity — set in Advanced tab)` to distinguish it from Flask's separate debug mode.
 - Diagnostic download now includes the current log level and the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing when troubleshooting.
 - Flask error handlers registered for 400, 404, and 500 — all return JSON instead of Flask's default HTML error pages, which previously broke the frontend API wrapper and exposed framework internals.
 - Config write failures now return a 500 with a readable error message (`Failed to write config — check disk space and permissions`) instead of an unhandled exception. Covers all seven config-writing routes.

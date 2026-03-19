@@ -408,26 +408,27 @@ function lsFiltersRenderRail() {
   rail.innerHTML = allInsts.map(inst => {
     const key = _lsFiltersKey(inst.kind, inst.idx);
     const isActive = key === LS_FILTERS_SEL;
-    const dotColor = inst.kind === 'radarr' ? 'var(--accent)' : 'var(--ok)';
+    const isDisabled = !inst.enabled;
+    const dotColor     = isDisabled ? 'var(--muted)' : (inst.kind === 'radarr' ? 'var(--accent)' : 'var(--ok)');
+    const dotGlow      = (!isDisabled && isActive) ? (inst.kind === 'sonarr' ? ';box-shadow:0 0 5px rgba(34,197,94,.5)' : ';box-shadow:0 0 5px rgba(91,114,245,.6)') : '';
     const state = FILTER_STATE[key];
     const filterCount = state ? (state.excludedTags.length + state.excludedProfiles.length) : 0;
     const savedFilters = cfg?.instances?.[inst.kind]?.[inst.idx]?.sweep_filters || {};
     const savedCount = (savedFilters.excluded_tags || []).length + (savedFilters.excluded_profiles || []).length;
     const displayCount = filterCount || savedCount;
-    const accentColor = inst.kind === 'radarr' ? 'var(--accent-lt)' : 'var(--ok)';
-    const accentBg    = inst.kind === 'radarr' ? 'var(--accent-dim)' : 'rgba(34,197,94,.1)';
-    const accentBorder= inst.kind === 'radarr' ? 'var(--accent-border)' : 'rgba(34,197,94,.28)';
+    const accentColor  = inst.kind === 'radarr' ? 'var(--accent-lt)'     : 'var(--ok)';
+    const accentBg     = inst.kind === 'radarr' ? 'var(--accent-dim)'    : 'rgba(34,197,94,.1)';
+    const accentBorder = inst.kind === 'radarr' ? 'var(--accent-border)' : 'rgba(34,197,94,.28)';
 
-    return `<div class="ls-ov-rail-item${isActive ? ' ls-ov-active' : ''}${!inst.enabled ? ' ls-ov-disabled' : ''}"
-      onclick="lsFiltersSelectInst('${inst.kind}',${inst.idx})">
+    return `<div class="ls-ov-rail-item${isActive ? ' ls-ov-active' : ''}${isDisabled ? ' ls-ov-disabled' : ''}"
+      onclick="${isDisabled ? '' : `lsFiltersSelectInst('${inst.kind}',${inst.idx})`}">
       <div class="ls-ov-rail-row1">
-        <div style="display:flex;align-items:center;gap:6px;min-width:0">
-          <div style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
+          <div style="width:7px;height:7px;border-radius:50%;background:${dotColor}${dotGlow};flex-shrink:0"></div>
           <span class="ls-ov-rail-name">${inst.name}</span>
         </div>
-        ${displayCount > 0 ? `<span class="ls-ov-chip" style="background:${accentBg};border-color:${accentBorder};color:${accentColor}">${displayCount}</span>` : '<span class="ls-ov-chip ls-ov-zero">0</span>'}
       </div>
-      ${!inst.enabled ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">Disabled</div>' : ''}
+      ${displayCount > 0 ? `<div style="margin-top:4px;margin-left:13px"><span style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font-size:10px;background:${accentBg};border:1px solid ${accentBorder};color:${accentColor}">${displayCount} Filter${displayCount !== 1 ? 's' : ''}</span></div>` : ''}
     </div>`;
   }).join('');
 

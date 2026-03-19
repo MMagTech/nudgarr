@@ -267,6 +267,8 @@ async function toggleInstance(kind, idx) {
             }
           } catch(e) {
             console.warn('[toggleInstance] dot update failed:', e.message);
+          } finally {
+            TOGGLE_IN_PROGRESS.delete(dotKey);
           }
         }, 1400);
       }

@@ -286,10 +286,8 @@
         <!-- Radarr filter box -->
         <div class="card" id="filters-radarr-box">
           <div class="card-hdr" style="margin-bottom:12px">
-            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-              <div style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0"></div>
-              <span style="font-size:13px;font-weight:600">Radarr</span>
-              <select id="filter-radarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px" onchange="onFilterInstanceChange('radarr')"></select>
+            <div id="filter-radarr-hdr-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <select id="filter-radarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px;display:none" onchange="onFilterInstanceChange('radarr')"></select>
             </div>
             <button class="btn sm" id="filter-radarr-load-btn" onclick="loadArrData('radarr')">Load Tags &amp; Profiles</button>
           </div>
@@ -302,10 +300,8 @@
         <!-- Sonarr filter box -->
         <div class="card" id="filters-sonarr-box">
           <div class="card-hdr" style="margin-bottom:12px">
-            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-              <div style="width:7px;height:7px;border-radius:50%;background:var(--ok);flex-shrink:0"></div>
-              <span style="font-size:13px;font-weight:600">Sonarr</span>
-              <select id="filter-sonarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px" onchange="onFilterInstanceChange('sonarr')"></select>
+            <div id="filter-sonarr-hdr-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <select id="filter-sonarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px;display:none" onchange="onFilterInstanceChange('sonarr')"></select>
             </div>
             <button class="btn sm" id="filter-sonarr-load-btn" onclick="loadArrData('sonarr')">Load Tags &amp; Profiles</button>
           </div>
@@ -1246,7 +1242,6 @@
       <div class="ls-tab" id="ls-tab-overrides">
         <div class="ls-ov-rail" id="ls-ov-rail"></div>
         <div class="ls-ov-panel">
-          <div class="ls-ov-panel-name" id="ls-ov-panel-name">—</div>
           <div class="ls-ov-body" id="ls-ov-body"></div>
           <div class="ls-ov-foot" id="ls-ov-foot">
             <button class="ls-ov-foot-reset" onclick="lsOvReset()">Reset to Global</button>

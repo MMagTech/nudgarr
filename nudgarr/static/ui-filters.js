@@ -28,34 +28,45 @@ function fillFilters() {
 
 // ── Instance selector ─────────────────────────────────────────────────────────
 function _fillInstanceSelector(kind, instances) {
-  const sel = el('filter-' + kind + '-idx');
-  if (!sel) return;
+  const sel      = el('filter-' + kind + '-idx');
+  const hdrLeft  = el('filter-' + kind + '-hdr-left');
+  if (!hdrLeft) return;
+
+  // Clear previous pill if any
+  const existing = hdrLeft.querySelector('.filter-inst-pill');
+  if (existing) existing.remove();
 
   if (instances.length === 0) {
-    sel.style.display = 'none';
-    return;
-  }
-  if (instances.length === 1) {
-    sel.style.display = 'none';
-    // Show plain name next to dot — reuse existing span if present
-    const hdr = sel.closest('.card-hdr') || sel.parentElement;
-    let nameSpan = hdr.querySelector('.filter-inst-name');
-    if (!nameSpan) {
-      nameSpan = document.createElement('span');
-      nameSpan.className = 'filter-inst-name help';
-      nameSpan.style.marginLeft = '2px';
-      sel.parentElement.insertBefore(nameSpan, sel.nextSibling);
-    }
-    nameSpan.textContent = instances[0].name || '';
+    if (sel) sel.style.display = 'none';
     return;
   }
 
-  // Multiple instances — populate dropdown
-  sel.style.display = '';
-  const current = parseInt(sel.value || '0', 10);
-  sel.innerHTML = instances.map((inst, i) =>
-    `<option value="${i}"${i === current ? ' selected' : ''}>${inst.name || 'Instance ' + i}</option>`
-  ).join('');
+  // Build pill — instance name with dot inside, colour driven by enabled state
+  const idx     = _getSelectedIdx(kind);
+  const inst    = instances[idx] || instances[0];
+  const enabled = inst.enabled !== false;
+  const dotColor     = enabled ? (kind === 'radarr' ? 'var(--accent)' : 'var(--ok)') : 'var(--muted)';
+  const pillBg       = enabled ? (kind === 'radarr' ? 'var(--accent-dim)' : 'rgba(34,197,94,.08)') : 'rgba(255,255,255,.04)';
+  const pillBorder   = enabled ? (kind === 'radarr' ? 'var(--accent-border)' : 'rgba(34,197,94,.22)') : 'rgba(255,255,255,.1)';
+  const pillColor    = enabled ? (kind === 'radarr' ? 'var(--accent-lt)' : '#86efac') : 'var(--muted)';
+
+  const pill = document.createElement('span');
+  pill.className = 'filter-inst-pill';
+  pill.style.cssText = `display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.04em;background:${pillBg};border:1px solid ${pillBorder};color:${pillColor};${enabled ? '' : 'filter:saturate(0);opacity:.5'}`;
+  pill.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>${escapeHtml(inst.name || (kind === 'radarr' ? 'Radarr' : 'Sonarr'))}`;
+  hdrLeft.insertBefore(pill, hdrLeft.firstChild);
+
+  // Dropdown — only shown for multiple instances
+  if (!sel) return;
+  if (instances.length === 1) {
+    sel.style.display = 'none';
+  } else {
+    sel.style.display = '';
+    const current = parseInt(sel.value || '0', 10);
+    sel.innerHTML = instances.map((inst, i) =>
+      `<option value="${i}"${i === current ? ' selected' : ''}>${inst.name || 'Instance ' + i}</option>`
+    ).join('');
+  }
 }
 
 // ── Instance selector change handler ─────────────────────────────────────────
@@ -153,7 +164,7 @@ function _buildLoadedBodyHTML(kind, tags, excludedTagIds, profiles, excludedProf
       <div id="filter-${kind}-profile-list" class="filter-list"></div>
     </div>
     <div class="save-bar" style="margin-top:4px">
-      <span class="msg" id="filter-${kind}-msg"></span>
+      <span class="msg" id="filter-${kind}-msg" style="flex:1;text-align:center"></span>
       <button class="btn sm primary" ${readOnly ? 'disabled' : `onclick="saveFilters('${kind}')"`}>Apply</button>
     </div>`;
 }
@@ -228,6 +239,24 @@ function _filterSearch(kind, section) {
   _renderList(kind, section, val);
 }
 
+// ── Status helper — sets msg element with colour ──────────────────────────────
+function _setFilterStatus(kind, type, text) {
+  const msg = el('filter-' + kind + '-msg');
+  if (!msg) return;
+  if (type === 'pending') {
+    msg.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;color:var(--warn)"><span style="width:6px;height:6px;border-radius:50%;background:var(--warn);flex-shrink:0;display:inline-block"></span>${text}</span>`;
+  } else if (type === 'ok') {
+    msg.style.color = 'var(--ok)';
+    msg.textContent = text;
+  } else if (type === 'error') {
+    msg.style.color = 'var(--bad)';
+    msg.textContent = text;
+  } else {
+    msg.style.color = '';
+    msg.textContent = text;
+  }
+}
+
 // ── Toggle item in/out of excluded set ───────────────────────────────────────
 function _toggleFilterItem(kind, section, id) {
   const idx      = _getSelectedIdx(kind);
@@ -245,6 +274,7 @@ function _toggleFilterItem(kind, section, id) {
 
   const msg = el('filter-' + kind + '-msg');
   if (msg) msg.textContent = '';
+  _setFilterStatus(kind, 'pending', 'Pending');
 }
 
 // ── Remove via pill × ─────────────────────────────────────────────────────────
@@ -303,10 +333,10 @@ async function saveFilters(kind) {
 
   try {
     const cfg = await api('/api/config');
-    if (!cfg) { if (msg) msg.textContent = 'Failed to load config'; return; }
+    if (!cfg) { if (msg) _setFilterStatus(kind, 'error', 'Failed to load config'); return; }
 
     const instances = cfg.instances?.[kind] || [];
-    if (idx >= instances.length) { if (msg) msg.textContent = 'Instance not found'; return; }
+    if (idx >= instances.length) { if (msg) _setFilterStatus(kind, 'error', 'Instance not found'); return; }
 
     instances[idx].sweep_filters = {
       excluded_tags:     state.excludedTags,
@@ -316,12 +346,13 @@ async function saveFilters(kind) {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(cfg) });
     if (res?.ok) {
       CFG = cfg;
-      if (msg) { msg.textContent = 'Saved'; setTimeout(() => { if (msg) msg.textContent = ''; }, 2000); }
+      _setFilterStatus(kind, 'ok', 'Saved');
+      setTimeout(() => { _setFilterStatus(kind, '', ''); }, 2000);
     } else {
-      if (msg) msg.textContent = res?.error || 'Save failed';
+      _setFilterStatus(kind, 'error', res?.error || 'Save failed');
     }
   } catch (e) {
-    if (msg) msg.textContent = 'Unexpected error — see console';
+    _setFilterStatus(kind, 'error', 'Unexpected error — see console');
   }
 }
 

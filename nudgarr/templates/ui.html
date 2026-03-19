@@ -586,21 +586,17 @@
       <div class="card">
         <p class="section-label" style="display:flex;align-items:baseline;gap:8px">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
         <p class="help" style="margin:0 0 16px">Back up your data or grab a diagnostic to share on GitHub.</p>
-        <div class="field" style="margin-bottom:16px">
-          <label>Log Level</label>
-          <select id="log_level" onchange="markUnsaved('advMsg')">
+        <div class="hr"></div>
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center">
+          <button class="btn sm" onclick="backupAll()">Backup All</button>
+          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+          <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
+          <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--text-dim);cursor:pointer;width:auto">
             <option value="DEBUG">DEBUG</option>
             <option value="INFO">INFO</option>
             <option value="WARNING">WARNING</option>
             <option value="ERROR">ERROR</option>
           </select>
-          <div class="help">Controls verbosity in Docker logs and nudgarr.log in your config folder. INFO is recommended. Use DEBUG when troubleshooting a sweep issue.</div>
-        </div>
-        <div class="hr"></div>
-        <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
-          <button class="btn sm" onclick="backupAll()">Backup All</button>
-          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
-          <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
         </div>
         <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
         <div id="diagBox" class="diag-box" style="display:none"></div>

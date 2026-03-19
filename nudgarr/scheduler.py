@@ -45,7 +45,14 @@ def print_banner(cfg: Dict[str, Any]) -> None:
 
 def start_ui_server() -> None:
     """Start the Flask development server. Blocking — must be run in a dedicated thread."""
-    app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False, quiet=True)
+    import logging as _logging
+    _logging.getLogger("werkzeug").setLevel(_logging.CRITICAL)
+    cli = _logging.getLogger("werkzeug._internal")
+    cli.setLevel(_logging.CRITICAL)
+    import werkzeug.serving as _ws
+    if hasattr(_ws, "_log"):
+        _ws._log = lambda *a, **kw: None
+    app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
 
 
 def import_check_loop(stop_flag: Dict[str, bool]) -> None:

@@ -212,7 +212,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
             if should_run:
                 STATUS["run_in_progress"] = True
                 try:
-                    logger.info("--- Sweep %s UTC ---", iso_z(utcnow())[:16].replace("T", " "))
+                    logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))
                     summary = run_sweep(cfg, session)
                     STATUS["last_summary"] = summary
                     STATUS["last_run_utc"] = iso_z(utcnow())

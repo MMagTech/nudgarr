@@ -585,17 +585,17 @@
 
       <div class="card">
         <p class="section-label" style="display:flex;align-items:baseline;gap:8px">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
-        <p class="help" style="margin:0 0 16px">Back up your data or grab a diagnostic to share on GitHub.</p>
+        <p class="help" style="margin:0 0 16px">Data backup and diagnostic tools.</p>
         <div class="hr"></div>
         <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center">
           <button class="btn sm" onclick="backupAll()">Backup All</button>
           <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
           <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
-          <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--text-dim);cursor:pointer;width:auto">
-            <option value="DEBUG">DEBUG</option>
-            <option value="INFO">INFO</option>
-            <option value="WARNING">WARNING</option>
-            <option value="ERROR">ERROR</option>
+          <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:auto;font-family:inherit;font-weight:500;letter-spacing:.01em">
+            <option value="DEBUG">Log: DEBUG</option>
+            <option value="INFO">Log: INFO</option>
+            <option value="WARNING">Log: WARNING</option>
+            <option value="ERROR">Log: ERROR</option>
           </select>
         </div>
         <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>

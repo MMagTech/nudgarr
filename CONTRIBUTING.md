@@ -40,10 +40,10 @@ nudgarr/                    ← Python package
     config.py               ← /api/config, /api/instance/toggle, onboarding
     arr.py                  ← /api/arr/tags, /api/arr/profiles (arr proxy endpoints)
     sweep.py                ← /api/status, /api/run-now, /api/test, /api/test-instance
-    state.py                ← /api/state/*, /api/file/*, /api/exclusions*
+    state.py                ← /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*
     stats.py                ← /api/stats, /api/stats/clear, check-imports
     notifications.py        ← /api/notifications/test
-    diagnostics.py          ← /api/diagnostic
+    diagnostics.py          ← /api/diagnostic, /api/log/clear
   static/                   ← JS and CSS served as static assets
     ui-core.js              ← bootstrap, status polling, tab switching, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests

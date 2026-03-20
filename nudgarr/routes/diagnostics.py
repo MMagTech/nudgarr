@@ -10,7 +10,7 @@ import logging
 import os
 import re
 
-from flask import Blueprint, Response
+from flask import Blueprint, Response, jsonify
 
 from nudgarr import db
 from nudgarr.auth import requires_auth
@@ -162,3 +162,19 @@ def api_diagnostic():
         mimetype="text/plain",
         headers={"Content-Disposition": "attachment; filename=nudgarr-diagnostic.txt"},
     )
+
+
+@bp.post("/api/log/clear")
+@requires_auth
+def api_log_clear():
+    """Truncate the active nudgarr.log to zero bytes.
+    Rotation backups (.1 .2 .3) are not affected.
+    The rotating file handler resumes writing immediately on the next log event.
+    """
+    try:
+        open(LOG_FILE, "w").close()
+        logger.info("Log cleared by user via UI")
+        return jsonify({"ok": True})
+    except OSError as e:
+        logger.warning("Log clear failed: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500

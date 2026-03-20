@@ -697,6 +697,11 @@ async function resetConfig() {
   await loadAll();
 }
 
+async function clearLog() {
+  if (!await showConfirm('Clear Log', 'This will clear the active nudgarr.log file. Rotation backups are not affected. The log will resume writing immediately on the next sweep.', 'Clear', true)) return;
+  await api('/api/log/clear', {method:'POST'});
+}
+
 async function backupAll() {
   try {
     const res = await fetch('/api/file/backup', { credentials: 'same-origin' });

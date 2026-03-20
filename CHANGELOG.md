@@ -10,6 +10,8 @@ All notable changes to Nudgarr are documented here.
 
 **Bug fixes (post-release)**
 
+- Clear Log — new button in Advanced → Danger Zone truncates the active `nudgarr.log` to zero bytes; rotation backups are unaffected; the log resumes writing immediately on the next sweep; confirm dialog matches Clear History and Clear Stats style
+
 - Filters tab — instance pill now renders instance name with dot inside; dot colour reflects enabled state correctly; disabled instances no longer appear in the instance selector; card border turns amber on pending changes; Apply button correctly right-aligned with centred status text; pending changes trigger a proceed/cancel dialog when navigating away from the tab; loading tags and profiles for the second instance of a kind now works correctly (dropdown option values previously used position within the enabled list rather than the real config index); Load/Refresh button no longer stays permanently disabled after a successful load — clicking Refresh now correctly re-fetches from the arr instance
 - Filters tab — cards are now fixed height (520px) so Radarr and Sonarr boxes always align; tags and profiles each occupy equal flex space within the card with independent scrolling; instances with no tags show a "No tags configured" message without affecting card height
 - Overrides desktop — card pill now renders instance name with dot inside, removing the redundant separate name text

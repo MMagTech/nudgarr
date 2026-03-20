@@ -28,6 +28,7 @@ nudgarr/                    ← Python package
   state.py                  ← exclusions and history helpers built on top of nudgarr.db
   auth.py                   ← password hashing, lockout, session checks
   notifications.py          ← Apprise wrappers (sweep complete, import, error)
+  log_setup.py              ← logging initialisation and runtime level control
   arr_clients.py            ← Radarr and Sonarr API calls
   stats.py                  ← import tracking, cooldown logic, stat recording
   globals.py                ← Flask app instance, STATUS dict, RUN_LOCK, security headers, persistent secret key
@@ -37,19 +38,21 @@ nudgarr/                    ← Python package
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup
     config.py               ← /api/config, /api/instance/toggle, onboarding
+    arr.py                  ← /api/arr/tags, /api/arr/profiles (arr proxy endpoints)
     sweep.py                ← /api/status, /api/run-now, /api/test, /api/test-instance
-    state.py                ← /api/state/*, /api/file/*, /api/exclusions*
+    state.py                ← /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*
     stats.py                ← /api/stats, /api/stats/clear, check-imports
     notifications.py        ← /api/notifications/test
-    diagnostics.py          ← /api/diagnostic
+    diagnostics.py          ← /api/diagnostic, /api/log/clear
   static/                   ← JS and CSS served as static assets
     ui-core.js              ← bootstrap, status polling, tab switching, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
     ui-sweep.js             ← sweep tab, history tab, imports/stats tab, exclusions
     ui-settings.js          ← settings, notifications, advanced, onboarding, What's New
     ui-overrides.js         ← per-instance overrides tab and modal
+    ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
     ui-mobile-core.js              ← shared mobile helpers, poll cycle, bridge functions
-    ui-mobile-landscape.js         ← landscape Overrides tab — rail, panel, lsOv* functions
+    ui-mobile-landscape.js         ← landscape Overrides and Filters tabs — lsOv* and lsFilters* functions
     ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state
     ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs
     ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
@@ -81,6 +84,7 @@ Key tables:
 |---|---|
 | `search_history` | Every item Nudgarr has searched, with cooldown timestamps |
 | `stat_entries` | Items pending import confirmation and confirmed imports |
+| `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
 | `exclusions` | Titles excluded from sweeps |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |
@@ -95,6 +99,7 @@ Understanding what imports what avoids circular dependency issues. The rule is s
 
 ```
 constants
+  ├── log_setup             (imports constants only — sits alongside utils)
   └── utils
         └── db
               └── config
@@ -107,7 +112,7 @@ constants
                                             └── scheduler
 globals  ←─ imports only constants + stdlib (Flask, threading, os)
 routes/* ←─ import from globals + any module above them
-main.py  ←─ imports from routes, scheduler, globals
+main.py  ←─ imports from routes, scheduler, globals, log_setup
 ```
 
 `globals.py` is the one module with a special rule: it must only import from `constants` and the Python standard library. Everything else imports `globals` to get the `app`, `STATUS`, and `RUN_LOCK` objects. Breaking this rule will create a circular import.
@@ -119,7 +124,7 @@ main.py  ←─ imports from routes, scheduler, globals
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
-4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies cooldown logic from `stats.py`, calls the search API, then records results via `nudgarr/db/`
+4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions and tag/profile filters from the instance's `sweep_filters` config, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
 5. `run_sweep` returns a summary dict
 6. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
 7. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep
@@ -178,6 +183,8 @@ Or use the provided `docker-compose.yml`.
 2. Add a validation rule in `validate_config()` in `config.py` if needed
 3. Read the value via `cfg.get("your_key", default)` wherever it's used
 
+If the key accepts a fixed set of string values, define the allowed values as a tuple constant in `constants.py` (see `VALID_SAMPLE_MODES` for the pattern) and import it in both `config.py` and wherever the value is consumed. This ensures validation and consumption stay in sync.
+
 ### Adding a new API endpoint
 
 1. Decide which blueprint it belongs to (or create a new one under `routes/`)
@@ -209,6 +216,17 @@ Auth logic — hashing, lockout, session checks, the `@requires_auth` decorator 
 
 The session secret key is managed by `_load_or_create_secret_key()` in `nudgarr/globals.py`. It checks for a `SECRET_KEY` env var first, then reads or creates `/config/nudgarr-secret.key` for persistence across restarts. Avoid moving this logic outside `globals.py` — it must run before any route is registered.
 
+### Adding logging to a new module
+
+Every operational module declares a module-level logger at the top of the file:
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+```
+
+The `nudgarr` root logger is configured by `log_setup.py` at startup — child loggers inherit its level and handlers automatically. Use `logger.debug` for per-item detail (cooldown skips, quality fetches), `logger.info` for lifecycle events (sweep start/complete, import confirmed), `logger.warning` for recoverable issues, and `logger.exception` inside except blocks to capture the full traceback. `validate.py` enforces that every operational file has a logger — new files without one will fail the Logging Adoption check.
+
 ---
 
 ## Validation
@@ -223,13 +241,20 @@ This checks:
 
 | Check | What it does |
 |---|---|
-| HTML structure | Div balance, duplicate IDs, wrap/mobile-ui nesting |
-| Key mobile elements | Confirms required mobile elements and nav items exist |
-| JavaScript sanity | Required functions present, onclick references defined, element IDs matched |
-| API endpoint cross-check | Every `api('/api/...')` call in the UI has a matching backend route |
-| Version consistency | `constants.py` VERSION matches the latest entry in `CHANGELOG.md` |
-| Database integrity | Required tables, functions, and schema SQL present in `nudgarr/db/` |
-| Routes registration | All blueprint modules registered in `routes/__init__.py` |
+| Packaging Hygiene | Cleans and verifies no `__pycache__` dirs or bytecode files are present |
+| Python Syntax | `py_compile` on every `.py` file |
+| Stub Function Detection | AST check — flags docstring-only, pass-only, and annotated-return stubs |
+| Database Connection Integrity | Flags db functions using `conn.` without `get_connection()`, or `conn.commit()` without `conn.execute()` |
+| Static Files | All expected JS and CSS files present and linked in `ui.html` |
+| HTML Structure | Div balance, duplicate IDs, wrap/mobile-ui nesting |
+| Key Mobile Elements | Confirms required mobile elements and nav items exist |
+| JavaScript Sanity | Required functions present, onclick references defined, element IDs matched |
+| API Endpoint Cross-check | Every `api('/api/...')` call in the UI has a matching backend route |
+| Version Consistency | `constants.py` VERSION matches the latest entry in `CHANGELOG.md` |
+| Database Integrity | Required tables, functions, and schema SQL present in `nudgarr/db/` |
+| Routes Registration | All blueprint modules registered in `routes/__init__.py` |
+| Route Handler Return Check | Every `@bp.route` and `@requires_auth` handler has a return statement |
+| Logging Adoption | Every operational `.py` file declares a module-level logger via `logging.getLogger` |
 
 ---
 

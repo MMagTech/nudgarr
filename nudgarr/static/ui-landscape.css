@@ -167,6 +167,8 @@
 
     /* ── Overrides tab ── */
     #ls-tab-overrides { display: flex; overflow: hidden; padding: 0; }
+    #ls-tab-filters   { display: flex; overflow: hidden; padding: 0; }
+    #ls-filters-body  { flex: 1; overflow: hidden; min-height: 0; padding: 4px 14px 4px; display: flex; flex-direction: column; }
     #ls-nav-overrides { display: none; }
 
     .ls-ov-rail {
@@ -213,10 +215,10 @@
     }
     .ls-ov-panel-badge-sonarr { background: rgba(34,197,94,.1); color: #4ade80; border-color: rgba(34,197,94,.2); }
     .ls-ov-body {
-      flex: 1; overflow: hidden; min-height: 0;
+      flex: 1; overflow-y: auto; min-height: 0;
       padding: 4px 14px 4px;
       display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px;
-      align-content: space-between;
+      align-content: start;
     }
     .ls-ov-field { display: flex; flex-direction: column; gap: 1px; }
     .ls-ov-field label { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: .02em; }

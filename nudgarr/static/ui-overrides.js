@@ -164,8 +164,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   return `<div class="${'ov-card' + (solo ? ' ov-solo' : '')}" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
-        <div class="${badgeClass}" style="${badgeStyle}"><div class="${dotClass}" style="${dotStyle}"></div>${kind.charAt(0).toUpperCase()+kind.slice(1)}</div>
-        <span style="font-weight:600;font-size:13px;color:var(--text-dim)">${escapeHtml(inst.name)}</span>
+        <div class="${badgeClass}" style="${badgeStyle}"><div class="${dotClass}" style="${dotStyle}"></div>${escapeHtml(inst.name)}</div>
       </div>
       ${disabledTag}
     </div>

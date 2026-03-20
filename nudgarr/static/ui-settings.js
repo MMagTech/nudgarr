@@ -177,6 +177,17 @@ function showTab(name) {
       return;
     }
   }
+  // Filters tab — check for pending changes before navigating away
+  if (ACTIVE_TAB === 'filters' && name !== 'filters') {
+    if (typeof _filterHasPending === 'function' && _filterHasPending()) {
+      showConfirm(
+        'Pending Changes',
+        'You have unapplied filter changes. Proceed without applying?',
+        'Proceed'
+      ).then(ok => { if (ok) _doShowTab(name); });
+      return;
+    }
+  }
   _doShowTab(name);
 }
 
@@ -261,6 +272,7 @@ function _onTabShown(name) {
     if (!msg || !msg.textContent.includes('Unsaved')) fillNotifications();
   }
   if (name === 'overrides') renderOverridesCards();
+  if (name === 'filters') fillFilters();
 }
 // ── Settings tab ──
 function updateContainerTime(timeStr) {
@@ -323,7 +335,7 @@ function validateCronExpr() {
     const interval = cronIntervalMinutes(val);
     const tooFrequent = interval !== null && interval < 60;
     if (tooFrequent) {
-      icon.style.color = '#f59e0b';
+      icon.style.color = '#fbbf24';
       hint.className = 'cron-hint-line cron-warn';
       hint.innerHTML = '⚠ May stress indexers';
     } else {
@@ -457,33 +469,25 @@ async function saveSettings() {
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
     fadeNewestAddedWarnings();
+    flashCooldownDisabledNote();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
   }
 }
 
-// ── Cooldown warning ──
-let _warnFlashTimer = null;
+// ── Cooldown note ──
+const _COOLDOWN_HELP_DEFAULT = 'Minimum hours before the same movie or episode can be searched again (0 Disables)';
+const _COOLDOWN_HELP_ZERO    = 'Cooldown is disabled. Items may repeat each sweep.';
+
 function checkCooldownWarning() {
+  const helpEl   = el('cooldownHelpText');
+  if (!helpEl) return;
   const cooldown = parseFloat(el('cooldown_hours').value || '48');
-  const warn = el('cooldownWarnMsg');
-  if (!warn) return;
-  const expr = (el('cron_expression') && el('cron_expression').value.trim()) || '';
-  const cronMins = cronIntervalMinutes(expr);
-  const cronHours = cronMins !== null ? cronMins / 60 : null;
-  const shouldWarn = cronHours !== null && cooldown > 0 && cooldown < cronHours;
-  if (shouldWarn) {
-    if (warn.textContent === '') {
-      warn.textContent = '⚠️ Cooldown < cron interval — repeated searches likely';
-      warn.className = 'warn-flash';
-      if (_warnFlashTimer) clearTimeout(_warnFlashTimer);
-      _warnFlashTimer = setTimeout(() => { warn.className = 'warn-steady'; }, 3000);
-    }
-  } else {
-    warn.textContent = '';
-    warn.className = '';
-    if (_warnFlashTimer) { clearTimeout(_warnFlashTimer); _warnFlashTimer = null; }
-  }
+  helpEl.textContent = cooldown <= 0 ? _COOLDOWN_HELP_ZERO : _COOLDOWN_HELP_DEFAULT;
+}
+
+function flashCooldownDisabledNote() {
+  checkCooldownWarning();
 }
 
 // ── Newest Added warning ──
@@ -617,6 +621,7 @@ function fillAdvanced() {
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
   el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
   if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
+  if (el('log_level')) el('log_level').value = CFG.log_level || 'INFO';
   if (el('per_instance_overrides_enabled')) {
     el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
     syncOverridesToggleLabel();
@@ -665,6 +670,7 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
+    if (el('log_level')) CFG.log_level = el('log_level').value || 'INFO';
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
@@ -676,7 +682,11 @@ async function saveAdvanced() {
 }
 
 async function logout() {
-  await fetch('/api/auth/logout', {method:'POST'});
+  try {
+    await fetch('/api/auth/logout', {method:'POST'});
+  } catch(e) {
+    console.warn('[logout] request failed:', e.message);
+  }
   window.location.href = '/login';
 }
 
@@ -685,6 +695,11 @@ async function resetConfig() {
   await api('/api/config/reset', {method:'POST'});
   showAlert('Config reset to defaults.');
   await loadAll();
+}
+
+async function clearLog() {
+  if (!await showConfirm('Clear Log', 'This will clear the active nudgarr.log file. Rotation backups are not affected. The log will resume writing immediately on the next sweep.', 'Clear', true)) return;
+  await api('/api/log/clear', {method:'POST'});
 }
 
 async function backupAll() {

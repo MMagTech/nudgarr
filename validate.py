@@ -19,6 +19,7 @@ JS_FILES = [
     'ui-overrides.js',
     'ui-sweep.js',
     'ui-settings.js',
+    'ui-filters.js',
     'ui-mobile-core.js',
     'ui-mobile-landscape.js',
     'ui-mobile-landscape-exec.js',
@@ -287,7 +288,8 @@ for label, pat in {
     '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
     '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
-    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"'
+    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"',
+    '#ls-tab-filters':'id="ls-tab-filters"', '#ls-nav-filters':'id="ls-nav-filters"'
 }.items():
     if pat not in content: fail(f"Missing element: {label}")
     else: ok(f"Found: {label}")
@@ -318,7 +320,8 @@ for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
            'toggleOverridesFeature','dismissOverridesModal',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
-           'markCardDirty','updateBacklogLabel','updateNotifyLabel']:
+           'markCardDirty','updateBacklogLabel','updateNotifyLabel',
+           'fillFilters','loadArrData','saveFilters']:
     if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 
@@ -481,6 +484,47 @@ for fname in sorted(os.listdir(ROUTES_DIR)):
             ok(f"{fname}: {node.name}() has return statement")
         else:
             fail(f"{fname}:{node.lineno} — route handler {node.name}() has no return statement")
+
+# ── Logging Adoption ──────────────────────────────────────────────────────────
+# Every operational Python module must adopt the logging module.
+# Glob-based so new files are covered automatically without editing this list.
+# Excluded: __init__.py files (re-export only) and constants.py (no logic).
+section("Logging Adoption")
+
+_LOGGING_EXCLUDE = {'__init__.py', 'constants.py'}
+_logging_py_files = (
+    [f for f in glob.glob('nudgarr/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
+    + [f for f in glob.glob('nudgarr/db/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
+    + [f for f in glob.glob('nudgarr/routes/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
+    + (['main.py'] if os.path.exists('main.py') else [])
+)
+for f in sorted(_logging_py_files):
+    try:
+        src = open(f).read()
+        if 'logging.getLogger' in src:
+            ok(f"logging.getLogger present: {f}")
+        else:
+            fail(f"Missing logging.getLogger: {f}")
+        if 'RotatingFileHandler' in src or f != 'nudgarr/log_setup.py':
+            pass  # RotatingFileHandler check handled separately below
+    except OSError:
+        fail(f"Could not read: {f}")
+
+# RotatingFileHandler must be present in log_setup.py
+try:
+    _log_setup_src = open('nudgarr/log_setup.py').read()
+    if 'RotatingFileHandler' in _log_setup_src:
+        ok("RotatingFileHandler present in log_setup.py")
+    else:
+        fail("RotatingFileHandler missing from log_setup.py")
+except OSError:
+    fail("nudgarr/log_setup.py not found")
+
+# Global JS error boundary must be present in ui-core.js
+if 'unhandledrejection' in js_content:
+    ok("Global unhandledrejection handler present in JS")
+else:
+    fail("Global unhandledrejection handler missing from JS (expected in ui-core.js)")
 
 # ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
 import shutil

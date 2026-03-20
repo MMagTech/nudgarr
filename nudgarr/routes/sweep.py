@@ -22,6 +22,11 @@ from nudgarr.config import load_or_init_config
 from nudgarr.globals import RUN_LOCK, STATUS
 from nudgarr.utils import mask_url, req, is_safe_url
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 bp = Blueprint("sweep", __name__)
 
 

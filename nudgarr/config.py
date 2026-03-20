@@ -13,10 +13,13 @@ Imports from within the package: constants, utils only.
 """
 
 import json
+import logging
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES
 from nudgarr.utils import load_json, save_json_atomic
+
+logger = logging.getLogger(__name__)
 
 
 def deep_copy(obj: Any) -> Any:
@@ -42,10 +45,9 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         if len(parts) != 5:
             errs.append("cron_expression must be a valid 5-field cron string")
 
-    VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
     for mode_key in ("radarr_sample_mode", "sonarr_sample_mode"):
-        if cfg.get(mode_key) not in VALID_MODES:
-            errs.append(f"{mode_key} must be one of {VALID_MODES}")
+        if cfg.get(mode_key) not in VALID_SAMPLE_MODES:
+            errs.append(f"{mode_key} must be one of {VALID_SAMPLE_MODES}")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -93,9 +95,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                             if v is not None and (not isinstance(v, int) or v < 0):
                                 errs.append(f"instances.{app}[{i}].overrides.{ov_key} must be an int >= 0")
                         sm = overrides.get("sample_mode")
-                        VALID_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
-                        if sm is not None and sm not in VALID_MODES:
-                            errs.append(f"instances.{app}[{i}].overrides.sample_mode must be one of {VALID_MODES}")
+                        if sm is not None and sm not in VALID_SAMPLE_MODES:
+                            errs.append(f"instances.{app}[{i}].overrides.sample_mode must be one of {VALID_SAMPLE_MODES}")
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")
@@ -107,6 +108,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         v = cfg.get(bool_key)
         if v is not None and not isinstance(v, bool):
             errs.append(f"{bool_key} must be boolean")
+
+    log_level = cfg.get("log_level")
+    if log_level is not None and log_level not in ("DEBUG", "INFO", "WARNING", "ERROR"):
+        errs.append("log_level must be one of: DEBUG, INFO, WARNING, ERROR")
 
     return (len(errs) == 0), errs
 
@@ -160,9 +165,7 @@ def load_or_init_config() -> Dict[str, Any]:
 
     ok, errs = validate_config(merged)
     if not ok:
-        print("⚠️ Config validation failed; using defaults for this run:")
-        for e in errs:
-            print(f"  - {e}")
+        logger.warning("Config validation failed — using defaults for this run: %s", errs)
         return deep_copy(DEFAULT_CONFIG)
 
     # Only persist if merged differs from what was on disk (e.g. new default keys added)

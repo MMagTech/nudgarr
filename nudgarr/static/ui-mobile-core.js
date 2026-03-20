@@ -1,6 +1,25 @@
 // ── Mobile Core — shared helpers ────────────────────────────────────────────
 // Loaded after ui-overrides.js, before ui-mobile-landscape.js and ui-mobile-portrait.js.
 
+// ── Version stamp — read from meta tag injected by Flask at render time ────
+const M_PAGE_VERSION = (document.querySelector('meta[name="nudgarr-version"]') || {}).content || '';
+
+function mCheckVersion(serverVersion) {
+  if (!M_PAGE_VERSION || !serverVersion) return;
+  if (serverVersion === M_PAGE_VERSION) return;
+  const banner = document.getElementById('m-update-banner');
+  if (banner) banner.style.display = 'flex';
+}
+
+function mInitUpdateBanner() {
+  const banner = document.getElementById('m-update-banner');
+  if (!banner) return;
+  banner.addEventListener('click', () => {
+    mHaptic(40);
+    window.location.reload();
+  });
+}
+
 function mHaptic(ms) {
   if (navigator.vibrate) navigator.vibrate(ms || 40);
 }
@@ -160,15 +179,16 @@ async function mPollCycle() {
     const st = await api('/api/status');
     STATUS_CACHE = st.instance_health || {};
     if (CFG) mUpdateHome(CFG, st);
+    mCheckVersion(st.version);
     if (typeof lsUpdateContainerTime === 'function') lsUpdateContainerTime(st.container_time);
     if (M_TAB === 'sweep') {
       await refreshSweep();
       mRenderSweep();
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[mobile] mPollCycle failed:', e.message);
+  }
 }
-
-// ── Landscape bridge functions ─────────────────────────────────────────────
 
 function lsSwitchTabSafe(idx) {
   if (typeof lsSwitchTab === 'function') lsSwitchTab(idx);

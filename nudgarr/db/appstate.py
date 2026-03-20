@@ -11,7 +11,11 @@ Named appstate to avoid confusion with nudgarr/state.py.
 
 from typing import Optional
 
+import logging
+
 from nudgarr.db.connection import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def get_state(key: str) -> Optional[str]:

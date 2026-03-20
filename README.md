@@ -5,28 +5,13 @@ Nudgarr keeps your Radarr and Sonarr libraries improving automatically, scheduli
 
 ---
 
-## Screenshots
+## UI
 
-Click any screenshot to view full size.
+Nudgarr includes a full web UI accessible from any browser on your network. No separate app required — just navigate to `http://your-host:8085` after setup.
 
-<table>
-  <tr>
-    <td align="center"><a href="docs/screenshots/instances.png"><img src="docs/screenshots/instances.png" width="400" alt="Instances"/></a><br/><sub>Instances</sub></td>
-    <td align="center"><a href="docs/screenshots/sweep.png"><img src="docs/screenshots/sweep.png" width="400" alt="Sweep"/></a><br/><sub>Sweep</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="docs/screenshots/history.png"><img src="docs/screenshots/history.png" width="400" alt="History"/></a><br/><sub>History</sub></td>
-    <td align="center"><a href="docs/screenshots/imports.png"><img src="docs/screenshots/imports.png" width="400" alt="Imports"/></a><br/><sub>Imports</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" width="400" alt="Settings"/></a><br/><sub>Settings</sub></td>
-    <td align="center"><a href="docs/screenshots/notifications.png"><img src="docs/screenshots/notifications.png" width="400" alt="Notifications"/></a><br/><sub>Notifications</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="docs/screenshots/advanced.png"><img src="docs/screenshots/advanced.png" width="400" alt="Advanced"/></a><br/><sub>Advanced</sub></td>
-    <td align="center"><a href="docs/screenshots/onboard.png"><img src="docs/screenshots/onboard.png" width="400" alt="Onboarding"/></a><br/><sub>Onboarding</sub></td>
-  </tr>
-</table>
+The interface covers everything in one place: instance management, sweep status and history, confirmed imports with quality upgrade tracking, exclusions, notifications, and per-instance configuration. On mobile, a purpose-built layout activates automatically in portrait and landscape.
+
+*Video walkthrough coming soon.*
 
 ---
 
@@ -66,12 +51,14 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Radarr minimumAvailability filter — movies that haven't reached their availability threshold are automatically skipped
 
 **UI**
-- Web UI with Instances, Sweep, Settings, History, Imports, Notifications, Advanced, and Overrides tabs
+- Web UI with Instances, Sweep, Settings, Filters, History, Imports, Notifications, Advanced, and Overrides tabs
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
-- Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, and title search
+- Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, title search, and quality upgrade history per item
 - Apprise notifications — sweep complete, import confirmed, and error triggers per instance
+- Configurable log level (DEBUG / INFO / WARNING / ERROR) set live from the Advanced tab with no container restart
+- Diagnostic download includes the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing with the community when troubleshooting
 - First-run onboarding walkthrough and What's New modal on upgrade
 
 **Mobile**
@@ -79,7 +66,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Four-tab bottom nav: Home · Sweep · History · Settings
 - History tab includes inner tabs for History, Add from History, and Exclusions
 - Settings tab — adjust Cooldown, Cutoff Max, Sample Mode, Notifications, and Per-Instance Overrides without leaving mobile
-- Landscape mode — rotating to landscape opens Backlog, Execution, and Overrides tabs with full stepper controls
+- Landscape mode — rotating to landscape opens Backlog, Execution, Overrides, and Filters tabs with full stepper controls
 - Bottom sheets for Imports with haptic feedback and swipe-to-dismiss
 - iOS and Android browser toolbar matches the app via `theme-color`
 
@@ -88,6 +75,8 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 ## Power user features
 
 Nudgarr works out of the box with sensible defaults. If you're running a more advanced setup — multiple Radarr or Sonarr instances, separate 4K and 1080p libraries, different cooldown strategies per server, or just want tighter control — these features are worth knowing about.
+
+**Tag & Quality Profile Filters** — exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs and never consume a search slot. Load tags and profiles live from each instance in the Filters tab.
 
 **Per-Instance Overrides** — seven fields can be tuned independently per instance: cooldown, max cutoff unmet, max backlog, max missing days, sample mode, backlog enabled, and notifications enabled. Unset fields inherit the global value. Enable in Advanced → configure in the Overrides tab. [Full details →](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
 
@@ -213,6 +202,7 @@ Defaults to `1000:1000` if not set.
 |------|---------|
 | `/config/nudgarr-config.json` | All settings |
 | `/config/nudgarr.db` | SQLite database — history, stats, exclusions, and app state |
+| `/config/logs/nudgarr.log` | Rotating log file — 5 MB per file, 3 backups. Log level set in Advanced tab. |
 
 ---
 
@@ -226,7 +216,7 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. One post-reset migration (v7) is included to add the `series_id` column. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
+**v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. Two post-reset migrations are included: v7 adds the `series_id` column to `search_history`, and v8 adds quality upgrade tracking. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
 
 **v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
 

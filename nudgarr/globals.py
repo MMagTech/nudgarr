@@ -63,7 +63,7 @@ app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 # SameSite=Lax breaks session cookies in reverse-proxy and iframe
 # environments (Unraid, Synology) because POST requests are treated as
 # cross-site. HTTPS is not planned for this LAN-only tool.
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("werkzeug").setLevel(logging.CRITICAL)
 
 
 # ── L1: Security response headers ─────────────────────────────────────
@@ -80,6 +80,25 @@ def _security_headers(response: Response) -> Response:
 def _close_db_connection(exc: object) -> None:
     from nudgarr import db
     db.close_connection()
+
+
+# ── L3: JSON error handlers for 400, 404, 500 ─────────────────────────
+# Without these Flask returns HTML error pages which break the frontend's
+# api() wrapper (expects JSON) and expose framework internals to the user.
+@app.errorhandler(400)
+def _error_400(e):
+    return __import__("flask").jsonify({"error": "Bad request", "detail": str(e)}), 400
+
+
+@app.errorhandler(404)
+def _error_404(e):
+    return __import__("flask").jsonify({"error": "Not found"}), 404
+
+
+@app.errorhandler(500)
+def _error_500(e):
+    logging.getLogger(__name__).exception("Unhandled 500 error")
+    return __import__("flask").jsonify({"error": "Internal server error — check logs"}), 500
 
 
 # ── Runtime status ────────────────────────────────────────────────────

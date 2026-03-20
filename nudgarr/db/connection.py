@@ -11,12 +11,15 @@ database initialisation.
 Imports from within the package: constants, utils only.
 """
 
+import logging
 import os
 import sqlite3
 import threading
 
 from nudgarr.constants import DB_FILE
 from nudgarr.utils import iso_z, utcnow  # noqa: F401 — re-used by sibling modules
+
+logger = logging.getLogger(__name__)
 
 # ── Thread-local connection ───────────────────────────────────────────
 
@@ -86,7 +89,8 @@ CREATE TABLE IF NOT EXISTS stat_entries (
     first_searched_ts TEXT NOT NULL,
     last_searched_ts  TEXT NOT NULL,
     imported          INTEGER NOT NULL DEFAULT 0,
-    imported_ts       TEXT
+    imported_ts       TEXT,
+    quality_from      TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_stat_entries_active
     ON stat_entries (app, instance, item_id, type) WHERE imported = 0;
@@ -128,6 +132,15 @@ CREATE TABLE IF NOT EXISTS nudgarr_state (
     key    TEXT NOT NULL PRIMARY KEY,
     value  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS quality_history (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id     INTEGER NOT NULL REFERENCES stat_entries(id) ON DELETE CASCADE,
+    quality_from TEXT,
+    quality_to   TEXT NOT NULL,
+    imported_ts  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qh_entry_id ON quality_history (entry_id);
 """
 
 
@@ -147,6 +160,7 @@ def init_db() -> None:
     conn = get_connection()
     _create_schema(conn)
     _run_migration_v7(conn)
+    _run_migration_v8(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -173,6 +187,57 @@ def _run_migration_v7(conn: sqlite3.Connection) -> None:
             (iso_z(utcnow()),)
         )
         conn.commit()
-        print("[Migration v7] Added series_id to search_history")
-    except Exception as exc:
-        print(f"[Migration v7] FAILED: {exc}")
+        logger.info("[Migration v7] Added series_id to search_history")
+    except Exception:
+        logger.exception("[Migration v7] FAILED")
+
+
+def _run_migration_v8(conn: sqlite3.Connection) -> None:
+    """Create quality_history table for per-import upgrade tracking.
+
+    Each confirmed import event gets a row recording quality_from and quality_to,
+    enabling the full upgrade path to be displayed in the Imports tab tooltip.
+    ON DELETE CASCADE means rows are automatically removed when the parent
+    stat_entries row is deleted — clear and prune require no changes.
+    Covers upgrades from v3.2.x. Fresh installs get the table via _SCHEMA_SQL.
+
+    NOTE: quality_history is also defined in _SCHEMA_SQL for fresh installs.
+    It must also appear here because upgrades from v3.2.x do not have the table.
+    Both paths are required — this is not accidental duplication.
+    Future columns added to quality_history before a major version boundary
+    must be added to _SCHEMA_SQL AND a new migration function.
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 8"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        # Add quality_from to stat_entries for temporary storage between sweep
+        # and import confirmation. The value moves to quality_history on confirm
+        # and is never retained on the confirmed row.
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(stat_entries)").fetchall()]
+        if "quality_from" not in cols:
+            conn.execute("ALTER TABLE stat_entries ADD COLUMN quality_from TEXT")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quality_history (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_id     INTEGER NOT NULL REFERENCES stat_entries(id) ON DELETE CASCADE,
+                quality_from TEXT,
+                quality_to   TEXT NOT NULL,
+                imported_ts  TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_qh_entry_id ON quality_history (entry_id)"
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (8, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        logger.info("[Migration v8] Created quality_history table")
+    except Exception:
+        logger.exception("[Migration v8] FAILED")

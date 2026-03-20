@@ -6,7 +6,51 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.0.0
 
-**Foundations release — structural cleanup, Sonarr link fix, and UI refresh.**
+**Quality upgrade tracking, tag and profile filtering, structured logging, mobile redesign, and a full backend and frontend restructure.**
+
+**Bug fixes (post-release)**
+
+- Clear Log — new button in Advanced → Danger Zone truncates the active `nudgarr.log` to zero bytes; rotation backups are unaffected; the log resumes writing immediately on the next sweep; confirm dialog matches Clear History and Clear Stats style
+
+- Filters tab — instance pill now renders instance name with dot inside; dot colour reflects enabled state correctly; disabled instances no longer appear in the instance selector; card border turns amber on pending changes; Apply button correctly right-aligned with centred status text; pending changes trigger a proceed/cancel dialog when navigating away from the tab; loading tags and profiles for the second instance of a kind now works correctly (dropdown option values previously used position within the enabled list rather than the real config index); Load/Refresh button no longer stays permanently disabled after a successful load — clicking Refresh now correctly re-fetches from the arr instance
+- Filters tab — cards are now fixed height (520px) so Radarr and Sonarr boxes always align; tags and profiles each occupy equal flex space within the card with independent scrolling; instances with no tags show a "No tags configured" message without affecting card height
+- Overrides desktop — card pill now renders instance name with dot inside, removing the redundant separate name text
+- Overrides landscape — stray `—` removed from panel header area; panel body now scrolls when content exceeds viewport height so Max Backlog and Max Missing Days are always reachable; rail updated to new accent pill style matching Filters rail
+- Filters landscape — panel now correctly fills the right column alongside the rail; tags and profiles rendered in a two-column grid (tags left, profiles right) with each column as a flex container so lists stretch to fill available height and scroll independently; filter count chip updated to accent pill style
+- Sweep logging — quality profile filter debug log now shows the profile name instead of the numeric ID (e.g. `profile=HD-1080p` instead of `profile_id=1`), matching the existing tag label resolution; `arr_get_profile_map` added to `arr_clients.py` as a shared helper
+- Instances — instance health dot now correctly updates after toggle-then-save; `TOGGLE_IN_PROGRESS` guard cleaned up after health check completes so subsequent saves no longer leave the dot stale
+
+**Tag and Quality Profile Filtering**
+
+- New Filters tab (between Settings and Sweep) lets you exclude items from sweep by tag or quality profile, configured independently per instance
+- Items matching an excluded tag or profile are filtered out of the sweep pipeline after title exclusions and before cooldown — they never consume a search slot
+- Both cutoff unmet and backlog pipelines apply the same filters, so excluded items are skipped in all sweep modes
+- Tags and profiles are fetched live from each arr instance via two new proxy endpoints (`GET /api/arr/tags`, `GET /api/arr/profiles`) — API keys never leave the server
+- Selections saved as `sweep_filters` on the instance config object — persists across page refresh and container restart
+- Per-instance: each instance has its own independent filter configuration
+- Debug logging per filtered item (`skipped_tag: Title (tag=4K-Only)`, `skipped_profile: Title (profile=Ultra-HD)`) and aggregate info counts (`skipped_tag=2 skipped_profile=1`) in the sweep log
+- Disabled instances show their last saved filters read-only with an "All Instances Disabled" label — filters are preserved and reactivate when the instance is re-enabled
+- Desktop Filters tab: two-column grid, Radarr (blue) and Sonarr (green) boxes, per-box instance selector (dropdown for multiple instances), Load Tags & Profiles button, scrollable tag and profile lists with pill display and search, per-box Apply
+- Landscape mobile fourth nav tab (⊘ Filters): rail listing all instances with filter count chip, panel with Filtered Tags and Filtered Quality Profiles sections, Load/Refresh and Apply in footer, amber save dot on Apply
+- Tab order updated: Instances — Overrides — Settings — Filters — Sweep — History — Imports — Notifications — Advanced
+
+**Landscape mobile Overrides refresh**
+
+- Rail updated to match Filters style — larger coloured dot (7px), override count shown as an accent pill on its own line ("2 Overrides") instead of a grey inline badge
+- Panel header (instance name + app badge) removed — fields start immediately with no wasted vertical space
+- Footer status text updated to title case — "No Overrides Set" replaces "Global Inherited"
+- Apply now fires the amber save indicator in the landscape header, consistent with Backlog/Execution saves
+
+**Quality upgrade tracking**
+
+- Imports tab gains an Upgrade column showing the full quality upgrade path per item as a hover tooltip — e.g. Acquired → WEBDL-720p on first download, then WEBDL-720p → Bluray-1080p on each subsequent upgrade
+- Each confirmed import event is recorded in a new `quality_history` table with `quality_from`, `quality_to`, and timestamp; history is displayed chronologically oldest-first so the upgrade journey reads naturally top to bottom
+- Acquired label used for first-download rows where no prior file existed
+- Cutoff unmet and backlog sweeps both fire an additional `GET /api/v3/movie/{id}` or `GET /api/v3/episode/{id}` per chosen item before searching to read the current file quality as `quality_from` — the wanted/cutoff endpoint does not reliably include the full file object in its response so a direct lookup is required
+- `quality_to` captured from the `downloadFolderImported` history event at import confirmation time
+- `quality_history` rows cascade-delete automatically when the parent `stat_entries` row is removed — Clear Imports and prune require no changes
+- Iteration count moved out of the type badge into a dedicated Count column (×N pill, empty when iteration is 1) — consistent with the History tab pattern; type badge now shows type only
+- Migration v8 adds `quality_from` to `stat_entries` and creates the `quality_history` table for v3.2 upgrades; fresh installs get both via `_SCHEMA_SQL`
 
 **UI**
 
@@ -31,6 +75,7 @@ All notable changes to Nudgarr are documented here.
 - Sonarr clickable titles now correctly open the series page in Sonarr. Previously the arr-link route used the episode ID to look up the series, which would fail. `series_id` is now stored in `search_history`, returned by the history API, and passed through to `/api/arr-link`. Migration v7 adds the column to existing installs.
 - Editing an existing instance no longer clears its Per-Instance Override values. The previous save path rebuilt the instance object with only four fields, dropping any stored overrides.
 - History summary now normalises trailing slashes on both the `url_to_name` lookup and the grouping key, preventing duplicate or missing history pills when a URL was stored inconsistently across sweeps.
+- Sweep tab stats now persist across container restarts. `last_summary` is written to `nudgarr_state` after each sweep and restored on startup alongside `last_run_utc`. Previously the Sweep tab showed empty cards until the next sweep completed after a restart.
 
 **Backend cleanup**
 
@@ -41,7 +86,36 @@ All notable changes to Nudgarr are documented here.
 - `state.py` — removed dead stubs: `load_state`, `ensure_state_structure`, `save_state`, `load_stats`, `save_stats`, `save_exclusions`. All had zero external callers. Active functions (`state_key`, `load_exclusions`, `prune_state_by_retention`) kept.
 - `ui.html` — renamed element IDs `pill-dryrun`, `dot-dryrun`, `txt-dryrun` to `pill-scheduler`, `dot-scheduler`, `txt-scheduler`. These IDs show AUTO/MANUAL scheduler state and never had anything to do with dry run mode, which was scratched.
 - Flake8 — fixed E302/E303/E305 blank line violations in `globals.py`, `state.py`, `stats.py`, `db.py`. CI ignore list trimmed to `E501,W503` only.
-- Frontend structure — `ui-mobile-portrait.js` split into `ui-mobile-portrait.js` (tab switcher and init, 118 lines), `ui-mobile-portrait-home.js`, `ui-mobile-portrait-history.js`, and `ui-mobile-portrait-settings.js`; `ui.css` split into `ui.css` (desktop, 585 lines), `ui-mobile.css` (portrait, 415 lines), and `ui-landscape.css` (landscape, 294 lines). `validate.py` updated to check all 15 static files and 3 CSS link tags (230 checks total).
+- Frontend structure — `ui-mobile-portrait.js` split into `ui-mobile-portrait.js` (tab switcher and init, 118 lines), `ui-mobile-portrait-home.js`, `ui-mobile-portrait-history.js`, and `ui-mobile-portrait-settings.js`; `ui.css` split into `ui.css` (desktop, 585 lines), `ui-mobile.css` (portrait, 415 lines), and `ui-landscape.css` (landscape, 294 lines). `validate.py` updated to check all 15 static files and 3 CSS link tags (261 checks total).
+
+**Logging and error handling**
+
+- Structured logging throughout — all operational modules now use Python's `logging` module with `logging.getLogger(__name__)`. Log output goes to both stdout (Docker log driver) and a rotating file at `/config/logs/nudgarr.log` (5 MB per file, 3 backups, 20 MB total cap).
+- Log level configurable live from the Advanced tab — choose DEBUG, INFO, WARNING, or ERROR. Takes effect immediately without a container restart. Default is INFO.
+- Log level now correctly applies on container restart. Previously `register_blueprints()` and `db.init_db()` ran before `setup_logging()`, allowing Python's logging machinery to partially initialise before the configured level was applied. Startup order corrected so `setup_logging` always runs first.
+- Werkzeug startup banner suppressed — `Serving Flask app` and `Debug mode: off` lines no longer appear in container logs. These were unrelated to Nudgarr's Log Level setting and caused confusion when DEBUG was enabled. Actual Werkzeug errors still surface.
+- Startup banner now labels the log level clearly as `(Nudgarr verbosity — set in Advanced tab)` to distinguish it from Flask's separate debug mode.
+- Each sweep header now includes the active log level — `--- Sweep 2026-03-18 23:49 UTC --- [log level: DEBUG]` — so diagnostics clearly show what verbosity was in effect for each run without hunting through startup banners.
+- Log Level dropdown moved inline with the Backup All, Download Diagnostic, and Open Issue buttons in the Support & Diagnostics card. Options prefixed with `Log:` so the selected value is always self-describing. Helper text removed.
+- Support & Diagnostics card description updated to "Data backup and diagnostic tools."
+- Diagnostic download now includes the current log level and the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing when troubleshooting.
+- Flask error handlers registered for 400, 404, and 500 — all return JSON instead of Flask's default HTML error pages, which previously broke the frontend API wrapper and exposed framework internals.
+- Config write failures now return a 500 with a readable error message (`Failed to write config — check disk space and permissions`) instead of an unhandled exception. Covers all seven config-writing routes.
+- Import check route now correctly returns 500 on failure. Previously returned 200 with `{ok: false}`, which the frontend treated as success and swallowed the error silently.
+- `loadAll()` on the desktop now shows an alert if the backend is unavailable on cold start instead of rendering a blank page with no message.
+- `checkImportsNow()` now surfaces a user-visible alert on failure instead of logging to the console only.
+- Global `unhandledrejection` and `error` handlers added to catch uncaught exceptions and unhandled promise rejections — logged to console rather than disappearing silently.
+- Mobile version mismatch banner — if the page version does not match the running server version after a container update, a tap-to-reload banner appears at the top of the mobile UI.
+
+**Performance and reliability**
+
+- Search history and stat entry writes are now batched — a single SQLite transaction covers the entire sweep batch instead of one commit per item. At higher Max per Run values this meaningfully reduces WAL flushes on spinning storage.
+- Sonarr series map fetched once per instance per sweep instead of twice when both cutoff and backlog are enabled — previously two full `GET /api/v3/series` calls fired per Sonarr instance.
+- Per-instance cooldown now correctly reflected in History tab `eligible_again` timestamps — previously always used the global cooldown value regardless of instance overrides.
+- `VALID_SAMPLE_MODES` consolidated into `constants.py` — was defined identically in `config.py` (twice) and `sweep.py`.
+- `get_last_searched_ts_bulk` unused `instance_name` parameter removed — the SQL query filtered by `instance_url` only; the parameter implied a fallback that did not exist.
+- Shared `_process_import_events` helper extracted in `stats.py` — the Radarr and Sonarr import check branches were structurally identical with ~30 lines duplicated verbatim.
+- Diagnostics route raw `get_connection()` calls replaced with proper db-layer helpers (`count_search_history`, `count_confirmed_entries`, `get_search_history_counts`).
 
 ---
 

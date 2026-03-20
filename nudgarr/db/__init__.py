@@ -31,6 +31,9 @@ from nudgarr.db.history import (
     get_search_history_summary,
     prune_search_history,
     clear_search_history,
+    count_search_history,
+    get_search_history_counts,
+    batch_upsert_search_history,
 )
 
 from nudgarr.db.entries import (
@@ -39,6 +42,8 @@ from nudgarr.db.entries import (
     get_unconfirmed_entries,
     get_confirmed_entries,
     clear_stat_entries,
+    count_confirmed_entries,
+    batch_upsert_stat_entries,
     prune_stat_entries,
     rename_instance_in_history,
 )
@@ -73,12 +78,17 @@ __all__ = [
     "get_search_history_summary",
     "prune_search_history",
     "clear_search_history",
+    "count_search_history",
+    "get_search_history_counts",
+    "batch_upsert_search_history",
     # entries
     "upsert_stat_entry",
     "confirm_stat_entry",
     "get_unconfirmed_entries",
     "get_confirmed_entries",
     "clear_stat_entries",
+    "count_confirmed_entries",
+    "batch_upsert_stat_entries",
     "prune_stat_entries",
     "rename_instance_in_history",
     # exclusions

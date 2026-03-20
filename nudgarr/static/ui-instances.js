@@ -265,8 +265,11 @@ async function toggleInstance(kind, idx) {
               else if (state === 'bad') d.className = 'status-dot bad';
               else d.className = 'status-dot';
             }
-          } catch(e) {}
-          finally { TOGGLE_IN_PROGRESS.delete(dotKey); }
+          } catch(e) {
+            console.warn('[toggleInstance] dot update failed:', e.message);
+          } finally {
+            TOGGLE_IN_PROGRESS.delete(dotKey);
+          }
         }, 1400);
       }
     }

@@ -12,7 +12,11 @@ sweep_lifetime and lifetime_totals tables.
 
 from typing import Any, Dict, Optional
 
+import logging
+
 from nudgarr.db.connection import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def upsert_sweep_lifetime(

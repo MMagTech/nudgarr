@@ -20,6 +20,11 @@ from typing import Any, Dict, Optional
 
 from nudgarr.config import load_or_init_config
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 try:
     import apprise
     APPRISE_AVAILABLE = True

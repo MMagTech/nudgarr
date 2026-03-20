@@ -49,8 +49,8 @@ function _fillInstanceSelector(kind, instances) {
   }
 
   // Build pill — instance name with dot inside, always enabled (disabled filtered out)
-  const idx  = _getSelectedIdx(kind);
-  const inst = enabledInstances[idx] || enabledInstances[0];
+  const currentVal = parseInt(el('filter-' + kind + '-idx')?.value || '0', 10);
+  const inst = instances[currentVal] || enabledInstances[0];
   const dotColor   = kind === 'radarr' ? 'var(--accent)'        : 'var(--ok)';
   const pillBg     = kind === 'radarr' ? 'var(--accent-dim)'    : 'rgba(34,197,94,.08)';
   const pillBorder = kind === 'radarr' ? 'var(--accent-border)' : 'rgba(34,197,94,.22)';
@@ -69,9 +69,10 @@ function _fillInstanceSelector(kind, instances) {
   } else {
     sel.style.display = '';
     const current = parseInt(sel.value || '0', 10);
-    sel.innerHTML = enabledInstances.map((inst, i) =>
-      `<option value="${i}"${i === current ? ' selected' : ''}>${inst.name || 'Instance ' + i}</option>`
-    ).join('');
+    sel.innerHTML = enabledInstances.map(inst => {
+      const realIdx = instances.indexOf(inst);
+      return `<option value="${realIdx}"${realIdx === current ? ' selected' : ''}>${inst.name || 'Instance ' + realIdx}</option>`;
+    }).join('');
   }
 }
 

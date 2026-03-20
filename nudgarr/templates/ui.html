@@ -1,0 +1,1305 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#111320"/>
+  <meta name="nudgarr-version" content="{{ VERSION }}">
+  <title>Nudgarr</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui-mobile.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui-landscape.css') }}">
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="wordmark" id="wordmark">Nudgarr</div>
+      <div class="tagline">Sweeping your library, one nudge at a time.</div>
+    </div>
+    <div class="header-right">
+      <div class="status-bar">
+        <div class="status-seg">
+          <div class="run-dot" id="dot-scheduler"></div>
+          <span id="txt-scheduler">Loading…</span>
+        </div>
+        <div class="status-seg">Last: <strong id="lastRun">—</strong></div>
+        <div class="status-seg">Next: <strong id="nextRun">—</strong></div>
+      </div>
+      <button class="btn run-now" onclick="runNow()">▷ Run Now</button>
+      <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
+      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="btn donate" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Donate</a>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="instances" onclick="showTab('instances')">Instances</div>
+    <div class="tab tab-overrides" id="tab-btn-overrides" data-tab="overrides" onclick="showTab('overrides')">⊙ Overrides</div>
+    <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
+    <div class="tab tab-filters" id="tab-btn-filters" data-tab="filters" onclick="showTab('filters')">Filters</div>
+    <div class="tab" data-tab="sweep" onclick="showTab('sweep')">Sweep</div>
+    <div class="tab" data-tab="history" onclick="showTab('history')">History</div>
+    <div class="tab" data-tab="imports" onclick="showTab('imports')">Imports</div>
+    <div class="tab" data-tab="notifications" onclick="showTab('notifications')">Notifications</div>
+    <div class="tab" data-tab="advanced" onclick="showTab('advanced')">Advanced</div>
+  </div>
+
+  <!-- ══════════════════════════════ INSTANCES ══════════════════════════════ -->
+  <div class="section active" id="tab-instances">
+    <div class="grid cols2">
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <span class="section-label" style="margin:0">Radarr Instances</span>
+          <button class="btn sm" style="margin-left:auto" onclick="addInstance('radarr')">+ Add</button>
+        </div>
+        <p class="help" style="margin:0 0 8px">Add one or more Radarr instances.</p>
+        <div id="radarrList"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <span class="section-label" style="margin:0">Sonarr Instances</span>
+          <button class="btn sm" style="margin-left:auto" onclick="addInstance('sonarr')">+ Add</button>
+        </div>
+        <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances.</p>
+        <div id="sonarrList"></div>
+      </div>
+
+      <div class="save-bar full" style="flex-direction:column;align-items:stretch">
+        <div class="row">
+          <button class="btn primary" onclick="saveAll()">Save Changes</button>
+          <button class="btn" onclick="testConnections()">Test Connections</button>
+          <span class="msg" id="saveMsg"></span>
+        </div>
+        <div class="help" style="margin-top:8px">Connection status updates automatically on each sweep.</div>
+        <div id="testResults" style="display:none">
+          <div class="hr"></div>
+          <div class="test-results" id="testResultsInner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ SWEEP ══════════════════════════════ -->
+  <div class="section" id="tab-sweep">
+    <div class="grid cols2">
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="tooltip-wrap">
+            <span class="section-label" style="margin:0">Radarr</span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+          </div>
+        </div>
+        <p class="help" style="margin:0 0 8px">Movie sweep activity — last run and lifetime totals.</p>
+        <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
+      </div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="tooltip-wrap">
+            <span class="section-label" style="margin:0">Sonarr</span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backfill</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br><br><strong>Eligible</strong> — total items from your Cutoff Unmet and Backfill counts whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search — their cooldown period hasn't expired. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+          </div>
+        </div>
+        <p class="help" style="margin:0 0 8px">Episode sweep activity — last run and lifetime totals.</p>
+        <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ SETTINGS ══════════════════════════════ -->
+  <div class="section" id="tab-settings">
+    <div class="grid">
+
+      <div class="card">
+        <p class="section-label">Scheduler</p>
+
+        <!-- Scheduler header -->
+        <div style="padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.10);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
+            <span id="cronContainerTime" style="font-size:11px; color:var(--muted);"></span>
+            <div class="tooltip-wrap">
+              <span class="tooltip-icon">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cron panel -->
+        <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
+          <div class="field" style="flex:1">
+            <label>Automatic Sweeps</label>
+            <div class="toggle-wrap" style="height:34px;">
+              <label class="toggle">
+                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="scheduler_label">Enabled</span>
+            </div>
+            <div class="help">Manual or Automatic Sweeps</div>
+          </div>
+          <div class="field" style="max-width:240px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+              <label style="margin:0">Cron Expression</label>
+              <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent-lt); opacity:0.7; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; margin-left:8px;">cron generator ↗</a>
+            </div>
+            <div style="position:relative; display:inline-block; width:100%">
+              <input type="text" id="cron_expression" class="cron-expr-input" placeholder="e.g. 0 */6 * * *" oninput="validateCronExpr(); markUnsaved('setMsg')" autocomplete="off" spellcheck="false"/>
+              <span id="cronValidIcon" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:13px; color:#22c55e;">✓</span>
+            </div>
+            <div class="cron-hint-line" id="cronHintLine"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p></div>
+        <div class="grid cols1" style="gap:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Cooldown (Hours)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
+            </div>
+            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
+            <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Radarr Cutoff Max (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
+            </div>
+            <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet movies searched per instance per run (0 Disables)</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Radarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end. Missing Added Days sets the eligible pool — set to 0 to search all missing items newest-first with no age filter.</div></span>
+            </div>
+            <select id="radarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Radarr items to search each run</div>
+            <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
+              <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sonarr Cutoff Max (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
+            </div>
+            <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run (0 Disables)</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sonarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+            </div>
+            <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Sonarr items to search each run</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-label">Throttling</p>
+        <div class="grid cols2" style="gap:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Batch Size</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many search commands are sent to your indexer at once per batch. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously which can overwhelm indexers and trigger rate limiting. Keep this at 1 unless you have a specific reason to increase it.</div></span>
+            </div>
+            <input id="batch_size" type="number" min="1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sleep Seconds</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div></span>
+            </div>
+            <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Jitter Seconds</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div></span>
+            </div>
+            <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card amber-warn">
+        <p class="amber-warn-title">⚠️ INDEXER RATE LIMITS</p>
+        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits.</p>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn primary" onclick="saveSettings()">Save Changes</button>
+        <span class="msg" id="setMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ FILTERS ══════════════════════════════ -->
+  <div class="section" id="tab-filters">
+
+    <!-- No instances configured state -->
+    <div id="filters-no-instances" style="display:none">
+      <div class="card" style="text-align:center;padding:48px 24px">
+        <div style="font-size:28px;opacity:.35;margin-bottom:12px">⊘</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-dim);margin-bottom:6px">No instances configured</div>
+        <div class="help">Add a Radarr or Sonarr instance on the <a href="#" onclick="showTab('instances');return false">Instances tab</a> before configuring filters.</div>
+      </div>
+    </div>
+
+    <!-- Main filters content -->
+    <div id="filters-content">
+      <div style="margin-bottom:16px">
+        <div style="font-size:15px;font-weight:600;margin-bottom:3px">Tag &amp; Quality Profile Filters</div>
+        <div class="help">Exclude items from sweep by tag or quality profile. Applied per instance. Changes take effect on the next sweep.</div>
+      </div>
+
+      <div class="grid cols2">
+
+        <!-- Radarr filter box -->
+        <div class="card filter-box-fixed" id="filters-radarr-box">
+          <div class="card-hdr" style="margin-bottom:12px">
+            <div id="filter-radarr-hdr-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <select id="filter-radarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px;display:none" onchange="onFilterInstanceChange('radarr')"></select>
+            </div>
+            <button class="btn sm" id="filter-radarr-load-btn" onclick="loadArrData('radarr')">Load Tags &amp; Profiles</button>
+          </div>
+
+          <div id="filter-radarr-body" class="filter-card-body">
+            <div class="help" style="text-align:center;padding:20px 0">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</div>
+          </div>
+        </div>
+
+        <!-- Sonarr filter box -->
+        <div class="card filter-box-fixed" id="filters-sonarr-box">
+          <div class="card-hdr" style="margin-bottom:12px">
+            <div id="filter-sonarr-hdr-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <select id="filter-sonarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px;display:none" onchange="onFilterInstanceChange('sonarr')"></select>
+            </div>
+            <button class="btn sm" id="filter-sonarr-load-btn" onclick="loadArrData('sonarr')">Load Tags &amp; Profiles</button>
+          </div>
+
+          <div id="filter-sonarr-body" class="filter-card-body">
+            <div class="help" style="text-align:center;padding:20px 0">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════ HISTORY ══════════════════════════════ -->
+  <div class="section" id="tab-history">
+    <div class="card">
+      <div class="kpis" id="kpis"></div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="refreshHistory()">Refresh</button>
+        <button class="btn sm" onclick="pruneState()">Prune Expired</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="historyInstance" onchange="PAGE=0; refreshHistory()"></select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="historyLimit" onchange="syncPageSize('history'); PAGE=0; refreshHistory()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="historySearch" placeholder="Search title…" oninput="filterHistorySearch()" style="padding-right:28px"/>
+            <button id="historySearchClear" onclick="clearHistorySearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+          </div>
+          <span id="exclusionsPill" onclick="toggleExclusionsFilter()" class="pill clickable excl-pill" style="cursor:pointer;white-space:nowrap">Exclusions</span>
+        </div>
+      </div>
+      <p id="exclusionsHint" class="help" style="margin:0 0 10px;display:block">Hover over any row to access exclusion options.</p>
+      <div id="historyTableWrap"></div>
+      <div id="historyNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div class="row" style="margin-top:12px" id="historyPagination">
+        <button class="btn sm" onclick="prevPage()">Prev</button>
+        <button class="btn sm" onclick="nextPage()">Next</button>
+        <span class="msg" id="pageInfo"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ STATS ══════════════════════════════ -->
+  <div class="section" id="tab-imports">
+    <div class="card">
+      <div class="import-stats">
+        <div class="import-stat-card movies">
+          <span class="import-stat-label">Movies:</span>
+          <span class="import-stat-value" id="statMoviesTotal">—</span>
+        </div>
+        <div class="import-stat-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.3);gap:6px;">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(16,185,129,0.6);">Lifetime Confirmed</span>
+          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
+        </div>
+        <div class="import-stat-card shows">
+          <span class="import-stat-label">Episodes:</span>
+          <span class="import-stat-value" id="statShowsTotal">—</span>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="importsInstance" onchange="IMPORTS_PAGE=0; refreshImports()">
+              <option value="">All Instances</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:150px">
+            <select id="importsType" onchange="IMPORTS_PAGE=0; refreshImports()">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="importsLimit" onchange="syncPageSize('imports'); IMPORTS_PAGE=0; refreshImports()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="importsSearch" placeholder="Search title…" oninput="filterImportsSearch()" style="padding-right:28px"/>
+            <button id="importsSearchClear" onclick="clearImportsSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+          </div>
+        </div>
+      </div>
+      <div id="importsTableWrap"></div>
+      <div id="importsNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div class="row" style="margin-top:12px" id="statsPagination">
+        <button class="btn sm" onclick="prevStatsPage()">Prev</button>
+        <button class="btn sm" onclick="nextStatsPage()">Next</button>
+        <span class="msg" id="importsPageInfo"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ NOTIFICATIONS ══════════════════════════════ -->
+  <div class="section" id="tab-notifications">
+    <div class="grid cols2">
+      <div class="card">
+        <p class="section-label">Notifications</p>
+        <div class="field">
+          <label>Enable Notifications</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_enabled" onchange="syncNotifyUi(); markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="help" id="notify_label">Disabled</span>
+          </div>
+          <div class="help">Send notifications via any Apprise-compatible service</div>
+        </div>
+        <div class="field" id="notify_url_field" style="margin-top:12px">
+          <label>Notification URL</label>
+          <div class="key-wrap">
+            <input type="password" id="notify_url" placeholder="e.g. discord://webhookid/token" oninput="markUnsaved('notifyMsg')"/>
+            <button class="key-toggle" onclick="toggleNotifyUrl()" id="notifyUrlToggleBtn">Show</button>
+          </div>
+          <div class="help">See <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--accent)">Apprise docs</a> for supported services and URL formats.</div>
+        </div>
+        <div id="notify_test_row" style="margin-top:12px;display:none">
+          <button class="btn sm" onclick="testNotification()">Send Test</button>
+          <span class="msg" id="notifyTestMsg" style="margin-left:8px"></span>
+        </div>
+      </div>
+
+      <div class="card" id="notify_events_card">
+        <p class="section-label">Notify On</p>
+        <div class="field">
+          <label>Sweep Complete</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_sweep_complete" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep finishes and at least one instance searched something</div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Import Confirmed</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_import" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a searched item is confirmed imported into your library</div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Error</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_error" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep fails or an instance becomes unreachable</div>
+        </div>
+      </div>
+
+      <div class="save-bar full">
+        <button class="btn primary" onclick="saveNotifications()">Save Changes</button>
+        <span class="msg" id="notifyMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ ADVANCED ══════════════════════════════ -->
+  <div class="section" id="tab-advanced">
+    <div class="grid">
+      <div class="grid cols2">
+        <div class="card">
+          <p class="section-label">Backlog Nudges</p>
+          <div class="help" style="margin-bottom:12px">Finds and searches items missing from your library on top of your regular cutoff sweeps.</div>
+          <p class="section-label" style="margin:0 0 8px">Radarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); checkNewestAddedWarning(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="radarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="radarr_backlog_fields" style="opacity:0.35;pointer-events:none">
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
+              </div>
+              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <div class="help">Maximum missing movies searched per instance per run</div>
+            </div>
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Radarr Missing Added Days</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Set to 0 to remove the age filter and search all missing items regardless of when they were added.</div></span>
+              </div>
+              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <div class="help">Only search missing items older than this many days. 0 = no age filter.</div>
+            </div>
+          </div>
+          </div>
+          <div style="margin-top:14px">
+          <p class="section-label" style="margin:0 0 8px">Sonarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="sonarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="sonarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="sonarr_backlog_fields" style="opacity:0.35;pointer-events:none">
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
+              </div>
+              <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Maximum missing episodes searched per instance per run</div>
+            </div>
+          </div>
+          </div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">For the Arr-tists</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Per-Instance Overrides</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or backlog behaviour. Enable and disable without losing your saved overrides.</div></span>
+            </div>
+            <div class="toggle-wrap" style="margin-top:4px">
+              <label class="toggle">
+                <input type="checkbox" id="per_instance_overrides_enabled" onchange="toggleOverridesFeature(this.checked)"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="overrides_enabled_label">Disabled</span>
+            </div>
+          </div>
+          <div class="amber-warn" style="margin-top:16px">
+            <p class="amber-warn-title">USE WITH CAUTION</p>
+            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and frequent cron schedule this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+          </div>
+          <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
+            <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="section-label">Data Retention</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Days to Keep</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Episodes totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
+            </div>
+            <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed (0 Disables)</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Stats</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Import Check (Minutes)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. Setting this too low may miss slow downloads — 120 minutes is a safe default. Confirmed imports appear in the Stats tab.</div></span>
+            </div>
+            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">How often Nudgarr checks for confirmed imports</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Security</p>
+          <div class="field">
+            <label>Require Login</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="auth_enabled" onchange="syncAuthUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="auth_label">Enabled</span>
+            </div>
+          </div>
+          <div class="field" style="margin-top:16px">
+            <label>Session Timeout (Minutes)</label>
+            <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Minutes of inactivity before requiring re-login</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">UI Preferences</p>
+          <div class="field">
+            <label>Onboarding</label>
+            <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
+            <div class="help" style="margin-top:6px">View the initial walkthrough.</div>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>Show Support Link</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="show_support_link" onchange="syncSupportLinkUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="support_link_label">Shown</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
+        <span class="msg" id="advMsg"></span>
+      </div>
+
+      <div class="card danger-section" style="margin-bottom:12px">
+        <p class="section-label" style="color:#fca5a5">Danger Zone</p>
+        <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
+          <button class="btn sm danger" onclick="clearState()">Clear History</button>
+          <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
+          <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-label" style="display:flex;align-items:baseline;gap:8px">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
+        <p class="help" style="margin:0 0 16px">Data backup and diagnostic tools.</p>
+        <div class="hr"></div>
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center">
+          <button class="btn sm" onclick="backupAll()">Backup All</button>
+          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+          <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
+          <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:auto;font-family:inherit;font-weight:500;letter-spacing:.01em">
+            <option value="DEBUG">Log: DEBUG</option>
+            <option value="INFO">Log: INFO</option>
+            <option value="WARNING">Log: WARNING</option>
+            <option value="ERROR">Log: ERROR</option>
+          </select>
+        </div>
+        <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
+        <div id="diagBox" class="diag-box" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ OVERRIDES ══════════════════════════════ -->
+  <div class="section" id="tab-overrides">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;flex-wrap:wrap;gap:6px">
+      <div>
+        <span style="font-size:13px;font-weight:600">Per-Instance Overrides</span>
+        <p class="help" style="margin:2px 0 0">Unchanged fields inherit global values.</p>
+      </div>
+    </div>
+    <div class="grid cols2" id="overrides-grid">
+      <!-- Cards injected by renderOverridesCards() -->
+    </div>
+  </div>
+
+  <!-- ══ Instance Modal ══ -->
+  <div class="modal-backdrop" id="instModal" style="display:none" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h2 id="modalTitle">Add Instance</h2>
+      <div class="field">
+        <label>Name</label>
+        <input id="modalName" type="text" placeholder="Example: Radarr"/>
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878" oninput="checkModalUrlPath(this.value); clearModalTest()"/>
+        <div class="amber-warn amber-warn-collapsible" id="modalUrlWarn">
+          <p class="help amber-warn-body" id="modalUrlWarnMsg"></p>
+        </div>
+      </div>
+      <div class="field">
+        <label id="modalKeyLabel">API Key</label>
+        <div class="key-wrap">
+          <input id="modalKey" type="password" placeholder="Instance API Key" oninput="clearModalTest()"/>
+          <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
+        </div>
+      </div>
+      <div class="modal-test-result" id="modalTestResult">
+        <div class="modal-test-result-inner" id="modalTestResultInner">
+          <div class="status-dot" id="modalTestDot"></div>
+          <span id="modalTestMsg"></span>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <button class="btn sm" id="modalTestBtn" onclick="testModalConnection()">Test connection</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
+          <button class="btn sm primary" onclick="saveModal()">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ What's New Modal ══ -->
+  <div class="modal-backdrop" id="whatsNewModal" style="display:none">
+     <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+       <h2 style="margin:0 0 4px">What's New in v4.0.0</h2>
+       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
+       <div style="display:flex;flex-direction:column;gap:10px">
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎨 Refreshed UI</div>
+           <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards. The instance modal now has a Test connection button — check your URL and API key before applying.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔍 Quality Upgrade Tracking</div>
+           <div class="help">Each import now records the quality path — what the file was before the search and what it upgraded to. Find it in the Imports tab as a new Upgrade column with a hover tooltip showing the full upgrade history per item.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏷️ Tag &amp; Quality Profile Filters</div>
+           <div class="help">A new Filters tab lets you exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs — they never consume a search slot. Load tags and profiles live from each instance, select what to exclude, and Apply. Available in the desktop Filters tab and the landscape Filters nav tab on mobile.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
+           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog, Execution, Overrides, and Filters tabs.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
+           <div class="help">Structured logging throughout — all output goes to stdout and a rotating log file at /config/logs/nudgarr.log (5 MB per file, 3 backups, 20 MB total cap). Log level is configurable live from the Advanced tab. Sweep and import writes are now batched into single transactions. The frontend is now split across dedicated static files (one per domain) that your browser can cache independently, and the backend routes are organised into focused blueprints — each file covers one area. Contributor docstrings added throughout so the codebase is easier to navigate.</div>
+         </div>
+       </div>
+       <div class="row" style="justify-content:flex-end;margin-top:20px">
+         <button class="btn sm primary" onclick="dismissWhatsNew()">Continue</button>
+       </div>
+     </div>
+   </div>
+
+  <!-- ══ Sweep No-Instances Modal ══ -->
+  <div class="modal-backdrop" id="sweepNoInstancesModal" style="display:none" onclick="el('sweepNoInstancesModal').style.display='none'">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px">
+      <h2 style="margin:0 0 8px">No Instances Configured</h2>
+      <p class="help" style="margin:0 0 20px">Add a Radarr or Sonarr instance to get started. The Sweep tab will populate automatically once an instance is added.</p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm primary" onclick="el('sweepNoInstancesModal').style.display='none'; showTab('instances')">Go to Instances</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Onboarding Modal ══ -->
+  <div class="modal-backdrop" id="onboardingModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+      <div id="onboardingContent"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px">
+        <div style="display:flex; gap:6px" id="onboardingDots"></div>
+        <div style="display:flex; gap:8px">
+          <button class="btn sm" id="onboardingPrev" onclick="onboardingStep(-1)">Back</button>
+          <button class="btn sm primary" id="onboardingNext" onclick="onboardingStep(1)">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ Per-Instance Overrides Modal ══ -->
+  <div class="modal-backdrop" id="overridesInfoModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;border-color:rgba(91,114,245,.2)">
+      <h2 style="margin:0 0 4px">Per-Instance Overrides — How it works</h2>
+      <p class="help" style="margin:0 0 16px;color:var(--muted)">Read this once — it won't show again.</p>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">🌐 Global values are the starting point</div>
+          <div class="help">Override any field on any card independently. Unset fields always fall back to global.</div>
+        </div>
+        <div style="padding:10px 13px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.25);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px;color:#fcd34d">⚠️ Search volume multiplies per instance</div>
+          <div class="help">Each instance runs independently. 4 instances × max 15 = up to 60 searches per sweep. Check your indexer before raising any per-instance caps.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">🎯 Nothing changes until you hit Apply</div>
+          <div class="help">Enabling this tab doesn't change any behaviour. Overrides only take effect when you explicitly Apply them on a card.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">🔄 Turning this off reverts all instances to global immediately, cooldowns included</div>
+          <div class="help">Override values are preserved and restored if you re-enable.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">📋 Each instance can have backlog on or off</div>
+          <div class="help">The global backlog toggle no longer controls everything when overrides are active.</div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:18px">
+        <button class="btn sm primary" onclick="dismissOverridesModal()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .wrap -->
+
+<!-- ══ Confirm Modal — body level so visible in landscape and portrait ══ -->
+<div class="modal-backdrop" id="confirmModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+    <h2 id="confirmTitle">Confirm</h2>
+    <p class="help" id="confirmMsg" style="margin:0 0 20px"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sm" onclick="confirmResolve(false)">Cancel</button>
+      <button class="btn sm primary" id="confirmOkBtn" onclick="confirmResolve(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Alert Modal — body level so visible in landscape and portrait ══ -->
+<div class="modal-backdrop" id="alertModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+    <p class="help" id="alertMsg" style="margin:0 0 20px"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sm primary" onclick="el('alertModal').style.display='none'">OK</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
+
+<!-- Mobile shell -->
+<div id="mobile-ui">
+
+  <!-- ── Update banner — shown on version mismatch ── -->
+  <div id="m-update-banner" style="display:none">
+    <span class="m-update-icon">⟳</span>
+    <span class="m-update-text">Update Available — Tap to Reload</span>
+  </div>
+
+  <div class="m-tab m-active" id="m-home">
+    <div class="m-wordmark">Nudgarr</div>
+    <p class="m-tagline">Sweeping your library, one nudge at a time.</p>
+
+    <button class="m-run-btn" id="m-run-btn">
+      <div class="m-run-btn-icon" id="m-run-btn-icon">▶</div>
+      <span id="m-run-btn-label">Run Now</span>
+    </button>
+    <div class="m-run-hint-wrap" id="m-run-hint-wrap">
+      <div class="m-run-hint"><span>Tap to run a manual sweep</span></div>
+    </div>
+
+    <div class="m-stat-grid">
+      <div class="m-stat-card">
+        <div class="m-stat-card-label">Last Run</div>
+        <div class="m-stat-card-value" id="m-last-run">—</div>
+        <div class="m-stat-card-sub" id="m-last-run-sub">—</div>
+      </div>
+      <div class="m-stat-card">
+        <div class="m-stat-card-label">Next Run</div>
+        <div class="m-stat-card-value" id="m-next-run">—</div>
+        <div class="m-stat-card-sub" id="m-next-run-sub">—</div>
+      </div>
+      <div class="m-stat-card m-stat-card-tap" onclick="mOpenImports('movies')">
+        <div class="m-stat-card-label">🎬 Movies</div>
+        <div class="m-stat-card-value" id="m-movies-total">—</div>
+        <div class="m-stat-card-sub">Confirmed imports</div>
+        <span class="m-stat-card-arr">›</span>
+      </div>
+      <div class="m-stat-card m-stat-card-tap" onclick="mOpenImports('shows')">
+        <div class="m-stat-card-label">📺 Episodes</div>
+        <div class="m-stat-card-value" id="m-shows-total">—</div>
+        <div class="m-stat-card-sub">Confirmed imports</div>
+        <span class="m-stat-card-arr">›</span>
+      </div>
+    </div>
+
+    <div class="m-section-label">Automation</div>
+    <div class="m-card">
+      <div class="m-toggle-row">
+        <div>
+          <div class="m-toggle-label">Auto Schedule</div>
+          <div class="m-toggle-sub" id="m-auto-sub">—</div>
+        </div>
+        <div class="m-toggle" id="m-toggle-auto" onclick="mToggleAuto()"></div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Instances</div>
+    <div class="m-card" id="m-instance-rows"></div>
+
+  </div>
+
+  <!-- ── Sweep tab ── -->
+  <div class="m-tab" id="m-sweep">
+    <div id="m-sweep-list"></div>
+  </div>
+
+  <!-- ── History tab ── -->
+  <div class="m-tab" id="m-history">
+    <div class="m-inner-tab-bar">
+      <div class="m-inner-tab m-inner-tab-active" id="m-htab-history" onclick="mSwitchExclTab('history')">History</div>
+      <div class="m-inner-tab" id="m-htab-excluded" onclick="mSwitchExclTab('excluded')">Excluded <span class="m-count-badge" id="m-excl-count">0</span></div>
+    </div>
+    <div class="m-history-pane" id="m-hist-pane-history">
+      <div id="m-hist-list"></div>
+    </div>
+    <div class="m-history-pane" id="m-hist-pane-add" style="display:none">
+      <div id="m-excl-hist"></div>
+    </div>
+    <div class="m-history-pane" id="m-hist-pane-excluded" style="display:none">
+      <div id="m-excl-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Settings tab ── -->
+  <div class="m-tab" id="m-settings">
+
+    <div class="m-section-label">Global</div>
+    <div class="m-card">
+      <div class="m-stepper-row">
+        <div>
+          <div class="m-stepper-label">Cooldown</div>
+          <div class="m-stepper-sub">Hours between searches · hold +24</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" id="m-s-cool-dec" ontouchstart="event.preventDefault();mSHoldStart('cooldown',-1);mBtnPress(this)" ontouchend="mSHoldEnd('cooldown',-1)" ontouchcancel="mSHoldEnd('cooldown',-1)" onmousedown="mSHoldStart('cooldown',-1);mBtnPress(this)" onmouseup="mSHoldEnd('cooldown',-1)" onmouseleave="mSHoldEnd('cooldown',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-cooldown">48</div>
+          <button class="m-stepper-btn" id="m-s-cool-inc" ontouchstart="event.preventDefault();mSHoldStart('cooldown',1);mBtnPress(this)" ontouchend="mSHoldEnd('cooldown',1)" ontouchcancel="mSHoldEnd('cooldown',1)" onmousedown="mSHoldStart('cooldown',1);mBtnPress(this)" onmouseup="mSHoldEnd('cooldown',1)" onmouseleave="mSHoldEnd('cooldown',1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Radarr</div>
+    <div class="m-card">
+      <div class="m-stepper-row">
+        <div>
+          <div class="m-stepper-label">Cutoff Max</div>
+          <div class="m-stepper-sub">Cutoff searches per run · 0 disables</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-cutoff',-1);mBtnPress(this)" ontouchend="mSHoldEnd('r-cutoff',-1)" ontouchcancel="mSHoldEnd('r-cutoff',-1)" onmousedown="mSHoldStart('r-cutoff',-1);mBtnPress(this)" onmouseup="mSHoldEnd('r-cutoff',-1)" onmouseleave="mSHoldEnd('r-cutoff',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-r-cutoff">3</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-cutoff',1)" ontouchcancel="mSHoldEnd('r-cutoff',1)" onmousedown="mSHoldStart('r-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-cutoff',1)" onmouseleave="mSHoldEnd('r-cutoff',1)">+</button>
+        </div>
+      </div>
+      <div class="m-seg-row">
+        <div class="m-stepper-label">Sample Mode</div>
+        <div class="m-seg" id="m-seg-radarr">
+          <div class="m-seg-opt m-seg-active" onclick="mSetSeg('radarr','random',this)">Random</div>
+          <div class="m-seg-opt" onclick="mSetSeg('radarr','alphabetical',this)">Alpha</div>
+          <div class="m-seg-opt" onclick="mSetSeg('radarr','oldest_added',this)">Oldest</div>
+          <div class="m-seg-opt" onclick="mSetSeg('radarr','newest_added',this)">Newest</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Sonarr</div>
+    <div class="m-card">
+      <div class="m-stepper-row">
+        <div>
+          <div class="m-stepper-label">Cutoff Max</div>
+          <div class="m-stepper-sub">Cutoff searches per run · 0 disables</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',-1)" ontouchcancel="mSHoldEnd('s-cutoff',-1)" onmousedown="mSHoldStart('s-cutoff',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',-1)" onmouseleave="mSHoldEnd('s-cutoff',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-s-cutoff">5</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',1)" ontouchcancel="mSHoldEnd('s-cutoff',1)" onmousedown="mSHoldStart('s-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',1)" onmouseleave="mSHoldEnd('s-cutoff',1)">+</button>
+        </div>
+      </div>
+      <div class="m-seg-row">
+        <div class="m-stepper-label">Sample Mode</div>
+        <div class="m-seg" id="m-seg-sonarr">
+          <div class="m-seg-opt m-seg-active" onclick="mSetSeg('sonarr','random',this)">Random</div>
+          <div class="m-seg-opt" onclick="mSetSeg('sonarr','alphabetical',this)">Alpha</div>
+          <div class="m-seg-opt" onclick="mSetSeg('sonarr','oldest_added',this)">Oldest</div>
+          <div class="m-seg-opt" onclick="mSetSeg('sonarr','newest_added',this)">Newest</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Notifications</div>
+    <div class="m-card" id="m-notify-card">
+      <div class="m-toggle-row">
+        <div>
+          <div class="m-toggle-label">Enable Notifications</div>
+          <div class="m-toggle-sub">Via Apprise · configure URL on desktop</div>
+        </div>
+        <div class="m-toggle" id="m-toggle-notify-settings" onclick="mToggleNotifySettings()"></div>
+      </div>
+      <div id="m-notify-events">
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Sweep Complete</div>
+            <div class="m-toggle-sub">When a sweep searches items</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-sweep" onclick="mToggleNotifyEvent('sweep_complete')"></div>
+        </div>
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Import Confirmed</div>
+            <div class="m-toggle-sub">When a searched item downloads</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-import" onclick="mToggleNotifyEvent('import')"></div>
+        </div>
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Error</div>
+            <div class="m-toggle-sub">When a sweep fails or instance unreachable</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-error" onclick="mToggleNotifyEvent('error')"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-section-label">Features</div>
+    <div class="m-card">
+      <div class="m-toggle-row">
+        <div>
+          <div class="m-toggle-label">Per-Instance Overrides</div>
+          <div class="m-toggle-sub" id="m-ov-toggle-sub">Disabled</div>
+        </div>
+        <div class="m-toggle" id="m-ov-toggle" onclick="mToggleMobileOverrides()"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Hidden Instances tab (required by validate.py) ── -->
+  <div class="m-tab" id="m-instances" style="display:none">
+    <div id="m-inst-list"></div>
+  </div>
+
+  <!-- ── Bottom nav ── -->
+  <nav id="m-nav">
+    <div class="m-nav-item m-active" id="m-nav-home" onclick="mSwitchTab('home')">
+      <span class="m-nav-icon">⌂</span>
+      <span class="m-nav-label">Home</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-sweep" onclick="mSwitchTab('sweep')">
+      <span class="m-nav-icon">↻</span>
+      <span class="m-nav-label">Sweep</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-history" onclick="mSwitchTab('history')">
+      <span class="m-nav-icon">⧗</span>
+      <span class="m-nav-label">History</span>
+    </div>
+    <div class="m-nav-item" id="m-nav-settings" onclick="mSwitchTab('settings')">
+      <span class="m-nav-icon">☰</span>
+      <span class="m-nav-label">Settings</span>
+    </div>
+  </nav>
+
+  <!-- ── Imports bottom sheet ── -->
+  <div class="m-sheet-backdrop" id="m-imports-sheet">
+    <div class="m-sheet">
+      <div class="m-sheet-handle" id="m-imports-handle"></div>
+      <div class="m-sheet-header">
+        <span class="m-sheet-title" id="m-imports-sheet-title">Imports</span>
+        <div class="m-sheet-close" onclick="mCloseImports()">✕</div>
+      </div>
+      <div class="m-sheet-body" id="m-imports-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Exclusions sheet (kept for API compatibility) ── -->
+  <div class="m-sheet-backdrop" id="m-excl-sheet">
+    <div class="m-sheet">
+      <div class="m-sheet-handle" id="m-excl-handle"></div>
+      <div class="m-sheet-header">
+        <span class="m-sheet-title">Exclusions</span>
+        <div class="m-sheet-close" onclick="mCloseExclusions()">✕</div>
+      </div>
+      <div class="m-sheet-body" id="m-excl-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Mobile Overrides first-time modal ── -->
+  <div class="m-sheet-backdrop" id="m-ov-modal" style="display:none">
+    <div class="m-sheet m-sheet-auto" style="border-radius:20px;margin:16px">
+      <div style="padding:20px 18px 0">
+        <div class="m-modal-title">Per-Instance Overrides</div>
+        <div class="m-modal-body">Fine-tune cooldown, caps, backlog, and notifications independently for each instance. Configure in landscape — tap ⊙ in the bottom nav.</div>
+        <div class="m-modal-note">Quick Settings and home toggles always edit global values. Instances with overrides use their own values instead.</div>
+        <div class="m-modal-note">Overrides only take effect once you Apply them on each instance in landscape.</div>
+      </div>
+      <div style="padding:0 18px 20px;margin-top:16px">
+        <button onclick="mDismissOvModal()" class="m-modal-btn">Continue</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════ LANDSCAPE UI ══════════════════════════════ -->
+<div id="landscape-ui">
+
+  <div id="ls-header">
+    <div class="ls-wordmark">Nudgarr</div>
+    <div class="ls-save-indicator" id="ls-save-ind">
+      <div class="ls-save-dot"></div>Saved
+    </div>
+    <button class="ls-desktop-btn" onclick="lsSwitchToDesktop()">Desktop View</button>
+  </div>
+
+  <div id="ls-viewport">
+    <div class="ls-tab-track">
+
+      <!-- ── Backlog tab ── -->
+      <div class="ls-tab ls-tab-active" id="ls-tab-backlog">
+        <div class="ls-two-col">
+          <div class="ls-col">
+            <div class="ls-col-label">Radarr</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Backlog</div>
+                <div class="ls-row-sub">Search missing movies</div>
+              </div>
+              <div class="ls-toggle" id="ls-tog-radarr-backlog" onclick="lsToggleBacklog('radarr')"></div>
+            </div>
+            <div id="ls-radarr-backlog-fields">
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Max Missing</div>
+                  <div class="ls-row-sub">Missing searches per run</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd('r-missing',-1)" onmouseleave="lsHoldEnd('r-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd('r-missing',-1)" ontouchcancel="lsHoldEnd('r-missing',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-r-missing">1</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',1)" onmouseup="lsHoldEnd('r-missing',1)" onmouseleave="lsHoldEnd('r-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',1)" ontouchend="lsHoldEnd('r-missing',1)" ontouchcancel="lsHoldEnd('r-missing',1)">+</button>
+                </div>
+              </div>
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Missing Added Days</div>
+                  <div class="ls-row-sub">Days since added · 0 = no filter</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',-1)" onmouseup="lsHoldEnd('r-days',-1)" onmouseleave="lsHoldEnd('r-days',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',-1)" ontouchend="lsHoldEnd('r-days',-1)" ontouchcancel="lsHoldEnd('r-days',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-r-days">14</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd('r-days',1)" onmouseleave="lsHoldEnd('r-days',1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd('r-days',1)" ontouchcancel="lsHoldEnd('r-days',1)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ls-col-divider"></div>
+
+          <div class="ls-col">
+            <div class="ls-col-label">Sonarr</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Backlog</div>
+                <div class="ls-row-sub">Search missing episodes</div>
+              </div>
+              <div class="ls-toggle" id="ls-tog-sonarr-backlog" onclick="lsToggleBacklog('sonarr')"></div>
+            </div>
+            <div id="ls-sonarr-backlog-fields">
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Max Missing</div>
+                  <div class="ls-row-sub">Missing searches per run</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd('s-missing',-1)" onmouseleave="lsHoldEnd('s-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd('s-missing',-1)" ontouchcancel="lsHoldEnd('s-missing',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd('s-missing',1)" onmouseleave="lsHoldEnd('s-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd('s-missing',1)" ontouchcancel="lsHoldEnd('s-missing',1)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Execution tab ── -->
+      <div class="ls-tab" id="ls-tab-execution">
+        <div class="ls-two-col">
+          <div class="ls-col">
+            <div class="ls-col-label">Throttling</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Batch Size</div>
+                <div class="ls-row-sub">Searches per instance per run</div>
+              </div>
+              <div class="ls-stepper">
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',-1)" onmouseup="lsHoldEnd('batch',-1)" onmouseleave="lsHoldEnd('batch',-1)" ontouchstart="event.preventDefault();lsHoldStart('batch',-1)" ontouchend="lsHoldEnd('batch',-1)" ontouchcancel="lsHoldEnd('batch',-1)">−</button>
+                <div class="ls-stepper-val" id="ls-v-batch">1</div>
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('batch',1)" onmouseup="lsHoldEnd('batch',1)" onmouseleave="lsHoldEnd('batch',1)" ontouchstart="event.preventDefault();lsHoldStart('batch',1)" ontouchend="lsHoldEnd('batch',1)" ontouchcancel="lsHoldEnd('batch',1)">+</button>
+              </div>
+            </div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Sleep Seconds</div>
+                <div class="ls-row-sub">Delay between API calls</div>
+              </div>
+              <div class="ls-stepper">
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',-1)" onmouseup="lsHoldEnd('sleep',-1)" onmouseleave="lsHoldEnd('sleep',-1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',-1)" ontouchend="lsHoldEnd('sleep',-1)" ontouchcancel="lsHoldEnd('sleep',-1)">−</button>
+                <div class="ls-stepper-val" id="ls-v-sleep">5</div>
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('sleep',1)" onmouseup="lsHoldEnd('sleep',1)" onmouseleave="lsHoldEnd('sleep',1)" ontouchstart="event.preventDefault();lsHoldStart('sleep',1)" ontouchend="lsHoldEnd('sleep',1)" ontouchcancel="lsHoldEnd('sleep',1)">+</button>
+              </div>
+            </div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Jitter Seconds</div>
+                <div class="ls-row-sub">Random delay variance</div>
+              </div>
+              <div class="ls-stepper">
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',-1)" onmouseup="lsHoldEnd('jitter',-1)" onmouseleave="lsHoldEnd('jitter',-1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',-1)" ontouchend="lsHoldEnd('jitter',-1)" ontouchcancel="lsHoldEnd('jitter',-1)">−</button>
+                <div class="ls-stepper-val" id="ls-v-jitter">2</div>
+                <button class="ls-stepper-btn" onmousedown="lsHoldStart('jitter',1)" onmouseup="lsHoldEnd('jitter',1)" onmouseleave="lsHoldEnd('jitter',1)" ontouchstart="event.preventDefault();lsHoldStart('jitter',1)" ontouchend="lsHoldEnd('jitter',1)" ontouchcancel="lsHoldEnd('jitter',1)">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ls-col-divider"></div>
+
+          <div class="ls-col">
+            <div class="ls-col-label">Scheduler</div>
+            <div class="ls-row">
+              <div class="ls-row-left">
+                <div class="ls-row-label">Auto Schedule</div>
+                <div class="ls-row-sub" id="ls-auto-sub">—</div>
+              </div>
+              <div class="ls-toggle" id="ls-tog-auto" onclick="lsToggleAuto()"></div>
+            </div>
+            <div class="ls-row ls-row-col" id="ls-cron-row">
+              <div class="ls-cron-header">
+                <div class="ls-row-label">Cron Expression</div>
+                <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                  <span id="ls-container-time" class="ls-container-time"></span>
+                  <a href="https://crontab.guru" target="_blank" rel="noopener" class="ls-cron-link">cron generator ↗</a>
+                </div>
+              </div>
+              <input type="text" id="ls-cron-input" class="ls-cron-input" placeholder="0 */12 * * *" oninput="lsValidateCron()" />
+              <div class="ls-cron-hint" id="ls-cron-hint"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Overrides tab ── -->
+      <div class="ls-tab" id="ls-tab-overrides">
+        <div class="ls-ov-rail" id="ls-ov-rail"></div>
+        <div class="ls-ov-panel">
+          <div class="ls-ov-body" id="ls-ov-body"></div>
+          <div class="ls-ov-foot" id="ls-ov-foot">
+            <button class="ls-ov-foot-reset" onclick="lsOvReset()">Reset to Global</button>
+            <div class="ls-ov-foot-mid" id="ls-ov-status"></div>
+            <button class="ls-ov-foot-apply" id="ls-ov-apply" onclick="lsOvApply()">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Filters tab ── -->
+      <div class="ls-tab" id="ls-tab-filters">
+        <div class="ls-ov-rail" id="ls-filters-rail"></div>
+        <div class="ls-ov-panel">
+          <div class="ls-ov-body" id="ls-filters-body"></div>
+          <div class="ls-ov-foot" id="ls-filters-foot">
+            <button class="ls-ov-foot-reset" id="ls-filters-load-btn" onclick="lsFiltersLoad()">Load</button>
+            <div class="ls-ov-foot-mid" id="ls-filters-status"></div>
+            <button class="ls-ov-foot-apply" id="ls-filters-apply" onclick="lsFiltersApply()">Apply</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <nav id="ls-nav">
+    <div class="ls-nav-item ls-active" id="ls-nav-backlog" onclick="lsSwitchTab(0)">
+      <span class="ls-nav-icon">◫</span>
+      <span class="ls-nav-label">Backlog</span>
+    </div>
+    <div class="ls-nav-item" id="ls-nav-execution" onclick="lsSwitchTab(1)">
+      <span class="ls-nav-icon">⧖</span>
+      <span class="ls-nav-label">Execution</span>
+    </div>
+    <div class="ls-nav-item" id="ls-nav-overrides" onclick="lsSwitchTab(2)">
+      <span class="ls-nav-icon">⊙</span>
+      <span class="ls-nav-label">Overrides</span>
+    </div>
+    <div class="ls-nav-item" id="ls-nav-filters" onclick="lsSwitchTab(3)">
+      <span class="ls-nav-icon">⊘</span>
+      <span class="ls-nav-label">Filters</span>
+    </div>
+  </nav>
+
+</div><!-- /landscape-ui -->
+<script src="{{ url_for('static', filename='ui-core.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-instances.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-overrides.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-sweep.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-settings.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-filters.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-core.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-landscape.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-landscape-exec.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait-home.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait-history.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait-settings.js') }}"></script>
+<script src="{{ url_for('static', filename='ui-mobile-portrait.js') }}"></script>
+</body>
+</html>

@@ -325,6 +325,7 @@ async function loadArrData(kind) {
       excludedProfiles:existing.excludedProfiles ?? (savedFilters.excluded_profiles || []),
     };
 
+    if (loadBtn) { loadBtn.disabled = false; }
     _renderFilterBox(kind);
   } catch (e) {
     if (body) body.innerHTML = `<div class="help" style="color:var(--bad);text-align:center;padding:16px 0">Unexpected error — see console</div>`;

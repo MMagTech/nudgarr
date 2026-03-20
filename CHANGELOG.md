@@ -10,10 +10,10 @@ All notable changes to Nudgarr are documented here.
 
 **Bug fixes (post-release)**
 
-- Filters tab — instance pill now renders instance name with dot inside; dot colour reflects enabled state correctly; disabled instances no longer appear in the instance selector; card border turns amber on pending changes; Apply button correctly right-aligned with centred status text; pending changes trigger a proceed/cancel dialog when navigating away from the tab; loading tags and profiles for the second instance of a kind now works correctly (dropdown option values previously used position within the enabled list rather than the real config index)
+- Filters tab — instance pill now renders instance name with dot inside; dot colour reflects enabled state correctly; disabled instances no longer appear in the instance selector; card border turns amber on pending changes; Apply button correctly right-aligned with centred status text; pending changes trigger a proceed/cancel dialog when navigating away from the tab; loading tags and profiles for the second instance of a kind now works correctly (dropdown option values previously used position within the enabled list rather than the real config index); Load/Refresh button no longer stays permanently disabled after a successful load — clicking Refresh now correctly re-fetches from the arr instance
 - Overrides desktop — card pill now renders instance name with dot inside, removing the redundant separate name text
 - Overrides landscape — stray `—` removed from panel header area; panel body now scrolls when content exceeds viewport height so Max Backlog and Max Missing Days are always reachable; rail updated to new accent pill style matching Filters rail
-- Filters landscape — panel now correctly fills the right column alongside the rail; tags and profiles rendered in a two-column grid (tags left, profiles right) using available horizontal space; filter count chip updated to accent pill style
+- Filters landscape — panel now correctly fills the right column alongside the rail; tags and profiles rendered in a two-column grid (tags left, profiles right) with each column as a flex container so lists stretch to fill available height and scroll independently; filter count chip updated to accent pill style
 - Instances — instance health dot now correctly updates after toggle-then-save; `TOGGLE_IN_PROGRESS` guard cleaned up after health check completes so subsequent saves no longer leave the dot stale
 
 **Tag and Quality Profile Filtering**

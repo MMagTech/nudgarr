@@ -168,6 +168,7 @@
     /* ── Overrides tab ── */
     #ls-tab-overrides { display: flex; overflow: hidden; padding: 0; }
     #ls-tab-filters   { display: flex; overflow: hidden; padding: 0; }
+    #ls-filters-body  { flex: 1; overflow: hidden; min-height: 0; padding: 4px 14px 4px; display: flex; flex-direction: column; }
     #ls-nav-overrides { display: none; }
 
     .ls-ov-rail {

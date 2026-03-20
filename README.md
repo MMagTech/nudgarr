@@ -138,47 +138,7 @@ TZ=UTC
 # SECRET_KEY=your-secret-key  # optional, auto-generated if not set
 ```
 
-```yaml
-version: "3.8"
-services:
-  nudgarr:
-    image: mmagtech/nudgarr:latest
-    container_name: nudgarr
-    restart: unless-stopped
-    ports:
-      - "${PORT:-8085}:${PORT:-8085}"
-    volumes:
-      - ${CONFIG_PATH:-./config}:/config
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - PORT=${PORT:-8085}
-      - CONFIG_FILE=/config/nudgarr-config.json
-      - DB_FILE=/config/nudgarr.db
-      - TZ=${TZ:-UTC}
-      # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,nodev,size=64m
-    tty: false
-    stdin_open: false
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-    pids_limit: 50
-    mem_limit: 128m
-    cpus: 0.5
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
+A ready-to-use `docker-compose.yml` is included in the repo root. Copy it alongside a `.env` file — see `.env.example` for all available options.
 
 ---
 

@@ -487,21 +487,22 @@ function lsFiltersRenderPanel(key) {
   if (loadBtn) loadBtn.textContent = 'Refresh';
 
   const totalFilters = state.excludedTags.length + state.excludedProfiles.length;
-  if (status) status.textContent = totalFilters > 0 ? `${totalFilters} filter${totalFilters !== 1 ? 's' : ''} active` : 'No filters set';
+  if (status) status.textContent = totalFilters > 0 ? `${totalFilters} Filter${totalFilters !== 1 ? 's' : ''} Active` : 'No Filters Set';
 
   body.innerHTML = `
-    <div style="margin-bottom:10px">
-      <div class="ls-col-label" style="margin-bottom:6px">Filtered Tags</div>
-      <div id="ls-filters-tag-pills" style="min-height:24px;max-height:50px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;margin-bottom:6px"></div>
-      <input id="ls-filters-tag-search" class="filter-search" placeholder="Search tags…" oninput="lsFiltersSearch('tags')" autocomplete="off">
-      <div id="ls-filters-tag-list" class="filter-list"></div>
-    </div>
-    <div style="height:1px;background:var(--border);margin:8px 0"></div>
-    <div>
-      <div class="ls-col-label" style="margin-bottom:6px">Filtered Quality Profiles</div>
-      <div id="ls-filters-profile-pills" style="min-height:24px;max-height:50px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;margin-bottom:6px"></div>
-      <input id="ls-filters-profile-search" class="filter-search" placeholder="Search profiles…" oninput="lsFiltersSearch('profiles')" autocomplete="off">
-      <div id="ls-filters-profile-list" class="filter-list"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px;height:100%">
+      <div>
+        <div class="ls-col-label" style="margin-bottom:6px">Filtered Tags</div>
+        <div id="ls-filters-tag-pills" style="min-height:24px;max-height:50px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;margin-bottom:6px"></div>
+        <input id="ls-filters-tag-search" class="filter-search" placeholder="Search tags…" oninput="lsFiltersSearch('tags')" autocomplete="off">
+        <div id="ls-filters-tag-list" class="filter-list" style="max-height:120px"></div>
+      </div>
+      <div>
+        <div class="ls-col-label" style="margin-bottom:6px">Filtered Quality Profiles</div>
+        <div id="ls-filters-profile-pills" style="min-height:24px;max-height:50px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;margin-bottom:6px"></div>
+        <input id="ls-filters-profile-search" class="filter-search" placeholder="Search profiles…" oninput="lsFiltersSearch('profiles')" autocomplete="off">
+        <div id="ls-filters-profile-list" class="filter-list" style="max-height:120px"></div>
+      </div>
     </div>`;
 
   _lsFiltersRenderPills('tags');

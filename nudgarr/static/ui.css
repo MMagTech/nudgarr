@@ -606,4 +606,5 @@
     .filter-list-item.active-radarr { color: var(--accent-lt); background: var(--accent-dim); }
     .filter-list-item.active-sonarr { color: var(--ok); background: rgba(34,197,94,.1); }
     .tab-filters.tab-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+    .filter-box-pending { border-color: rgba(251,191,36,.4) !important; }
 

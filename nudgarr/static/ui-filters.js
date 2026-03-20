@@ -26,8 +26,15 @@ function fillFilters() {
   _renderFilterBox('sonarr');
 }
 
+// ── Pending check — used by showTab guard ─────────────────────────────────────
+function _filterHasPending() {
+  return Object.values(FILTER_STATE).some(s => s.dirty === true);
+}
+
 // ── Instance selector ─────────────────────────────────────────────────────────
 function _fillInstanceSelector(kind, instances) {
+  // Bug 4 fix: only show enabled instances in the selector
+  const enabledInstances = instances.filter(i => i.enabled !== false);
   const sel      = el('filter-' + kind + '-idx');
   const hdrLeft  = el('filter-' + kind + '-hdr-left');
   if (!hdrLeft) return;
@@ -36,34 +43,33 @@ function _fillInstanceSelector(kind, instances) {
   const existing = hdrLeft.querySelector('.filter-inst-pill');
   if (existing) existing.remove();
 
-  if (instances.length === 0) {
+  if (enabledInstances.length === 0) {
     if (sel) sel.style.display = 'none';
     return;
   }
 
-  // Build pill — instance name with dot inside, colour driven by enabled state
-  const idx     = _getSelectedIdx(kind);
-  const inst    = instances[idx] || instances[0];
-  const enabled = inst.enabled !== false;
-  const dotColor     = enabled ? (kind === 'radarr' ? 'var(--accent)' : 'var(--ok)') : 'var(--muted)';
-  const pillBg       = enabled ? (kind === 'radarr' ? 'var(--accent-dim)' : 'rgba(34,197,94,.08)') : 'rgba(255,255,255,.04)';
-  const pillBorder   = enabled ? (kind === 'radarr' ? 'var(--accent-border)' : 'rgba(34,197,94,.22)') : 'rgba(255,255,255,.1)';
-  const pillColor    = enabled ? (kind === 'radarr' ? 'var(--accent-lt)' : '#86efac') : 'var(--muted)';
+  // Build pill — instance name with dot inside, always enabled (disabled filtered out)
+  const idx  = _getSelectedIdx(kind);
+  const inst = enabledInstances[idx] || enabledInstances[0];
+  const dotColor   = kind === 'radarr' ? 'var(--accent)'        : 'var(--ok)';
+  const pillBg     = kind === 'radarr' ? 'var(--accent-dim)'    : 'rgba(34,197,94,.08)';
+  const pillBorder = kind === 'radarr' ? 'var(--accent-border)' : 'rgba(34,197,94,.22)';
+  const pillColor  = kind === 'radarr' ? 'var(--accent-lt)'     : '#86efac';
 
   const pill = document.createElement('span');
   pill.className = 'filter-inst-pill';
-  pill.style.cssText = `display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.04em;background:${pillBg};border:1px solid ${pillBorder};color:${pillColor};${enabled ? '' : 'filter:saturate(0);opacity:.5'}`;
+  pill.style.cssText = `display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.04em;background:${pillBg};border:1px solid ${pillBorder};color:${pillColor}`;
   pill.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>${escapeHtml(inst.name || (kind === 'radarr' ? 'Radarr' : 'Sonarr'))}`;
   hdrLeft.insertBefore(pill, hdrLeft.firstChild);
 
-  // Dropdown — only shown for multiple instances
+  // Dropdown — only shown for multiple enabled instances
   if (!sel) return;
-  if (instances.length === 1) {
+  if (enabledInstances.length === 1) {
     sel.style.display = 'none';
   } else {
     sel.style.display = '';
     const current = parseInt(sel.value || '0', 10);
-    sel.innerHTML = instances.map((inst, i) =>
+    sel.innerHTML = enabledInstances.map((inst, i) =>
       `<option value="${i}"${i === current ? ' selected' : ''}>${inst.name || 'Instance ' + i}</option>`
     ).join('');
   }
@@ -239,9 +245,11 @@ function _filterSearch(kind, section) {
   _renderList(kind, section, val);
 }
 
-// ── Status helper — sets msg element with colour ──────────────────────────────
+// ── Status helper — sets msg element with colour and toggles pending border ───
 function _setFilterStatus(kind, type, text) {
-  const msg = el('filter-' + kind + '-msg');
+  const msg  = el('filter-' + kind + '-msg');
+  const box  = el('filters-' + kind + '-box');
+  if (box) box.classList.toggle('filter-box-pending', type === 'pending');
   if (!msg) return;
   if (type === 'pending') {
     msg.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;color:var(--warn)"><span style="width:6px;height:6px;border-radius:50%;background:var(--warn);flex-shrink:0;display:inline-block"></span>${text}</span>`;
@@ -267,6 +275,7 @@ function _toggleFilterItem(kind, section, id) {
   const arr = section === 'tags' ? state.excludedTags : state.excludedProfiles;
   const pos = arr.indexOf(id);
   if (pos === -1) arr.push(id); else arr.splice(pos, 1);
+  state.dirty = true;
 
   _renderPills(kind, section);
   const searchId = 'filter-' + kind + '-' + (section === 'tags' ? 'tag' : 'profile') + '-search';
@@ -346,6 +355,7 @@ async function saveFilters(kind) {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(cfg) });
     if (res?.ok) {
       CFG = cfg;
+      state.dirty = false;
       _setFilterStatus(kind, 'ok', 'Saved');
       setTimeout(() => { _setFilterStatus(kind, '', ''); }, 2000);
     } else {

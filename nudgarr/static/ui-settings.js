@@ -177,6 +177,17 @@ function showTab(name) {
       return;
     }
   }
+  // Filters tab — check for pending changes before navigating away
+  if (ACTIVE_TAB === 'filters' && name !== 'filters') {
+    if (typeof _filterHasPending === 'function' && _filterHasPending()) {
+      showConfirm(
+        'Pending Changes',
+        'You have unapplied filter changes. Proceed without applying?',
+        'Proceed'
+      ).then(ok => { if (ok) _doShowTab(name); });
+      return;
+    }
+  }
   _doShowTab(name);
 }
 

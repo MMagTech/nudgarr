@@ -154,23 +154,27 @@ function _renderFilterBox(kind) {
 
 // ── Build loaded body HTML ────────────────────────────────────────────────────
 function _buildLoadedBodyHTML(kind, tags, excludedTagIds, profiles, excludedProfileIds, readOnly) {
-  const searchAttr = readOnly ? 'disabled' : `oninput="_filterSearch('${kind}','tags')" autocomplete="off"`;
-  const profileSearchAttr = readOnly ? 'disabled' : `oninput="_filterSearch('${kind}','profiles')" autocomplete="off"`;
+  const noTags     = tags.length === 0;
+  const noProfiles = profiles.length === 0;
+  const searchAttr        = readOnly || noTags     ? 'disabled' : `oninput="_filterSearch('${kind}','tags')" autocomplete="off"`;
+  const profileSearchAttr = readOnly || noProfiles ? 'disabled' : `oninput="_filterSearch('${kind}','profiles')" autocomplete="off"`;
+  const noTagsMsg     = noTags     ? `<div class="help" style="font-style:italic;padding:5px 0">No tags configured in this instance</div>` : '';
+  const noProfilesMsg = noProfiles ? `<div class="help" style="font-style:italic;padding:5px 0">No quality profiles found</div>` : '';
   return `
-    <div style="margin-bottom:12px">
-      <div class="card-label" style="margin-bottom:8px">Filtered Tags</div>
+    <div class="filter-section">
+      <div class="card-label" style="margin-bottom:8px;flex-shrink:0">Filtered Tags</div>
       <div id="filter-${kind}-tag-pills" class="filter-pill-area"></div>
       <input id="filter-${kind}-tag-search" class="filter-search" placeholder="Search tags…" ${searchAttr}>
-      <div id="filter-${kind}-tag-list" class="filter-list"></div>
+      <div id="filter-${kind}-tag-list" class="filter-list">${noTagsMsg}</div>
     </div>
-    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
-    <div style="margin-bottom:12px">
-      <div class="card-label" style="margin-bottom:8px">Filtered Quality Profiles</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;flex-shrink:0">
+    <div class="filter-section">
+      <div class="card-label" style="margin-bottom:8px;flex-shrink:0">Filtered Quality Profiles</div>
       <div id="filter-${kind}-profile-pills" class="filter-pill-area"></div>
       <input id="filter-${kind}-profile-search" class="filter-search" placeholder="Search profiles…" ${profileSearchAttr}>
-      <div id="filter-${kind}-profile-list" class="filter-list"></div>
+      <div id="filter-${kind}-profile-list" class="filter-list">${noProfilesMsg}</div>
     </div>
-    <div class="save-bar" style="margin-top:4px">
+    <div class="save-bar" style="margin-top:8px;flex-shrink:0">
       <span class="msg" id="filter-${kind}-msg" style="flex:1;text-align:center"></span>
       <button class="btn sm primary" ${readOnly ? 'disabled' : `onclick="saveFilters('${kind}')"`}>Apply</button>
     </div>`;

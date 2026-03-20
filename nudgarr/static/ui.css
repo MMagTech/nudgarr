@@ -591,20 +591,24 @@
     }
 
     /* ── Filters tab ── */
-    .filter-pill-area { height: 60px; overflow-y: auto; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px; margin-bottom: 8px; }
+    .filter-pill-area { min-height: 24px; overflow-y: auto; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px; margin-bottom: 8px; flex-shrink: 0; }
     .filter-active-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12px; height: 22px; flex-shrink: 0; background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent-lt); cursor: pointer; }
     .filter-active-pill:hover { border-color: var(--accent); }
     .filter-active-pill.pill-sonarr { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.28); color: var(--ok); }
     .filter-active-pill.pill-sonarr:hover { border-color: var(--ok); }
     .filter-pill-x { color: var(--muted); font-size: 14px; line-height: 1; }
     .filter-pill-x:hover { color: var(--bad); }
-    .filter-search { width: 100%; background: var(--surface); border: 1px solid var(--border-md); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; font-family: inherit; margin-bottom: 4px; box-sizing: border-box; }
+    .filter-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .filter-search { width: 100%; background: var(--surface); border: 1px solid var(--border-md); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; font-family: inherit; margin-bottom: 4px; box-sizing: border-box; flex-shrink: 0; }
     .filter-search:focus { outline: none; border-color: var(--border-focus); }
-    .filter-list { max-height: 110px; overflow-y: auto; }
+    .filter-search:disabled { opacity: 0.4; cursor: default; }
+    .filter-list { flex: 1; overflow-y: auto; min-height: 0; }
     .filter-list-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; user-select: none; color: var(--text-dim); transition: background .1s, color .1s; }
     .filter-list-item:hover { background: rgba(255,255,255,.04); color: var(--text); }
     .filter-list-item.active-radarr { color: var(--accent-lt); background: var(--accent-dim); }
     .filter-list-item.active-sonarr { color: var(--ok); background: rgba(34,197,94,.1); }
+    .filter-card-body { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 0; }
+    .filter-box-fixed { height: 520px; display: flex; flex-direction: column; }
     .tab-filters.tab-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
     .filter-box-pending { border-color: rgba(251,191,36,.4) !important; }
 

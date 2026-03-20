@@ -284,7 +284,7 @@
       <div class="grid cols2">
 
         <!-- Radarr filter box -->
-        <div class="card" id="filters-radarr-box">
+        <div class="card filter-box-fixed" id="filters-radarr-box">
           <div class="card-hdr" style="margin-bottom:12px">
             <div id="filter-radarr-hdr-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
               <select id="filter-radarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px;display:none" onchange="onFilterInstanceChange('radarr')"></select>
@@ -292,13 +292,13 @@
             <button class="btn sm" id="filter-radarr-load-btn" onclick="loadArrData('radarr')">Load Tags &amp; Profiles</button>
           </div>
 
-          <div id="filter-radarr-body">
+          <div id="filter-radarr-body" class="filter-card-body">
             <div class="help" style="text-align:center;padding:20px 0">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</div>
           </div>
         </div>
 
         <!-- Sonarr filter box -->
-        <div class="card" id="filters-sonarr-box">
+        <div class="card filter-box-fixed" id="filters-sonarr-box">
           <div class="card-hdr" style="margin-bottom:12px">
             <div id="filter-sonarr-hdr-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
               <select id="filter-sonarr-idx" style="margin-left:4px;font-size:12px;padding:3px 7px;max-width:130px;display:none" onchange="onFilterInstanceChange('sonarr')"></select>
@@ -306,7 +306,7 @@
             <button class="btn sm" id="filter-sonarr-load-btn" onclick="loadArrData('sonarr')">Load Tags &amp; Profiles</button>
           </div>
 
-          <div id="filter-sonarr-body">
+          <div id="filter-sonarr-body" class="filter-card-body">
             <div class="help" style="text-align:center;padding:20px 0">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</div>
           </div>
         </div>

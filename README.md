@@ -9,9 +9,9 @@ Nudgarr keeps your Radarr and Sonarr libraries improving automatically, scheduli
 
 Nudgarr includes a full web UI accessible from any browser on your network. No separate app required — just navigate to `http://your-host:8085` after setup.
 
-The interface covers everything in one place: instance management, sweep status and history, confirmed imports with quality upgrade tracking, exclusions, notifications, and per-instance configuration. On mobile, a purpose-built layout activates automatically in portrait and landscape.
+<img src="docs/ui-demo.gif" width="900" alt="Nudgarr UI"/>
 
-*Video walkthrough coming soon.*
+The interface covers everything in one place: instance management, sweep status and history, confirmed imports with quality upgrade tracking, exclusions, notifications, and per-instance configuration. On mobile, a purpose-built layout activates automatically in portrait and landscape.
 
 ---
 
@@ -23,9 +23,12 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - [How Nudgarr Works](https://github.com/MMagTech/nudgarr/wiki/How-Nudgarr-Works)
 - [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference)
 - [Per-Instance Overrides](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
+- [Tag & Quality Profile Filters](https://github.com/MMagTech/nudgarr/wiki/Filters)
+- [Radarr & Sonarr Backlog](https://github.com/MMagTech/nudgarr/wiki/Radarr-and-Sonarr-Backlog)
 - [Exclusions](https://github.com/MMagTech/nudgarr/wiki/Exclusions)
 - [Notifications (Apprise)](https://github.com/MMagTech/nudgarr/wiki/Notifications-(Apprise))
 - [FAQ & Troubleshooting](https://github.com/MMagTech/nudgarr/wiki/FAQ-&-Troubleshooting)
+- [Glossary](https://github.com/MMagTech/nudgarr/wiki/Glossary)
 
 ---
 

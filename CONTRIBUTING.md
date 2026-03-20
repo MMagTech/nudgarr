@@ -124,7 +124,7 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
-4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions and tag/profile filters from the instance's `sweep_filters` config, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
+4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
 5. `run_sweep` returns a summary dict
 6. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
 7. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep
@@ -225,7 +225,7 @@ import logging
 logger = logging.getLogger(__name__)
 ```
 
-The `nudgarr` root logger is configured by `log_setup.py` at startup — child loggers inherit its level and handlers automatically. Use `logger.debug` for per-item detail (cooldown skips, quality fetches), `logger.info` for lifecycle events (sweep start/complete, import confirmed), `logger.warning` for recoverable issues, and `logger.exception` inside except blocks to capture the full traceback. `validate.py` enforces that every operational file has a logger — new files without one will fail the Logging Adoption check.
+The `nudgarr` root logger is configured by `log_setup.py` at startup — child loggers inherit its level and handlers automatically. Use `logger.debug` for per-item detail (cooldown skips, queue skips, quality fetches), `logger.info` for lifecycle events (sweep start/complete, import confirmed), `logger.warning` for recoverable issues, and `logger.exception` inside except blocks to capture the full traceback. `validate.py` enforces that every operational file has a logger — new files without one will fail the Logging Adoption check.
 
 ---
 

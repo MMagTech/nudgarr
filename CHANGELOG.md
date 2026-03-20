@@ -14,6 +14,7 @@ All notable changes to Nudgarr are documented here.
 - Overrides desktop — card pill now renders instance name with dot inside, removing the redundant separate name text
 - Overrides landscape — stray `—` removed from panel header area; panel body now scrolls when content exceeds viewport height so Max Backlog and Max Missing Days are always reachable; rail updated to new accent pill style matching Filters rail
 - Filters landscape — panel now correctly fills the right column alongside the rail; tags and profiles rendered in a two-column grid (tags left, profiles right) with each column as a flex container so lists stretch to fill available height and scroll independently; filter count chip updated to accent pill style
+- Sweep logging — quality profile filter debug log now shows the profile name instead of the numeric ID (e.g. `profile=HD-1080p` instead of `profile_id=1`), matching the existing tag label resolution; `arr_get_profile_map` added to `arr_clients.py` as a shared helper
 - Instances — instance health dot now correctly updates after toggle-then-save; `TOGGLE_IN_PROGRESS` guard cleaned up after health check completes so subsequent saves no longer leave the dot stale
 
 **Tag and Quality Profile Filtering**

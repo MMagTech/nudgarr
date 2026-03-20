@@ -25,6 +25,7 @@ import requests
 from nudgarr import db
 from nudgarr.arr_clients import (
     arr_get_tag_map,
+    arr_get_profile_map,
     radarr_get_cutoff_unmet_movies,
     radarr_get_missing_movies,
     radarr_get_queued_movie_ids,
@@ -95,6 +96,7 @@ def _sweep_radarr_instance(
 
     # Fetch tag map once if tag filtering is active — used for debug log labels only
     tag_map = arr_get_tag_map(session, url, key) if excluded_tags else {}
+    profile_map = arr_get_profile_map(session, url, key) if excluded_profiles else {}
 
     all_movies = radarr_get_cutoff_unmet_movies(session, url, key)
     all_movies = [m for m in all_movies if (m.get("title") or "").lower() not in excluded_titles]
@@ -121,8 +123,8 @@ def _sweep_radarr_instance(
         for m in all_movies:
             pid = m.get("qualityProfileId")
             if pid in excluded_profiles:
-                logger.debug("[Radarr:%s] skipped_profile: %s (profile_id=%s)",
-                             name, m.get("title", "?"), pid)
+                logger.debug("[Radarr:%s] skipped_profile: %s (profile=%s)",
+                             name, m.get("title", "?"), profile_map.get(pid, pid))
                 skipped_profile += 1
             else:
                 filtered.append(m)
@@ -199,8 +201,8 @@ def _sweep_radarr_instance(
             for m in missing_records:
                 pid = m.get("qualityProfileId")
                 if pid in excluded_profiles:
-                    logger.debug("[Radarr:%s] skipped_profile (backlog): %s (profile_id=%s)",
-                                 name, m.get("title", "?"), pid)
+                    logger.debug("[Radarr:%s] skipped_profile (backlog): %s (profile=%s)",
+                                 name, m.get("title", "?"), profile_map.get(pid, pid))
                     skipped_profile += 1
                 else:
                     filtered.append(m)
@@ -296,6 +298,7 @@ def _sweep_sonarr_instance(
 
     # Fetch tag map once if tag filtering is active — used for debug log labels only
     tag_map = arr_get_tag_map(session, url, key) if excluded_tags else {}
+    profile_map = arr_get_profile_map(session, url, key) if excluded_profiles else {}
 
     # Fetch series meta once per instance — passed to both cutoff and missing
     # to avoid a redundant /api/v3/series call when backlog is enabled.
@@ -326,8 +329,8 @@ def _sweep_sonarr_instance(
         for e in all_episodes:
             pid = e.get("qualityProfileId")
             if pid in excluded_profiles:
-                logger.debug("[Sonarr:%s] skipped_profile: %s (profile_id=%s)",
-                             name, e.get("title", "?"), pid)
+                logger.debug("[Sonarr:%s] skipped_profile: %s (profile=%s)",
+                             name, e.get("title", "?"), profile_map.get(pid, pid))
                 skipped_profile += 1
             else:
                 filtered.append(e)
@@ -394,8 +397,8 @@ def _sweep_sonarr_instance(
             for e in missing_records:
                 pid = e.get("qualityProfileId")
                 if pid in excluded_profiles:
-                    logger.debug("[Sonarr:%s] skipped_profile (backlog): %s (profile_id=%s)",
-                                 name, e.get("title", "?"), pid)
+                    logger.debug("[Sonarr:%s] skipped_profile (backlog): %s (profile=%s)",
+                                 name, e.get("title", "?"), profile_map.get(pid, pid))
                     skipped_profile += 1
                 else:
                     filtered.append(e)

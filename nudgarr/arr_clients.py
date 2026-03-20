@@ -4,7 +4,7 @@ nudgarr/arr_clients.py
 All outbound HTTP calls to Radarr and Sonarr. No business logic here —
 these functions fetch data and trigger commands, nothing else.
 
-  Shared  : arr_get_tag_map
+  Shared  : arr_get_tag_map, arr_get_profile_map
   Radarr  : radarr_get_cutoff_unmet_movies, radarr_get_missing_movies,
             radarr_search_movies, radarr_get_queued_movie_ids,
             radarr_get_movie_quality
@@ -158,7 +158,29 @@ def arr_get_tag_map(
     return tag_map
 
 
-# ── Sonarr ────────────────────────────────────────────────────────────
+def arr_get_profile_map(
+    session: requests.Session,
+    url: str,
+    key: str,
+) -> Dict[int, str]:
+    """Fetch all quality profiles from a Radarr or Sonarr instance and return {profile_id: name}.
+
+    Both apps share the same /api/v3/qualityProfile endpoint. Returns an empty dict on
+    failure so callers degrade gracefully (numeric IDs shown instead of names).
+    """
+    profile_map: Dict[int, str] = {}
+    try:
+        data = req(session, "GET", f"{url.rstrip('/')}/api/v3/qualityProfile", key)
+        if isinstance(data, list):
+            for p in data:
+                if isinstance(p.get("id"), int) and isinstance(p.get("name"), str):
+                    profile_map[p["id"]] = p["name"]
+    except Exception:
+        # L-F4: warn with traceback — failure here means filter logging falls back
+        # to numeric IDs rather than names, which is acceptable but worth flagging
+        logger.warning("arr_get_profile_map failed for %s — profile names unavailable", mask_url(url), exc_info=True)
+    return profile_map
+
 
 def _sonarr_get_series_meta(
     session: requests.Session,

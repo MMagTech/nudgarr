@@ -131,7 +131,10 @@ def _sweep_radarr_instance(
         all_movies = filtered
 
     queued_movie_ids = radarr_get_queued_movie_ids(session, url, key)
+    queued_skipped = [m for m in all_movies if m["id"] in queued_movie_ids]
     all_movies = [m for m in all_movies if m["id"] not in queued_movie_ids]
+    for m in queued_skipped:
+        logger.debug("[Radarr:%s] skipped_queued: %s (id=%s)", name, m.get("title", "?"), m["id"])
     skipped_unavailable = [m for m in all_movies if not m.get("isAvailable", True)]
     all_movies = [m for m in all_movies if m.get("isAvailable", True)]
     if skipped_unavailable:
@@ -147,8 +150,8 @@ def _sweep_radarr_instance(
         all_movies, "radarr", name, inst_url, "movie",
         cooldown_hours, radarr_max, radarr_sample_mode
     )
-    logger.info("[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d skipped_profile=%d skipped_cooldown=%d will_search=%d limit=%d",
-                name, len(all_ids), eligible, skipped_tag, skipped_profile, skipped, len(chosen_items), radarr_max)
+    logger.info("[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d skipped_profile=%d skipped_queued=%d skipped_not_available=%d skipped_cooldown=%d will_search=%d limit=%d",
+                name, len(all_ids), eligible, skipped_tag, skipped_profile, len(queued_skipped), len(skipped_unavailable), skipped, len(chosen_items), radarr_max)
 
     searched = 0
     for i in range(0, len(chosen_items), batch_size):
@@ -178,7 +181,10 @@ def _sweep_radarr_instance(
     if backlog_enabled and missing_max > 0:
         missing_records = radarr_get_missing_movies(session, url, key)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
+        queued_skipped_missing = [m for m in missing_records if m["id"] in queued_movie_ids]
         missing_records = [m for m in missing_records if m["id"] not in queued_movie_ids]
+        for m in queued_skipped_missing:
+            logger.debug("[Radarr:%s] skipped_queued (backlog): %s (id=%s)", name, m.get("title", "?"), m["id"])
         missing_records = [m for m in missing_records if m.get("isAvailable", True)]
 
         # Tag filter — backlog pipeline
@@ -337,7 +343,10 @@ def _sweep_sonarr_instance(
         all_episodes = filtered
 
     queued_episode_ids = sonarr_get_queued_episode_ids(session, url, key)
+    queued_skipped = [e for e in all_episodes if e["id"] in queued_episode_ids]
     all_episodes = [e for e in all_episodes if e["id"] not in queued_episode_ids]
+    for e in queued_skipped:
+        logger.debug("[Sonarr:%s] skipped_queued: %s (id=%s)", name, e.get("title", "?"), e["id"])
     STATUS["instance_health"][f"sonarr|{name}"] = "ok"
     all_ids = [e["id"] for e in all_episodes]
 
@@ -345,8 +354,8 @@ def _sweep_sonarr_instance(
         all_episodes, "sonarr", name, inst_url, "episode",
         cooldown_hours, sonarr_max, sonarr_sample_mode
     )
-    logger.info("[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d skipped_profile=%d skipped_cooldown=%d will_search=%d limit=%d",
-                name, len(all_ids), eligible, skipped_tag, skipped_profile, skipped, len(chosen_items), sonarr_max)
+    logger.info("[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d skipped_profile=%d skipped_queued=%d skipped_cooldown=%d will_search=%d limit=%d",
+                name, len(all_ids), eligible, skipped_tag, skipped_profile, len(queued_skipped), skipped, len(chosen_items), sonarr_max)
 
     searched = 0
     for i in range(0, len(chosen_items), batch_size):
@@ -375,7 +384,10 @@ def _sweep_sonarr_instance(
     if backlog_enabled and missing_max > 0:
         missing_records = sonarr_get_missing_episodes(session, url, key, series_meta=_series_meta)
         missing_records = [m for m in missing_records if (m.get("title") or "").lower() not in excluded_titles]
+        queued_skipped_missing = [m for m in missing_records if m["id"] in queued_episode_ids]
         missing_records = [m for m in missing_records if m["id"] not in queued_episode_ids]
+        for m in queued_skipped_missing:
+            logger.debug("[Sonarr:%s] skipped_queued (backlog): %s (id=%s)", name, m.get("title", "?"), m["id"])
 
         # Tag filter — backlog pipeline
         if excluded_tags:

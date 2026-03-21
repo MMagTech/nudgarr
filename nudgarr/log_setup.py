@@ -18,6 +18,7 @@ Imports from within the package: constants only.
 
 import logging
 import os
+import time
 from logging.handlers import RotatingFileHandler
 
 from nudgarr.constants import DB_FILE
@@ -47,6 +48,7 @@ def setup_logging(log_level_str: str = "INFO") -> None:
     os.makedirs(LOG_DIR, exist_ok=True)
 
     fmt = logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATE_FORMAT)
+    fmt.converter = time.localtime
 
     root = logging.getLogger("nudgarr")
 

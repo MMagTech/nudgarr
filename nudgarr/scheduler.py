@@ -210,6 +210,9 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                     should_run = True
 
             if should_run:
+                if RUN_LOCK.locked():
+                    logger.debug("Sweep skipped — RUN_LOCK already held (sweep in progress)")
+                    should_run = False
                 STATUS["run_in_progress"] = True
                 try:
                     logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))

@@ -1,0 +1,4 @@
+flask==3.1.2
+requests==2.32.5
+apprise==1.9.8
+croniter==6.2.2

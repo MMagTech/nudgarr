@@ -9,9 +9,9 @@ Nudgarr keeps your Radarr and Sonarr libraries improving automatically, scheduli
 
 Nudgarr includes a full web UI accessible from any browser on your network. No separate app required — just navigate to `http://your-host:8085` after setup.
 
-The interface covers everything in one place: instance management, sweep status and history, confirmed imports with quality upgrade tracking, exclusions, notifications, and per-instance configuration. On mobile, a purpose-built layout activates automatically in portrait and landscape.
+<img src="docs/ui-demo.gif" width="900" alt="Nudgarr UI"/>
 
-*Video walkthrough coming soon.*
+The interface covers everything in one place: instance management, sweep status and history, confirmed imports with quality upgrade tracking, exclusions, notifications, and per-instance configuration. On mobile, a purpose-built layout activates automatically in portrait and landscape.
 
 ---
 
@@ -23,9 +23,12 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - [How Nudgarr Works](https://github.com/MMagTech/nudgarr/wiki/How-Nudgarr-Works)
 - [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference)
 - [Per-Instance Overrides](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
+- [Tag & Quality Profile Filters](https://github.com/MMagTech/nudgarr/wiki/Filters)
+- [Radarr & Sonarr Backlog](https://github.com/MMagTech/nudgarr/wiki/Radarr-and-Sonarr-Backlog)
 - [Exclusions](https://github.com/MMagTech/nudgarr/wiki/Exclusions)
 - [Notifications (Apprise)](https://github.com/MMagTech/nudgarr/wiki/Notifications-(Apprise))
 - [FAQ & Troubleshooting](https://github.com/MMagTech/nudgarr/wiki/FAQ-&-Troubleshooting)
+- [Glossary](https://github.com/MMagTech/nudgarr/wiki/Glossary)
 
 ---
 
@@ -138,47 +141,7 @@ TZ=UTC
 # SECRET_KEY=your-secret-key  # optional, auto-generated if not set
 ```
 
-```yaml
-version: "3.8"
-services:
-  nudgarr:
-    image: mmagtech/nudgarr:latest
-    container_name: nudgarr
-    restart: unless-stopped
-    ports:
-      - "${PORT:-8085}:${PORT:-8085}"
-    volumes:
-      - ${CONFIG_PATH:-./config}:/config
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - PORT=${PORT:-8085}
-      - CONFIG_FILE=/config/nudgarr-config.json
-      - DB_FILE=/config/nudgarr.db
-      - TZ=${TZ:-UTC}
-      # - SECRET_KEY=${SECRET_KEY}  # optional, auto-generated if not set
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,nodev,size=64m
-    tty: false
-    stdin_open: false
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-    pids_limit: 50
-    mem_limit: 128m
-    cpus: 0.5
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
+A ready-to-use `docker-compose.yml` is included in the repo root. Copy it alongside a `.env` file — see `.env.example` for all available options.
 
 ---
 
@@ -231,3 +194,7 @@ For full version history see [CHANGELOG.md](CHANGELOG.md).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure and development guide. For usage questions, the [wiki](https://github.com/MMagTech/nudgarr/wiki) is the first stop.
+
+## Community
+
+Join the community on Reddit at [r/nudgarr](https://www.reddit.com/r/nudgarr) — share configs, ask questions, and follow development updates.

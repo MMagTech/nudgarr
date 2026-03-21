@@ -4,7 +4,8 @@ FROM python:3.12-alpine
 RUN apk upgrade --no-cache
 
 # Install dependencies including su-exec for privilege dropping
-RUN pip install --no-cache-dir --no-compile requests flask apprise croniter \
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --no-compile -r /app/requirements.txt \
     && apk add --no-cache su-exec
 
 WORKDIR /app

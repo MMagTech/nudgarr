@@ -4,6 +4,21 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v4.0.1
+
+**Logging improvements, notification visibility, dependency pinning, and mobile zoom support.**
+
+- Log timestamps now reflect container local time (controlled by the `TZ` environment variable) instead of UTC, matching the time displayed in the scheduler. Both stdout and the rotating log file use local time.
+- Notification logging — `send_notification` now uses `logger.debug` on successful send, `logger.warning` on failure, and `logger.debug` on no-op skips (disabled, no URL, nothing searched). Bare `print()` calls removed throughout `notifications.py`. Full notification visibility in DEBUG log.
+- `notify_sweep_complete` logs a DEBUG line for each skipped instance (notifications disabled or nothing searched) so the reason is always visible in the log.
+- Startup logging — config load summary logged at INFO on startup (`Config loaded — N Radarr, N Sonarr instances`); startup health ping results now include the arr app version on success and clearly label disabled instances; log lines use consistent `[app:name] startup ping — ok (vX.Y.Z)` format.
+- Import check loop now logs a DEBUG line per instance showing how many pending entries were checked and how many were confirmed (`[Stats] [radarr:Radarr] import check — checked 12 events, 2 confirmed`).
+- Scheduler now logs a DEBUG line when a sweep is skipped because `RUN_LOCK` is already held (`Sweep skipped — RUN_LOCK already held`), making it clear why Run Now appeared to do nothing.
+- `requirements.txt` added with pinned versions of all dependencies — `flask`, `requests`, `apprise`, `croniter`. Dockerfile updated to install from `requirements.txt` instead of inline package names, ensuring reproducible builds.
+- Mobile pinch zoom enabled — viewport meta tag updated to `user-scalable=yes` and `maximum-scale=5`. Both iOS and Android can now zoom in and out. Page loads at correct scale on all devices.
+
+---
+
 ## v4.0.0
 
 **Quality upgrade tracking, tag and profile filtering, structured logging, mobile redesign, and a full backend and frontend restructure.**

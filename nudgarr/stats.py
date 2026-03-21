@@ -136,6 +136,8 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
 
     entries = db.get_unconfirmed_entries(check_minutes, now_ts)
     updated = False
+    instance_event_counts: Dict[str, int] = {}
+    instance_confirmed_counts: Dict[str, int] = {}
 
     for entry in entries:
         app = entry.get("app", "radarr")
@@ -146,6 +148,9 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
         )
         if not inst:
             continue
+
+        inst_key = f"{app}:{instance_name}"
+        instance_event_counts[inst_key] = instance_event_counts.get(inst_key, 0) + 1
 
         url = inst["url"].rstrip("/")
         key = inst["key"]
@@ -170,6 +175,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                                               instance_url, item_id, entry_type,
                                               "movies", inst, cfg):
                         updated = True
+                        instance_confirmed_counts[inst_key] = instance_confirmed_counts.get(inst_key, 0) + 1
             else:
                 r = session_obj.get(
                     f"{url}/api/v3/history/series",
@@ -184,6 +190,7 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
                                               instance_url, item_id, entry_type,
                                               "shows", inst, cfg):
                         updated = True
+                        instance_confirmed_counts[inst_key] = instance_confirmed_counts.get(inst_key, 0) + 1
         except Exception:
             # L-F11: full traceback — network errors show str(e) which is adequate,
             # but unexpected code errors (malformed DB row, etc.) need the traceback
@@ -191,6 +198,11 @@ def check_imports(session_obj: requests.Session, cfg: Dict[str, Any]) -> None:
 
     if updated:
         logger.info("[Stats] Import check complete — updated confirmed imports")
+
+    for inst_key, checked in instance_event_counts.items():
+        confirmed = instance_confirmed_counts.get(inst_key, 0)
+        logger.debug("[Stats] [%s] import check — checked %d event%s, %d confirmed",
+                     inst_key, checked, "s" if checked != 1 else "", confirmed)
 
 
 # ── Cooldown selection ────────────────────────────────────────────────

@@ -50,6 +50,14 @@ def main() -> None:
 
     print_banner(cfg)
 
+    # Log config load summary
+    radarr_count = len(cfg.get("instances", {}).get("radarr", []))
+    sonarr_count = len(cfg.get("instances", {}).get("sonarr", []))
+    logger.info("Config loaded — %d Radarr, %d Sonarr instance%s",
+                radarr_count + sonarr_count,
+                radarr_count,
+                "s" if radarr_count != 1 else "")
+
     # Background health ping — parallel, non-blocking, populates dots within ~1s
     def _startup_health_ping():
         _session = requests.Session()
@@ -57,23 +65,26 @@ def main() -> None:
         for _inst in cfg.get("instances", {}).get("radarr", []):
             if not _inst.get("enabled", True):
                 STATUS["instance_health"][f"radarr|{_inst['name']}"] = "disabled"
+                logger.debug("[radarr:%s] startup ping — skipped (disabled)", _inst["name"])
             else:
                 instances.append(("radarr", _inst))
         for _inst in cfg.get("instances", {}).get("sonarr", []):
             if not _inst.get("enabled", True):
                 STATUS["instance_health"][f"sonarr|{_inst['name']}"] = "disabled"
+                logger.debug("[sonarr:%s] startup ping — skipped (disabled)", _inst["name"])
             else:
                 instances.append(("sonarr", _inst))
 
         def _ping(app_name, inst):
             try:
                 _url = f"{inst['url'].rstrip('/')}/api/v3/system/status"
-                req(_session, "GET", _url, inst["key"], timeout=5)
+                data = req(_session, "GET", _url, inst["key"], timeout=5)
                 STATUS["instance_health"][f"{app_name}|{inst['name']}"] = "ok"
-                logger.debug("[%s:%s] startup health ping OK", app_name, inst["name"])
+                version = data.get("version", "unknown") if isinstance(data, dict) else "unknown"
+                logger.debug("[%s:%s] startup ping — ok (v%s)", app_name, inst["name"], version)
             except Exception:
                 STATUS["instance_health"][f"{app_name}|{inst['name']}"] = "bad"
-                logger.warning("[%s:%s] startup health ping FAILED", app_name, inst["name"])
+                logger.warning("[%s:%s] startup ping — failed", app_name, inst["name"])
 
         threads = [threading.Thread(target=_ping, args=(a, i), daemon=True) for a, i in instances]
         for t in threads:

@@ -37,23 +37,24 @@ except ImportError:
 def send_notification(title: str, body: str, cfg: Optional[Dict[str, Any]] = None) -> bool:
     """Send a notification via Apprise. Returns True on success."""
     if not APPRISE_AVAILABLE:
-        print("[Notify] Apprise not available")
+        logger.warning("Apprise not installed — notification skipped: %s", title)
         return False
     if cfg is None:
         cfg = load_or_init_config()
     if not cfg.get("notify_enabled") or not cfg.get("notify_url", "").strip():
+        logger.debug("Notification skipped (disabled or no URL): %s", title)
         return False
     try:
         ap = apprise.Apprise()
         ap.add(cfg["notify_url"].strip())
         result = ap.notify(title=title, body=body)
         if result:
-            print(f"[Notify] Sent: {title}")
+            logger.debug("Notification sent: %s", title)
         else:
-            print(f"[Notify] Failed to send: {title}")
+            logger.warning("Notification failed to send: %s", title)
         return result
     except Exception as e:
-        print(f"[Notify] Error: {e}")
+        logger.warning("Notification error for %s: %s", title, e)
         return False
 
 
@@ -61,16 +62,19 @@ def send_notification(title: str, body: str, cfg: Optional[Dict[str, Any]] = Non
 
 def notify_sweep_complete(summary: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     if not cfg.get("notify_on_sweep_complete", True):
+        logger.debug("Sweep complete notification skipped (disabled in config)")
         return
     lines = []
     for app in ("radarr", "sonarr"):
         for inst in summary.get(app, []):
             # Skip instances that have notifications turned off via per-instance override
             if not inst.get("notifications_enabled", True):
+                logger.debug("Sweep notification skipped for %s (notifications_enabled=False)", inst.get("name", "?"))
                 continue
             searched = inst.get("searched", 0) + inst.get("searched_missing", 0)
             # Skip instances that searched nothing — no point notifying about them
             if searched == 0:
+                logger.debug("Sweep notification skipped for %s (nothing searched)", inst.get("name", "?"))
                 continue
             cutoff = inst.get("searched", 0)
             backlog = inst.get("searched_missing", 0)

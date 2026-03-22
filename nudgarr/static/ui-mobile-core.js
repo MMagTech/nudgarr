@@ -206,7 +206,7 @@ async function mRefreshMobileAutoExclBadge() {
     if (!badge) return;
     if (count > 0) {
       badge.textContent = count;
-      badge.style.display = 'flex';
+      badge.style.display = 'inline-flex';
     } else {
       badge.style.display = 'none';
     }

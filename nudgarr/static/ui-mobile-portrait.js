@@ -23,20 +23,24 @@ function mSwitchTab(name) {
   if (name === 'instances') mRenderInstances();
   if (name === 'history') {
     mLoadExclHistory();
-    // Also refresh exclusions count badge so m-excl-count is accurate as soon
-    // as the History tab opens, without requiring the user to tap the Excluded
-    // inner tab first. mSwitchExclTab('excluded') would also refresh it but
-    // only fires if the user actively taps that inner tab.
+    // Refresh exclusions count badge so m-excl-count is accurate immediately.
     mLoadExclusions();
-    // Acknowledge all unacknowledged auto-exclusions when the user navigates
-    // to History, clearing the nav badge. Mirrors onAutoExclBadgeClick() on
-    // desktop which acknowledges on badge click before showing the history tab.
-    const badge = document.getElementById('m-autoexcl-badge');
-    if (badge && badge.style.display !== 'none') {
-      api('/api/exclusions/acknowledge', {method: 'POST'}).catch(() => {});
-      badge.style.display = 'none';
-    }
   }
+}
+
+// mOnAutoExclRow — tap handler for the auto-exclusion notification row on the
+// Home tab. Acknowledges all unacknowledged entries (clearing the row), then
+// navigates directly to the History tab and switches to the Excluded inner tab
+// so the user lands exactly where the auto-exclusions are listed.
+async function mOnAutoExclRow() {
+  mHaptic(40);
+  try {
+    await api('/api/exclusions/acknowledge', {method: 'POST'});
+  } catch(e) { /* silent */ }
+  // Refresh row immediately — count is now 0
+  mRefreshMobileAutoExclBadge();
+  // Navigate to History and land on Excluded inner tab
+  mOpenExclusions();
 }
 
 // ── Swipe between portrait tabs ────────────────────────────────────────────

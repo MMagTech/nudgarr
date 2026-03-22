@@ -941,6 +941,13 @@
       <div class="m-run-btn-icon" id="m-run-btn-icon">▶</div>
       <span id="m-run-btn-label">Run Now</span>
     </button>
+    <!-- m-autoexcl-row — shown when unacknowledged auto-exclusions exist,
+         replacing the hint text below Run Now. Tapping calls mOnAutoExclRow()
+         which acknowledges, navigates to History, and lands on Excluded tab. -->
+    <div class="m-autoexcl-row" id="m-autoexcl-row" style="display:none" onclick="mOnAutoExclRow()">
+      <span class="m-autoexcl-row-text" id="m-autoexcl-row-text">New Auto-Exclusions</span>
+      <span class="m-autoexcl-row-arr">›</span>
+    </div>
     <div class="m-run-hint-wrap" id="m-run-hint-wrap">
       <div class="m-run-hint"><span>Tap to run a manual sweep</span></div>
     </div>
@@ -1190,9 +1197,6 @@
     <div class="m-nav-item" id="m-nav-history" onclick="mSwitchTab('history')">
       <span class="m-nav-icon">⧗</span>
       <span class="m-nav-label">History</span>
-      <!-- m-autoexcl-badge — shows unacknowledged auto-exclusion count.
-           Hidden at 0. Tapping History tab acknowledges and clears it. -->
-      <span class="m-autoexcl-badge" id="m-autoexcl-badge" style="display:none"></span>
     </div>
     <div class="m-nav-item" id="m-nav-settings" onclick="mSwitchTab('settings')">
       <span class="m-nav-icon">☰</span>

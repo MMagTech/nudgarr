@@ -261,12 +261,17 @@ async function refreshHistory() {
       const rowClass = isExcl && !showExclFilter ? 'row-excluded' : '';
       const exclClass = isExcl ? 'excl-btn excluded' : 'excl-btn';
       const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
-      // When the exclusion filter is active, look up this title in EXCLUSIONS_DATA
-      // to get source, search_count at exclusion time, and excluded_at date
+
+      // Look up exclusion row for all excluded items — needed for both the
+      // source/excluded-on cells (filter mode only) and the eligible again cell.
+      const exclRow = isExcl
+        ? EXCLUSIONS_DATA.find(e => (e.title || '').toLowerCase() === title.toLowerCase())
+        : null;
+
+      // When the exclusion filter is active, build source and excluded-on cells
       let sourceCell = '';
       let excludedOnCell = '';
       if (showExclFilter) {
-        const exclRow = EXCLUSIONS_DATA.find(e => (e.title || '').toLowerCase() === title.toLowerCase());
         if (exclRow) {
           const src = exclRow.source === 'auto' ? 'auto' : 'manual';
           const srcLabel = src === 'auto' ? 'Auto' : 'Manual';
@@ -279,6 +284,31 @@ async function refreshHistory() {
           excludedOnCell = '<td></td>';
         }
       }
+
+      // Eligible Again cell:
+      // - Not excluded: show cooldown-based date from backend (or Next Sweep)
+      // - Manual exclusion: — (stays excluded until manually removed)
+      // - Auto-exclusion with unexclude_days = 0: — (stays excluded until manually removed)
+      // - Auto-exclusion with unexclude_days > 0: excluded_at + unexclude_days
+      let eligibleCell;
+      if (!isExcl) {
+        eligibleCell = it.eligible_again === 'Next Sweep'
+          ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>'
+          : escapeHtml(fmtTime(it.eligible_again));
+      } else if (exclRow && exclRow.source === 'auto' && exclRow.excluded_at) {
+        const unexcludeDays = it.app === 'radarr'
+          ? (CFG?.auto_unexclude_movies_days ?? 0)
+          : (CFG?.auto_unexclude_shows_days ?? 0);
+        if (unexcludeDays > 0) {
+          const excludedDt = new Date(exclRow.excluded_at);
+          excludedDt.setDate(excludedDt.getDate() + unexcludeDays);
+          eligibleCell = `<span style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(excludedDt.toISOString()))}</span>`;
+        } else {
+          eligibleCell = '<span style="color:var(--muted)">—</span>';
+        }
+      } else {
+        eligibleCell = '<span style="color:var(--muted)">—</span>';
+      }
       return `
       <tr class="${rowClass}">
         <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${it.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(it.app)}','${escapeHtml(it.instance_name)}','${escapeHtml(it.item_id)}','${escapeHtml(it.series_id || '')}')">${escapeHtml(title)}</td>
@@ -290,7 +320,7 @@ async function refreshHistory() {
         ${excludedOnCell}
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
-        <td style="color:rgba(176,188,240,.6)">${isExcl ? '<span style="color:var(--muted)">—</span>' : (it.eligible_again === 'Next Sweep' ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>' : escapeHtml(fmtTime(it.eligible_again)))}</td>
+        <td>${eligibleCell}</td>
       </tr>
     `}).join('');
 

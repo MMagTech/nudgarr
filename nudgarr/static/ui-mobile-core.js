@@ -194,23 +194,27 @@ async function mPollCycle() {
 }
 
 // mRefreshMobileAutoExclBadge — fetches the unacknowledged auto-exclusion count
-// and updates the History nav badge visibility and number. Badge is hidden at 0.
-// Called on init (from ui-mobile-portrait.js loadAll block), from mPollCycle
-// every 5s, and after mExclRemove removes an auto-excluded entry. This mirrors
-// the desktop refreshAutoExclBadge() / loadExclusions() flow in ui-sweep.js.
+// and updates the notification row below Run Now on the Home tab. When count > 0
+// the row is shown (replacing the run hint) with the count in the label. When 0
+// the row is hidden and the hint is restored. Called on init, every 5s via
+// mPollCycle, and after mExclRemove removes an auto-excluded entry.
 async function mRefreshMobileAutoExclBadge() {
   try {
     const data = await api('/api/exclusions/unacknowledged-count');
     const count = data?.count ?? 0;
-    const badge = document.getElementById('m-autoexcl-badge');
-    if (!badge) return;
+    const row = document.getElementById('m-autoexcl-row');
+    const text = document.getElementById('m-autoexcl-row-text');
+    const hint = document.getElementById('m-run-hint-wrap');
+    if (!row) return;
     if (count > 0) {
-      badge.textContent = count;
-      badge.style.display = 'inline-flex';
+      if (text) text.textContent = count + ' New Auto-Exclusion' + (count !== 1 ? 's' : '');
+      row.style.display = 'flex';
+      if (hint) hint.style.display = 'none';
     } else {
-      badge.style.display = 'none';
+      row.style.display = 'none';
+      if (hint) hint.style.display = '';
     }
-  } catch(e) { /* silent — badge is non-critical */ }
+  } catch(e) { /* silent — notification row is non-critical */ }
 }
 
 function lsSwitchTabSafe(idx) {

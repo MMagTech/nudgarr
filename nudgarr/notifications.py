@@ -3,10 +3,11 @@ nudgarr/notifications.py
 
 Apprise-based push notification dispatch.
 
-  send_notification     -- core dispatcher, returns True on success
-  notify_sweep_complete -- called after each sweep cycle; per-instance aware
-  notify_import         -- called when an import is confirmed
-  notify_error          -- called on sweep or instance errors
+  send_notification       -- core dispatcher, returns True on success
+  notify_sweep_complete   -- called after each sweep cycle; per-instance aware
+  notify_import           -- called when an import is confirmed
+  notify_auto_exclusion   -- called when a title is auto-excluded
+  notify_error            -- called on sweep or instance errors
 
 All notify_* helpers are no-ops when the relevant trigger is disabled
 in config, or when Apprise is unavailable. notify_sweep_complete respects
@@ -96,6 +97,28 @@ def notify_import(title: str, entry_type: str, instance: str, cfg: Dict[str, Any
     send_notification(
         title="Nudgarr — Import Confirmed",
         body=f"{title} imported via {instance}.",
+        cfg=cfg
+    )
+
+
+def notify_auto_exclusion(title: str, search_count: int, instance: str,
+                          app: str, cfg: Dict[str, Any]) -> None:
+    """Fire a notification when a title is automatically excluded.
+
+    Respects the notify_on_auto_exclusion config flag. Includes the title,
+    how many searches triggered the exclusion, and which instance it came from.
+
+    title        -- title of the excluded item
+    search_count -- number of searches that triggered the auto-exclusion
+    instance     -- instance name (e.g. 'Radarr Main')
+    app          -- 'radarr' or 'sonarr', used to label the item type
+    cfg          -- live config dict
+    """
+    if not cfg.get("notify_on_auto_exclusion", True):
+        return
+    send_notification(
+        title="Nudgarr — Auto-Exclusion",
+        body=f"{title} excluded after {search_count} searches with no confirmed import. ({instance})",
         cfg=cfg
     )
 

@@ -85,7 +85,7 @@ Key tables:
 | `search_history` | Every item Nudgarr has searched, with cooldown timestamps |
 | `stat_entries` | Items pending import confirmation and confirmed imports |
 | `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
-| `exclusions` | Titles excluded from sweeps |
+| `exclusions` | Titles excluded from sweeps — includes source (manual/auto), search count, and acknowledged flag |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |
 | `nudgarr_state` | General key/value persistent state (e.g. last run time) |
@@ -123,11 +123,12 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
-3. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
-4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
-5. `run_sweep` returns a summary dict
-6. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
-7. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep
+3. `run_sweep` runs the auto-unexclude pass first — any auto-excluded titles older than the configured threshold are removed from the exclusions table and their search_count reset to 0 in search_history, making them eligible immediately in this sweep
+4. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
+5. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
+6. `run_sweep` returns a summary dict
+7. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
+8. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep. After each import check cycle it also runs the auto-exclusion evaluation — titles that meet the configured threshold, have no confirmed import, are not in the download queue, and are not already excluded are written to the exclusions table and a notification fires
 
 ---
 
@@ -207,6 +208,22 @@ The sweep logic lives entirely in `sweep.py`. `_sweep_radarr_instance` and `_swe
 The frontend is a multi-file static app — no build step required. `nudgarr/templates/ui.html` is the HTML shell: it defines all element IDs and loads JS and CSS from `nudgarr/static/`. The JS files are split by domain (see project structure above). All files are plain vanilla JavaScript and CSS.
 
 The desktop UI renders on screens 500px and wider. The mobile UI renders on screens under 500px and is a separate layout split across `ui-mobile-core.js`, `ui-mobile-portrait.js`, and `ui-mobile-landscape.js`. Mobile functions are prefixed with `m` (e.g. `mHaptic`, `mSheetOpen`) to avoid collisions with desktop functions.
+
+**Portrait Settings tab steppers**
+
+Settings steppers are driven by four parallel state objects in `ui-mobile-portrait-settings.js`: `M_S_VALS` (current values), `M_S_MINS` (floor per key), `M_S_CFG_KEYS` (maps UI key to CFG field name), and `M_S_HOLD_INCS` (hold-to-accelerate increment). To add a new stepper: add the key to all four objects, add the corresponding HTML in `ui.html` with `id="m-sv-{key}"` on the value element, and add `mSHoldStart`/`mSHoldEnd` handlers on the buttons. `mSSave` automatically includes all keys in `M_S_CFG_KEYS` on the next debounced save — no further wiring needed.
+
+**Threshold/dependent stepper pairs**
+
+Some steppers have a dependency relationship — when a threshold is 0 (feature disabled), a paired unexclude or secondary stepper should grey out. This is handled by `M_S_THRESHOLD_KEYS` (maps threshold key to the ID of its dependent row) and `mSyncAutoExclUi(key)`. `mSStep` calls `mSyncAutoExclUi` automatically whenever a threshold key changes, so the grey state stays live. `mPopulateSettings` also calls it on load. If you add a new threshold/dependent pair, add the mapping to `M_S_THRESHOLD_KEYS` and give the dependent row a stable `id` in `ui.html` — no other changes needed.
+
+**Mobile poll cycle**
+
+`mPollCycle` in `ui-mobile-core.js` runs every 5s. It fetches `/api/status`, updates the home screen, checks the version banner, and refreshes the sweep tab if active. It also calls `mRefreshMobileAutoExclBadge()` on every cycle so the History nav badge stays in sync with the backend without requiring a page reload. If you add a feature that needs periodic refresh on mobile, add it here rather than creating a separate interval.
+
+**Mobile modals**
+
+Mobile confirmation dialogs use the `m-sheet-backdrop` + `m-sheet m-sheet-auto` pattern with `border-radius:20px;margin:16px` inline. Content goes in a `padding:20px 18px 0` div. Buttons go in a `padding:0 18px 20px;margin-top:16px` div. For single-action modals (informational) use the base `m-modal-btn` class (blue). For two-button choice modals use `m-modal-btn-neutral` (Cancel/secondary) and `m-modal-btn-danger` (destructive action) side by side with `display:flex;gap:8px`. Show by setting `display:flex` and adding `m-visible`; hide by removing `m-visible` and setting `display:none` after the 300ms CSS transition.
 
 When adding new HTML elements that are referenced by `el('some-id')` in JS, make sure the `id` attribute exists in `ui.html`. The `validate.py` tool will catch mismatches.
 

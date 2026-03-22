@@ -443,6 +443,15 @@
     .excl-pill.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
     .excl-pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent-lt); }
 
+    /* Auto-exclusion status bar badge */
+    .auto-excl-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.35); color: #fca5a5; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 0 5px; cursor: pointer; transition: background .15s, border-color .15s; line-height: 1; }
+    .auto-excl-badge:hover { background: rgba(239,68,68,.28); border-color: rgba(239,68,68,.6); }
+
+    /* Source badges in Exclusions tab (Manual / Auto) */
+    .source-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; }
+    .source-badge.manual { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: var(--muted); }
+    .source-badge.auto { background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.22); color: #fbbf24; }
+
     /* ── Exclusion icon ── */
     .excl-col { width: 28px; text-align: center; overflow: visible; }
     .excl-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; opacity: 0; transition: opacity .15s, color .15s; padding: 0; line-height: 1; position: relative; }

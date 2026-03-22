@@ -185,9 +185,36 @@ async function mPollCycle() {
       await refreshSweep();
       mRenderSweep();
     }
+    // Refresh the auto-exclusion nav badge on every poll so new auto-exclusions
+    // created during a sweep are reflected without requiring a page reload.
+    mRefreshMobileAutoExclBadge();
   } catch(e) {
     console.warn('[mobile] mPollCycle failed:', e.message);
   }
+}
+
+// mRefreshMobileAutoExclBadge — fetches the unacknowledged auto-exclusion count
+// and updates the notification row below Run Now on the Home tab. When count > 0
+// the row is shown (replacing the run hint) with the count in the label. When 0
+// the row is hidden and the hint is restored. Called on init, every 5s via
+// mPollCycle, and after mExclRemove removes an auto-excluded entry.
+async function mRefreshMobileAutoExclBadge() {
+  try {
+    const data = await api('/api/exclusions/unacknowledged-count');
+    const count = data?.count ?? 0;
+    const row = document.getElementById('m-autoexcl-row');
+    const text = document.getElementById('m-autoexcl-row-text');
+    const hint = document.getElementById('m-run-hint-wrap');
+    if (!row) return;
+    if (count > 0) {
+      if (text) text.textContent = count + ' New Auto-Exclusion' + (count !== 1 ? 's' : '');
+      row.style.display = 'flex';
+      if (hint) hint.style.display = 'none';
+    } else {
+      row.style.display = 'none';
+      if (hint) hint.style.display = '';
+    }
+  } catch(e) { /* silent — notification row is non-critical */ }
 }
 
 function lsSwitchTabSafe(idx) {

@@ -3,17 +3,20 @@ nudgarr/routes/state.py
 
 State inspection, file downloads, and exclusion list management.
 
-  GET  /api/state/summary     -- entry counts and file size per instance
-  GET  /api/state/raw         -- full state dict (compat shim)
-  GET  /api/state/items       -- paginated history items with cooldown info
-  POST /api/state/prune       -- prune entries older than retention_days
-  POST /api/state/clear       -- wipe search history (preserves sweep_lifetime)
-  GET  /api/file/config       -- download config JSON
-  GET  /api/file/state        -- download state JSON (from DB)
-  GET  /api/file/backup       -- download zip of all data
-  GET  /api/exclusions        -- list exclusions
-  POST /api/exclusions/add    -- add a title to exclusions
-  POST /api/exclusions/remove -- remove a title from exclusions
+  GET  /api/state/summary                  -- entry counts and file size per instance
+  GET  /api/state/raw                      -- full state dict (compat shim)
+  GET  /api/state/items                    -- paginated history items with cooldown info
+  POST /api/state/prune                    -- prune entries older than retention_days
+  POST /api/state/clear                    -- wipe search history (preserves sweep_lifetime)
+  GET  /api/file/config                    -- download config JSON
+  GET  /api/file/state                     -- download state JSON (from DB)
+  GET  /api/file/backup                    -- download zip of all data
+  GET  /api/exclusions                     -- list exclusions with source/count/acknowledged
+  GET  /api/exclusions/unacknowledged-count -- count of unseen auto-exclusions (badge)
+  POST /api/exclusions/add                 -- add a manual exclusion
+  POST /api/exclusions/remove              -- remove a title from exclusions
+  POST /api/exclusions/acknowledge         -- mark all auto-exclusions as seen
+  POST /api/exclusions/clear-auto          -- delete all auto-exclusion rows
 """
 
 import io
@@ -148,7 +151,17 @@ def api_file_backup():
 @bp.get("/api/exclusions")
 @requires_auth
 def api_get_exclusions():
+    """Return all exclusion rows including source, search_count, and acknowledged fields."""
     return jsonify(db.get_exclusions())
+
+
+@bp.get("/api/exclusions/unacknowledged-count")
+@requires_auth
+def api_exclusions_unacknowledged_count():
+    """Return the count of auto-exclusions not yet acknowledged by the user.
+    Drives the status bar badge — returns 0 when the badge should be hidden.
+    """
+    return jsonify({"count": db.get_unacknowledged_count()})
 
 
 @bp.post("/api/exclusions/add")
@@ -169,8 +182,34 @@ def api_remove_exclusion():
     title = (data.get("title") or "").strip()
     if not title:
         return jsonify({"error": "title required"}), 400
+    # Check source before removing — if auto-excluded, reset search_count so
+    # the title gets a genuine fresh start and is not immediately re-excluded
+    # by the import check loop on the next cycle.
+    exclusions = db.get_exclusions()
+    row = next((e for e in exclusions if (e.get("title") or "").lower() == title.lower()), None)
     db.remove_exclusion(title)
+    if row and row.get("source") == "auto":
+        db.reset_search_count_by_title(title)
     return jsonify({"ok": True})
+
+
+@bp.post("/api/exclusions/acknowledge")
+@requires_auth
+def api_acknowledge_exclusions():
+    """Mark all auto-exclusion rows as acknowledged, clearing the status bar badge."""
+    db.acknowledge_all()
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/exclusions/clear-auto")
+@requires_auth
+def api_clear_auto_exclusions():
+    """Delete all auto-excluded entries. Manual exclusions are not affected.
+    Used by the Danger Zone reset button and the auto-exclusion disabled popup.
+    Returns the number of rows removed.
+    """
+    removed = db.clear_auto_exclusions()
+    return jsonify({"ok": True, "removed": removed})
 
 # ── Arr link ──────────────────────────────────────────────────────────
 

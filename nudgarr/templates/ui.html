@@ -22,6 +22,9 @@
     </div>
     <div class="header-right">
       <div class="status-bar">
+        <div class="status-seg" id="autoExclBadgeSeg" style="display:none">
+          <span id="autoExclBadge" class="auto-excl-badge" onclick="onAutoExclBadgeClick()" title="New auto-exclusions — click to review"></span>
+        </div>
         <div class="status-seg">
           <div class="run-dot" id="dot-scheduler"></div>
           <span id="txt-scheduler">Loading…</span>
@@ -358,9 +361,16 @@
           <span class="import-stat-label">Movies:</span>
           <span class="import-stat-value" id="statMoviesTotal">—</span>
         </div>
-        <div class="import-stat-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.3);gap:6px;">
-          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(16,185,129,0.6);">Lifetime Confirmed</span>
-          <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Total import events Nudgarr was responsible for. Increments each time a sweep resulted in a confirmed download. Persists through Clear Stats.</div></span>
+        <div class="import-stat-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.3);gap:6px;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(16,185,129,0.6);">Confirmed</span>
+            <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Confirmed imports Nudgarr was responsible for in the selected period. Only the Lifetime total persists through Clear Stats. Last 30 Days and Last 7 Days show a rolling window from today — older entries naturally fall off as time passes.</div></span>
+          </div>
+          <select id="importsPeriod" onchange="onImportsPeriodChange()" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);color:rgba(16,185,129,0.9);border-radius:8px;padding:5px 24px 5px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;text-align:center;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(16,185,129,0.6)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 8px center;">
+            <option value="lifetime">Lifetime</option>
+            <option value="30">Last 30 Days</option>
+            <option value="7">Last 7 Days</option>
+          </select>
         </div>
         <div class="import-stat-card shows">
           <span class="import-stat-label">Episodes:</span>
@@ -457,6 +467,17 @@
           <div class="help">Fires when a searched item is confirmed imported into your library</div>
         </div>
         <div class="field" style="margin-top:12px">
+          <label>Auto-Exclusion</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_auto_exclusion" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a title is automatically excluded after reaching the search threshold with no confirmed import</div>
+        </div>
+        <div class="field" style="margin-top:12px">
           <label>Error</label>
           <div class="toggle-wrap">
             <label class="toggle">
@@ -481,6 +502,15 @@
     <div class="grid">
       <div class="grid cols2">
         <div class="card">
+          <!-- Page navigation header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+            <button class="btn sm adv-pager-btn" id="advPagerPrev" onclick="advSetPage(1)" disabled style="width:28px;padding:0;display:flex;align-items:center;justify-content:center">&#8249;</button>
+            <span style="font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.04em"><span id="advPageNum">1</span> / 2</span>
+            <button class="btn sm adv-pager-btn" id="advPagerNext" onclick="advSetPage(2)" style="width:28px;padding:0;display:flex;align-items:center;justify-content:center">&#8250;</button>
+          </div>
+
+          <!-- Page 1: Backlog Nudges + For the Arr-tists (existing content unchanged) -->
+          <div id="advPage1">
           <p class="section-label">Backlog Nudges</p>
           <div class="help" style="margin-bottom:12px">Finds and searches items missing from your library on top of your regular cutoff sweeps.</div>
           <p class="section-label" style="margin:0 0 8px">Radarr</p>
@@ -562,6 +592,59 @@
           <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
             <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
           </div>
+          </div><!-- end advPage1 -->
+
+          <!-- Page 2: Auto-Exclusion -->
+          <div id="advPage2" style="display:none">
+          <p class="section-label">Auto-Exclusion</p>
+          <div class="help" style="margin-bottom:14px">Automatically exclude titles searched repeatedly with no confirmed import. (0 Disables)</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+            <!-- Radarr column -->
+            <div>
+              <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Radarr</p>
+              <div class="field" style="margin-bottom:10px">
+                <div class="tooltip-wrap">
+                  <label>Exclude After X Searches</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. 0 disables auto-exclusion for movies and greys out the unexclude field.</div></span>
+                </div>
+                <input id="auto_exclude_movies_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
+                <div class="help">0 = Disabled</div>
+              </div>
+              <div class="field" id="auto_unexclude_movies_wrap">
+                <div class="tooltip-wrap">
+                  <label>Unexclude After X Days</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a movie from auto-exclusions after this many days, giving it another chance. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+                </div>
+                <input id="auto_unexclude_movies_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+                <div class="help">0 = Permanent until manually removed</div>
+              </div>
+            </div>
+
+            <!-- Sonarr column -->
+            <div>
+              <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Sonarr</p>
+              <div class="field" style="margin-bottom:10px">
+                <div class="tooltip-wrap">
+                  <label>Exclude After X Searches</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a show after this many searches with no confirmed import. 0 disables auto-exclusion for shows and greys out the unexclude field.</div></span>
+                </div>
+                <input id="auto_exclude_shows_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
+                <div class="help">0 = Disabled</div>
+              </div>
+              <div class="field" id="auto_unexclude_shows_wrap">
+                <div class="tooltip-wrap">
+                  <label>Unexclude After X Days</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a show from auto-exclusions after this many days. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+                </div>
+                <input id="auto_unexclude_shows_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+                <div class="help">0 = Permanent until manually removed</div>
+              </div>
+            </div>
+
+          </div>
+          </div><!-- end advPage2 -->
         </div>
 
         <div class="card">
@@ -633,6 +716,7 @@
         <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
         <div class="row" style="flex-wrap:wrap;gap:8px">
           <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
+          <button class="btn sm danger" onclick="resetAutoExclusions()">Reset Auto-Exclusions</button>
           <button class="btn sm danger" onclick="clearState()">Clear History</button>
           <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
           <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
@@ -714,28 +798,24 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v4.0.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v4.1.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎨 Refreshed UI</div>
-           <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards. The instance modal now has a Test connection button — check your URL and API key before applying.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🚫 Auto-Exclusion</div>
+           <div class="help">Titles that keep getting searched with no download can now exclude themselves automatically. Set a search count threshold per app in Advanced → page 2. Auto-excluded titles show an amber badge in the Exclusions tab and can be cleared individually or in bulk from the Danger Zone. A configurable unexclude timer gives them another chance after a set number of days.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔍 Quality Upgrade Tracking</div>
-           <div class="help">Each import now records the quality path — what the file was before the search and what it upgraded to. Find it in the Imports tab as a new Upgrade column with a hover tooltip showing the full upgrade history per item.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Import Stats Period</div>
+           <div class="help">The Imports tab stats card now lets you switch between Lifetime, Last 30 Days, and Last 7 Days. Lifetime totals are protected and survive a Clear Stats — the rolling windows calculate from your import history and update immediately when you switch.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏷️ Tag &amp; Quality Profile Filters</div>
-           <div class="help">A new Filters tab lets you exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs — they never consume a search slot. Load tags and profiles live from each instance, select what to exclude, and Apply. Available in the desktop Filters tab and the landscape Filters nav tab on mobile.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
-           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog, Execution, Overrides, and Filters tabs.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Auto-Exclusion</div>
+           <div class="help">Auto-exclusion is now fully surfaced on mobile. Configure thresholds and unexclude days directly in the Settings tab alongside Cutoff Max. A red badge on the History nav item shows new auto-exclusions — tap to review and clear. Auto-excluded titles appear in amber in the Excluded list so you can tell them apart from manual ones at a glance.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
-           <div class="help">Structured logging throughout — all output goes to stdout and a rotating log file at /config/logs/nudgarr.log (5 MB per file, 3 backups, 20 MB total cap). Log level is configurable live from the Advanced tab. Sweep and import writes are now batched into single transactions. The frontend is now split across dedicated static files (one per domain) that your browser can cache independently, and the backend routes are organised into focused blueprints — each file covers one area. Contributor docstrings added throughout so the codebase is easier to navigate.</div>
+           <div class="help">Log timestamps now use container local time (set via the TZ env var). Notifications have proper debug and warning logging throughout. All dependencies are now pinned in requirements.txt for reproducible builds. Mobile pinch-to-zoom is enabled on both iOS and Android.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -827,6 +907,20 @@
   </div>
 </div>
 
+<!-- Auto-exclusion disabled popup — fires on save when threshold goes to 0 and auto-exclusions exist -->
+<div class="modal-backdrop" id="autoExclDisabledModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+    <h2 style="margin:0 0 12px">Auto-Exclusion Disabled</h2>
+    <p class="help" id="autoExclDisabledBody" style="margin:0 0 12px;font-size:13px;color:var(--text-dim);line-height:1.6"></p>
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:20px">
+      <p class="help" style="margin:0">If this was accidental, choose Keep. Your auto-exclusions will remain and you can re-enable by setting the threshold above 0. Individual entries can also be removed from the Exclusions tab or cleared in bulk from the Danger Zone.</p>
+    </div>
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <button class="btn sm" onclick="onAutoExclDisabledKeep()">Keep</button>
+      <button class="btn sm danger" onclick="onAutoExclDisabledClear()">Clear</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════ MOBILE UI ══════════════════════════════ -->
 
@@ -847,6 +941,13 @@
       <div class="m-run-btn-icon" id="m-run-btn-icon">▶</div>
       <span id="m-run-btn-label">Run Now</span>
     </button>
+    <!-- m-autoexcl-row — shown when unacknowledged auto-exclusions exist,
+         replacing the hint text below Run Now. Tapping calls mOnAutoExclRow()
+         which acknowledges, navigates to History, and lands on Excluded tab. -->
+    <div class="m-autoexcl-row" id="m-autoexcl-row" style="display:none;align-items:center;justify-content:center;gap:6px;padding:5px 12px;margin-bottom:14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);border-radius:10px;cursor:pointer;" onclick="mOnAutoExclRow()">
+      <span class="m-autoexcl-row-text" id="m-autoexcl-row-text" style="font-size:11px;font-weight:600;color:#fca5a5;white-space:nowrap;">New Auto-Exclusions</span>
+      <span class="m-autoexcl-row-arr" style="font-size:11px;color:#f87171;flex-shrink:0;">›</span>
+    </div>
     <div class="m-run-hint-wrap" id="m-run-hint-wrap">
       <div class="m-run-hint"><span>Tap to run a manual sweep</span></div>
     </div>
@@ -945,6 +1046,28 @@
           <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-cutoff',1)" ontouchcancel="mSHoldEnd('r-cutoff',1)" onmousedown="mSHoldStart('r-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-cutoff',1)" onmouseleave="mSHoldEnd('r-cutoff',1)">+</button>
         </div>
       </div>
+      <div class="m-stepper-row" id="m-row-r-autoexcl">
+        <div>
+          <div class="m-stepper-label">Auto-Exclude</div>
+          <div class="m-stepper-sub">Searches before auto-exclude · 0 off</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-autoexcl',-1);mBtnPress(this)" ontouchend="mSHoldEnd('r-autoexcl',-1)" ontouchcancel="mSHoldEnd('r-autoexcl',-1)" onmousedown="mSHoldStart('r-autoexcl',-1);mBtnPress(this)" onmouseup="mSHoldEnd('r-autoexcl',-1)" onmouseleave="mSHoldEnd('r-autoexcl',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-r-autoexcl">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-autoexcl',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-autoexcl',1)" ontouchcancel="mSHoldEnd('r-autoexcl',1)" onmousedown="mSHoldStart('r-autoexcl',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-autoexcl',1)" onmouseleave="mSHoldEnd('r-autoexcl',1)">+</button>
+        </div>
+      </div>
+      <div class="m-stepper-row" id="m-row-r-unexclude">
+        <div>
+          <div class="m-stepper-label">Unexclude Days</div>
+          <div class="m-stepper-sub">Days before re-eligible · 0 never</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-unexclude',-1);mBtnPress(this)" ontouchend="mSHoldEnd('r-unexclude',-1)" ontouchcancel="mSHoldEnd('r-unexclude',-1)" onmousedown="mSHoldStart('r-unexclude',-1);mBtnPress(this)" onmouseup="mSHoldEnd('r-unexclude',-1)" onmouseleave="mSHoldEnd('r-unexclude',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-r-unexclude">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-unexclude',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-unexclude',1)" ontouchcancel="mSHoldEnd('r-unexclude',1)" onmousedown="mSHoldStart('r-unexclude',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-unexclude',1)" onmouseleave="mSHoldEnd('r-unexclude',1)">+</button>
+        </div>
+      </div>
       <div class="m-seg-row">
         <div class="m-stepper-label">Sample Mode</div>
         <div class="m-seg" id="m-seg-radarr">
@@ -967,6 +1090,28 @@
           <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',-1)" ontouchcancel="mSHoldEnd('s-cutoff',-1)" onmousedown="mSHoldStart('s-cutoff',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',-1)" onmouseleave="mSHoldEnd('s-cutoff',-1)">−</button>
           <div class="m-stepper-val" id="m-sv-s-cutoff">5</div>
           <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',1)" ontouchcancel="mSHoldEnd('s-cutoff',1)" onmousedown="mSHoldStart('s-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',1)" onmouseleave="mSHoldEnd('s-cutoff',1)">+</button>
+        </div>
+      </div>
+      <div class="m-stepper-row" id="m-row-s-autoexcl">
+        <div>
+          <div class="m-stepper-label">Auto-Exclude</div>
+          <div class="m-stepper-sub">Searches before auto-exclude · 0 off</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-autoexcl',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-autoexcl',-1)" ontouchcancel="mSHoldEnd('s-autoexcl',-1)" onmousedown="mSHoldStart('s-autoexcl',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-autoexcl',-1)" onmouseleave="mSHoldEnd('s-autoexcl',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-s-autoexcl">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-autoexcl',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-autoexcl',1)" ontouchcancel="mSHoldEnd('s-autoexcl',1)" onmousedown="mSHoldStart('s-autoexcl',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-autoexcl',1)" onmouseleave="mSHoldEnd('s-autoexcl',1)">+</button>
+        </div>
+      </div>
+      <div class="m-stepper-row" id="m-row-s-unexclude">
+        <div>
+          <div class="m-stepper-label">Unexclude Days</div>
+          <div class="m-stepper-sub">Days before re-eligible · 0 never</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-unexclude',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-unexclude',-1)" ontouchcancel="mSHoldEnd('s-unexclude',-1)" onmousedown="mSHoldStart('s-unexclude',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-unexclude',-1)" onmouseleave="mSHoldEnd('s-unexclude',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-s-unexclude">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-unexclude',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-unexclude',1)" ontouchcancel="mSHoldEnd('s-unexclude',1)" onmousedown="mSHoldStart('s-unexclude',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-unexclude',1)" onmouseleave="mSHoldEnd('s-unexclude',1)">+</button>
         </div>
       </div>
       <div class="m-seg-row">
@@ -1003,6 +1148,13 @@
             <div class="m-toggle-sub">When a searched item downloads</div>
           </div>
           <div class="m-toggle" id="m-toggle-notify-import" onclick="mToggleNotifyEvent('import')"></div>
+        </div>
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Auto-Exclusion</div>
+            <div class="m-toggle-sub">When a title is auto-excluded</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-auto-exclusion" onclick="mToggleNotifyEvent('auto_exclusion')"></div>
         </div>
         <div class="m-toggle-row">
           <div>
@@ -1073,6 +1225,25 @@
         <div class="m-sheet-close" onclick="mCloseExclusions()">✕</div>
       </div>
       <div class="m-sheet-body" id="m-excl-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Auto-Exclusion Disabled popup ──────────────────────────────────────
+       Fires when a threshold stepper steps to 0 and auto-exclusions currently
+       exist. Follows the exact m-ov-modal pattern: m-sheet-backdrop shown via
+       display:flex + m-visible class, m-sheet-auto for dialog sizing.
+       mMaybeShowAutoExclDisabledPopup populates m-autoexcl-disabled-body
+       before opening. Clearing calls /api/exclusions/clear-auto. -->
+  <div class="m-sheet-backdrop" id="m-autoexcl-disabled-modal" style="display:none">
+    <div class="m-sheet m-sheet-auto" style="border-radius:20px;margin:16px">
+      <div style="padding:20px 18px 0">
+        <div class="m-modal-title">Auto-Exclusion Disabled</div>
+        <div class="m-modal-body" id="m-autoexcl-disabled-body"></div>
+      </div>
+      <div style="padding:0 18px 20px;margin-top:16px;display:flex;gap:8px">
+        <button onclick="mOnAutoExclDisabledCancel()" class="m-modal-btn m-modal-btn-neutral" style="flex:1;width:auto">Keep</button>
+        <button onclick="mOnAutoExclDisabledClear()" class="m-modal-btn m-modal-btn-danger" style="flex:1;width:auto">Clear</button>
+      </div>
     </div>
   </div>
 

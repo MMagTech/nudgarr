@@ -231,8 +231,9 @@ function _onTabShown(name) {
 
   if (name === 'history') {
     HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
-    EXCL_FILTER_ACTIVE = false;
-    const pill = el('exclusionsPill'); if (pill) pill.classList.remove('active');
+    if (!EXCL_FILTER_ACTIVE) {
+      const pill = el('exclusionsPill'); if (pill) pill.classList.remove('active');
+    }
     clearHistorySearch();
     if (!el('historyTableWrap').querySelector('table')) {
       el('historyTableWrap').innerHTML = `
@@ -558,6 +559,7 @@ function fillNotifications() {
   el('notify_url').value = CFG.notify_url || '';
   el('notify_on_sweep_complete').checked = CFG.notify_on_sweep_complete !== false;
   el('notify_on_import').checked = CFG.notify_on_import !== false;
+  if (el('notify_on_auto_exclusion')) el('notify_on_auto_exclusion').checked = CFG.notify_on_auto_exclusion !== false;
   el('notify_on_error').checked = CFG.notify_on_error !== false;
   syncNotifyUi();
 }
@@ -600,6 +602,7 @@ async function saveNotifications() {
   CFG.notify_url = el('notify_url').value.trim();
   CFG.notify_on_sweep_complete = el('notify_on_sweep_complete').checked;
   CFG.notify_on_import = el('notify_on_import').checked;
+  if (el('notify_on_auto_exclusion')) CFG.notify_on_auto_exclusion = el('notify_on_auto_exclusion').checked;
   CFG.notify_on_error = el('notify_on_error').checked;
   const r = await api('/api/config', {method: 'POST', body: JSON.stringify(CFG)});
   if (r && r.ok) {
@@ -626,10 +629,37 @@ function fillAdvanced() {
     el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
     syncOverridesToggleLabel();
   }
+  // Auto-exclusion fields (page 2)
+  if (el('auto_exclude_movies_threshold')) el('auto_exclude_movies_threshold').value = CFG.auto_exclude_movies_threshold ?? 0;
+  if (el('auto_exclude_shows_threshold')) el('auto_exclude_shows_threshold').value = CFG.auto_exclude_shows_threshold ?? 0;
+  if (el('auto_unexclude_movies_days')) el('auto_unexclude_movies_days').value = CFG.auto_unexclude_movies_days ?? 0;
+  if (el('auto_unexclude_shows_days')) el('auto_unexclude_shows_days').value = CFG.auto_unexclude_shows_days ?? 0;
   syncAuthUi();
   syncBacklogUi();
   syncSupportLinkUi();
+  syncAutoExclUi();
   el('advMsg').textContent = ''; el('advMsg').className = 'msg';
+}
+
+// advSetPage — switches the Advanced left card between page 1 (Backlog Nudges /
+// For the Arr-tists) and page 2 (Auto-Exclusion). Updates arrow button states.
+function advSetPage(n) {
+  el('advPage1').style.display = n === 1 ? '' : 'none';
+  el('advPage2').style.display = n === 2 ? '' : 'none';
+  el('advPageNum').textContent = n;
+  el('advPagerPrev').disabled = n === 1;
+  el('advPagerNext').disabled = n === 2;
+}
+
+// syncAutoExclUi — greys out the unexclude day fields when the corresponding
+// threshold is 0 (auto-exclusion disabled for that app).
+function syncAutoExclUi() {
+  const moviesOn = parseInt(el('auto_exclude_movies_threshold')?.value || '0', 10) > 0;
+  const showsOn = parseInt(el('auto_exclude_shows_threshold')?.value || '0', 10) > 0;
+  const mWrap = el('auto_unexclude_movies_wrap');
+  const sWrap = el('auto_unexclude_shows_wrap');
+  if (mWrap) { mWrap.style.opacity = moviesOn ? '1' : '0.35'; mWrap.style.pointerEvents = moviesOn ? '' : 'none'; }
+  if (sWrap) { sWrap.style.opacity = showsOn ? '1' : '0.35'; sWrap.style.pointerEvents = showsOn ? '' : 'none'; }
 }
 
 function syncAuthUi() {
@@ -671,14 +701,66 @@ async function saveAdvanced() {
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
     if (el('log_level')) CFG.log_level = el('log_level').value || 'INFO';
+
+    // Auto-exclusion fields — capture previous threshold values before updating
+    // so we can detect a non-zero to zero transition and show the popup if needed
+    const prevMovies = CFG.auto_exclude_movies_threshold ?? 0;
+    const prevShows = CFG.auto_exclude_shows_threshold ?? 0;
+    const newMovies = parseInt(el('auto_exclude_movies_threshold')?.value || '0', 10);
+    const newShows = parseInt(el('auto_exclude_shows_threshold')?.value || '0', 10);
+    CFG.auto_exclude_movies_threshold = newMovies;
+    CFG.auto_exclude_shows_threshold = newShows;
+    CFG.auto_unexclude_movies_days = parseInt(el('auto_unexclude_movies_days')?.value || '0', 10);
+    CFG.auto_unexclude_shows_days = parseInt(el('auto_unexclude_shows_days')?.value || '0', 10);
+
     await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
     fadeNewestAddedWarnings();
+    syncAutoExclUi();
+
+    // Show the auto-exclusion disabled popup if either threshold changed from
+    // non-zero to zero and auto-exclusions currently exist
+    const moviesDisabled = prevMovies > 0 && newMovies === 0;
+    const showsDisabled = prevShows > 0 && newShows === 0;
+    if (moviesDisabled || showsDisabled) {
+      _maybeShowAutoExclDisabledPopup(moviesDisabled, showsDisabled);
+    }
   } catch(e) {
     el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
   }
+}
+
+// _maybeShowAutoExclDisabledPopup — queries the current auto-exclusion counts
+// and shows the disabled popup only if rows actually exist to act on.
+async function _maybeShowAutoExclDisabledPopup(moviesDisabled, showsDisabled) {
+  try {
+    const data = await api('/api/exclusions');
+    const autoRows = (data || []).filter(e => e.source === 'auto');
+    if (autoRows.length === 0) return;
+
+    // Show combined total — clearing is a global action that affects all
+    // auto-exclusions regardless of which app's threshold was set to 0
+    const count = autoRows.length;
+    el('autoExclDisabledBody').textContent =
+      `You have ${count} auto-excluded title${count !== 1 ? 's' : ''}. You can clear them all now or keep them.`;
+    el('autoExclDisabledModal').style.display = 'flex';
+  } catch(e) { /* silent — popup is non-critical */ }
+}
+
+// onAutoExclDisabledKeep — closes the popup, keeping all auto-exclusions intact.
+function onAutoExclDisabledKeep() {
+  el('autoExclDisabledModal').style.display = 'none';
+}
+
+// onAutoExclDisabledClear — deletes all auto-exclusion rows then closes popup.
+async function onAutoExclDisabledClear() {
+  try {
+    await api('/api/exclusions/clear-auto', {method:'POST'});
+    await loadExclusions();
+  } catch(e) { /* silent */ }
+  el('autoExclDisabledModal').style.display = 'none';
 }
 
 async function logout() {
@@ -700,6 +782,15 @@ async function resetConfig() {
 async function clearLog() {
   if (!await showConfirm('Clear Log', 'This will clear the active nudgarr.log file. Rotation backups are not affected. The log will resume writing immediately on the next sweep.', 'Clear', true)) return;
   await api('/api/log/clear', {method:'POST'});
+}
+
+// resetAutoExclusions — removes all auto-excluded entries from the exclusions
+// table. Manual exclusions are not affected. Refreshes the exclusions state
+// and badge after completion.
+async function resetAutoExclusions() {
+  if (!await showConfirm('Reset Auto-Exclusions', 'This will remove all auto-excluded titles. They will become eligible for search again on the next sweep. Manual exclusions are not affected.', 'Reset', true)) return;
+  await api('/api/exclusions/clear-auto', {method:'POST'});
+  await loadExclusions();
 }
 
 async function backupAll() {

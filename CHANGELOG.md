@@ -4,7 +4,35 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
-## v4.0.1
+## v4.1.0
+
+**Auto-exclusion and import stats period toggle.**
+
+**Auto-Exclusion**
+
+- Titles searched N times with no confirmed import are automatically excluded from future sweeps. Configure independently for Radarr (movies) and Sonarr (shows) in Advanced → page 2.
+- Four new Advanced fields: Exclude After X Searches (Radarr), Exclude After X Searches (Sonarr), Unexclude After X Days (Radarr), Unexclude After X Days (Sonarr). All default to 0 (disabled).
+- Setting a threshold to 0 greys out the corresponding unexclude field for that app.
+- Auto-unexclude pass runs at sweep start — titles older than the configured threshold are removed from exclusions before the pipeline runs, making them eligible again immediately.
+- Auto-exclusion check runs inside the import check loop after each cycle. Four conditions must all be true: search count meets the threshold, no confirmed import on record, title not currently in the download queue, title not already excluded. The queue check protects against excluding items that were just grabbed and are still downloading.
+- Exclusions tab gains Source (Manual / Auto) and Excluded On columns when the exclusions filter is active. Auto entries show an amber Auto badge; manual entries show a muted Manual badge.
+- Status bar gains a new leftmost segment showing the count of unacknowledged auto-exclusions. Clicking navigates to the History tab with the exclusions filter active and clears the badge.
+- Saving Advanced with a threshold changing from non-zero to 0 fires a dynamic popup showing current auto-exclusion counts. Keep leaves them in place; Clear removes all auto-exclusion rows. Both choices auto-save without a second click.
+- Reset Auto-Exclusions button added to the Danger Zone — removes all auto-exclusion rows in one action. Manual exclusions are never affected.
+- Separate Apprise notification trigger: Auto-Exclusion. Toggle visible in the Notifications tab between Import Confirmed and Error.
+- Migration v9 adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing rows default to `source=manual`, `search_count=0`, `acknowledged=1`.
+
+**Import Stats Period Toggle**
+
+- The Lifetime Confirmed label on the Imports tab stats card is now a period selector: Lifetime / Last 30 Days / Last 7 Days.
+- Changing the period updates the Movies and Episodes counts immediately with a fade animation.
+- Selection persists across page refreshes via localStorage.
+- Lifetime uses the protected `lifetime_totals` table and survives Clear Stats. Last 30 Days and Last 7 Days are rolling windows calculated from `stat_entries` and reflect any clears.
+- Tooltip updated to explain the rolling window behaviour and the persistence distinction.
+
+---
+
+
 
 **Logging improvements, notification visibility, dependency pinning, and mobile zoom support.**
 
@@ -16,6 +44,20 @@ All notable changes to Nudgarr are documented here.
 - Scheduler now logs a DEBUG line when a sweep is skipped because `RUN_LOCK` is already held (`Sweep skipped — RUN_LOCK already held`), making it clear why Run Now appeared to do nothing.
 - `requirements.txt` added with pinned versions of all dependencies — `flask`, `requests`, `apprise`, `croniter`. Dockerfile updated to install from `requirements.txt` instead of inline package names, ensuring reproducible builds.
 - Mobile pinch zoom enabled — viewport meta tag updated to `user-scalable=yes` and `maximum-scale=5`. Both iOS and Android can now zoom in and out. Page loads at correct scale on all devices.
+
+**Mobile Auto-Exclusion**
+
+- Portrait Settings tab — Radarr and Sonarr cards each gain two new steppers: Auto-Exclude (searches before auto-exclude, 0 = off) and Unexclude Days (days before re-eligible, 0 = never). Unexclude Days row greys immediately when the paired threshold is 0, matching desktop `syncAutoExclUi()` behaviour.
+- Stepping a threshold to 0 with existing auto-exclusions present fires the Auto-Exclusion Disabled popup — Keep leaves all entries in place; Clear removes them. Uses the existing `m-sheet-auto` modal pattern. Body text uses combined total with neutral "title(s)" label since clearing is a global action across all apps.
+- Notifications card gains a fourth toggle — Auto-Exclusion — between Import Confirmed and Error, matching desktop order and `notify_on_auto_exclusion` in config.
+- Home tab gains a notification row below Run Now that shows "N New Auto-Exclusion(s)" when unacknowledged auto-exclusions exist, replacing the hint text. Tapping navigates directly to the History Excluded inner tab and acknowledges all entries, clearing the row. Desktop status bar badge clears on its next poll since the acknowledged flag is shared in the database.
+- Excluded tab: auto-excluded titles render in amber (`#fbbf24`) via `.m-hist-title-auto`, matching the desktop `.source-badge.auto` colour. Manual exclusions remain `--text-dim`.
+- Notification row also refreshes after any exclusion is manually removed via `mExclRemove`.
+- New CSS rules added to `ui-mobile.css`: `.m-autoexcl-row`, `.m-modal-btn-neutral`, `.m-modal-btn-danger`, `.m-hist-title-auto`.
+
+**Bug fixes**
+
+- History tab Eligible Again column now shows a calculated date for auto-excluded titles when Unexclude Days is above 0 (`excluded_at + unexclude_days`). Previously showed `—` for all excluded titles regardless of source or unexclude config. Manual exclusions and auto-exclusions with Unexclude Days = 0 continue to show `—`. Date recalculates from live config on every history refresh so changing the Unexclude Days field updates the column immediately after saving.
 
 ---
 

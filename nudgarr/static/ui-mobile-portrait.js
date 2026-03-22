@@ -21,7 +21,26 @@ function mSwitchTab(name) {
   M_TAB = name;
   if (name === 'sweep') mRenderSweep();
   if (name === 'instances') mRenderInstances();
-  if (name === 'history') mLoadExclHistory();
+  if (name === 'history') {
+    mLoadExclHistory();
+    // Refresh exclusions count badge so m-excl-count is accurate immediately.
+    mLoadExclusions();
+  }
+}
+
+// mOnAutoExclRow — tap handler for the auto-exclusion notification row on the
+// Home tab. Acknowledges all unacknowledged entries (clearing the row), then
+// navigates directly to the History tab and switches to the Excluded inner tab
+// so the user lands exactly where the auto-exclusions are listed.
+async function mOnAutoExclRow() {
+  mHaptic(40);
+  try {
+    await api('/api/exclusions/acknowledge', {method: 'POST'});
+  } catch(e) { /* silent */ }
+  // Refresh row immediately — count is now 0
+  mRefreshMobileAutoExclBadge();
+  // Navigate to History and land on Excluded inner tab
+  mOpenExclusions();
 }
 
 // ── Swipe between portrait tabs ────────────────────────────────────────────
@@ -117,6 +136,9 @@ if (MOBILE) {
     }
     mInitRunBtn();
     mInitUpdateBanner();
+    // Fetch initial auto-exclusion badge count on load so the nav badge is
+    // accurate before the first poll cycle fires at 5s.
+    mRefreshMobileAutoExclBadge();
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
     if (typeof lsPopulate === 'function') lsPopulate();

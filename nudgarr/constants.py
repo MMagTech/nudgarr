@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "4.0.1"
+VERSION = "4.1.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")
@@ -60,6 +60,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "notify_url": "",
     "notify_on_sweep_complete": True,
     "notify_on_import": True,
+    "notify_on_auto_exclusion": True,
     "notify_on_error": True,
 
     # Onboarding
@@ -76,6 +77,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # Logging (v4.0.0)
     "log_level": "INFO",   # DEBUG | INFO | WARNING | ERROR
+
+    # Auto-Exclusion (v4.1.0)
+    # Titles searched this many times with no confirmed import are automatically
+    # excluded. 0 disables auto-exclusion for that app. Each app is independent
+    # so Radarr and Sonarr can have different thresholds.
+    "auto_exclude_movies_threshold": 0,   # searches before auto-excluding a movie
+    "auto_exclude_shows_threshold": 0,    # searches before auto-excluding a show
+    # Auto-excluded titles older than this many days are removed at sweep start,
+    # making them eligible again. 0 means they stay excluded until manually removed.
+    "auto_unexclude_movies_days": 0,      # days before a movie auto-exclusion expires
+    "auto_unexclude_shows_days": 0,       # days before a show auto-exclusion expires
 }
 
 # Valid sample modes for radarr_sample_mode, sonarr_sample_mode, and per-instance overrides.

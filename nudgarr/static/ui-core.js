@@ -7,6 +7,9 @@ let PAGE = 0;              // Current page index for the History tab
 let HISTORY_TOTAL = 0;     // Total history item count from the last fetch (used for pagination)
 let IMPORTS_PAGE = 0;      // Current page index for the Imports/Stats tab
 let IMPORTS_TOTAL = 0;     // Total import count from the last fetch (used for pagination)
+// IMPORTS_PERIOD — persisted in localStorage so the user's selection survives page refreshes.
+// Valid values: 'lifetime', '30', '7'. Defaults to 'lifetime'.
+let IMPORTS_PERIOD = (localStorage.getItem('nudgarr_imports_period') || 'lifetime');
 let ALL_INSTANCES = [];    // Flat ordered list of {key, name, app} built from CFG; used by dropdowns
 // confirmResolve — stores the Promise resolver for the shared confirm-modal pattern.
 // Set by showConfirm(), called by the OK/Cancel buttons, cleared after each use.

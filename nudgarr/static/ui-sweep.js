@@ -135,10 +135,15 @@ function showSweepNoInstancesModal() {
 
 // ── Exclusions ─────────────────────────────────────────────────────────────
 
+// EXCLUSIONS_DATA — full exclusion rows including source, search_count, acknowledged.
+// Populated by loadExclusions() so the history table can render source badges.
+let EXCLUSIONS_DATA = [];
+
 async function loadExclusions() {
   try {
     const data = await api('/api/exclusions');
-    EXCLUSIONS_SET = new Set((data || []).map(e => (e.title || '').toLowerCase()));
+    EXCLUSIONS_DATA = data || [];
+    EXCLUSIONS_SET = new Set(EXCLUSIONS_DATA.map(e => (e.title || '').toLowerCase()));
     const pill = el('exclusionsPill');
     if (pill) {
       pill.classList.toggle('visible', EXCLUSIONS_SET.size > 0);
@@ -150,7 +155,35 @@ async function loadExclusions() {
       EXCL_FILTER_ACTIVE = false;
       PAGE = 0;
     }
+    // Update status bar badge with current unacknowledged count
+    refreshAutoExclBadge();
   } catch(e) { /* silent */ }
+}
+
+// refreshAutoExclBadge — fetches unacknowledged auto-exclusion count and
+// updates the status bar badge visibility and number. Badge hidden at 0.
+async function refreshAutoExclBadge() {
+  try {
+    const data = await api('/api/exclusions/unacknowledged-count');
+    const count = data?.count ?? 0;
+    const seg = el('autoExclBadgeSeg');
+    const badge = el('autoExclBadge');
+    if (seg) seg.style.display = count > 0 ? '' : 'none';
+    if (badge) badge.textContent = count;
+  } catch(e) { /* silent */ }
+}
+
+// onAutoExclBadgeClick — navigates to the History tab with exclusions filter
+// active and acknowledges all auto-exclusions, clearing the badge.
+async function onAutoExclBadgeClick() {
+  try {
+    await api('/api/exclusions/acknowledge', { method: 'POST' });
+  } catch(e) { /* silent */ }
+  showTab('history');
+  EXCL_FILTER_ACTIVE = true;
+  PAGE = 0;
+  await loadExclusions();
+  refreshHistory();
 }
 
 async function toggleExclusion(title) {
@@ -228,6 +261,54 @@ async function refreshHistory() {
       const rowClass = isExcl && !showExclFilter ? 'row-excluded' : '';
       const exclClass = isExcl ? 'excl-btn excluded' : 'excl-btn';
       const exclTitle = isExcl ? 'Remove from exclusion list' : 'Exclude from future searches';
+
+      // Look up exclusion row for all excluded items — needed for both the
+      // source/excluded-on cells (filter mode only) and the eligible again cell.
+      const exclRow = isExcl
+        ? EXCLUSIONS_DATA.find(e => (e.title || '').toLowerCase() === title.toLowerCase())
+        : null;
+
+      // When the exclusion filter is active, build source and excluded-on cells
+      let sourceCell = '';
+      let excludedOnCell = '';
+      if (showExclFilter) {
+        if (exclRow) {
+          const src = exclRow.source === 'auto' ? 'auto' : 'manual';
+          const srcLabel = src === 'auto' ? 'Auto' : 'Manual';
+          const countHint = src === 'auto' && exclRow.search_count > 0
+            ? ` title="Auto-excluded after ${exclRow.search_count} searches with no confirmed import"` : '';
+          sourceCell = `<td><span class="source-badge ${src}"${countHint}>${srcLabel}</span></td>`;
+          excludedOnCell = `<td style="color:var(--muted)">${escapeHtml(fmtTime(exclRow.excluded_at))}</td>`;
+        } else {
+          sourceCell = '<td></td>';
+          excludedOnCell = '<td></td>';
+        }
+      }
+
+      // Eligible Again cell:
+      // - Not excluded: show cooldown-based date from backend (or Next Sweep)
+      // - Manual exclusion: — (stays excluded until manually removed)
+      // - Auto-exclusion with unexclude_days = 0: — (stays excluded until manually removed)
+      // - Auto-exclusion with unexclude_days > 0: excluded_at + unexclude_days
+      let eligibleCell;
+      if (!isExcl) {
+        eligibleCell = it.eligible_again === 'Next Sweep'
+          ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>'
+          : escapeHtml(fmtTime(it.eligible_again));
+      } else if (exclRow && exclRow.source === 'auto' && exclRow.excluded_at) {
+        const unexcludeDays = it.app === 'radarr'
+          ? (CFG?.auto_unexclude_movies_days ?? 0)
+          : (CFG?.auto_unexclude_shows_days ?? 0);
+        if (unexcludeDays > 0) {
+          const excludedDt = new Date(exclRow.excluded_at);
+          excludedDt.setDate(excludedDt.getDate() + unexcludeDays);
+          eligibleCell = `<span style="color:rgba(176,188,240,.6)">${escapeHtml(fmtTime(excludedDt.toISOString()))}</span>`;
+        } else {
+          eligibleCell = '<span style="color:var(--muted)">—</span>';
+        }
+      } else {
+        eligibleCell = '<span style="color:var(--muted)">—</span>';
+      }
       return `
       <tr class="${rowClass}">
         <td style="color:var(--text);font-weight:500" class="arr-link" title="Open in ${it.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(it.app)}','${escapeHtml(it.instance_name)}','${escapeHtml(it.item_id)}','${escapeHtml(it.series_id || '')}')">${escapeHtml(title)}</td>
@@ -235,11 +316,17 @@ async function refreshHistory() {
         <td style="color:var(--text-dim)">${escapeHtml(it.instance || '')}</td>
         <td style="white-space:nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--accent-dim);color:var(--accent-lt);border:1px solid var(--accent-border)">×${it.search_count}</span>` : ''}</td>
+        ${sourceCell}
+        ${excludedOnCell}
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
-        <td style="color:rgba(176,188,240,.6)">${it.eligible_again === 'Next Sweep' ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>' : escapeHtml(fmtTime(it.eligible_again))}</td>
+        <td>${eligibleCell}</td>
       </tr>
     `}).join('');
+
+    // Source and Excluded On columns only appear when the exclusions filter is active
+    const sourceHeader = showExclFilter ? `<th>Source</th><th>Excluded On</th>` : '';
+    const colspan = showExclFilter ? '10' : '8';
 
     el('historyTableWrap').innerHTML = `
       <table>
@@ -249,11 +336,12 @@ async function refreshHistory() {
           <th class="sortable ${HISTORY_SORT.col==='instance' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="instance" onclick="sortHistory('instance')">Instance</th>
           <th class="sortable ${HISTORY_SORT.col==='sweep_type' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="sweep_type" onclick="sortHistory('sweep_type')">Type</th>
           <th class="sortable ${HISTORY_SORT.col==='search_count' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="search_count" onclick="sortHistory('search_count')">Count</th>
+          ${sourceHeader}
           <th class="sortable ${HISTORY_SORT.col==='library_added' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="library_added" onclick="sortHistory('library_added')">Library Added</th>
           <th class="sortable ${HISTORY_SORT.col==='last_searched' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="last_searched" onclick="sortHistory('last_searched')">Last Searched</th>
           <th class="sortable ${HISTORY_SORT.col==='eligible_again' ? 'sort-'+HISTORY_SORT.dir : ''}" data-col="eligible_again" onclick="sortHistory('eligible_again')">Eligible Again</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="8" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>'}</tbody>
+        <tbody>${rows || `<tr><td colspan="${colspan}" class="help" style="text-align:center;padding:20px">No history yet.</td></tr>`}</tbody>
       </table>
     `;
     applySortIndicators('#historyTableWrap table', HISTORY_SORT);
@@ -413,7 +501,12 @@ async function refreshImports() {
     const inst = el('importsInstance') ? el('importsInstance').value : '';
     const type = el('importsType') ? el('importsType').value : '';
     const limit = parseInt(el('importsLimit')?.value || '25', 10);
-    let url = `/api/stats?offset=${IMPORTS_PAGE * limit}&limit=${limit}`;
+
+    // Restore period select to match the persisted IMPORTS_PERIOD value
+    const periodSel = el('importsPeriod');
+    if (periodSel && periodSel.value !== IMPORTS_PERIOD) periodSel.value = IMPORTS_PERIOD;
+
+    let url = `/api/stats?offset=${IMPORTS_PAGE * limit}&limit=${limit}&period=${encodeURIComponent(IMPORTS_PERIOD)}`;
     if (inst) url += `&instance=${encodeURIComponent(inst)}`;
     if (type) url += `&type=${encodeURIComponent(type)}`;
     const data = await api(url);
@@ -496,6 +589,18 @@ function prevStatsPage() { if (IMPORTS_PAGE > 0) { IMPORTS_PAGE--; refreshImport
 function nextStatsPage() {
   const limit = parseInt(el('importsLimit')?.value || '25', 10);
   if ((IMPORTS_PAGE + 1) * limit < IMPORTS_TOTAL) { IMPORTS_PAGE++; refreshImports(); }
+}
+
+// onImportsPeriodChange — fired when the user changes the period select on the
+// Imports tab stats card. Persists the selection to localStorage so it survives
+// page refreshes, resets to page 0, and re-fetches with the new period.
+function onImportsPeriodChange() {
+  const sel = el('importsPeriod');
+  if (!sel) return;
+  IMPORTS_PERIOD = sel.value;
+  localStorage.setItem('nudgarr_imports_period', IMPORTS_PERIOD);
+  IMPORTS_PAGE = 0;
+  refreshImports();
 }
 
 async function checkImportsNow() {

@@ -29,6 +29,8 @@ from nudgarr.db.history import (
     get_last_searched_ts_bulk,
     get_search_history,
     get_search_history_summary,
+    reset_search_count_by_title,
+    get_high_search_count_unconfirmed,
     prune_search_history,
     clear_search_history,
     count_search_history,
@@ -41,6 +43,7 @@ from nudgarr.db.entries import (
     confirm_stat_entry,
     get_unconfirmed_entries,
     get_confirmed_entries,
+    get_period_totals,
     clear_stat_entries,
     count_confirmed_entries,
     batch_upsert_stat_entries,
@@ -51,7 +54,12 @@ from nudgarr.db.entries import (
 from nudgarr.db.exclusions import (
     get_exclusions,
     add_exclusion,
+    add_auto_exclusion,
     remove_exclusion,
+    clear_auto_exclusions,
+    get_unacknowledged_count,
+    acknowledge_all,
+    get_auto_exclusions_older_than,
 )
 
 from nudgarr.db.lifetime import (
@@ -77,6 +85,8 @@ __all__ = [
     "get_search_history",
     "get_search_history_summary",
     "prune_search_history",
+    "reset_search_count_by_title",
+    "get_high_search_count_unconfirmed",
     "clear_search_history",
     "count_search_history",
     "get_search_history_counts",
@@ -86,6 +96,7 @@ __all__ = [
     "confirm_stat_entry",
     "get_unconfirmed_entries",
     "get_confirmed_entries",
+    "get_period_totals",
     "clear_stat_entries",
     "count_confirmed_entries",
     "batch_upsert_stat_entries",
@@ -94,7 +105,12 @@ __all__ = [
     # exclusions
     "get_exclusions",
     "add_exclusion",
+    "add_auto_exclusion",
     "remove_exclusion",
+    "clear_auto_exclusions",
+    "get_unacknowledged_count",
+    "acknowledge_all",
+    "get_auto_exclusions_older_than",
     # lifetime
     "upsert_sweep_lifetime",
     "get_sweep_lifetime",

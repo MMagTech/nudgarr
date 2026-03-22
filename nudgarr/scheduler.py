@@ -148,6 +148,8 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
     # Fetch candidates from search_history -- titles Nudgarr has searched
     # that are above the threshold and have no confirmed import
     candidates = db.get_high_search_count_unconfirmed(movies_threshold, shows_threshold)
+    logger.info("[Auto-Exclude] found %d candidate(s) (movies_threshold=%d shows_threshold=%d)",
+                len(candidates), movies_threshold, shows_threshold)
 
     for entry in candidates:
         app = entry.get("app", "radarr")

@@ -4,7 +4,35 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
-## v4.0.1
+## v4.1.0
+
+**Auto-exclusion and import stats period toggle.**
+
+**Auto-Exclusion**
+
+- Titles searched N times with no confirmed import are automatically excluded from future sweeps. Configure independently for Radarr (movies) and Sonarr (shows) in Advanced → page 2.
+- Four new Advanced fields: Exclude After X Searches (Radarr), Exclude After X Searches (Sonarr), Unexclude After X Days (Radarr), Unexclude After X Days (Sonarr). All default to 0 (disabled).
+- Setting a threshold to 0 greys out the corresponding unexclude field for that app.
+- Auto-unexclude pass runs at sweep start — titles older than the configured threshold are removed from exclusions before the pipeline runs, making them eligible again immediately.
+- Auto-exclusion check runs inside the import check loop after each cycle. Four conditions must all be true: search count meets the threshold, no confirmed import on record, title not currently in the download queue, title not already excluded. The queue check protects against excluding items that were just grabbed and are still downloading.
+- Exclusions tab gains Source (Manual / Auto) and Excluded On columns when the exclusions filter is active. Auto entries show an amber Auto badge; manual entries show a muted Manual badge.
+- Status bar gains a new leftmost segment showing the count of unacknowledged auto-exclusions. Clicking navigates to the History tab with the exclusions filter active and clears the badge.
+- Saving Advanced with a threshold changing from non-zero to 0 fires a dynamic popup showing current auto-exclusion counts. Keep leaves them in place; Clear removes all auto-exclusion rows. Both choices auto-save without a second click.
+- Reset Auto-Exclusions button added to the Danger Zone — removes all auto-exclusion rows in one action. Manual exclusions are never affected.
+- Separate Apprise notification trigger: Auto-Exclusion. Toggle visible in the Notifications tab between Import Confirmed and Error.
+- Migration v9 adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing rows default to `source=manual`, `search_count=0`, `acknowledged=1`.
+
+**Import Stats Period Toggle**
+
+- The Lifetime Confirmed label on the Imports tab stats card is now a period selector: Lifetime / Last 30 Days / Last 7 Days.
+- Changing the period updates the Movies and Episodes counts immediately with a fade animation.
+- Selection persists across page refreshes via localStorage.
+- Lifetime uses the protected `lifetime_totals` table and survives Clear Stats. Last 30 Days and Last 7 Days are rolling windows calculated from `stat_entries` and reflect any clears.
+- Tooltip updated to explain the rolling window behaviour and the persistence distinction.
+
+---
+
+
 
 **Logging improvements, notification visibility, dependency pinning, and mobile zoom support.**
 

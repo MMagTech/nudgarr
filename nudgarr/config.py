@@ -60,6 +60,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "radarr_missing_added_days",
         "sonarr_missing_max",
         "sonarr_missing_added_days",
+        "auto_exclude_movies_threshold",
+        "auto_exclude_shows_threshold",
+        "auto_unexclude_movies_days",
+        "auto_unexclude_shows_days",
     ):
         v = cfg.get(k)
         if not isinstance(v, int) or v < 0:

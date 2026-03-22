@@ -58,8 +58,9 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
-- Confirmed import tracking with lifetime Movies/Episodes totals, type filtering, title search, and quality upgrade history per item
-- Apprise notifications — sweep complete, import confirmed, and error triggers per instance
+- Auto-exclusion — titles searched N times with no confirmed import are automatically excluded; configurable threshold per app (Radarr/Sonarr); auto-unexclude after X days returns them to eligibility
+- Confirmed import tracking with lifetime Movies/Episodes totals, period toggle (Lifetime / Last 30 Days / Last 7 Days), type filtering, title search, and quality upgrade history per item
+- Apprise notifications — sweep complete, import confirmed, auto-exclusion, and error triggers per instance
 - Configurable log level (DEBUG / INFO / WARNING / ERROR) set live from the Advanced tab with no container restart
 - Diagnostic download includes the last 250 lines of `nudgarr.log` with URLs masked — useful for sharing with the community when troubleshooting
 - First-run onboarding walkthrough and What's New modal on upgrade
@@ -78,6 +79,8 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 ## Power user features
 
 Nudgarr works out of the box with sensible defaults. If you're running a more advanced setup — multiple Radarr or Sonarr instances, separate 4K and 1080p libraries, different cooldown strategies per server, or just want tighter control — these features are worth knowing about.
+
+**Auto-Exclusion** — titles searched N times with no confirmed import are automatically excluded. Configure separate thresholds for Radarr and Sonarr in Advanced. Auto-unexclude after X days returns titles to eligibility so releases that eventually appear on indexers get another chance. The status bar badge surfaces new auto-exclusions without requiring you to dig through the Exclusions tab.
 
 **Tag & Quality Profile Filters** — exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs and never consume a search slot. Load tags and profiles live from each instance in the Filters tab.
 

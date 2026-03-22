@@ -6,6 +6,10 @@ Confirmed import stats endpoints.
   GET  /api/stats                -- paginated confirmed imports with filters
   POST /api/stats/clear          -- clear all stat entries (preserves lifetime totals)
   POST /api/stats/check-imports  -- manually trigger import check now
+
+The GET endpoint accepts an optional `period` query param (lifetime, 30, 7).
+Lifetime returns the persistent lifetime totals; 30 and 7 return rolling window
+counts calculated from imported_ts in stat_entries.
 """
 
 import requests as req_lib
@@ -31,6 +35,7 @@ def api_get_stats():
     cfg = load_or_init_config()
     instance_filter = request.args.get("instance", "").rstrip("/")
     type_filter = request.args.get("type", "")
+    period = request.args.get("period", "lifetime")
     try:
         offset = int(request.args.get("offset", 0))
         limit = int(request.args.get("limit", 25))
@@ -43,7 +48,17 @@ def api_get_stats():
         offset=offset,
         limit=limit,
     )
-    totals = db.get_lifetime_totals()
+
+    # Resolve totals for the requested period.
+    # Lifetime uses the protected lifetime_totals table which persists through
+    # Clear Stats. Rolling windows query stat_entries directly so they reflect
+    # any clears.
+    if period == "7":
+        totals = db.get_period_totals(7)
+    elif period == "30":
+        totals = db.get_period_totals(30)
+    else:
+        totals = db.get_lifetime_totals()
 
     all_instances = []
     for inst in cfg.get("instances", {}).get("radarr", []):

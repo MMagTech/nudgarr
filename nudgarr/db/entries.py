@@ -7,6 +7,7 @@ stat_entries table — all read/write operations.
   confirm_stat_entry()      -- mark a row as imported; insert quality_history row
   get_unconfirmed_entries() -- entries eligible for import checking
   get_confirmed_entries()   -- paginated confirmed imports with quality history
+  get_period_totals()       -- confirmed import counts for a rolling day window
   rename_instance_in_history() -- update instance name after a rename
   clear_stat_entries()      -- delete all rows
   prune_stat_entries()      -- delete old unimported rows
@@ -341,6 +342,39 @@ def count_confirmed_entries() -> int:
     return get_connection().execute(
         "SELECT COUNT(*) FROM stat_entries WHERE imported = 1"
     ).fetchone()[0]
+
+
+def get_period_totals(days: int) -> Dict[str, int]:
+    """Return confirmed import counts for a rolling window of the last N days.
+
+    Counts confirmed stat_entries (imported=1) whose imported_ts falls within
+    the last `days` days from now. Movies are identified by type values
+    containing 'movie' or 'Upgraded'; shows by 'episode', 'missing_episode',
+    or 'Acquired' with a sonarr app value.
+
+    Uses the app column to distinguish movies (radarr) from shows (sonarr)
+    so the split matches the lifetime totals pattern.
+
+    Returns {movies: N, shows: N}. Never returns None.
+    """
+    conn = get_connection()
+    cutoff = iso_z(utcnow() - timedelta(days=days))
+    rows = conn.execute(
+        """
+        SELECT app, COUNT(*) as cnt
+        FROM stat_entries
+        WHERE imported = 1 AND imported_ts >= ?
+        GROUP BY app
+        """,
+        (cutoff,)
+    ).fetchall()
+    result = {"movies": 0, "shows": 0}
+    for r in rows:
+        if r["app"] == "radarr":
+            result["movies"] = r["cnt"]
+        elif r["app"] == "sonarr":
+            result["shows"] = r["cnt"]
+    return result
 
 
 def batch_upsert_stat_entries(entries: list) -> None:

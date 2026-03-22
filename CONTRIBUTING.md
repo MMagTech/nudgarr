@@ -85,7 +85,7 @@ Key tables:
 | `search_history` | Every item Nudgarr has searched, with cooldown timestamps |
 | `stat_entries` | Items pending import confirmation and confirmed imports |
 | `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
-| `exclusions` | Titles excluded from sweeps |
+| `exclusions` | Titles excluded from sweeps — includes source (manual/auto), search count, and acknowledged flag |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |
 | `nudgarr_state` | General key/value persistent state (e.g. last run time) |
@@ -123,11 +123,12 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
-3. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
-4. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
-5. `run_sweep` returns a summary dict
-6. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
-7. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep
+3. `run_sweep` runs the auto-unexclude pass first — any auto-excluded titles older than the configured threshold are removed from the exclusions table and their search_count reset to 0 in search_history, making them eligible immediately in this sweep
+4. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
+5. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
+6. `run_sweep` returns a summary dict
+7. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
+8. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep. After each import check cycle it also runs the auto-exclusion evaluation — titles that meet the configured threshold, have no confirmed import, are not in the download queue, and are not already excluded are written to the exclusions table and a notification fires
 
 ---
 

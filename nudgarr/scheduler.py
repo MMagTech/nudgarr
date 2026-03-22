@@ -23,7 +23,7 @@ from nudgarr import db
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import RUN_LOCK, STATUS, app
-from nudgarr.notifications import notify_error, notify_sweep_complete
+from nudgarr.notifications import notify_error, notify_auto_exclusion, notify_sweep_complete
 from nudgarr.stats import check_imports
 from nudgarr.sweep import run_sweep
 from nudgarr.utils import iso_z, utcnow
@@ -62,6 +62,14 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
     since the last check. Completely decoupled from the sweep schedule — imports
     are polled on their own interval regardless of when sweeps run.
 
+    After each import check cycle, runs the auto-exclusion evaluation for all
+    unconfirmed entries that have met their threshold. The four conditions that
+    must all be true before a title is auto-excluded are:
+      1. Search count >= configured threshold for that app
+      2. No confirmed import on record
+      3. Title not currently in the Radarr or Sonarr download queue
+      4. Title not already in the exclusions list
+
     Intentionally runs even when the scheduler is disabled (manual-only mode).
     """
     session = requests.Session()
@@ -85,9 +93,141 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
                     check_imports(session, cfg)
                 except Exception:
                     logger.exception("[Stats] Import check failed in background loop")
+                # Auto-exclusion check runs after every import check cycle,
+                # regardless of whether check_imports succeeded. Uses the same
+                # session for queue API calls to avoid extra connection overhead.
+                try:
+                    _run_auto_exclusion_check(session, cfg)
+                except Exception:
+                    logger.exception("[Auto-Exclude] Check failed in background loop")
                 last_check_ts = now
     finally:
         db.close_connection()
+
+
+def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) -> None:
+    """Evaluate unconfirmed search history entries for auto-exclusion.
+
+    Called after every import check cycle. For each unconfirmed entry, checks
+    four conditions before writing an auto-exclusion row:
+
+      1. Search count >= configured threshold for the entry's app
+         (auto_exclude_movies_threshold for radarr, auto_exclude_shows_threshold
+         for sonarr). A threshold of 0 disables auto-exclusion for that app.
+      2. No confirmed import on record (entry is still in unconfirmed pool).
+      3. Title not currently present in the Radarr/Sonarr download queue.
+         Protects against excluding an item that was just grabbed and is still
+         downloading — even with an aggressive import check interval.
+      4. Title not already in the exclusions table (prevents duplicate rows).
+
+    When all four conditions are true the exclusion row is written, the search
+    count is reset to 0 in search_history so the title gets a genuine fresh
+    start if auto-unexcluded later, and a notification is fired if enabled.
+    """
+    movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
+    shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
+
+    # Skip entirely if both thresholds are disabled — no work to do
+    if movies_threshold <= 0 and shows_threshold <= 0:
+        return
+
+    # Build instance lookup maps for queue API calls
+    instance_map: Dict[str, Dict] = {}
+    for inst in cfg.get("instances", {}).get("radarr", []):
+        instance_map[("radarr", inst["name"])] = inst
+    for inst in cfg.get("instances", {}).get("sonarr", []):
+        instance_map[("sonarr", inst["name"])] = inst
+
+    # Load current exclusion titles once — used for condition 4
+    existing_exclusions = {
+        e["title"].lower() for e in db.get_exclusions() if e.get("title")
+    }
+
+    # Fetch all unconfirmed entries — same pool the import check uses
+    check_minutes = int(cfg.get("import_check_minutes", 120))
+    entries = db.get_unconfirmed_entries(check_minutes, iso_z(utcnow()))
+
+    for entry in entries:
+        app = entry.get("app", "radarr")
+        threshold = movies_threshold if app == "radarr" else shows_threshold
+        if threshold <= 0:
+            continue
+
+        search_count = entry.get("search_count", 0)
+        title = entry.get("title", "")
+
+        logger.debug(
+            "[Auto-Exclude] checking: %s (%s:%s) searches=%d threshold=%d",
+            title, app, entry.get("instance", "?"), search_count, threshold
+        )
+
+        # Condition 1: threshold met
+        if search_count < threshold:
+            logger.debug("[Auto-Exclude] %s — threshold not met (%d/%d)", title, search_count, threshold)
+            continue
+
+        # Condition 4: not already excluded (checked before queue call to avoid
+        # an unnecessary API call when the title is already known to be excluded)
+        if title.lower() in existing_exclusions:
+            logger.debug("[Auto-Exclude] %s — already excluded", title)
+            continue
+
+        # Condition 3: not currently in the download queue
+        inst_key = (app, entry.get("instance", ""))
+        inst = instance_map.get(inst_key)
+        if inst:
+            in_queue = _is_title_in_queue(session, app, inst, entry.get("item_id", ""))
+            if in_queue:
+                logger.debug("[Auto-Exclude] %s — skipped (in queue)", title)
+                continue
+
+        # All conditions met — write the exclusion row
+        db.add_auto_exclusion(title, search_count)
+        logger.info("[Auto-Exclude] %s excluded after %d searches with no import (%s:%s)",
+                    title, search_count, app, entry.get("instance", "?"))
+        notify_auto_exclusion(title, search_count, entry.get("instance", "?"), app, cfg)
+        # Add to local set so subsequent entries in this same cycle don't trigger again
+        existing_exclusions.add(title.lower())
+
+
+def _is_title_in_queue(session: requests.Session, app: str,
+                       inst: Dict[str, Any], item_id: str) -> bool:
+    """Check whether an item is currently present in the Radarr or Sonarr queue.
+
+    Returns True if the item is found in the queue, False otherwise or on any
+    API error. Errors are logged at debug level — a failed queue check should
+    not block the auto-exclusion evaluation; the conservative outcome is to
+    return False and allow the other conditions to decide.
+
+    app     -- 'radarr' or 'sonarr'
+    inst    -- instance config dict with url and key
+    item_id -- the movie ID (Radarr) or series ID (Sonarr) to check
+    """
+    url = inst["url"].rstrip("/")
+    key = inst["key"]
+    try:
+        if app == "radarr":
+            r = session.get(
+                f"{url}/api/v3/queue",
+                params={"movieId": item_id},
+                headers={"X-Api-Key": key},
+                timeout=10,
+            )
+        else:
+            r = session.get(
+                f"{url}/api/v3/queue",
+                params={"seriesId": item_id},
+                headers={"X-Api-Key": key},
+                timeout=10,
+            )
+        if not r.ok:
+            return False
+        data = r.json()
+        records = data.get("records", []) if isinstance(data, dict) else data
+        return len(records) > 0
+    except Exception as e:
+        logger.debug("[Auto-Exclude] queue check failed for %s/%s: %s", app, item_id, e)
+        return False
 
 
 def _next_cron_utc(expression: str) -> str:

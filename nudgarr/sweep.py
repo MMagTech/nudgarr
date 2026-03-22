@@ -470,6 +470,47 @@ def _resolve(inst: Dict[str, Any], cfg: Dict[str, Any], overrides_enabled: bool,
     return inst.get("overrides", {}).get(key, global_val)
 
 
+# ── Auto-unexclude ────────────────────────────────────────────────────
+
+def _run_auto_unexclude(cfg: Dict[str, Any]) -> None:
+    """Remove auto-exclusions that have exceeded their configured age threshold.
+
+    Runs at the start of each sweep before excluded_titles is built, so any
+    titles removed here are immediately eligible for the current sweep.
+
+    Two independent thresholds — one for movies (Radarr), one for shows (Sonarr).
+    A threshold of 0 means never auto-unexclude for that app.
+
+    Only rows with source='auto' are removed. Manual exclusions are never touched.
+
+    After removing the exclusion row, the search_count is reset to 0 for all
+    search_history rows matching that title. Without this reset the import check
+    loop would see the count still at or above the threshold and immediately
+    re-exclude the title before it ever gets searched again, making the
+    auto-unexclude window functionally useless.
+    """
+    movies_days = int(cfg.get("auto_unexclude_movies_days", 0))
+    shows_days = int(cfg.get("auto_unexclude_shows_days", 0))
+
+    # Build a combined set of thresholds to check. We fetch all aged-out rows
+    # and determine which threshold applies based on the app — but since the
+    # exclusions table has no app column (exclusions are global), we use the
+    # most conservative non-zero threshold available when both are set.
+    # In practice the two thresholds apply to the same pool, so we run both
+    # passes independently using the respective day value.
+    for days, label in ((movies_days, "movies"), (shows_days, "shows")):
+        if days <= 0:
+            continue
+        aged = db.get_auto_exclusions_older_than(days)
+        for row in aged:
+            db.remove_exclusion(row["title"])
+            # Reset search_count by title so the title gets a genuine fresh
+            # start and is not immediately re-excluded on the next import check
+            db.reset_search_count_by_title(row["title"])
+            logger.info("[Auto-Unexclude] %s removed after %d days (%s threshold)",
+                        row["title"], days, label)
+
+
 # ── Orchestrator ──────────────────────────────────────────────────────
 
 def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
@@ -491,6 +532,12 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     sleep_seconds = float(cfg.get("sleep_seconds", 3))
     jitter_seconds = float(cfg.get("jitter_seconds", 2))
     retention_days = int(cfg.get("state_retention_days", 180))
+
+    # ── Auto-unexclude pass ───────────────────────────────────────────
+    # Runs before exclusions are loaded so any titles that aged out are
+    # already removed by the time the pipeline builds excluded_titles.
+    # Only auto-exclusions are touched — manual exclusions are never removed.
+    _run_auto_unexclude(cfg)
 
     exclusions = load_exclusions()
     excluded_titles = {e["title"].lower() for e in exclusions if e.get("title")}

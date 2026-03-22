@@ -8,6 +8,7 @@ search_history table — all read/write operations.
   get_last_searched_ts_bulk()  -- batch cooldown lookup
   get_search_history()         -- paginated history with cooldown metadata
   get_search_history_summary() -- entry counts per instance
+  reset_search_count_by_title() -- reset search_count to 0 on auto-unexclude
   prune_search_history()       -- delete rows older than retention_days
   clear_search_history()       -- delete all rows
 """
@@ -335,4 +336,24 @@ def batch_upsert_search_history(items: List[Dict]) -> None:
                 item.get("now_ts", now_s), item.get("now_ts", now_s),
             )
         )
+    conn.commit()
+
+
+def reset_search_count_by_title(title: str) -> None:
+    """Reset search_count to 0 for all search_history rows matching a title.
+
+    Called when a title is auto-unexcluded at sweep start. Without this reset
+    the import check loop would see the count still at or above the threshold
+    and immediately re-exclude the title before it ever gets searched again,
+    making the auto-unexclude window functionally useless.
+
+    Matches case-insensitively on title across all apps and instances — the
+    exclusions table is global and carries no app or item_id, so title is the
+    only available key. Does nothing if no matching rows exist.
+    """
+    conn = get_connection()
+    conn.execute(
+        "UPDATE search_history SET search_count = 0 WHERE title = ? COLLATE NOCASE",
+        (title.strip(),)
+    )
     conn.commit()

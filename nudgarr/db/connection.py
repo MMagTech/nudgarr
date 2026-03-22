@@ -102,9 +102,12 @@ CREATE INDEX IF NOT EXISTS idx_stat_imported
     ON stat_entries (imported_ts) WHERE imported = 1;
 
 CREATE TABLE IF NOT EXISTS exclusions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    title       TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    excluded_at TEXT NOT NULL
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    title        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    excluded_at  TEXT NOT NULL,
+    source       TEXT NOT NULL DEFAULT 'manual',
+    search_count INTEGER NOT NULL DEFAULT 0,
+    acknowledged INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS sweep_lifetime (
@@ -161,6 +164,7 @@ def init_db() -> None:
     _create_schema(conn)
     _run_migration_v7(conn)
     _run_migration_v8(conn)
+    _run_migration_v9(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -241,3 +245,47 @@ def _run_migration_v8(conn: sqlite3.Connection) -> None:
         logger.info("[Migration v8] Created quality_history table")
     except Exception:
         logger.exception("[Migration v8] FAILED")
+
+
+def _run_migration_v9(conn: sqlite3.Connection) -> None:
+    """Add source, search_count, and acknowledged columns to the exclusions table.
+
+    source       -- 'manual' for user-added exclusions, 'auto' for auto-excluded titles.
+                    Existing rows default to 'manual' since all prior exclusions were
+                    added by the user.
+    search_count -- Number of searches that triggered the auto-exclusion. 0 for manual
+                    entries. Stored for display in the Exclusions tab.
+    acknowledged -- Whether the user has seen this auto-exclusion via the status bar
+                    badge. Defaults to 1 (acknowledged) for existing rows so the badge
+                    only fires for newly auto-excluded titles going forward.
+
+    Fresh installs get these columns via _SCHEMA_SQL. This migration handles all
+    existing installs including v4.0.x upgrades.
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 9"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(exclusions)").fetchall()]
+        if "source" not in cols:
+            conn.execute(
+                "ALTER TABLE exclusions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'"
+            )
+        if "search_count" not in cols:
+            conn.execute(
+                "ALTER TABLE exclusions ADD COLUMN search_count INTEGER NOT NULL DEFAULT 0"
+            )
+        if "acknowledged" not in cols:
+            conn.execute(
+                "ALTER TABLE exclusions ADD COLUMN acknowledged INTEGER NOT NULL DEFAULT 1"
+            )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (9, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        logger.info("[Migration v9] Added source, search_count, acknowledged to exclusions")
+    except Exception:
+        logger.exception("[Migration v9] FAILED")

@@ -106,87 +106,79 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
 
 
 def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) -> None:
-    """Evaluate unconfirmed search history entries for auto-exclusion.
+    """Evaluate search history entries for auto-exclusion.
 
-    Called after every import check cycle. For each unconfirmed entry, checks
-    four conditions before writing an auto-exclusion row:
+    Called after every import check cycle. Drives from search_history rather
+    than stat_entries so only titles Nudgarr has actually searched are evaluated.
+    The database query (get_high_search_count_unconfirmed) returns rows that:
+      - Have search_count >= the configured threshold for their app
+      - Have no confirmed import in stat_entries (LEFT JOIN + IS NULL filter)
 
-      1. Search count >= configured threshold for the entry's app
-         (auto_exclude_movies_threshold for radarr, auto_exclude_shows_threshold
-         for sonarr). A threshold of 0 disables auto-exclusion for that app.
-      2. No confirmed import on record (entry is still in unconfirmed pool).
-      3. Title not currently present in the Radarr/Sonarr download queue.
-         Protects against excluding an item that was just grabbed and is still
-         downloading — even with an aggressive import check interval.
-      4. Title not already in the exclusions table (prevents duplicate rows).
+    For each candidate, two additional conditions are checked at runtime:
+      3. Title not currently in the Radarr/Sonarr download queue -- protects
+         against excluding an item that was just grabbed and is still
+         downloading, regardless of how aggressive the import check interval is
+      4. Title not already in the exclusions table -- prevents duplicate rows
 
-    When all four conditions are true the exclusion row is written, the search
-    count is reset to 0 in search_history so the title gets a genuine fresh
-    start if auto-unexcluded later, and a notification is fired if enabled.
+    When all conditions are met the exclusion row is written with source=auto
+    and the search count at the time of exclusion. A notification fires if the
+    Auto-Exclusion trigger is enabled in Notifications.
+
+    A threshold of 0 disables auto-exclusion for that app entirely.
     """
     movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
     shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
 
-    # Skip entirely if both thresholds are disabled — no work to do
+    # Skip entirely if both thresholds are disabled
     if movies_threshold <= 0 and shows_threshold <= 0:
         return
 
-    # Build instance lookup maps for queue API calls
-    instance_map: Dict[str, Dict] = {}
+    # Build instance lookup map for queue API calls
+    instance_map: Dict[tuple, Dict] = {}
     for inst in cfg.get("instances", {}).get("radarr", []):
         instance_map[("radarr", inst["name"])] = inst
     for inst in cfg.get("instances", {}).get("sonarr", []):
         instance_map[("sonarr", inst["name"])] = inst
 
-    # Load current exclusion titles once — used for condition 4
+    # Load current exclusion titles once for condition 4
     existing_exclusions = {
         e["title"].lower() for e in db.get_exclusions() if e.get("title")
     }
 
-    # Fetch all unconfirmed entries — same pool the import check uses
-    check_minutes = int(cfg.get("import_check_minutes", 120))
-    entries = db.get_unconfirmed_entries(check_minutes, iso_z(utcnow()))
+    # Fetch candidates from search_history -- titles Nudgarr has searched
+    # that are above the threshold and have no confirmed import
+    candidates = db.get_high_search_count_unconfirmed(movies_threshold, shows_threshold)
 
-    for entry in entries:
+    for entry in candidates:
         app = entry.get("app", "radarr")
-        threshold = movies_threshold if app == "radarr" else shows_threshold
-        if threshold <= 0:
-            continue
-
-        search_count = entry.get("search_count", 0)
         title = entry.get("title", "")
+        search_count = entry.get("search_count", 0)
+        instance_name = entry.get("instance_name", "?")
 
         logger.debug(
             "[Auto-Exclude] checking: %s (%s:%s) searches=%d threshold=%d",
-            title, app, entry.get("instance", "?"), search_count, threshold
+            title, app, instance_name, search_count,
+            movies_threshold if app == "radarr" else shows_threshold
         )
 
-        # Condition 1: threshold met
-        if search_count < threshold:
-            logger.debug("[Auto-Exclude] %s — threshold not met (%d/%d)", title, search_count, threshold)
-            continue
-
-        # Condition 4: not already excluded (checked before queue call to avoid
-        # an unnecessary API call when the title is already known to be excluded)
+        # Condition 4: not already excluded
         if title.lower() in existing_exclusions:
-            logger.debug("[Auto-Exclude] %s — already excluded", title)
+            logger.debug("[Auto-Exclude] %s -- already excluded", title)
             continue
 
         # Condition 3: not currently in the download queue
-        inst_key = (app, entry.get("instance", ""))
-        inst = instance_map.get(inst_key)
+        inst = instance_map.get((app, instance_name))
         if inst:
             in_queue = _is_title_in_queue(session, app, inst, entry.get("item_id", ""))
             if in_queue:
-                logger.debug("[Auto-Exclude] %s — skipped (in queue)", title)
+                logger.debug("[Auto-Exclude] %s -- skipped (in queue)", title)
                 continue
 
-        # All conditions met — write the exclusion row
+        # All conditions met -- write the exclusion row
         db.add_auto_exclusion(title, search_count)
         logger.info("[Auto-Exclude] %s excluded after %d searches with no import (%s:%s)",
-                    title, search_count, app, entry.get("instance", "?"))
-        notify_auto_exclusion(title, search_count, entry.get("instance", "?"), app, cfg)
-        # Add to local set so subsequent entries in this same cycle don't trigger again
+                    title, search_count, app, instance_name)
+        notify_auto_exclusion(title, search_count, instance_name, app, cfg)
         existing_exclusions.add(title.lower())
 
 

@@ -8,6 +8,7 @@ search_history table — all read/write operations.
   get_last_searched_ts_bulk()  -- batch cooldown lookup
   get_search_history()         -- paginated history with cooldown metadata
   get_search_history_summary() -- entry counts per instance
+  get_high_search_count_unconfirmed() -- titles above threshold with no confirmed import
   reset_search_count_by_title() -- reset search_count to 0 on auto-unexclude
   prune_search_history()       -- delete rows older than retention_days
   clear_search_history()       -- delete all rows
@@ -357,3 +358,61 @@ def reset_search_count_by_title(title: str) -> None:
         (title.strip(),)
     )
     conn.commit()
+
+
+def get_high_search_count_unconfirmed(movies_threshold: int,
+                                      shows_threshold: int) -> list:
+    """Return search_history rows that have met the auto-exclusion threshold
+    and have no corresponding confirmed import in stat_entries.
+
+    Queries search_history directly — this is the correct source for search
+    counts since stat_entries tracks import status only. The LEFT JOIN on
+    stat_entries filters out any item that has already been confirmed imported
+    (imported=1). Items with no stat_entries row at all are included since
+    they were searched but never confirmed.
+
+    Returns rows with: app, instance_name, instance_url, item_id, item_type,
+    title, search_count. Only rows where search_count >= the relevant threshold
+    for their app are returned. Both thresholds must be > 0 to be applied —
+    a threshold of 0 means disabled for that app.
+
+    movies_threshold -- minimum search_count for radarr entries (0 = skip)
+    shows_threshold  -- minimum search_count for sonarr entries (0 = skip)
+    """
+    conn = get_connection()
+
+    conditions = []
+    params = []
+
+    if movies_threshold > 0:
+        conditions.append(
+            "(sh.app = 'radarr' AND sh.search_count >= ?)"
+        )
+        params.append(movies_threshold)
+    if shows_threshold > 0:
+        conditions.append(
+            "(sh.app = 'sonarr' AND sh.search_count >= ?)"
+        )
+        params.append(shows_threshold)
+
+    if not conditions:
+        return []
+
+    where = " OR ".join(conditions)
+
+    rows = conn.execute(
+        f"""
+        SELECT sh.app, sh.instance_name, sh.instance_url,
+               sh.item_id, sh.item_type, sh.title, sh.search_count
+        FROM search_history sh
+        LEFT JOIN stat_entries se
+            ON se.app          = sh.app
+           AND se.instance_url = sh.instance_url
+           AND se.item_id      = sh.item_id
+           AND se.imported     = 1
+        WHERE ({where})
+          AND se.id IS NULL
+        """,
+        params
+    ).fetchall()
+    return [dict(r) for r in rows]

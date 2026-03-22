@@ -164,29 +164,14 @@ def confirm_stat_entry(
 
 def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
     """Return unimported stat entries that are ready for import checking.
-
     When check_minutes <= 0, returns all unimported entries with no time filter.
     Otherwise returns only entries whose last_searched_ts is at least
-    check_minutes ago, so recently-searched items are not checked prematurely.
-
-    Each row includes search_count joined from search_history (keyed on
-    app + instance_url + item_id) so the auto-exclusion check can evaluate
-    the threshold without a separate query. Defaults to 0 if no matching
-    search_history row exists.
-    """
+    check_minutes ago, so recently-searched items are not checked prematurely."""
     conn = get_connection()
-    base_query = """
-        SELECT se.*,
-               COALESCE(sh.search_count, 0) AS search_count
-        FROM stat_entries se
-        LEFT JOIN search_history sh
-            ON sh.app          = se.app
-           AND sh.instance_url = se.instance_url
-           AND sh.item_id      = se.item_id
-        WHERE se.imported = 0
-    """
     if check_minutes <= 0:
-        rows = conn.execute(base_query).fetchall()
+        rows = conn.execute(
+            "SELECT * FROM stat_entries WHERE imported = 0"
+        ).fetchall()
         return [dict(r) for r in rows]
 
     now_dt = parse_iso(now_ts)
@@ -194,7 +179,10 @@ def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
         return []
     cutoff = iso_z(now_dt - timedelta(minutes=check_minutes))
     rows = conn.execute(
-        base_query + " AND se.last_searched_ts <= ?",
+        """
+        SELECT * FROM stat_entries
+        WHERE imported = 0 AND last_searched_ts <= ?
+        """,
         (cutoff,)
     ).fetchall()
     return [dict(r) for r in rows]

@@ -21,7 +21,17 @@ function mSwitchTab(name) {
   M_TAB = name;
   if (name === 'sweep') mRenderSweep();
   if (name === 'instances') mRenderInstances();
-  if (name === 'history') mLoadExclHistory();
+  if (name === 'history') {
+    mLoadExclHistory();
+    // Acknowledge all unacknowledged auto-exclusions when the user navigates
+    // to History, clearing the nav badge. Mirrors onAutoExclBadgeClick() on
+    // desktop which acknowledges on badge click before showing the history tab.
+    const badge = document.getElementById('m-autoexcl-badge');
+    if (badge && badge.style.display !== 'none') {
+      api('/api/exclusions/acknowledge', {method: 'POST'}).catch(() => {});
+      badge.style.display = 'none';
+    }
+  }
 }
 
 // ── Swipe between portrait tabs ────────────────────────────────────────────
@@ -117,6 +127,9 @@ if (MOBILE) {
     }
     mInitRunBtn();
     mInitUpdateBanner();
+    // Fetch initial auto-exclusion badge count on load so the nav badge is
+    // accurate before the first poll cycle fires at 5s.
+    mRefreshMobileAutoExclBadge();
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
     if (typeof lsPopulate === 'function') lsPopulate();

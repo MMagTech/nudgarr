@@ -740,20 +740,11 @@ async function _maybeShowAutoExclDisabledPopup(moviesDisabled, showsDisabled) {
     const autoRows = (data || []).filter(e => e.source === 'auto');
     if (autoRows.length === 0) return;
 
-    // Count by app — exclusions are global so we use the search_count field
-    // and source to determine which rows are relevant. Since the table has no
-    // app column we show combined counts when multiple apps are affected.
-    const movieCount = moviesDisabled ? autoRows.length : 0;
-    const showCount = showsDisabled ? autoRows.length : 0;
-
-    // Build dynamic body text
-    const parts = [];
-    if (moviesDisabled && autoRows.length > 0) parts.push(`${autoRows.length} auto-excluded movie${autoRows.length !== 1 ? 's' : ''}`);
-    if (showsDisabled && !moviesDisabled && autoRows.length > 0) parts.push(`${autoRows.length} auto-excluded show${autoRows.length !== 1 ? 's' : ''}`);
-    if (parts.length === 0) return;
-
+    // Show combined total — clearing is a global action that affects all
+    // auto-exclusions regardless of which app's threshold was set to 0
+    const count = autoRows.length;
     el('autoExclDisabledBody').textContent =
-      `You have ${parts.join(' and ')}. You can clear them all now or keep them.`;
+      `You have ${count} auto-excluded title${count !== 1 ? 's' : ''}. You can clear them all now or keep them.`;
     el('autoExclDisabledModal').style.display = 'flex';
   } catch(e) { /* silent — popup is non-critical */ }
 }

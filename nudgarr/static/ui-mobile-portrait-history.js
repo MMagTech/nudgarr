@@ -41,10 +41,16 @@ async function mLoadExclusions() {
       listEl.innerHTML = '<p class="m-empty">No exclusions yet.</p>';
       return;
     }
+    // Title colour: auto-excluded entries render in amber (#fbbf24) matching the
+    // .source-badge.auto colour on the desktop exclusions table. Manual entries
+    // use the default m-hist-title colour (--text-dim). Class m-hist-title-auto
+    // is defined in ui-mobile.css.
     listEl.innerHTML = M_EXCL_DATA.map(e => {
       const title = escapeHtml(e.title || '');
+      const isAuto = e.source === 'auto';
+      const titleClass = isAuto ? 'm-hist-title m-hist-title-auto' : 'm-hist-title';
       return '<div class="m-hist-row">'
-        + '<span class="m-hist-title">' + title + '</span>'
+        + '<span class="' + titleClass + '">' + title + '</span>'
         + '<button class="m-excl-remove" data-title="' + escapeHtml(e.title || '') + '">Remove</button>'
         + '</div>';
     }).join('');
@@ -69,6 +75,9 @@ async function mExclRemove(title) {
   try {
     await api('/api/exclusions/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
     await mLoadExclusions();
+    // Refresh the nav badge after removal — the backend resets search_count for
+    // auto-excluded entries on remove, and the unacknowledged count may change.
+    if (typeof mRefreshMobileAutoExclBadge === 'function') mRefreshMobileAutoExclBadge();
   } catch(e) {}
 }
 

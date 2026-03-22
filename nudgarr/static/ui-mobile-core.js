@@ -185,9 +185,32 @@ async function mPollCycle() {
       await refreshSweep();
       mRenderSweep();
     }
+    // Refresh the auto-exclusion nav badge on every poll so new auto-exclusions
+    // created during a sweep are reflected without requiring a page reload.
+    mRefreshMobileAutoExclBadge();
   } catch(e) {
     console.warn('[mobile] mPollCycle failed:', e.message);
   }
+}
+
+// mRefreshMobileAutoExclBadge — fetches the unacknowledged auto-exclusion count
+// and updates the History nav badge visibility and number. Badge is hidden at 0.
+// Called on init (from ui-mobile-portrait.js loadAll block), from mPollCycle
+// every 5s, and after mExclRemove removes an auto-excluded entry. This mirrors
+// the desktop refreshAutoExclBadge() / loadExclusions() flow in ui-sweep.js.
+async function mRefreshMobileAutoExclBadge() {
+  try {
+    const data = await api('/api/exclusions/unacknowledged-count');
+    const count = data?.count ?? 0;
+    const badge = document.getElementById('m-autoexcl-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch(e) { /* silent — badge is non-critical */ }
 }
 
 function lsSwitchTabSafe(idx) {

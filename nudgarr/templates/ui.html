@@ -798,28 +798,24 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v4.0.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v4.1.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎨 Refreshed UI</div>
-           <div class="help">The interface has a new look — deeper backgrounds, refined typography using Outfit and JetBrains Mono, and redesigned sweep cards. The instance modal now has a Test connection button — check your URL and API key before applying.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🚫 Auto-Exclusion</div>
+           <div class="help">Titles that keep getting searched with no download can now exclude themselves automatically. Set a search count threshold per app in Advanced → page 2. Auto-excluded titles show an amber badge in the Exclusions tab and can be cleared individually or in bulk from the Danger Zone. A configurable unexclude timer gives them another chance after a set number of days.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔍 Quality Upgrade Tracking</div>
-           <div class="help">Each import now records the quality path — what the file was before the search and what it upgraded to. Find it in the Imports tab as a new Upgrade column with a hover tooltip showing the full upgrade history per item.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Import Stats Period</div>
+           <div class="help">The Imports tab stats card now lets you switch between Lifetime, Last 30 Days, and Last 7 Days. Lifetime totals are protected and survive a Clear Stats — the rolling windows calculate from your import history and update immediately when you switch.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🏷️ Tag &amp; Quality Profile Filters</div>
-           <div class="help">A new Filters tab lets you exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs — they never consume a search slot. Load tags and profiles live from each instance, select what to exclude, and Apply. Available in the desktop Filters tab and the landscape Filters nav tab on mobile.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Redesign</div>
-           <div class="help">Completely rebuilt mobile experience. Portrait gets a proper four-tab layout (Home, Sweep, History, Settings), instance health and enable/disable on the Home screen, a unified History tab with search history, exclusions, and add-from-history in one place. Landscape gets dedicated Backlog, Execution, Overrides, and Filters tabs.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Auto-Exclusion</div>
+           <div class="help">Auto-exclusion is now fully surfaced on mobile. Configure thresholds and unexclude days directly in the Settings tab alongside Cutoff Max. A red badge on the History nav item shows new auto-exclusions — tap to review and clear. Auto-excluded titles appear in amber in the Excluded list so you can tell them apart from manual ones at a glance.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
-           <div class="help">Structured logging throughout — all output goes to stdout and a rotating log file at /config/logs/nudgarr.log (5 MB per file, 3 backups, 20 MB total cap). Log level is configurable live from the Advanced tab. Sweep and import writes are now batched into single transactions. The frontend is now split across dedicated static files (one per domain) that your browser can cache independently, and the backend routes are organised into focused blueprints — each file covers one area. Contributor docstrings added throughout so the codebase is easier to navigate.</div>
+           <div class="help">Log timestamps now use container local time (set via the TZ env var). Notifications have proper debug and warning logging throughout. All dependencies are now pinned in requirements.txt for reproducible builds. Mobile pinch-to-zoom is enabled on both iOS and Android.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -1043,6 +1039,28 @@
           <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-cutoff',1)" ontouchcancel="mSHoldEnd('r-cutoff',1)" onmousedown="mSHoldStart('r-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-cutoff',1)" onmouseleave="mSHoldEnd('r-cutoff',1)">+</button>
         </div>
       </div>
+      <div class="m-stepper-row" id="m-row-r-autoexcl">
+        <div>
+          <div class="m-stepper-label">Auto-Exclude</div>
+          <div class="m-stepper-sub">Searches before auto-exclude · 0 off</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-autoexcl',-1);mBtnPress(this)" ontouchend="mSHoldEnd('r-autoexcl',-1)" ontouchcancel="mSHoldEnd('r-autoexcl',-1)" onmousedown="mSHoldStart('r-autoexcl',-1);mBtnPress(this)" onmouseup="mSHoldEnd('r-autoexcl',-1)" onmouseleave="mSHoldEnd('r-autoexcl',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-r-autoexcl">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-autoexcl',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-autoexcl',1)" ontouchcancel="mSHoldEnd('r-autoexcl',1)" onmousedown="mSHoldStart('r-autoexcl',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-autoexcl',1)" onmouseleave="mSHoldEnd('r-autoexcl',1)">+</button>
+        </div>
+      </div>
+      <div class="m-stepper-row" id="m-row-r-unexclude">
+        <div>
+          <div class="m-stepper-label">Unexclude Days</div>
+          <div class="m-stepper-sub">Days before re-eligible · 0 never</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-unexclude',-1);mBtnPress(this)" ontouchend="mSHoldEnd('r-unexclude',-1)" ontouchcancel="mSHoldEnd('r-unexclude',-1)" onmousedown="mSHoldStart('r-unexclude',-1);mBtnPress(this)" onmouseup="mSHoldEnd('r-unexclude',-1)" onmouseleave="mSHoldEnd('r-unexclude',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-r-unexclude">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('r-unexclude',1);mBtnPress(this)" ontouchend="mSHoldEnd('r-unexclude',1)" ontouchcancel="mSHoldEnd('r-unexclude',1)" onmousedown="mSHoldStart('r-unexclude',1);mBtnPress(this)" onmouseup="mSHoldEnd('r-unexclude',1)" onmouseleave="mSHoldEnd('r-unexclude',1)">+</button>
+        </div>
+      </div>
       <div class="m-seg-row">
         <div class="m-stepper-label">Sample Mode</div>
         <div class="m-seg" id="m-seg-radarr">
@@ -1065,6 +1083,28 @@
           <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',-1)" ontouchcancel="mSHoldEnd('s-cutoff',-1)" onmousedown="mSHoldStart('s-cutoff',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',-1)" onmouseleave="mSHoldEnd('s-cutoff',-1)">−</button>
           <div class="m-stepper-val" id="m-sv-s-cutoff">5</div>
           <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-cutoff',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-cutoff',1)" ontouchcancel="mSHoldEnd('s-cutoff',1)" onmousedown="mSHoldStart('s-cutoff',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-cutoff',1)" onmouseleave="mSHoldEnd('s-cutoff',1)">+</button>
+        </div>
+      </div>
+      <div class="m-stepper-row" id="m-row-s-autoexcl">
+        <div>
+          <div class="m-stepper-label">Auto-Exclude</div>
+          <div class="m-stepper-sub">Searches before auto-exclude · 0 off</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-autoexcl',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-autoexcl',-1)" ontouchcancel="mSHoldEnd('s-autoexcl',-1)" onmousedown="mSHoldStart('s-autoexcl',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-autoexcl',-1)" onmouseleave="mSHoldEnd('s-autoexcl',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-s-autoexcl">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-autoexcl',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-autoexcl',1)" ontouchcancel="mSHoldEnd('s-autoexcl',1)" onmousedown="mSHoldStart('s-autoexcl',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-autoexcl',1)" onmouseleave="mSHoldEnd('s-autoexcl',1)">+</button>
+        </div>
+      </div>
+      <div class="m-stepper-row" id="m-row-s-unexclude">
+        <div>
+          <div class="m-stepper-label">Unexclude Days</div>
+          <div class="m-stepper-sub">Days before re-eligible · 0 never</div>
+        </div>
+        <div class="m-stepper">
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-unexclude',-1);mBtnPress(this)" ontouchend="mSHoldEnd('s-unexclude',-1)" ontouchcancel="mSHoldEnd('s-unexclude',-1)" onmousedown="mSHoldStart('s-unexclude',-1);mBtnPress(this)" onmouseup="mSHoldEnd('s-unexclude',-1)" onmouseleave="mSHoldEnd('s-unexclude',-1)">−</button>
+          <div class="m-stepper-val" id="m-sv-s-unexclude">0</div>
+          <button class="m-stepper-btn" ontouchstart="event.preventDefault();mSHoldStart('s-unexclude',1);mBtnPress(this)" ontouchend="mSHoldEnd('s-unexclude',1)" ontouchcancel="mSHoldEnd('s-unexclude',1)" onmousedown="mSHoldStart('s-unexclude',1);mBtnPress(this)" onmouseup="mSHoldEnd('s-unexclude',1)" onmouseleave="mSHoldEnd('s-unexclude',1)">+</button>
         </div>
       </div>
       <div class="m-seg-row">
@@ -1101,6 +1141,13 @@
             <div class="m-toggle-sub">When a searched item downloads</div>
           </div>
           <div class="m-toggle" id="m-toggle-notify-import" onclick="mToggleNotifyEvent('import')"></div>
+        </div>
+        <div class="m-toggle-row">
+          <div>
+            <div class="m-toggle-label">Auto-Exclusion</div>
+            <div class="m-toggle-sub">When a title is auto-excluded</div>
+          </div>
+          <div class="m-toggle" id="m-toggle-notify-auto-exclusion" onclick="mToggleNotifyEvent('auto_exclusion')"></div>
         </div>
         <div class="m-toggle-row">
           <div>
@@ -1143,6 +1190,9 @@
     <div class="m-nav-item" id="m-nav-history" onclick="mSwitchTab('history')">
       <span class="m-nav-icon">⧗</span>
       <span class="m-nav-label">History</span>
+      <!-- m-autoexcl-badge — shows unacknowledged auto-exclusion count.
+           Hidden at 0. Tapping History tab acknowledges and clears it. -->
+      <span class="m-autoexcl-badge" id="m-autoexcl-badge" style="display:none"></span>
     </div>
     <div class="m-nav-item" id="m-nav-settings" onclick="mSwitchTab('settings')">
       <span class="m-nav-icon">☰</span>
@@ -1171,6 +1221,25 @@
         <div class="m-sheet-close" onclick="mCloseExclusions()">✕</div>
       </div>
       <div class="m-sheet-body" id="m-excl-sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── Auto-Exclusion Disabled popup ──────────────────────────────────────
+       Fires when a threshold stepper steps to 0 and auto-exclusions currently
+       exist. Follows the exact m-ov-modal pattern: m-sheet-backdrop shown via
+       display:flex + m-visible class, m-sheet-auto for dialog sizing.
+       mMaybeShowAutoExclDisabledPopup populates m-autoexcl-disabled-body
+       before opening. Clearing calls /api/exclusions/clear-auto. -->
+  <div class="m-sheet-backdrop" id="m-autoexcl-disabled-modal" style="display:none">
+    <div class="m-sheet m-sheet-auto" style="border-radius:20px;margin:16px">
+      <div style="padding:20px 18px 0">
+        <div class="m-modal-title">Auto-Exclusion Disabled</div>
+        <div class="m-modal-body" id="m-autoexcl-disabled-body"></div>
+      </div>
+      <div style="padding:0 18px 20px;margin-top:16px;display:flex;gap:8px">
+        <button onclick="mOnAutoExclDisabledCancel()" class="m-modal-btn m-modal-btn-neutral" style="flex:1;width:auto">Cancel</button>
+        <button onclick="mOnAutoExclDisabledClear()" class="m-modal-btn m-modal-btn-danger" style="flex:1;width:auto">Clear</button>
+      </div>
     </div>
   </div>
 

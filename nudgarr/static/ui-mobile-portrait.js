@@ -23,6 +23,11 @@ function mSwitchTab(name) {
   if (name === 'instances') mRenderInstances();
   if (name === 'history') {
     mLoadExclHistory();
+    // Also refresh exclusions count badge so m-excl-count is accurate as soon
+    // as the History tab opens, without requiring the user to tap the Excluded
+    // inner tab first. mSwitchExclTab('excluded') would also refresh it but
+    // only fires if the user actively taps that inner tab.
+    mLoadExclusions();
     // Acknowledge all unacknowledged auto-exclusions when the user navigates
     // to History, clearing the nav badge. Mirrors onAutoExclBadgeClick() on
     // desktop which acknowledges on badge click before showing the history tab.

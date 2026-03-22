@@ -36,6 +36,7 @@
       flex: 1; padding-top: 4px; cursor: pointer;
       border-radius: 12px; user-select: none;
       -webkit-tap-highlight-color: transparent;
+      position: relative;
     }
     .m-nav-icon { font-size: 22px; line-height: 24px; color: var(--muted); transition: color .15s; }
     .m-nav-label { font-size: 10px; color: var(--muted); font-weight: 500; transition: color .15s; }
@@ -415,6 +416,41 @@
       .wrap { display: none !important; }
       #mobile-ui { display: flex !important; }
       body { background: var(--surface); }
+
+      /* ── Auto-exclusion nav badge ────────────────────────────────────────────
+         Sits in the top-right corner of the History nav item. Hidden at 0 via
+         display:none toggled by mRefreshMobileAutoExclBadge(). Red palette
+         matches the desktop .auto-excl-badge. Cleared (acknowledged) when the
+         user taps the History nav item. Requires position:relative on
+         .m-nav-item to anchor correctly. -->
+      .m-autoexcl-badge {
+        position: absolute; top: 0; right: 10px;
+        min-width: 14px; height: 14px;
+        background: rgba(239,68,68,.9); border: 1.5px solid var(--surface);
+        border-radius: 999px; display: flex; align-items: center; justify-content: center;
+        font-size: 8px; font-weight: 700; color: white;
+        padding: 0 3px; line-height: 1; pointer-events: none;
+      }
+
+      /* ── Modal button variants ───────────────────────────────────────────────
+         m-modal-btn is the base (blue CTA, used for single-action modals like
+         the Overrides first-time notice). m-modal-btn-neutral is a secondary
+         choice button — transparent with a subtle border. m-modal-btn-danger
+         is the destructive action, matching .btn.danger on desktop. -->
+      .m-modal-btn-neutral {
+        background: transparent;
+        border: 1px solid var(--border-md); color: var(--text);
+      }
+      .m-modal-btn-danger {
+        background: var(--bad-dim);
+        border: 1px solid var(--bad-border); color: #fca5a5;
+      }
+
+      /* ── Auto-excluded title colour ──────────────────────────────────────────
+         Auto-excluded titles in the Excluded tab render in amber (#fbbf24),
+         matching the .source-badge.auto colour on the desktop exclusions table.
+         Manual exclusions use the default --text-dim. -->
+      .m-hist-title-auto { color: #fbbf24; }
     }
     @media screen and (max-height: 500px) and (orientation: landscape) {
       .wrap { display: none !important; }
@@ -432,37 +468,3 @@
     }
     .m-update-icon { font-size: 15px; color: var(--accent-lt); }
     .m-update-text { font-size: 12px; font-weight: 600; color: #d0daff; letter-spacing: .01em; }
-
-    /* ── Auto-exclusion nav badge ──────────────────────────────────────────────
-       Sits in the top-right corner of the History nav item. Hidden at 0 via
-       display:none toggled by mRefreshMobileAutoExclBadge(). Red palette matches
-       the desktop .auto-excl-badge. Cleared (acknowledged) when the user taps
-       the History nav item. -->
-    .m-autoexcl-badge {
-      position: absolute; top: 0; right: 10px;
-      min-width: 14px; height: 14px;
-      background: rgba(239,68,68,.9); border: 1.5px solid var(--surface);
-      border-radius: 999px; display: flex; align-items: center; justify-content: center;
-      font-size: 8px; font-weight: 700; color: white;
-      padding: 0 3px; line-height: 1; pointer-events: none;
-    }
-
-    /* ── Modal button variants ─────────────────────────────────────────────────
-       m-modal-btn is the base (blue CTA, used for single-action modals like
-       the Overrides first-time notice). m-modal-btn-neutral is a secondary
-       choice button — transparent with a subtle border. m-modal-btn-danger
-       is the destructive action, matching .btn.danger on desktop. -->
-    .m-modal-btn-neutral {
-      background: transparent;
-      border: 1px solid var(--border-md); color: var(--text);
-    }
-    .m-modal-btn-danger {
-      background: var(--bad-dim);
-      border: 1px solid var(--bad-border); color: #fca5a5;
-    }
-
-    /* ── Auto-excluded title colour ────────────────────────────────────────────
-       Auto-excluded titles in the Excluded tab render in amber (#fbbf24),
-       matching the .source-badge.auto colour on the desktop exclusions table.
-       Manual exclusions use the default --text-dim. -->
-    .m-hist-title-auto { color: #fbbf24; }

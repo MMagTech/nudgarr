@@ -82,6 +82,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # Titles searched this many times with no confirmed import are automatically
     # excluded. 0 disables auto-exclusion for that app. Each app is independent
     # so Radarr and Sonarr can have different thresholds.
+    # Auto-exclusion defaults — all disabled by default (0)
     "auto_exclude_movies_threshold": 0,   # searches before auto-excluding a movie
     "auto_exclude_shows_threshold": 0,    # searches before auto-excluding a show
     # Auto-excluded titles older than this many days are removed at sweep start,

@@ -182,7 +182,14 @@ def api_remove_exclusion():
     title = (data.get("title") or "").strip()
     if not title:
         return jsonify({"error": "title required"}), 400
+    # Check source before removing — if auto-excluded, reset search_count so
+    # the title gets a genuine fresh start and is not immediately re-excluded
+    # by the import check loop on the next cycle.
+    exclusions = db.get_exclusions()
+    row = next((e for e in exclusions if (e.get("title") or "").lower() == title.lower()), None)
     db.remove_exclusion(title)
+    if row and row.get("source") == "auto":
+        db.reset_search_count_by_title(title)
     return jsonify({"ok": True})
 
 

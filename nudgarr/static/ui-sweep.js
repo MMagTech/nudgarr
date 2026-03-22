@@ -290,7 +290,7 @@ async function refreshHistory() {
         ${excludedOnCell}
         <td style="color:var(--muted)">${escapeHtml(fmtTime(it.library_added))}</td>
         <td style="color:#b0bcf0">${escapeHtml(fmtTime(it.last_searched))}</td>
-        <td style="color:rgba(176,188,240,.6)">${it.eligible_again === 'Next Sweep' ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>' : escapeHtml(fmtTime(it.eligible_again))}</td>
+        <td style="color:rgba(176,188,240,.6)">${isExcl ? '<span style="color:var(--muted)">—</span>' : (it.eligible_again === 'Next Sweep' ? '<span style="color:var(--ok);font-size:12px;font-weight:500">Next Sweep</span>' : escapeHtml(fmtTime(it.eligible_again)))}</td>
       </tr>
     `}).join('');
 

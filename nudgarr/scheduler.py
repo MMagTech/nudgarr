@@ -171,10 +171,16 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
             logger.debug("[Auto-Exclude] %s -- already excluded", title)
             continue
 
-        # Condition 3: not currently in the download queue
+        # Condition 3: not currently in the download queue.
+        # For Sonarr use series_id for the queue check since the queue API
+        # filters by seriesId not episodeId. item_id in search_history stores
+        # the episode ID for Sonarr entries.
         inst = instance_map.get((app, instance_name))
         if inst:
-            in_queue = _is_title_in_queue(session, app, inst, entry.get("item_id", ""))
+            queue_id = entry.get("series_id") if app == "sonarr" else entry.get("item_id", "")
+            if not queue_id:
+                queue_id = entry.get("item_id", "")
+            in_queue = _is_title_in_queue(session, app, inst, queue_id)
             if in_queue:
                 logger.debug("[Auto-Exclude] %s -- skipped (in queue)", title)
                 continue

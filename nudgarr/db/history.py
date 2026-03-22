@@ -403,7 +403,8 @@ def get_high_search_count_unconfirmed(movies_threshold: int,
     rows = conn.execute(
         f"""
         SELECT sh.app, sh.instance_name, sh.instance_url,
-               sh.item_id, sh.item_type, sh.title, sh.search_count
+               sh.item_id, sh.item_type, sh.title, sh.search_count,
+               sh.series_id
         FROM search_history sh
         LEFT JOIN stat_entries se
             ON se.app          = sh.app

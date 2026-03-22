@@ -231,8 +231,9 @@ function _onTabShown(name) {
 
   if (name === 'history') {
     HISTORY_SORT = { col: 'last_searched', dir: 'desc' };
-    EXCL_FILTER_ACTIVE = false;
-    const pill = el('exclusionsPill'); if (pill) pill.classList.remove('active');
+    if (!EXCL_FILTER_ACTIVE) {
+      const pill = el('exclusionsPill'); if (pill) pill.classList.remove('active');
+    }
     clearHistorySearch();
     if (!el('historyTableWrap').querySelector('table')) {
       el('historyTableWrap').innerHTML = `
@@ -790,6 +791,15 @@ async function resetConfig() {
 async function clearLog() {
   if (!await showConfirm('Clear Log', 'This will clear the active nudgarr.log file. Rotation backups are not affected. The log will resume writing immediately on the next sweep.', 'Clear', true)) return;
   await api('/api/log/clear', {method:'POST'});
+}
+
+// resetAutoExclusions — removes all auto-excluded entries from the exclusions
+// table. Manual exclusions are not affected. Refreshes the exclusions state
+// and badge after completion.
+async function resetAutoExclusions() {
+  if (!await showConfirm('Reset Auto-Exclusions', 'This will remove all auto-excluded titles. They will become eligible for search again on the next sweep. Manual exclusions are not affected.', 'Reset', true)) return;
+  await api('/api/exclusions/clear-auto', {method:'POST'});
+  await loadExclusions();
 }
 
 async function backupAll() {

@@ -20,6 +20,7 @@ from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.stats import check_imports
+from nudgarr.scheduler import _run_auto_exclusion_check
 
 import logging
 
@@ -95,4 +96,8 @@ def api_check_imports_now():
     except Exception:
         logger.exception("Manual import check failed")
         return jsonify({"ok": False, "error": "Import check failed — check logs for details"}), 500
+    try:
+        _run_auto_exclusion_check(session, cfg)
+    except Exception:
+        logger.exception("Auto-exclusion check failed during manual import check")
     return jsonify({"ok": True})

@@ -4,7 +4,7 @@ nudgarr/constants.py
 Static configuration: version string, runtime file paths (from env),
 and the DEFAULT_CONFIG dict that new installs are seeded from.
 
-No imports from within the nudgarr package  —  stdlib only.
+No imports from within the nudgarr package — stdlib only.
 """
 
 import os

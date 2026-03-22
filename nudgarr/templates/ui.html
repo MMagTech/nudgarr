@@ -944,9 +944,9 @@
     <!-- m-autoexcl-row — shown when unacknowledged auto-exclusions exist,
          replacing the hint text below Run Now. Tapping calls mOnAutoExclRow()
          which acknowledges, navigates to History, and lands on Excluded tab. -->
-    <div class="m-autoexcl-row" id="m-autoexcl-row" style="display:none" onclick="mOnAutoExclRow()">
-      <span class="m-autoexcl-row-text" id="m-autoexcl-row-text">New Auto-Exclusions</span>
-      <span class="m-autoexcl-row-arr">›</span>
+    <div class="m-autoexcl-row" id="m-autoexcl-row" style="display:none;align-items:center;justify-content:center;gap:6px;padding:5px 12px;margin-bottom:14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);border-radius:10px;cursor:pointer;" onclick="mOnAutoExclRow()">
+      <span class="m-autoexcl-row-text" id="m-autoexcl-row-text" style="font-size:11px;font-weight:600;color:#fca5a5;white-space:nowrap;">New Auto-Exclusions</span>
+      <span class="m-autoexcl-row-arr" style="font-size:11px;color:#f87171;flex-shrink:0;">›</span>
     </div>
     <div class="m-run-hint-wrap" id="m-run-hint-wrap">
       <div class="m-run-hint"><span>Tap to run a manual sweep</span></div>

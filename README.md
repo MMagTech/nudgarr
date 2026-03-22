@@ -80,7 +80,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 
 Nudgarr works out of the box with sensible defaults. If you're running a more advanced setup — multiple Radarr or Sonarr instances, separate 4K and 1080p libraries, different cooldown strategies per server, or just want tighter control — these features are worth knowing about.
 
-**Auto-Exclusion** — titles searched N times with no confirmed import are automatically excluded. Configure separate thresholds for Radarr and Sonarr in Advanced. Auto-unexclude after X days returns titles to eligibility so releases that eventually appear on indexers get another chance. The status bar badge surfaces new auto-exclusions without requiring you to dig through the Exclusions tab.
+**Auto-Exclusion** — titles searched N times with no confirmed import are automatically excluded. Configure separate thresholds for Radarr and Sonarr in Advanced. Auto-unexclude after X days returns titles to eligibility so releases that eventually appear on indexers get another chance. The status bar badge on desktop and the notification row on mobile surface new auto-exclusions without requiring you to dig through the Exclusions tab.
 
 **Tag & Quality Profile Filters** — exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs and never consume a search slot. Load tags and profiles live from each instance in the Filters tab.
 
@@ -129,7 +129,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v4.0.0` · `4.0.0` · `4.0`
+**Tags:** `latest` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -181,6 +181,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 ---
 
 ## Upgrade notes
+
+**v4.1.0** — Auto-exclusion, mobile auto-exclusion, import stats period toggle, and logging improvements. No config changes required. Pull the new image and restart. Migration v9 runs automatically on first start — adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing exclusions are preserved and default to `source=manual`.
 
 **v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. Two post-reset migrations are included: v7 adds the `series_id` column to `search_history`, and v8 adds quality upgrade tracking. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
 

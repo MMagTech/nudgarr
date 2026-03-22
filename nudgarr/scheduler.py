@@ -129,6 +129,9 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
     movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
     shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
 
+    logger.info("[Auto-Exclude] check invoked — movies_threshold=%d shows_threshold=%d",
+                movies_threshold, shows_threshold)
+
     # Skip entirely if both thresholds are disabled
     if movies_threshold <= 0 and shows_threshold <= 0:
         return

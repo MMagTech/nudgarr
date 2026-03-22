@@ -1,5 +1,5 @@
 // ── Portrait History tab and Imports sheet ─────────────────────────────────
-// mSwitchExclTab, mOpenExclusions, mCloseExclusions, mLoadExclusions,
+// mSwitchExclTab, mOpenExclusions, mLoadExclusions,
 // mExclRemove, mLoadExclHistory, mExclAdd, mOpenImports, mCloseImports,
 // mLoadImports
 
@@ -21,13 +21,11 @@ function mSwitchExclTab(pane) {
   if (pane === 'excluded') mLoadExclusions();
 }
 
-// mOpenExclusions / mCloseExclusions kept for API compatibility
 function mOpenExclusions() {
   mSwitchTab('history');
   mSwitchExclTab('excluded');
 }
 
-function mCloseExclusions() {}
 
 async function mLoadExclusions() {
   const listEl = document.getElementById('m-excl-list');
@@ -99,31 +97,29 @@ async function mLoadExclHistory(silent) {
           + M_HIST_DATA.slice(0, 200).map(it => {
             const title = it.title || it.key || '';
             const isRadarr = it.app === 'radarr';
-            const instStyle = isRadarr
-              ? 'background:rgba(91,114,245,.15);color:var(--accent-lt);border:1px solid rgba(91,114,245,.25)'
-              : 'background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.2)';
+            const instPillClass = isRadarr ? 'm-inst-pill radarr' : 'm-inst-pill sonarr';
             const instPill = it.instance
-              ? '<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;' + instStyle + '">' + escapeHtml(it.instance) + '</span>'
+              ? '<span class="' + instPillClass + '">' + escapeHtml(it.instance) + '</span>'
               : '';
             const countPill = it.search_count > 1
-              ? '<span style="font-size:10px;font-weight:600;color:var(--text-dim);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:1px 6px">\u00d7' + it.search_count + '</span>'
+              ? '<span class="m-count-pill">\u00d7' + it.search_count + '</span>'
               : '';
             const last = it.last_searched ? fmtTimePadded(it.last_searched) : '';
             const excluded = exclSet.has((title).toLowerCase());
-            return '<div class="m-hist-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.05)">'
-              + '<div style="flex:1;min-width:0">'
+            return '<div class="m-hist-item">'
+              + '<div class="m-hist-item-left">'
               + '<div class="m-hist-item-title"'
               + ' data-app="' + escapeHtml(it.app || '') + '"'
               + ' data-instance="' + escapeHtml(it.instance_name || it.instance || '') + '"'
               + ' data-item-id="' + escapeHtml(it.item_id || '') + '"'
               + ' data-series-id="' + escapeHtml(it.series_id || '') + '"'
-              + ' style="font-size:13px;color:var(--accent-lt);font-weight:500;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+              + ' class="m-hist-item-title m-arr-link">'
               + escapeHtml(title) + '</div>'
-              + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+              + '<div class="m-hist-item-meta">'
               + instPill + countPill
-              + (last ? '<span style="font-size:11px;color:var(--muted)">' + escapeHtml(last) + '</span>' : '')
+              + (last ? '<span class="m-hist-meta-date">' + escapeHtml(last) + '</span>' : '')
               + '</div></div>'
-              + (excluded ? '' : '<button class="m-excl-inline" data-title="' + escapeHtml(title) + '" style="font-size:12px;color:var(--muted);border:1px solid rgba(255,255,255,.1);background:transparent;border-radius:5px;padding:3px 8px;cursor:pointer;flex-shrink:0">\u2298</button>')
+              + (excluded ? '' : '<button class="m-excl-inline" data-title="' + escapeHtml(title) + '">\u2298</button>')
               + '</div>';
           }).join('')
           + '</div>';
@@ -215,28 +211,26 @@ async function mLoadImports(type) {
       const title = escapeHtml(e.title || e.item_id || '\u2014');
       const date = e.imported_ts ? fmtTimePadded(e.imported_ts) : '';
       const isAcq = e.type === 'Acquired';
-      const tagStyle = isAcq
-        ? 'background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.2)'
-        : 'background:rgba(91,114,245,.12);color:#a0b0ff;border:1px solid rgba(91,114,245,.22)';
+      const tagClass = isAcq ? 'm-type-badge acquired' : 'm-type-badge upgrade';
       const tagHtml = e.type
-        ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;white-space:nowrap;' + tagStyle + '">' + escapeHtml(e.type) + '</span>'
+        ? '<span class="' + tagClass + '">' + escapeHtml(e.type) + '</span>'
         : '';
       const countPill = (e.iteration && e.iteration > 1)
-        ? '<span style="font-size:10px;font-weight:600;color:var(--text-dim);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:1px 6px;white-space:nowrap">\u00d7' + e.iteration + '</span>'
+        ? '<span class="m-count-pill">\u00d7' + e.iteration + '</span>'
         : '';
       const history = e.quality_history || [];
       const latest = history.length ? history[history.length - 1] : null;
       const qualityStr = latest
         ? (latest.quality_from ? escapeHtml(latest.quality_from) + ' \u2192 ' : '\u2192 ') + escapeHtml(latest.quality_to || '')
         : '';
-      return '<div class="m-import-row" style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.05)">'
-        + '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">'
-        + '<div style="font-size:13px;color:var(--text-dim);font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + title + '</div>'
-        + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;width:' + DATE_COL_W + 'px;text-align:right;flex-shrink:0">' + escapeHtml(date) + '</div>'
+      return '<div class="m-import-row">'
+        + '<div class="m-import-row-top">'
+        + '<div class="m-import-row-title">' + title + '</div>'
+        + '<div class="m-import-row-date" style="width:' + DATE_COL_W + 'px">' + escapeHtml(date) + '</div>'
         + '</div>'
-        + '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + escapeHtml(e.instance || '') + '</div>'
-        + '<div style="display:flex;align-items:center;gap:6px">'
-        + '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">' + tagHtml + countPill + '</div>'
+        + '<div class="m-import-row-instance">' + escapeHtml(e.instance || '') + '</div>'
+        + '<div class="m-import-row-bottom">'
+        + '<div class="m-import-row-pills">' + tagHtml + countPill + '</div>'
         + (qualityStr ? '<div class="m-q-wrap" style="width:' + DATE_COL_W + 'px;flex-shrink:0;overflow:hidden"><span class="m-q-inner" style="font-size:10px;color:var(--muted);font-family:monospace;white-space:nowrap;display:inline-block">' + qualityStr + '</span></div>' : '')
         + '</div>'
         + '</div>';

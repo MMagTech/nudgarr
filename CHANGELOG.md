@@ -59,6 +59,18 @@ All notable changes to Nudgarr are documented here.
 
 - History tab Eligible Again column now shows a calculated date for auto-excluded titles when Unexclude Days is above 0 (`excluded_at + unexclude_days`). Previously showed `—` for all excluded titles regardless of source or unexclude config. Manual exclusions and auto-exclusions with Unexclude Days = 0 continue to show `—`. Date recalculates from live config on every history refresh so changing the Unexclude Days field updates the column immediately after saving.
 
+**Under the Hood**
+
+- Frontend split into focused single-responsibility files — `ui-settings.js` split into `ui-settings.js`, `ui-notifications.js`, and `ui-advanced.js`; `ui-mobile-landscape.js` split into `ui-mobile-landscape.js` (Overrides) and `ui-mobile-landscape-filters.js` (Filters); `ui-sweep.js` split into `ui-sweep.js` (Sweep + Run Now), `ui-history.js` (History + Exclusions), and `ui-imports.js` (Imports)
+- `ui.html` reduced from 1,481 lines to a 61-line shell — all tab sections, modals, and the mobile/landscape UI block extracted into dedicated template partials (`ui-header.html`, `ui-nav.html`, `ui-tab-*.html`, `ui-modals.html`, `ui-mobile.html`) loaded via Jinja2 `{% include %}`
+- `sweep.py` consolidated — `_sweep_radarr_instance` and `_sweep_sonarr_instance` merged into a single `_sweep_instance` helper parameterised on app type; `run_sweep` loop unified across both apps
+- Shared `cronIntervalMinutes()` moved to `ui-core.js` — previously duplicated independently in `ui-settings.js` and `ui-mobile-landscape-exec.js`
+- `mSaveCfgKeys()` moved to `ui-mobile-core.js` alongside other shared mobile helpers; `typeof` guard removed since function now loads before all call sites
+- Inline styles replaced with named CSS classes throughout JS render functions — `ui.css` gains `.sweep-disabled-badge`, `.count-pill`, `.iter-pill`, `.eligible-next-sweep`, `.td-*` table cell helpers, and full upgrade tooltip anatomy; `ui-mobile.css` gains `.m-inst-pill`, `.m-count-pill`, `.m-type-badge`, `.m-excl-inline`, and related import row helpers
+- Dead code removed — `record_stat_entry()` wrapper in `stats.py`, `upsert_search_history()` and `get_last_searched_ts()` in `db/history.py` (both superseded by batch variants), `get_sweep_lifetime_row()` in `db/lifetime.py`, unused `state` parameter on `prune_state_by_retention()` in `state.py`, `mCloseExclusions()` empty stub, and orphaned `m-excl-sheet` HTML block
+- `validate.py` updated to load template partials into combined content for all HTML checks; `html_lines` rebuilt from the rendered skeleton for wrap/mobile-ui nesting checks
+- `tests/test_frontend_structure.py` added — 110-test pytest suite covering file existence, HTML links, script load order, line count ceilings, duplicate function detection, onclick resolution, element ID resolution, shared state location, load order safety, split integrity, and validate.py passthrough
+
 ---
 
 ## v4.0.0

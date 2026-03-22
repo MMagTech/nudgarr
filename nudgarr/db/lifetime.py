@@ -54,15 +54,6 @@ def get_sweep_lifetime() -> Dict[str, Any]:
     return {r["instance_key"]: dict(r) for r in rows}
 
 
-def get_sweep_lifetime_row(instance_key: str) -> Optional[Dict]:
-    """Return the sweep_lifetime row for one instance, or None if not found."""
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT * FROM sweep_lifetime WHERE instance_key = ?", (instance_key,)
-    ).fetchone()
-    return dict(row) if row else None
-
-
 def increment_lifetime_total(key: str, delta: int = 1) -> None:
     """Add delta to the lifetime_totals counter for key ('movies' or 'shows')."""
     conn = get_connection()

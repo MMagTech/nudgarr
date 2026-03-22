@@ -435,6 +435,35 @@
     .sweep-stat-value.dim { color: var(--text-dim); }
     .sweep-card-right { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 
+    /* ── Disabled instance badge (sweep cards) ── */
+    .sweep-disabled-badge { font-size: 10px; padding: 2px 7px; background: var(--accent-dim); color: var(--accent-lt); border: 1px solid var(--accent-border); border-radius: 4px; font-weight: 600; letter-spacing: .04em; }
+
+    /* ── Count pills (×N search count in history, ×N iteration in imports) ── */
+    .count-pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--accent-dim); color: var(--accent-lt); border: 1px solid var(--accent-border); }
+    .iter-pill { display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-dim); background: rgba(255,255,255,.05); border: 1px solid var(--border-md); border-radius: 6px; padding: 1px 7px; }
+
+    /* ── Table cell color helpers ── */
+    .eligible-next-sweep { color: var(--ok); font-size: 12px; font-weight: 500; }
+    .td-dim { color: var(--text-dim); }
+    .td-muted { color: var(--muted); }
+    .td-blue { color: #b0bcf0; }
+    .td-blue-dim { color: rgba(176,188,240,.6); }
+    .td-nowrap { white-space: nowrap; }
+
+    /* ── Upgrade quality history tooltip ── */
+    .upgrade-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .upgrade-icon { cursor: help; }
+    .upgrade-inner { min-width: 260px; }
+    .upgrade-header { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .upgrade-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .upgrade-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; display: flex; align-items: center; gap: 5px; }
+    .upgrade-arrow { color: var(--accent-lt); }
+    .upgrade-acquired { color: #4ade80; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .upgrade-from { color: var(--text-dim); }
+    .upgrade-to { color: var(--text); }
+    .upgrade-date { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+    .tooltip-box-right { white-space: normal; padding: 10px 13px; width: auto; left: calc(100% + 8px); bottom: auto; top: 50%; transform: translateY(-50%); }
+
     /* ── Exclusions filter pill ── */
     .pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid var(--border-md); border-radius: 999px; background: transparent; font-size: 12px; color: var(--text-dim); }
     .pill.clickable { cursor: pointer; transition: border-color .15s, color .15s; }
@@ -458,7 +487,7 @@
     .excl-btn:hover { color: var(--bad); }
     .excl-btn.excluded { opacity: 1; color: #f87171; }
     tr:hover .excl-btn { opacity: 1; }
-    .arr-link { cursor: pointer; transition: color .12s; }
+    .arr-link { cursor: pointer; transition: color .12s; color: var(--text); font-weight: 500; }
     .arr-link:hover { color: var(--accent-lt) !important; } /* overrides <td> colour specificity in the history table */
     tr.row-excluded td:not(.excl-col) { opacity: 0.45; }
     tr.row-excluded .excl-btn { opacity: 1; }
@@ -620,4 +649,3 @@
     .filter-box-fixed { height: 520px; display: flex; flex-direction: column; }
     .tab-filters.tab-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
     .filter-box-pending { border-color: rgba(251,191,36,.4) !important; }
-

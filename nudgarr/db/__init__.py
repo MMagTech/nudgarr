@@ -4,7 +4,7 @@ nudgarr/db/__init__.py
 Public API for the nudgarr database layer.  Re-exports everything from
 the sub-modules so all call sites can continue to use:
 
-    from nudgarr.db import upsert_search_history
+    from nudgarr.db import batch_upsert_search_history
     from nudgarr import db; db.init_db()
 
 Sub-modules:
@@ -24,8 +24,6 @@ from nudgarr.db.connection import (
 )
 
 from nudgarr.db.history import (
-    upsert_search_history,
-    get_last_searched_ts,
     get_last_searched_ts_bulk,
     get_search_history,
     get_search_history_summary,
@@ -65,7 +63,6 @@ from nudgarr.db.exclusions import (
 from nudgarr.db.lifetime import (
     upsert_sweep_lifetime,
     get_sweep_lifetime,
-    get_sweep_lifetime_row,
     increment_lifetime_total,
     get_lifetime_totals,
 )
@@ -79,8 +76,6 @@ __all__ = [
     "get_connection",
     "close_connection",
     "init_db",
-    "upsert_search_history",
-    "get_last_searched_ts",
     "get_last_searched_ts_bulk",
     "get_search_history",
     "get_search_history_summary",
@@ -114,7 +109,6 @@ __all__ = [
     # lifetime
     "upsert_sweep_lifetime",
     "get_sweep_lifetime",
-    "get_sweep_lifetime_row",
     "increment_lifetime_total",
     "get_lifetime_totals",
     # backup

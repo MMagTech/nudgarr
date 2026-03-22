@@ -107,7 +107,7 @@ function lsValidateCron() {
   input.classList.toggle('ls-cron-valid', valid);
   input.classList.toggle('ls-cron-invalid', !valid);
   if (valid) {
-    const interval = lsCronIntervalMinutes(val);
+    const interval = cronIntervalMinutes(val);
     if (interval !== null && interval < 60) {
       hint.textContent = '\u26a0 May stress indexers \u00b7 ' + describeCron(val);
       hint.className = 'ls-cron-hint ls-cron-warn';
@@ -128,16 +128,6 @@ function lsValidateCron() {
   }
 }
 
-function lsCronIntervalMinutes(expr) {
-  const parts = expr.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [min, hr] = parts;
-  if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
-  if (min === '*') return 1;
-  if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
-  if (hr === '*' && /^\d+$/.test(min)) return 60;
-  return 60;
-}
 
 const LS_HOLD_INCREMENTS = {
   batch: 1, sleep: 1, jitter: 1,

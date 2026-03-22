@@ -45,14 +45,19 @@ nudgarr/                    ← Python package
     notifications.py        ← /api/notifications/test
     diagnostics.py          ← /api/diagnostic, /api/log/clear
   static/                   ← JS and CSS served as static assets
-    ui-core.js              ← bootstrap, status polling, tab switching, desktop run
+    ui-core.js              ← bootstrap, shared state, cron helper, status polling, tab switching, shared sort helpers, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
-    ui-sweep.js             ← sweep tab, history tab, imports/stats tab, exclusions
-    ui-settings.js          ← settings, notifications, advanced, onboarding, What's New
+    ui-sweep.js             ← sweep tab rendering, Run Now
+    ui-history.js           ← history tab, exclusions, shared sort/pagination helpers
+    ui-imports.js           ← imports/stats tab
+    ui-settings.js          ← settings tab, tab switching, onboarding, What's New modal
+    ui-notifications.js     ← notifications tab
+    ui-advanced.js          ← advanced tab, danger zone, diagnostics
     ui-overrides.js         ← per-instance overrides tab and modal
     ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
-    ui-mobile-core.js              ← shared mobile helpers, poll cycle, bridge functions
-    ui-mobile-landscape.js         ← landscape Overrides and Filters tabs — lsOv* and lsFilters* functions
+    ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
+    ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions
+    ui-mobile-landscape-filters.js ← landscape Filters rail/panel — lsFilters* functions
     ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state
     ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs
     ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
@@ -64,7 +69,20 @@ nudgarr/                    ← Python package
   templates/                ← HTML served by Flask render_template()
     login.html              ← login page
     setup.html              ← first-run setup page
-    ui.html                 ← HTML shell — loads static JS and CSS, defines all element IDs
+    ui.html                 ← 61-line shell — loads CSS, includes partials, loads JS
+    ui-header.html          ← header bar and status bar
+    ui-nav.html             ← desktop tab navigation
+    ui-tab-instances.html   ← Instances tab section
+    ui-tab-sweep.html       ← Sweep tab section
+    ui-tab-settings.html    ← Settings tab section
+    ui-tab-filters.html     ← Filters tab section
+    ui-tab-history.html     ← History tab section
+    ui-tab-imports.html     ← Imports tab section
+    ui-tab-notifications.html ← Notifications tab section
+    ui-tab-advanced.html    ← Advanced tab section
+    ui-tab-overrides.html   ← Overrides tab section
+    ui-modals.html          ← all desktop modals
+    ui-mobile.html          ← entire landscape/mobile UI block
 main.py                     ← entry point: signals, startup ping, thread launch
 nudgarr.py                  ← compatibility shim for source runners (deprecated)
 validate.py                 ← pre-package static analysis tool
@@ -124,7 +142,7 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` runs the auto-unexclude pass first — any auto-excluded titles older than the configured threshold are removed from the exclusions table and their search_count reset to 0 in search_history, making them eligible immediately in this sweep
-4. `run_sweep` iterates over configured instances, calling `_sweep_radarr_instance` or `_sweep_sonarr_instance` for each
+4. `run_sweep` iterates over configured Radarr and Sonarr instances in a unified loop, calling `_sweep_instance(app=...)` for each
 5. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
 6. `run_sweep` returns a summary dict
 7. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
@@ -148,7 +166,7 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 
 ```bash
 # Install dependencies
-pip install flask requests apprise
+pip install -r requirements.txt
 
 # Run
 python main.py
@@ -194,7 +212,7 @@ If the key accepts a fixed set of string values, define the allowed values as a 
 
 ### Changing sweep behaviour
 
-The sweep logic lives entirely in `sweep.py`. `_sweep_radarr_instance` and `_sweep_sonarr_instance` are the per-instance workers — most sweep changes happen there. `run_sweep` is the orchestrator and handles pruning, exclusions, and summary building.
+The sweep logic lives entirely in `sweep.py`. `_sweep_instance` is the shared per-instance worker — most sweep changes happen there. It accepts an `app` parameter (`"radarr"` or `"sonarr"`) and handles all per-app differences internally via conditional blocks. `run_sweep` is the orchestrator and handles pruning, exclusions, and summary building.
 
 ### Changing database schema
 
@@ -205,7 +223,7 @@ The sweep logic lives entirely in `sweep.py`. `_sweep_radarr_instance` and `_swe
 
 ### Changing the UI
 
-The frontend is a multi-file static app — no build step required. `nudgarr/templates/ui.html` is the HTML shell: it defines all element IDs and loads JS and CSS from `nudgarr/static/`. The JS files are split by domain (see project structure above). All files are plain vanilla JavaScript and CSS.
+The frontend is a multi-file static app — no build step required. `nudgarr/templates/ui.html` is a thin shell that loads CSS, includes template partials via Jinja2 `{% include %}`, and loads JS. Each tab section, the header, nav, modals, and the mobile/landscape block live in their own partial file under `nudgarr/templates/`. The JS files are split by domain (see project structure above). All files are plain vanilla JavaScript and CSS.
 
 The desktop UI renders on screens 500px and wider. The mobile UI renders on screens under 500px and is a separate layout split across `ui-mobile-core.js`, `ui-mobile-portrait.js`, and `ui-mobile-landscape.js`. Mobile functions are prefixed with `m` (e.g. `mHaptic`, `mSheetOpen`) to avoid collisions with desktop functions.
 
@@ -253,6 +271,14 @@ Run `validate.py` before packaging to catch structural issues early:
 ```bash
 python3 validate.py
 ```
+
+Run the structural test suite to verify file ownership, load order, shared state, and split integrity:
+
+```bash
+pytest tests/test_frontend_structure.py -v
+```
+
+The test suite must pass at exactly the expected check count. If you add or remove files, functions, or validate.py checks, update `EXPECTED_CHECK_COUNT` and `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` accordingly.
 
 This checks:
 
@@ -310,7 +336,7 @@ python3 validate.py
 Nudgarr intentionally supports only Radarr and Sonarr. If you want to add Readarr, Lidarr, or another arr, the changes are contained:
 
 - **API calls:** add a new section to `arr_clients.py` following the existing Radarr/Sonarr pattern
-- **Sweep:** add a `_sweep_<app>_instance` function in `sweep.py` and call it from `run_sweep`
+- **Sweep:** extend `_sweep_instance` in `sweep.py` to handle the new app — add its callables to the `if app == ...` block at the top of the function and add any app-specific pipeline differences as conditional blocks. Add the new app to the `run_sweep` loop.
 - **Database:** the schema is keyed by app name — adding a new app type flows through automatically
 - **UI:** the instance cards, sweep cards, and history filters are all data-driven — adding a new app type flows through automatically once the backend returns data for it
 - **Overrides tab:** `renderOverridesCards()` in `ui-overrides.js` uses `.ov-divider:first-child { margin-top: 0 }` to remove top margin from the first divider. This assumes the loop order `['radarr', 'sonarr']` always places Radarr first. If a third app is added, replace the `:first-child` rule with an explicit `.ov-divider-first` class applied in `renderOverridesCards()` when building the first divider.

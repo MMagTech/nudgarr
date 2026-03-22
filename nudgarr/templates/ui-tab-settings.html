@@ -1,0 +1,151 @@
+<!-- ══════════════════════════════ SETTINGS ══════════════════════════════ -->
+  <div class="section" id="tab-settings">
+    <div class="grid">
+
+      <div class="card">
+        <p class="section-label">Scheduler</p>
+
+        <!-- Scheduler header -->
+        <div style="padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.10);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
+            <span id="cronContainerTime" style="font-size:11px; color:var(--muted);"></span>
+            <div class="tooltip-wrap">
+              <span class="tooltip-icon">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cron panel -->
+        <div style="display:flex; gap:20px; flex-wrap:nowrap; align-items:flex-end;">
+          <div class="field" style="flex:1">
+            <label>Automatic Sweeps</label>
+            <div class="toggle-wrap" style="height:34px;">
+              <label class="toggle">
+                <input type="checkbox" id="scheduler_enabled" onchange="syncSchedulerUi(); markUnsaved('setMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="scheduler_label">Enabled</span>
+            </div>
+            <div class="help">Manual or Automatic Sweeps</div>
+          </div>
+          <div class="field" style="max-width:240px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+              <label style="margin:0">Cron Expression</label>
+              <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent-lt); opacity:0.7; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; margin-left:8px;">cron generator ↗</a>
+            </div>
+            <div style="position:relative; display:inline-block; width:100%">
+              <input type="text" id="cron_expression" class="cron-expr-input" placeholder="e.g. 0 */6 * * *" oninput="validateCronExpr(); markUnsaved('setMsg')" autocomplete="off" spellcheck="false"/>
+              <span id="cronValidIcon" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:13px; color:#22c55e;">✓</span>
+            </div>
+            <div class="cron-hint-line" id="cronHintLine"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p></div>
+        <div class="grid cols1" style="gap:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Cooldown (Hours)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
+            </div>
+            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
+            <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Radarr Cutoff Max (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
+            </div>
+            <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet movies searched per instance per run (0 Disables)</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Radarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end. Missing Added Days sets the eligible pool — set to 0 to search all missing items newest-first with no age filter.</div></span>
+            </div>
+            <select id="radarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Radarr items to search each run</div>
+            <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
+              <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid cols2" style="gap:12px;margin-top:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sonarr Cutoff Max (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
+            </div>
+            <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run (0 Disables)</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sonarr Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+            </div>
+            <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+              <option value="random">Random</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="oldest_added">Oldest Added</option>
+              <option value="newest_added">Newest Added</option>
+            </select>
+            <div class="help">How Nudgarr picks which Sonarr items to search each run</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-label">Throttling</p>
+        <div class="grid cols2" style="gap:12px">
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Batch Size</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many search commands are sent to your indexer at once per batch. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously which can overwhelm indexers and trigger rate limiting. Keep this at 1 unless you have a specific reason to increase it.</div></span>
+            </div>
+            <input id="batch_size" type="number" min="1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Number of items sent per search command. Smaller values are easier on your indexers.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Sleep Seconds</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div></span>
+            </div>
+            <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>
+          </div>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Jitter Seconds</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Adds a random delay on top of the sleep time between batches. If sleep is 5 seconds and jitter is 2 seconds, actual pauses will vary between 5 and 7 seconds. This randomness makes Nudgarr's search pattern less predictable and helps avoid triggering automated rate limit detection that looks for suspiciously regular request intervals.</div></span>
+            </div>
+            <input id="jitter_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
+            <div class="help">Random extra pause on top of Sleep Seconds to help avoid indexer rate limiting</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card amber-warn">
+        <p class="amber-warn-title">⚠️ INDEXER RATE LIMITS</p>
+        <p class="help amber-warn-body">Nudgarr instructs instances to search on your behalf. Start with low limits and a sensible cooldown. Indexers may rate limit or ban if hit too hard. Please be respectful of their limits.</p>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn primary" onclick="saveSettings()">Save Changes</button>
+        <span class="msg" id="setMsg"></span>
+      </div>
+    </div>
+  </div>

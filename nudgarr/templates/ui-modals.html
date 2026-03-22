@@ -1,0 +1,164 @@
+<!-- ══ Instance Modal ══ -->
+  <div class="modal-backdrop" id="instModal" style="display:none" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h2 id="modalTitle">Add Instance</h2>
+      <div class="field">
+        <label>Name</label>
+        <input id="modalName" type="text" placeholder="Example: Radarr"/>
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <input id="modalUrl" type="text" placeholder="Example: http://192.168.1.10:7878" oninput="checkModalUrlPath(this.value); clearModalTest()"/>
+        <div class="amber-warn amber-warn-collapsible" id="modalUrlWarn">
+          <p class="help amber-warn-body" id="modalUrlWarnMsg"></p>
+        </div>
+      </div>
+      <div class="field">
+        <label id="modalKeyLabel">API Key</label>
+        <div class="key-wrap">
+          <input id="modalKey" type="password" placeholder="Instance API Key" oninput="clearModalTest()"/>
+          <button class="key-toggle" onclick="toggleKeyVis()" id="keyToggleBtn">Show</button>
+        </div>
+      </div>
+      <div class="modal-test-result" id="modalTestResult">
+        <div class="modal-test-result-inner" id="modalTestResultInner">
+          <div class="status-dot" id="modalTestDot"></div>
+          <span id="modalTestMsg"></span>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <button class="btn sm" id="modalTestBtn" onclick="testModalConnection()">Test connection</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" onclick="closeModalDirect()">Cancel</button>
+          <button class="btn sm primary" onclick="saveModal()">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ What's New Modal ══ -->
+  <div class="modal-backdrop" id="whatsNewModal" style="display:none">
+     <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+       <h2 style="margin:0 0 4px">What's New in v4.1.0</h2>
+       <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
+       <div style="display:flex;flex-direction:column;gap:10px">
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🚫 Auto-Exclusion</div>
+           <div class="help">Titles that keep getting searched with no download can now exclude themselves automatically. Set a search count threshold per app in Advanced → page 2. Auto-excluded titles show an amber badge in the Exclusions tab and can be cleared individually or in bulk from the Danger Zone. A configurable unexclude timer gives them another chance after a set number of days.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Import Stats Period</div>
+           <div class="help">The Imports tab stats card now lets you switch between Lifetime, Last 30 Days, and Last 7 Days. Lifetime totals are protected and survive a Clear Stats — the rolling windows calculate from your import history and update immediately when you switch.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Auto-Exclusion</div>
+           <div class="help">Auto-exclusion is now fully surfaced on mobile. Configure thresholds and unexclude days directly in the Settings tab alongside Cutoff Max. A red badge on the History nav item shows new auto-exclusions — tap to review and clear. Auto-excluded titles appear in amber in the Excluded list so you can tell them apart from manual ones at a glance.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
+           <div class="help">Log timestamps now use container local time (set via the TZ env var). Notifications have proper debug and warning logging throughout. All dependencies are now pinned in requirements.txt for reproducible builds. Mobile pinch-to-zoom is enabled on both iOS and Android.</div>
+         </div>
+       </div>
+       <div class="row" style="justify-content:flex-end;margin-top:20px">
+         <button class="btn sm primary" onclick="dismissWhatsNew()">Continue</button>
+       </div>
+     </div>
+   </div>
+
+  <!-- ══ Sweep No-Instances Modal ══ -->
+  <div class="modal-backdrop" id="sweepNoInstancesModal" style="display:none" onclick="el('sweepNoInstancesModal').style.display='none'">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px">
+      <h2 style="margin:0 0 8px">No Instances Configured</h2>
+      <p class="help" style="margin:0 0 20px">Add a Radarr or Sonarr instance to get started. The Sweep tab will populate automatically once an instance is added.</p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm primary" onclick="el('sweepNoInstancesModal').style.display='none'; showTab('instances')">Go to Instances</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Onboarding Modal ══ -->
+  <div class="modal-backdrop" id="onboardingModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+      <div id="onboardingContent"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px">
+        <div style="display:flex; gap:6px" id="onboardingDots"></div>
+        <div style="display:flex; gap:8px">
+          <button class="btn sm" id="onboardingPrev" onclick="onboardingStep(-1)">Back</button>
+          <button class="btn sm primary" id="onboardingNext" onclick="onboardingStep(1)">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ Per-Instance Overrides Modal ══ -->
+  <div class="modal-backdrop" id="overridesInfoModal" style="display:none">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;border-color:rgba(91,114,245,.2)">
+      <h2 style="margin:0 0 4px">Per-Instance Overrides — How it works</h2>
+      <p class="help" style="margin:0 0 16px;color:var(--muted)">Read this once — it won't show again.</p>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">🌐 Global values are the starting point</div>
+          <div class="help">Override any field on any card independently. Unset fields always fall back to global.</div>
+        </div>
+        <div style="padding:10px 13px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.25);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px;color:#fcd34d">⚠️ Search volume multiplies per instance</div>
+          <div class="help">Each instance runs independently. 4 instances × max 15 = up to 60 searches per sweep. Check your indexer before raising any per-instance caps.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">🎯 Nothing changes until you hit Apply</div>
+          <div class="help">Enabling this tab doesn't change any behaviour. Overrides only take effect when you explicitly Apply them on a card.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">🔄 Turning this off reverts all instances to global immediately, cooldowns included</div>
+          <div class="help">Override values are preserved and restored if you re-enable.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">📋 Each instance can have backlog on or off</div>
+          <div class="help">The global backlog toggle no longer controls everything when overrides are active.</div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:18px">
+        <button class="btn sm primary" onclick="dismissOverridesModal()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .wrap -->
+
+<!-- ══ Confirm Modal — body level so visible in landscape and portrait ══ -->
+<div class="modal-backdrop" id="confirmModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+    <h2 id="confirmTitle">Confirm</h2>
+    <p class="help" id="confirmMsg" style="margin:0 0 20px"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sm" onclick="confirmResolve(false)">Cancel</button>
+      <button class="btn sm primary" id="confirmOkBtn" onclick="confirmResolve(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Alert Modal — body level so visible in landscape and portrait ══ -->
+<div class="modal-backdrop" id="alertModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px">
+    <p class="help" id="alertMsg" style="margin:0 0 20px"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sm primary" onclick="el('alertModal').style.display='none'">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto-exclusion disabled popup — fires on save when threshold goes to 0 and auto-exclusions exist -->
+<div class="modal-backdrop" id="autoExclDisabledModal" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+    <h2 style="margin:0 0 12px">Auto-Exclusion Disabled</h2>
+    <p class="help" id="autoExclDisabledBody" style="margin:0 0 12px;font-size:13px;color:var(--text-dim);line-height:1.6"></p>
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:20px">
+      <p class="help" style="margin:0">If this was accidental, choose Keep. Your auto-exclusions will remain and you can re-enable by setting the threshold above 0. Individual entries can also be removed from the Exclusions tab or cleared in bulk from the Danger Zone.</p>
+    </div>
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <button class="btn sm" onclick="onAutoExclDisabledKeep()">Keep</button>
+      <button class="btn sm danger" onclick="onAutoExclDisabledClear()">Clear</button>
+    </div>
+  </div>
+</div>

@@ -18,10 +18,15 @@ JS_FILES = [
     'ui-instances.js',
     'ui-overrides.js',
     'ui-sweep.js',
+    'ui-history.js',
+    'ui-imports.js',
     'ui-settings.js',
+    'ui-notifications.js',
+    'ui-advanced.js',
     'ui-filters.js',
     'ui-mobile-core.js',
     'ui-mobile-landscape.js',
+    'ui-mobile-landscape-filters.js',
     'ui-mobile-landscape-exec.js',
     'ui-mobile-portrait-home.js',
     'ui-mobile-portrait-history.js',
@@ -46,6 +51,29 @@ try:
     lines   = content.split('\n')
 except FileNotFoundError:
     print(f"\nERROR: {UI_FILE} not found. Run from repo root.\n"); sys.exit(1)
+
+# Append any template partials so HTML checks cover the full rendered output.
+TEMPLATE_DIR = os.path.join('nudgarr', 'templates')
+for _partial in sorted(os.listdir(TEMPLATE_DIR)):
+    if _partial != 'ui.html' and _partial.startswith('ui') and _partial.endswith('.html'):
+        try:
+            content += open(os.path.join(TEMPLATE_DIR, _partial)).read() + '\n'
+        except FileNotFoundError:
+            pass
+
+# Rebuild lines from combined content so ID presence and element searches
+# cover all template partials.
+lines = content.split('\n')
+
+# Build html_lines for wrap/mobile-ui nesting checks — these depend on document
+# order, so we reconstruct from the three files that form the structural skeleton:
+# ui.html -> ui-modals.html (closes .wrap) -> ui-mobile.html (opens #mobile-ui).
+_structural = open(UI_FILE).read()
+for _sk in ('ui-modals.html', 'ui-mobile.html'):
+    _sp = os.path.join(TEMPLATE_DIR, _sk)
+    if os.path.exists(_sp):
+        _structural += open(_sp).read() + '\n'
+html_lines = _structural.split('\n')
 
 # Load all static JS files into a combined string for JS checks
 js_content = ''
@@ -260,14 +288,14 @@ if dupes:
     [fail(f"Duplicate id: #{d}") for d in sorted(dupes)]
 else: ok(f"No duplicate IDs ({len(all_ids)} total)")
 
-wrap_start   = next((i for i,l in enumerate(lines) if 'class="wrap"' in l), None)
-mobile_start = next((i for i,l in enumerate(lines) if 'id="mobile-ui"' in l), None)
+wrap_start   = next((i for i,l in enumerate(html_lines) if 'class="wrap"' in l), None)
+mobile_start = next((i for i,l in enumerate(html_lines) if 'id="mobile-ui"' in l), None)
 
 if not wrap_start:   fail(".wrap div not found")
 elif not mobile_start: fail("#mobile-ui not found")
 else:
     depth, wrap_closed_at = 0, None
-    for i, line in enumerate(lines):
+    for i, line in enumerate(html_lines):
         if i < wrap_start: continue
         depth += line.count('<div') - line.count('</div')
         if i > wrap_start and depth == 0: wrap_closed_at = i; break
@@ -277,7 +305,7 @@ else:
     else: ok(f".wrap closes at line {wrap_closed_at+1}, #mobile-ui at line {mobile_start+1} — correct")
 
 if mobile_start:
-    depth = sum(l.count('<div') - l.count('</div') for l in lines[:mobile_start])
+    depth = sum(l.count('<div') - l.count('</div') for l in html_lines[:mobile_start])
     if depth != 0: fail(f"#mobile-ui nested inside {depth} unclosed div(s) — should be at body level")
     else: ok("#mobile-ui is at body level (depth 0)")
 
@@ -288,7 +316,7 @@ for label, pat in {
     '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
     '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
-    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"',
+    '#m-imports-sheet':'id="m-imports-sheet"',
     '#ls-tab-filters':'id="ls-tab-filters"', '#ls-nav-filters':'id="ls-nav-filters"'
 }.items():
     if pat not in content: fail(f"Missing element: {label}")
@@ -311,10 +339,10 @@ for nav in nav_ids:
 section("JavaScript Sanity")
 
 for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
-           'mRunNow','mToggleAuto','mToggleNotify','mToggleRadarrBacklog',
+           'mRunNow','mToggleAuto','mToggleNotifySettings','mToggleRadarrBacklog',
            'mToggleSonarrBacklog','mToggleInstance',
            'mAccordion','mSwitchTab','mPollCycle',
-           'mOpenExclusions','mCloseExclusions','mSwitchExclTab',
+           'mOpenExclusions','mSwitchExclTab',
            'mLoadExclusions','mExclRemove','mLoadExclHistory','mExclAdd',
            'mOpenImports','mCloseImports','mLoadImports',
            'toggleOverridesFeature','dismissOverridesModal',

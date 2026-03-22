@@ -40,7 +40,7 @@ def load_exclusions() -> List[Dict[str, Any]]:
 # ── Pruning ───────────────────────────────────────────────────────────
 
 
-def prune_state_by_retention(state: Dict[str, Any], retention_days: int) -> int:
+def prune_state_by_retention(retention_days: int) -> int:
     """Prune search_history and unimported stat_entries. Returns rows removed."""
     removed = db.prune_search_history(retention_days)
     removed += db.prune_stat_entries(retention_days)

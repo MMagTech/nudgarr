@@ -1,5 +1,5 @@
 // ── Portrait Home, Instances, Sweep tabs ──────────────────────────────────
-// mUpdateHome, mRenderInstanceRows, mRunNow, mInitRunBtn, mSaveCfgKeys,
+// mUpdateHome, mRenderInstanceRows, mRunNow, mInitRunBtn,
 // mToggle*, mRenderInstances, mToggleInstance, mRenderSweep, mAccordion,
 // mAddArrLinkHandler
 
@@ -120,17 +120,6 @@ function mInitRunBtn() {
 
 // ── Toggles ────────────────────────────────────────────────────────────────
 
-async function mSaveCfgKeys(updates) {
-  try {
-    const cfg = await api('/api/config');
-    Object.assign(cfg, updates);
-    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
-    Object.assign(CFG, updates);
-    const st = await api('/api/status');
-    STATUS_CACHE = st.instance_health || {};
-    mUpdateHome(CFG, st);
-  } catch(e) {}
-}
 
 function mToggleAuto() {
   mHaptic(40);

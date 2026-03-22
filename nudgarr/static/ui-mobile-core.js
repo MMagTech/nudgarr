@@ -167,7 +167,7 @@ function mDismissOvModal() {
   if (modal) { modal.classList.remove('m-visible'); setTimeout(() => { modal.style.display = 'none'; }, 300); }
   if (CFG && !CFG.per_instance_overrides_seen_mobile) {
     CFG.per_instance_overrides_seen_mobile = true;
-    if (typeof mSaveCfgKeys === 'function') mSaveCfgKeys({per_instance_overrides_seen_mobile: true});
+    mSaveCfgKeys({per_instance_overrides_seen_mobile: true});
   }
 }
 
@@ -223,4 +223,19 @@ function lsSwitchTabSafe(idx) {
 
 function lsIsOnOverridesTab() {
   return typeof LS_TAB !== 'undefined' && LS_TAB === 2;
+}
+
+// ── Shared config save helper ─────────────────────────────────────────────────
+// Used by portrait home, settings, and history to patch one or more config keys,
+// persist to the API, and refresh the home screen with the new state.
+async function mSaveCfgKeys(updates) {
+  try {
+    const cfg = await api('/api/config');
+    Object.assign(cfg, updates);
+    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+    Object.assign(CFG, updates);
+    const st = await api('/api/status');
+    STATUS_CACHE = st.instance_health || {};
+    mUpdateHome(CFG, st);
+  } catch(e) {}
 }

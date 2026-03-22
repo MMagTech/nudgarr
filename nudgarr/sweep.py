@@ -92,33 +92,33 @@ def _sweep_instance(
 
     # App-specific callables
     if app == "radarr":
-        fn_get_cutoff    = radarr_get_cutoff_unmet_movies
-        fn_get_missing   = radarr_get_missing_movies
+        fn_get_cutoff = radarr_get_cutoff_unmet_movies
+        fn_get_missing = radarr_get_missing_movies
         fn_get_queue_ids = radarr_get_queued_movie_ids
-        fn_get_quality   = radarr_get_movie_quality
-        fn_search        = radarr_search_movies
-        item_type        = "movie"
-        missing_type     = "missing_movie"
-        series_meta      = None  # Radarr has no series meta pre-fetch
+        fn_get_quality = radarr_get_movie_quality
+        fn_search = radarr_search_movies
+        item_type = "movie"
+        missing_type = "missing_movie"
+        series_meta = None  # Radarr has no series meta pre-fetch
     else:
-        fn_get_cutoff    = sonarr_get_cutoff_unmet_episodes
-        fn_get_missing   = sonarr_get_missing_episodes
+        fn_get_cutoff = sonarr_get_cutoff_unmet_episodes
+        fn_get_missing = sonarr_get_missing_episodes
         fn_get_queue_ids = sonarr_get_queued_episode_ids
-        fn_get_quality   = sonarr_get_episode_quality
-        fn_search        = sonarr_search_episodes
-        item_type        = "episode"
-        missing_type     = "missing_episode"
+        fn_get_quality = sonarr_get_episode_quality
+        fn_search = sonarr_search_episodes
+        item_type = "episode"
+        missing_type = "missing_episode"
         # Fetch series meta once — passed to both cutoff and missing fetches
         # to avoid a redundant /api/v3/series call when backlog is enabled.
-        series_meta      = _sonarr_get_series_meta(session, url, key)
+        series_meta = _sonarr_get_series_meta(session, url, key)
 
     # Read per-instance sweep filters — empty sets mean no filtering applied
     sweep_filters = inst.get("sweep_filters", {})
-    excluded_tags     = set(int(t) for t in sweep_filters.get("excluded_tags", []))
+    excluded_tags = set(int(t) for t in sweep_filters.get("excluded_tags", []))
     excluded_profiles = set(int(p) for p in sweep_filters.get("excluded_profiles", []))
 
     # Fetch tag/profile maps once if filtering is active — used for debug logs only
-    tag_map     = arr_get_tag_map(session, url, key)     if excluded_tags     else {}
+    tag_map = arr_get_tag_map(session, url, key) if excluded_tags else {}
     profile_map = arr_get_profile_map(session, url, key) if excluded_profiles else {}
 
     # ── Cutoff-unmet pipeline ──────────────────────────────────────────
@@ -161,7 +161,7 @@ def _sweep_instance(
     # Queue skip
     queue_ids = fn_get_queue_ids(session, url, key)
     queued_skipped = [m for m in all_items if m["id"] in queue_ids]
-    all_items      = [m for m in all_items if m["id"] not in queue_ids]
+    all_items = [m for m in all_items if m["id"] not in queue_ids]
     for m in queued_skipped:
         logger.debug("[%s:%s] skipped_queued: %s (id=%s)", APP, name, m.get("title", "?"), m["id"])
 
@@ -169,11 +169,11 @@ def _sweep_instance(
     skipped_unavailable: List[Dict[str, Any]] = []
     if app == "radarr":
         skipped_unavailable = [m for m in all_items if not m.get("isAvailable", True)]
-        all_items           = [m for m in all_items if m.get("isAvailable", True)]
+        all_items = [m for m in all_items if m.get("isAvailable", True)]
         if skipped_unavailable:
             for m in skipped_unavailable:
                 threshold = m.get("minimumAvailability") or "unknown"
-                release   = m.get("releaseDate") or "no date"
+                release = m.get("releaseDate") or "no date"
                 logger.debug("[Radarr:%s] skipped_not_available: %s (minimumAvailability=%s, releaseDate=%s)",
                              name, m.get("title", "?"), threshold, release)
 
@@ -207,7 +207,7 @@ def _sweep_instance(
     searched = 0
     for i in range(0, len(chosen_items), batch_size):
         batch_items = chosen_items[i:i + batch_size]
-        batch_ids   = [m["id"] for m in batch_items]
+        batch_ids = [m["id"] for m in batch_items]
         for m in batch_items:
             logger.debug("[%s:%s] cutoff item: %s (id=%s quality_from=%s)",
                          APP, name, m.get("title", "?"), m["id"], m.get("quality_from", ""))
@@ -224,9 +224,9 @@ def _sweep_instance(
 
     # ── Backlog pipeline ───────────────────────────────────────────────
 
-    missing_total    = 0
+    missing_total = 0
     eligible_missing = 0
-    skipped_missing  = 0
+    skipped_missing = 0
     searched_missing = 0
     chosen_missing: List[Dict[str, Any]] = []
 
@@ -239,7 +239,7 @@ def _sweep_instance(
                            if (m.get("title") or "").lower() not in excluded_titles]
 
         queued_skipped_missing = [m for m in missing_records if m["id"] in queue_ids]
-        missing_records        = [m for m in missing_records if m["id"] not in queue_ids]
+        missing_records = [m for m in missing_records if m["id"] not in queue_ids]
         for m in queued_skipped_missing:
             logger.debug("[%s:%s] skipped_queued (backlog): %s (id=%s)",
                          APP, name, m.get("title", "?"), m["id"])
@@ -282,7 +282,7 @@ def _sweep_instance(
             missing_filtered: List[Dict[str, Any]] = []
             for rec in missing_records:
                 added_s = rec.get("added")
-                ok_old  = True
+                ok_old = True
                 if isinstance(added_s, str):
                     dt = parse_iso(added_s)
                     if dt is not None:
@@ -315,7 +315,7 @@ def _sweep_instance(
         # Search loop — backlog items
         for i in range(0, len(chosen_missing), batch_size):
             batch_items = chosen_missing[i:i + batch_size]
-            batch_ids   = [m["id"] for m in batch_items]
+            batch_ids = [m["id"] for m in batch_items]
             for m in batch_items:
                 logger.debug("[%s:%s] backlog item: %s (id=%s quality_from=%s)",
                              APP, name, m.get("title", "?"), m["id"], m.get("quality_from", ""))
@@ -331,26 +331,25 @@ def _sweep_instance(
                 jitter_sleep(sleep_seconds, jitter_seconds)
 
     result: Dict[str, Any] = {
-        "name":                    name,
-        "url":                     mask_url(url),
-        "cutoff_unmet_total":      len(all_ids),
-        "eligible":                eligible,
-        "skipped_cooldown":        skipped,
-        "will_search":             len(chosen_items),
-        "searched":                searched,
-        "limit":                   max_per_run,
-        "missing_total":           missing_total,
-        "eligible_missing":        eligible_missing,
+        "name": name,
+        "url": mask_url(url),
+        "cutoff_unmet_total": len(all_ids),
+        "eligible": eligible,
+        "skipped_cooldown": skipped,
+        "will_search": len(chosen_items),
+        "searched": searched,
+        "limit": max_per_run,
+        "missing_total": missing_total,
+        "eligible_missing": eligible_missing,
         "skipped_missing_cooldown": skipped_missing,
-        "will_search_missing":     len(chosen_missing),
-        "searched_missing":        searched_missing,
-        "limit_missing":           missing_max,
-        "notifications_enabled":   notifications_enabled,
+        "will_search_missing": len(chosen_missing),
+        "searched_missing": searched_missing,
+        "limit_missing": missing_max,
+        "notifications_enabled": notifications_enabled,
     }
     if app == "radarr":
         result["missing_added_days"] = missing_added_days
     return result
-
 
 
 # ── Override resolver ─────────────────────────────────────────────────
@@ -466,16 +465,18 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
                 continue
             name, url = inst["name"], inst["url"]
             # Resolve per-instance overrides (fall back to global if not set)
-            inst_cooldown    = _resolve(inst, cfg, overrides_enabled, "cooldown_hours", cooldown_hours)
-            inst_max         = _resolve(inst, cfg, overrides_enabled, "max_cutoff_unmet", global_max)
+            inst_cooldown = _resolve(inst, cfg, overrides_enabled, "cooldown_hours", cooldown_hours)
+            inst_max = _resolve(inst, cfg, overrides_enabled, "max_cutoff_unmet", global_max)
             inst_sample_mode = _resolve(inst, cfg, overrides_enabled, "sample_mode", global_mode)
             if inst_sample_mode not in VALID_SAMPLE_MODES:
                 inst_sample_mode = global_mode
-            inst_missing_max          = _resolve(inst, cfg, overrides_enabled, "max_backlog", global_missing_max)
-            inst_backlog_enabled      = _resolve(inst, cfg, overrides_enabled, "backlog_enabled",
-                                                  bool(cfg.get(f"{app}_backlog_enabled", False)))
-            inst_notifications_enabled = _resolve(inst, cfg, overrides_enabled, "notifications_enabled",
-                                                   bool(cfg.get("notify_enabled", False)))
+            inst_missing_max = _resolve(inst, cfg, overrides_enabled, "max_backlog", global_missing_max)
+            inst_backlog_enabled = _resolve(
+                inst, cfg, overrides_enabled, "backlog_enabled",
+                bool(cfg.get(f"{app}_backlog_enabled", False)))
+            inst_notifications_enabled = _resolve(
+                inst, cfg, overrides_enabled, "notifications_enabled",
+                bool(cfg.get("notify_enabled", False)))
             # Radarr-only: missing_added_days age filter
             inst_missing_days = 0
             if app == "radarr":

@@ -2,7 +2,7 @@ name: Build and Publish (GHCR + Docker Hub)
 
 on:
   push:
-    branches: ["main", "nightly", "dev", "features"]
+    branches: ["main", "nightly", "dev"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -54,9 +54,6 @@ jobs:
           fi
           if [[ "${REF}" == refs/heads/dev ]]; then
             TAGS="${GHCR}:dev,${HUB}:dev"
-          fi
-          if [[ "${REF}" == refs/heads/features ]]; then
-            TAGS="${GHCR}:feature"
           fi
           if [[ "${REF}" == refs/tags/v* ]]; then
             V="${REF_NAME#v}"

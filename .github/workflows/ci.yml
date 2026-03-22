@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: ["main", "nightly", "dev", "features"]
+    branches: ["main", "nightly", "dev"]
     paths-ignore:
       - "**.md"
       - "docs/**"
   pull_request:
-    branches: ["main", "nightly", "dev", "features"]
+    branches: ["main", "nightly", "dev"]
     paths-ignore:
       - "**.md"
       - "docs/**"

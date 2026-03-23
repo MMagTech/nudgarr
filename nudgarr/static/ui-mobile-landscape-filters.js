@@ -1,11 +1,22 @@
 // ── Landscape Filters rail/panel ───────────────────────────────────
-// Handles the Filters rail/panel in landscape mode.
+// Handles the Filters rail/panel in landscape mode (⊘ Filters nav tab).
 // Overrides landscape logic lives in ui-mobile-landscape.js.
+//
+// State: LS_FILTERS_SEL holds the currently selected "kind|idx" key.
+// FILTER_STATE (declared in ui-filters.js, shared) holds loaded tags,
+// profiles, and pending excluded selections per instance key.
+//
+// Flow: lsFiltersRenderRail() builds the instance list. Tapping an
+// instance calls lsFiltersSelectInst() which calls lsFiltersRenderPanel().
+// The panel shows Excluded Tags and Excluded Profiles with pill display
+// and searchable lists. lsFiltersApply() persists to /api/config.
 
 let LS_FILTERS_SEL = null; // currently selected instance key "kind|idx"
 
 function _lsFiltersKey(kind, idx) { return kind + '|' + idx; }
 
+// lsFiltersRenderRail — rebuilds the rail listing all instances with a
+// filter count chip showing how many tags + profiles are excluded.
 function lsFiltersRenderRail() {
   const rail = document.getElementById('ls-filters-rail');
   if (!rail) return;
@@ -65,6 +76,10 @@ function lsFiltersSelectInst(kind, idx) {
   lsFiltersRenderRail();
 }
 
+// lsFiltersRenderPanel — builds the right-column panel for the selected
+// instance. If the instance has never been loaded (not in FILTER_STATE)
+// shows a load prompt. Otherwise renders tag and profile sections with
+// active pills and a searchable scrollable list for each.
 function lsFiltersRenderPanel(key) {
   const body   = document.getElementById('ls-filters-body');
   const status = document.getElementById('ls-filters-status');
@@ -209,6 +224,9 @@ function lsFiltersToggle(section, id) {
   lsFiltersRenderRail();
 }
 
+// lsFiltersLoad — fetches tags and profiles from the arr instance via
+// /api/arr/tags and /api/arr/profiles, merges with any existing selections
+// in FILTER_STATE, and re-renders the panel. Handles load/retry button state.
 async function lsFiltersLoad() {
   const key = LS_FILTERS_SEL;
   if (!key) return;
@@ -243,6 +261,9 @@ async function lsFiltersLoad() {
   }
 }
 
+// lsFiltersApply — posts the current excludedTags and excludedProfiles
+// for the selected instance to /api/config as sweep_filters. Updates CFG
+// in place and re-renders the rail to reflect the new filter count.
 async function lsFiltersApply() {
   const key = LS_FILTERS_SEL;
   if (!key) return;

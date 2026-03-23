@@ -1,8 +1,9 @@
 // ── Landscape Backlog and Execution tabs ────────────────────────────────────
 // LS_* state (LS_VALS, LS_MINS, LS_CFG_KEYS, LS_SAVE_TIMER, LS_HIDE_TIMER,
 // LS_TAB), lsPopulate, lsToggleBacklog, lsSyncBacklogFields, lsToggleAuto,
-// lsValidateCron, lsCronIntervalMinutes, lsHoldStart/End/Step, lsTriggerSave,
-// lsSwitchTab, _lsDoSwitchTab, lsSwitchToDesktop, landscape swipe gesture
+// lsValidateCron, lsHoldStart/End/Step, lsTriggerSave, lsSwitchTab,
+// _lsDoSwitchTab, lsSwitchToDesktop, landscape swipe gesture.
+// cronIntervalMinutes (shared cron helper) lives in ui-core.js.
 
 // ── Landscape section (inside if(MOBILE)) ─────────────────────────────────
 

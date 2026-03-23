@@ -1,6 +1,8 @@
 // ── Notifications tab ────────────────────────────────────────────────────────
 // Owns: Notifications form (Apprise URL, event toggles, test, save).
 
+// fillNotifications — populates the Notifications tab from CFG. Called by
+// _onTabShown when the tab opens, provided no unsaved changes are pending.
 function fillNotifications() {
   if (!CFG) return;
   el('notify_enabled').checked = !!CFG.notify_enabled;
@@ -12,6 +14,8 @@ function fillNotifications() {
   syncNotifyUi();
 }
 
+// syncNotifyUi — greys out the URL field and events card when notifications
+// are disabled, and hides the Send Test row. Called on toggle and on fill.
 function syncNotifyUi() {
   const enabled = el('notify_enabled').checked;
   el('notify_label').textContent = enabled ? 'Enabled' : 'Disabled';
@@ -22,6 +26,8 @@ function syncNotifyUi() {
   el('notify_test_row').style.display = enabled ? '' : 'none';
 }
 
+// toggleNotifyUrl — toggles the Apprise URL field between password and text
+// visibility. Bound to the Show/Hide button next to the URL input.
 function toggleNotifyUrl() {
   const inp = el('notify_url');
   const btn = el('notifyUrlToggleBtn');
@@ -29,6 +35,9 @@ function toggleNotifyUrl() {
   else { inp.type = 'password'; btn.textContent = 'Show'; }
 }
 
+// testNotification — sends a test notification to the URL currently in the
+// input field (not the saved value) via POST /api/notifications/test.
+// Shows success or failure inline for 5 seconds then clears.
 async function testNotification() {
   const url = el('notify_url').value.trim();
   const msg = el('notifyTestMsg');
@@ -45,6 +54,8 @@ async function testNotification() {
   setTimeout(() => { msg.textContent = ''; msg.className = 'msg'; }, 5000);
 }
 
+// saveNotifications — writes all notification fields to CFG and posts to
+// /api/config. Calls loadAll() to resync global state after save.
 async function saveNotifications() {
   CFG.notify_enabled = el('notify_enabled').checked;
   CFG.notify_url = el('notify_url').value.trim();

@@ -3,8 +3,8 @@ nudgarr/stats.py
 
 Stats recording, import confirmation checking, and cooldown selection.
 
-  Stats recording : record_stat_entry
   Import checking : check_imports
+  Stats recording : batch_record_stat_entries
   Cooldown logic  : is_allowed_by_cooldown, pick_items_with_cooldown
   State marking   : mark_items_searched
 

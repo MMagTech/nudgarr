@@ -37,12 +37,17 @@ def _radarr_movies_from_wanted(
     url: str,
     key: str,
     endpoint_path: str,
-    page_size: int = 100,
-    max_pages: int = 5,
+    page_size: int = 500,
 ) -> List[Dict[str, Any]]:
-    """Shared pagination helper for Radarr wanted endpoints."""
+    """Shared pagination helper for Radarr wanted endpoints.
+
+    Fetches all pages until the API returns an empty records list.
+    page_size=500 minimises round-trips for large libraries without
+    any behavioural change — all sample modes operate on the full set.
+    """
     movies: List[Dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
+    page = 1
+    while True:
         endpoint = f"{url.rstrip('/')}{endpoint_path}?page={page}&pageSize={page_size}"
         data = req(session, "GET", endpoint, key)
         if not isinstance(data, dict):
@@ -63,6 +68,7 @@ def _radarr_movies_from_wanted(
                 except (KeyError, TypeError):
                     pass
                 movies.append({"id": mid, "title": rec.get("title") or f"Movie {mid}", "added": added, "isAvailable": rec.get("isAvailable", True), "minimumAvailability": min_avail, "releaseDate": release_date, "quality_from": quality_from, "qualityProfileId": rec.get("qualityProfileId"), "tagIds": rec.get("tags") or []})
+        page += 1
     return movies
 
 
@@ -70,12 +76,11 @@ def radarr_get_cutoff_unmet_movies(
     session: requests.Session,
     url: str,
     key: str,
-    page_size: int = 100,
-    max_pages: int = 5,
+    page_size: int = 500,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Cutoff Unmet."""
+    """Returns all cutoff-unmet movies from Radarr Wanted->Cutoff Unmet."""
     return _radarr_movies_from_wanted(
-        session, url, key, "/api/v3/wanted/cutoff", page_size, max_pages
+        session, url, key, "/api/v3/wanted/cutoff", page_size
     )
 
 
@@ -83,12 +88,11 @@ def radarr_get_missing_movies(
     session: requests.Session,
     url: str,
     key: str,
-    page_size: int = 100,
-    max_pages: int = 5,
+    page_size: int = 500,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, title:str, added:str|None} from Wanted->Missing."""
+    """Returns all missing movies from Radarr Wanted->Missing."""
     return _radarr_movies_from_wanted(
-        session, url, key, "/api/v3/wanted/missing", page_size, max_pages
+        session, url, key, "/api/v3/wanted/missing", page_size
     )
 
 
@@ -212,12 +216,17 @@ def _sonarr_episodes_from_wanted(
     key: str,
     endpoint_path: str,
     series_meta: Dict[int, Dict[str, Any]],
-    page_size: int = 100,
-    max_pages: int = 5,
+    page_size: int = 500,
 ) -> List[Dict[str, Any]]:
-    """Shared pagination helper for Sonarr wanted endpoints."""
+    """Shared pagination helper for Sonarr wanted endpoints.
+
+    Fetches all pages until the API returns an empty records list.
+    page_size=500 minimises round-trips for large libraries without
+    any behavioural change — all sample modes operate on the full set.
+    """
     episodes: List[Dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
+    page = 1
+    while True:
         endpoint = f"{url.rstrip('/')}{endpoint_path}?page={page}&pageSize={page_size}"
         data = req(session, "GET", endpoint, key)
         if not isinstance(data, dict):
@@ -255,6 +264,7 @@ def _sonarr_episodes_from_wanted(
                     "qualityProfileId": meta.get("qualityProfileId") if meta else None,
                     "tagIds": meta.get("tagIds") or [] if meta else [],
                 })
+        page += 1
     return episodes
 
 
@@ -262,11 +272,10 @@ def sonarr_get_cutoff_unmet_episodes(
     session: requests.Session,
     url: str,
     key: str,
-    page_size: int = 100,
-    max_pages: int = 5,
+    page_size: int = 500,
     series_meta: Dict[int, Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Cutoff Unmet.
+    """Returns all cutoff-unmet episodes from Sonarr Wanted->Cutoff Unmet.
 
     series_meta is optional. If provided, the series list fetch is skipped — pass it when
     calling both cutoff and missing in the same sweep to avoid fetching /api/v3/series twice.
@@ -274,7 +283,7 @@ def sonarr_get_cutoff_unmet_episodes(
     if series_meta is None:
         series_meta = _sonarr_get_series_meta(session, url, key)
     return _sonarr_episodes_from_wanted(
-        session, url, key, "/api/v3/wanted/cutoff", series_meta, page_size, max_pages
+        session, url, key, "/api/v3/wanted/cutoff", series_meta, page_size
     )
 
 
@@ -282,11 +291,10 @@ def sonarr_get_missing_episodes(
     session: requests.Session,
     url: str,
     key: str,
-    page_size: int = 100,
-    max_pages: int = 5,
+    page_size: int = 500,
     series_meta: Dict[int, Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    """Returns list of dicts: {id:int, series_id:int, title:str, added:str|None} from Wanted->Missing.
+    """Returns all missing episodes from Sonarr Wanted->Missing.
 
     series_meta is optional. If provided, the series list fetch is skipped — pass it when
     calling both cutoff and missing in the same sweep to avoid fetching /api/v3/series twice.
@@ -294,7 +302,7 @@ def sonarr_get_missing_episodes(
     if series_meta is None:
         series_meta = _sonarr_get_series_meta(session, url, key)
     return _sonarr_episodes_from_wanted(
-        session, url, key, "/api/v3/wanted/missing", series_meta, page_size, max_pages
+        session, url, key, "/api/v3/wanted/missing", series_meta, page_size
     )
 
 

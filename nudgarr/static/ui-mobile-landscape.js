@@ -16,6 +16,10 @@ function lsOvDiscardAll() {
   Object.keys(LS_OV_PENDING).forEach(k => delete LS_OV_PENDING[k]);
 }
 
+// lsOvRenderRail — rebuilds the rail (left column) listing all instances.
+// Highlights the selected instance, shows a pending dot when changes are
+// unsaved, and displays the override count pill. Auto-selects the first
+// instance if nothing is selected. Calls lsOvRenderPanel() at the end.
 function lsOvRenderRail() {
   const rail = document.getElementById('ls-ov-rail');
   if (!rail || !CFG) return;
@@ -54,6 +58,8 @@ function lsOvRenderRail() {
   lsOvRenderPanel();
 }
 
+// lsOvSelectInstance — saves any pending DOM state for the current selection
+// then switches selection to the new instance and re-renders rail + panel.
 function lsOvSelectInstance(kind, idx) {
   if (LS_OV_SEL) _lsOvSavePendingFromDOM();
   LS_OV_SEL = {kind, idx};
@@ -82,6 +88,10 @@ function _lsOvSavePendingFromDOM() {
   }
 }
 
+// lsOvRenderPanel — builds the right-column panel for the selected instance.
+// Renders all override fields (cooldown, mode, cutoff, backlog, missing days,
+// notifications) showing current override value or global fallback. Wires
+// hold-to-accelerate touch/mouse events on stepper buttons.
 function lsOvRenderPanel() {
   if (!LS_OV_SEL || !CFG) return;
   const {kind, idx} = LS_OV_SEL;
@@ -237,6 +247,8 @@ function lsOvHoldEnd(field, dir) {
   _lsOvHoldFired = false;
 }
 
+// lsOvMarkDirty — marks the current panel as having unsaved changes.
+// Updates the footer status and adds a pending dot to the rail item.
 function lsOvMarkDirty() {
   const body = document.getElementById('ls-ov-body');
   if (body) body.dataset.dirty = '1';
@@ -295,6 +307,9 @@ function updateNotifyLabel() {
   if (rowEl) rowEl.classList.add('ls-ov-active');
 }
 
+// lsOvApply — reads all field values from the DOM, posts to
+// /api/instance/overrides, and updates CFG in place. Clears pending state
+// and re-renders the rail on success. Debounced 500ms to avoid double-tap.
 async function lsOvApply() {
   if (!LS_OV_SEL || !CFG) return;
   clearTimeout(_lsOvApplyTimer);
@@ -351,6 +366,8 @@ async function lsOvApply() {
   }, 500);
 }
 
+// lsOvReset — shows a confirm dialog then posts an empty overrides object
+// for the selected instance, returning it to global settings.
 async function lsOvReset() {
   if (!LS_OV_SEL || !CFG) return;
   const {kind, idx} = LS_OV_SEL;

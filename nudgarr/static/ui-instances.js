@@ -1,4 +1,13 @@
-// ── Instances tab ──
+// ── Instances tab ──────────────────────────────────────────────────────────
+// Owns: Instances tab rendering (renderInstances), instance modal
+// (openModal, closeModal, saveModal, testModalConnection), connection
+// tests (testConnections), save (saveAll), and shared helpers
+// (fadeMsg, toggleKeyVis, checkModalUrlPath).
+//
+// Each instance card is rendered by renderInstances(kind) — called from
+// loadAll() whenever config changes. The modal is reused for both add
+// and edit flows; openModal(kind, idx) populates it for edit, addInstance
+// opens it blank for add.
 function renderInstances(kind) {
   const box = el(kind + 'List');
   const list = CFG?.instances?.[kind] || [];

@@ -3,12 +3,15 @@
 // Run Now (runNow).
 // History and Exclusions logic lives in ui-history.js.
 // Imports logic lives in ui-imports.js.
-// ── Sweep tab ──────────────────────────────────────────────────────────────
 
 // Cache last known sweep stats per instance so disabled instances retain their values
 const SWEEP_DATA_CACHE = {};
 const SWEEP_LIFETIME_CACHE = {};
 
+// refreshSweep — fetches /api/status and /api/config, then rebuilds the
+// sweep cards for every Radarr and Sonarr instance. Disabled instances
+// retain their last known stats from SWEEP_DATA_CACHE so the card stays
+// informative even when the instance is turned off.
 async function refreshSweep() {
   const status = await api('/api/status');
   const cfg = await api('/api/config');
@@ -134,11 +137,16 @@ async function refreshSweep() {
     }).join('');
   }
 }
+// showSweepNoInstancesModal — called by _doShowTab when the Sweep tab is
+// opened but no instances are configured. Prompts the user to add one.
 function showSweepNoInstancesModal() {
   el('sweepNoInstancesModal').style.display = 'flex';
 }
 
 // ── Run Now ──
+// runNow — fires /api/run-now and immediately updates the UI to show the
+// sweep is in progress. The wordmark animates until the poll cycle detects
+// the sweep has finished.
 async function runNow() {
   try {
     await api('/api/run-now', {method:'POST'});

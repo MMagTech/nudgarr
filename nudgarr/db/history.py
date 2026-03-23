@@ -3,9 +3,8 @@ nudgarr/db/history.py
 
 search_history table — all read/write operations.
 
-  upsert_search_history()      -- insert or update a row
-  get_last_searched_ts()       -- single-item cooldown lookup
-  get_last_searched_ts_bulk()  -- batch cooldown lookup
+  batch_upsert_search_history() -- batch insert or update rows
+  get_last_searched_ts_bulk()   -- batch cooldown lookup
   get_search_history()         -- paginated history with cooldown metadata
   get_search_history_summary() -- entry counts per instance
   get_high_search_count_unconfirmed() -- titles above threshold with no confirmed import

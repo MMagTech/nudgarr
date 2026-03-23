@@ -1,3 +1,17 @@
+<!-- ── ui-modals.html ──────────────────────────────────────────────────────────
+     All desktop modal dialogs. Included by ui.html after the tab sections
+     and .wrap closing div. Contains:
+       Instance Modal      — add/edit instance (instModal)
+       What's New Modal    — version update summary (whatsNewModal)
+       Sweep No-Instances  — shown when Sweep tab opened with no instances
+       Onboarding Modal    — first-run walkthrough (onboardingModal)
+       Overrides Info      — one-time overrides explainer (overridesInfoModal)
+       Confirm Modal       — shared confirm dialog (confirmModal)
+       Alert Modal         — shared alert dialog (alertModal)
+       Auto-Excl Popup     — fires when auto-excl threshold set to 0
+     Body-level modals (Confirm, Alert, Auto-Excl popup) sit outside .wrap
+     so they render correctly in both desktop and landscape mobile views.
+── -->
 <!-- ══ Instance Modal ══ -->
   <div class="modal-backdrop" id="instModal" style="display:none" onclick="closeModal(event)">
     <div class="modal" onclick="event.stopPropagation()">

@@ -1,4 +1,16 @@
-// ── Per-Instance Overrides ──────────────────────────────────────────────────
+// ── Per-Instance Overrides ─────────────────────────────────────────────────────
+// Owns: Overrides tab rendering (renderOverridesCards, renderSingleOverrideCard),
+// override feature toggle (toggleOverridesFeature, syncOverridesToggleLabel),
+// per-card apply/reset (applyOverrides, resetCardOverrides, resetFieldOverride),
+// dirty tracking (markCardDirty), label sync (updateBacklogLabel,
+// updateNotifyLabel), the one-time info modal (dismissOverridesModal), and
+// the shared _getGlobal() helper used by override card rendering.
+//
+// Each override card is built by _buildOverrideCard() and rendered into
+// #overrides-grid by renderOverridesCards(). Cards track dirty state via
+// .ov-dirty class — showTab() guards navigation away from the tab when
+// any card has unsaved changes.
+
 
 function syncOverridesToggleLabel() {
   const enabled = el('per_instance_overrides_enabled') && el('per_instance_overrides_enabled').checked;

@@ -3,9 +3,8 @@ nudgarr/db/lifetime.py
 
 sweep_lifetime and lifetime_totals tables.
 
-  upsert_sweep_lifetime()  -- insert or update counters for one instance
-  get_sweep_lifetime()     -- return all rows as a dict keyed by instance_key
-  get_sweep_lifetime_row() -- return one row by instance_key
+  upsert_sweep_lifetime()    -- insert or update counters for one instance
+  get_sweep_lifetime()       -- return all rows as a dict keyed by instance_key
   increment_lifetime_total() -- add delta to movies or shows counter
   get_lifetime_totals()    -- return {movies: N, shows: N}
 """

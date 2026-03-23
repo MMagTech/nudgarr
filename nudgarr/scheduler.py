@@ -13,6 +13,7 @@ import datetime as _dt
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any, Dict
 
@@ -55,7 +56,7 @@ def start_ui_server() -> None:
     app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
 
 
-def import_check_loop(stop_flag: Dict[str, bool]) -> None:
+def import_check_loop(shutdown: threading.Event) -> None:
     """Independent import-check timer running in its own daemon thread.
 
     Wakes every 60 seconds and checks whether import_check_minutes has elapsed
@@ -76,9 +77,9 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
     last_check_ts = utcnow()
 
     try:
-        while not stop_flag["stop"]:
+        while not shutdown.is_set():
             time.sleep(60)
-            if stop_flag["stop"]:
+            if shutdown.is_set():
                 break
 
             cfg = load_or_init_config()
@@ -282,7 +283,7 @@ def _cron_due(expression: str) -> bool:
         return False
 
 
-def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
+def scheduler_loop(shutdown: threading.Event) -> None:
     """Main sweep loop — runs in the main thread for the lifetime of the process.
 
     Wakes every 60 seconds to check for:
@@ -325,7 +326,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     _prev_cron_expression = cron_expression
 
     try:
-        while not stop_flag["stop"]:
+        while not shutdown.is_set():
             cfg = load_or_init_config()
             scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
             cron_expression = cfg.get("cron_expression", "0 */6 * * *")
@@ -378,12 +379,12 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                     STATUS["run_in_progress"] = False
                     STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
 
-            if stop_flag["stop"]:
+            if shutdown.is_set():
                 break
 
             # Always wake every 60s to check for due cron fires and config changes
             deadline = time.monotonic() + 60
-            while not stop_flag["stop"] and time.monotonic() < deadline:
+            while not shutdown.is_set() and time.monotonic() < deadline:
                 with RUN_LOCK:
                     if STATUS.get("run_requested"):
                         break

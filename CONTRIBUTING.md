@@ -29,11 +29,11 @@ nudgarr/                    ← Python package
   auth.py                   ← password hashing, lockout, session checks
   notifications.py          ← Apprise wrappers (sweep complete, import, error)
   log_setup.py              ← logging initialisation and runtime level control
-  arr_clients.py            ← Radarr and Sonarr API calls
+  arr_clients.py            ← Radarr and Sonarr API calls; pagination handled internally, callers receive a flat list
   stats.py                  ← import tracking, cooldown logic, stat recording
   globals.py                ← Flask app instance, STATUS dict, RUN_LOCK, security headers, persistent secret key
   sweep.py                  ← run_sweep orchestrator + per-instance helpers
-  scheduler.py              ← scheduler loop, import check loop, banner, Flask server starter
+  scheduler.py              ← scheduler loop, import check loop, banner, WSGI server starter (Waitress)
   routes/                   ← Flask blueprints (one file per domain)
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup
@@ -83,7 +83,7 @@ nudgarr/                    ← Python package
     ui-tab-overrides.html   ← Overrides tab section
     ui-modals.html          ← all desktop modals
     ui-mobile.html          ← entire landscape/mobile UI block
-main.py                     ← entry point: signals, startup ping, thread launch
+main.py                     ← entry point: signals (SIGTERM/SIGINT via threading.Event), startup ping, thread launch and join
 nudgarr.py                  ← compatibility shim for source runners (deprecated)
 validate.py                 ← pre-package static analysis tool
 ```
@@ -143,7 +143,7 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` runs the auto-unexclude pass first — any auto-excluded titles older than the configured threshold are removed from the exclusions table and their search_count reset to 0 in search_history, making them eligible immediately in this sweep
 4. `run_sweep` iterates over configured Radarr and Sonarr instances in a unified loop, calling `_sweep_instance(app=...)` for each
-5. Each instance helper calls `arr_clients.py` to fetch eligible items, applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
+5. Each instance helper calls `arr_clients.py` to fetch eligible items — pagination is handled internally with no item cap, callers receive a flat list of all eligible items regardless of library size. The helper then applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
 6. `run_sweep` returns a summary dict
 7. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
 8. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep. After each import check cycle it also runs the auto-exclusion evaluation — titles that meet the configured threshold, have no confirmed import, are not in the download queue, and are not already excluded are written to the exclusions table and a notification fires
@@ -164,8 +164,10 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 
 **Requirements:** Python 3.12+, pip
 
+**Shutdown:** Nudgarr handles SIGTERM and SIGINT cleanly via a `threading.Event`. On `docker stop`, any in-progress sweep is allowed to finish before the process exits. A new sweep cycle will not start after the signal is received.
+
 ```bash
-# Install dependencies
+# Install dependencies (includes Waitress)
 pip install -r requirements.txt
 
 # Run
@@ -224,6 +226,8 @@ The sweep logic lives entirely in `sweep.py`. `_sweep_instance` is the shared pe
 ### Changing the UI
 
 The frontend is a multi-file static app — no build step required. `nudgarr/templates/ui.html` is a thin shell that loads CSS, includes template partials via Jinja2 `{% include %}`, and loads JS. Each tab section, the header, nav, modals, and the mobile/landscape block live in their own partial file under `nudgarr/templates/`. The JS files are split by domain (see project structure above). All files are plain vanilla JavaScript and CSS.
+
+All static file URLs in `ui.html` include `?v={{ VERSION }}` via Flask's `url_for` keyword argument (e.g. `url_for('static', filename='ui-core.js', v=VERSION)`). This means browsers automatically fetch fresh files on version bump without a hard reload. If you add a new static file, follow this pattern — do not use bare string URLs.
 
 The desktop UI renders on screens 500px and wider. The mobile UI renders on screens under 500px and is a separate layout split across `ui-mobile-core.js`, `ui-mobile-portrait.js`, and `ui-mobile-landscape.js`. Mobile functions are prefixed with `m` (e.g. `mHaptic`, `mSheetOpen`) to avoid collisions with desktop functions.
 
@@ -310,7 +314,7 @@ The CI workflow (`.github/workflows/ci.yml`) runs four checks on every push:
 | Python syntax | `py_compile` on every `.py` file |
 | Flake8 lint | Style and import checks, max line length 120 |
 | JS syntax | Runs `node --check` on every `.js` file in `nudgarr/static/` |
-| Element ID consistency | Verifies every `el('id')` call in `ui.html` has a matching `id` attribute |
+| Element ID consistency | Verifies every `el('id')` call across all JS files has a matching `id` attribute in any template partial |
 
 Run them locally before pushing:
 

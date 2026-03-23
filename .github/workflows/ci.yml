@@ -59,9 +59,13 @@ jobs:
       - name: Check element ID consistency
         run: |
           python3 - << 'EOF'
-          import re, sys, os
-          with open('nudgarr/templates/ui.html') as f:
-              html = f.read()
+          import re, sys, os, glob
+          # Load ui.html shell plus all template partials — element IDs are
+          # distributed across partials since the ui.html template split
+          html = ''
+          for tmpl in sorted(glob.glob('nudgarr/templates/*.html')):
+              with open(tmpl) as f:
+                  html += f.read()
           # Collect el() calls from all static JS files
           el_calls = set()
           for fn in sorted(os.listdir('nudgarr/static')):

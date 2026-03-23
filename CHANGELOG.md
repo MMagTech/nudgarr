@@ -32,8 +32,6 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
-
-
 **Logging improvements, notification visibility, dependency pinning, and mobile zoom support.**
 
 - Log timestamps now reflect container local time (controlled by the `TZ` environment variable) instead of UTC, matching the time displayed in the scheduler. Both stdout and the rotating log file use local time.
@@ -70,6 +68,12 @@ All notable changes to Nudgarr are documented here.
 - Dead code removed — `record_stat_entry()` wrapper in `stats.py`, `upsert_search_history()` and `get_last_searched_ts()` in `db/history.py` (both superseded by batch variants), `get_sweep_lifetime_row()` in `db/lifetime.py`, unused `state` parameter on `prune_state_by_retention()` in `state.py`, `mCloseExclusions()` empty stub, and orphaned `m-excl-sheet` HTML block
 - `validate.py` updated to load template partials into combined content for all HTML checks; `html_lines` rebuilt from the rendered skeleton for wrap/mobile-ui nesting checks
 - `tests/test_frontend_structure.py` added — 110-test pytest suite covering file existence, HTML links, script load order, line count ceilings, duplicate function detection, onclick resolution, element ID resolution, shared state location, load order safety, split integrity, and validate.py passthrough
+- Pagination cap removed from `arr_clients.py` — `_radarr_movies_from_wanted` and `_sonarr_episodes_from_wanted` previously capped at 500 items regardless of library size. All four public fetch functions now paginate until the API returns an empty page. Default `page_size` raised from 100 to 500 to reduce API round-trips for large libraries. All sample modes now operate on the full library unconditionally.
+- Graceful SIGTERM shutdown — `stop_flag` dict replaced with `threading.Event` across `main.py` and `scheduler.py`. Signal handler logs the received signal name and sets the event. The import check thread is joined with a 10-second timeout before process exit, allowing an in-progress sweep to finish naturally on `docker stop`.
+- Cache-busting added to all static file URLs — all 21 CSS and JS references in `ui.html` now include `?v={{ VERSION }}` via Flask's `url_for` keyword argument pattern. Browsers treat each version as a distinct resource and serve fresh files automatically after a container upgrade without requiring a hard reload.
+- Contributor commenting pass — all new and split files gained function-level docstrings, ownership headers, and cross-file navigation comments. Stale function references removed from module docstrings in `stats.py`, `db/history.py`, and `db/lifetime.py`.
+- Waitress production WSGI server added — replaces Flask's development server. `waitress==3.0.2` added to `requirements.txt`. Configured at 4 threads, sufficient for Nudgarr's single-user workload. Falls back to Flask development server with a warning if Waitress is not installed.
+- CI element ID check fixed — the check previously read only `ui.html` to find element IDs. After the template split, all IDs live in partial files. Updated to glob all `nudgarr/templates/*.html` files, matching how `validate.py` handles the same check. 197 el() calls now verified correctly.
 
 ---
 

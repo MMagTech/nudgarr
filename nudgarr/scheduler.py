@@ -45,15 +45,27 @@ def print_banner(cfg: Dict[str, Any]) -> None:
 
 
 def start_ui_server() -> None:
-    """Start the Flask development server. Blocking — must be run in a dedicated thread."""
-    import logging as _logging
-    _logging.getLogger("werkzeug").setLevel(_logging.CRITICAL)
-    cli = _logging.getLogger("werkzeug._internal")
-    cli.setLevel(_logging.CRITICAL)
-    import werkzeug.serving as _ws
-    if hasattr(_ws, "_log"):
-        _ws._log = lambda *a, **kw: None
-    app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
+    """Start the WSGI server. Blocking — must be run in a dedicated thread.
+
+    Uses Waitress in production (present in requirements.txt and the Docker
+    image). Falls back to Flask's development server with a warning if
+    Waitress is not installed — this should only happen when running from
+    source without installing requirements.txt.
+
+    threads=4 is sufficient for Nudgarr's single-user workload. The status
+    poll (every 5s per tab) is the most frequent caller — 4 threads handles
+    multiple open tabs with headroom to spare.
+    """
+    try:
+        from waitress import serve
+        logger.debug("Starting Waitress WSGI server on port %s (threads=4)", PORT)
+        serve(app, host="0.0.0.0", port=PORT, threads=4)
+    except ImportError:
+        logger.warning(
+            "Waitress not found — falling back to Flask development server. "
+            "Install waitress via requirements.txt for production use."
+        )
+        app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
 
 
 def import_check_loop(shutdown: threading.Event) -> None:

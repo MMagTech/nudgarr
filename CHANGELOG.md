@@ -4,7 +4,37 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v4.2.0
+
+**Backlog Sample Mode Split and Maintenance Window.**
+
+**Backlog Sample Mode Split**
+
+- Cutoff Unmet and Backlog (missing) sweeps now have independent sample mode settings. Previously one sample mode applied to both pipelines.
+- Two new global config keys: `radarr_backlog_sample_mode` and `sonarr_backlog_sample_mode`. Both default to Random.
+- Advanced tab page 1 — Radarr backlog section gains a Backlog Sample Mode dropdown alongside Missing Max. Sonarr backlog section gains a Backlog Sample Mode dropdown alongside Missing Max. Options are Random, Alphabetical, Oldest Added, Newest Added. Quality gap modes are not available for backlog since missing items have no existing file to score against.
+- Overrides tab — per-instance override cards restructured into two clear groups: Cutoff Unmet (Max + Sample Mode) and Backlog (toggle + Max + Backlog Sample Mode + Max Missing Days for Radarr). Cooldown sits above both groups as it applies to the full pipeline. Backlog Sample Mode follows the existing Use Global sentinel pattern.
+- Backend — the backlog pipeline in `sweep.py` reads `backlog_sample_mode` independently from the cutoff `sample_mode`. Per-instance overrides support `backlog_sample_mode` with the same resolution logic as all other override fields.
+
+**Maintenance Window**
+
+- Scheduled sweeps can now be suppressed during a defined time window. Manual Run Now is never affected — suppression applies only to cron-triggered fires.
+- Configure in Settings tab → Scheduler card, below the cron expression row. Toggle enables the feature and greys out all dependent fields when off.
+- Time inputs use 24-hour HH:MM format. Overnight ranges are supported (e.g. 23:00 to 07:00 spanning midnight) — the window stays active until the configured end time regardless of the calendar day boundary.
+- Day-of-week selectors are individual pill toggles (Mon through Sun). Default is no days selected — days must be deliberately chosen. If no days are selected the feature behaves as disabled regardless of the toggle state.
+- The hint line below the time inputs describes the active window once both times and at least one day are valid, and flags overnight ranges explicitly.
+- Backend — `_in_maintenance_window()` in `scheduler.py` handles both same-day and overnight range detection. Uses container local time via the `TZ` environment variable, consistent with cron evaluation.
+- Suppressed sweeps log at INFO: `[Scheduler] Sweep suppressed by maintenance window (window: HH:MM to HH:MM, now: HH:MM)`.
+
+**Minor improvements**
+
+- Advanced tab — "Radarr Missing Added Days" label corrected to "Missing Added Days".
+- Advanced tab — help text standardised: "Only search missing items older than this many days (0 = No Age Filter)".
+
+---
+
 ## v4.1.0
+
 
 **Auto-exclusion and import stats period toggle.**
 

@@ -295,6 +295,89 @@ def _cron_due(expression: str) -> bool:
         return False
 
 
+def _in_maintenance_window(cfg: Dict[str, Any]) -> bool:
+    """Return True if the current local time falls inside the configured maintenance window.
+
+    The maintenance window suppresses scheduled (cron-triggered) sweeps. Manual
+    runs via Run Now are never passed through this check — callers are responsible
+    for only calling this on cron-triggered fires.
+
+    Behaviour summary:
+      - Returns False immediately if maintenance_window_enabled is False.
+      - Returns False immediately if maintenance_window_days is empty — an empty
+        day list means the window never fires, equivalent to disabled.
+      - Supports overnight ranges (e.g. 23:00 to 07:00 spanning midnight). The
+        window is considered active if the current time falls between start and end
+        taking the overnight crossing into account. The day check is against the
+        day the window opened, not the current calendar day.
+      - Uses container local time via the TZ environment variable, consistent with
+        how cron expressions are evaluated elsewhere in this module.
+
+    cfg keys consumed:
+      maintenance_window_enabled -- bool
+      maintenance_window_start   -- "HH:MM" 24-hour string
+      maintenance_window_end     -- "HH:MM" 24-hour string
+      maintenance_window_days    -- list of ints 0-6 (Monday=0, Sunday=6)
+    """
+    if not cfg.get("maintenance_window_enabled", False):
+        return False
+
+    selected_days = set(cfg.get("maintenance_window_days") or [])
+    if not selected_days:
+        # Empty day list — window never fires regardless of toggle state
+        return False
+
+    start_str = cfg.get("maintenance_window_start", "00:00")
+    end_str = cfg.get("maintenance_window_end", "00:00")
+    if start_str == end_str:
+        return False
+
+    # Resolve local time using TZ, consistent with _cron_due
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(tz_name)
+        now = _dt.datetime.now(tz)
+    except Exception:
+        now = _dt.datetime.utcnow()
+
+    try:
+        sh, sm = int(start_str[:2]), int(start_str[3:])
+        eh, em = int(end_str[:2]), int(end_str[3:])
+    except (ValueError, IndexError):
+        return False
+
+    start_mins = sh * 60 + sm
+    end_mins = eh * 60 + em
+    overnight = start_mins > end_mins
+
+    today = now.date()
+    start_today = now.replace(hour=sh, minute=sm, second=0, microsecond=0)
+    end_today = now.replace(hour=eh, minute=em, second=0, microsecond=0)
+
+    if overnight:
+        # Two candidate windows — the window that opened yesterday (tail end)
+        # and the window that opens today (opening side).
+        window_a_open = start_today - _dt.timedelta(days=1)
+        window_a_close = end_today
+        window_b_open = start_today
+        window_b_close = end_today + _dt.timedelta(days=1)
+
+        if window_a_open <= now < window_a_close:
+            # Active window opened yesterday — check yesterday's weekday
+            yesterday = (today - _dt.timedelta(days=1)).weekday()
+            return yesterday in selected_days
+        if window_b_open <= now < window_b_close:
+            # Active window opened today
+            return today.weekday() in selected_days
+        return False
+    else:
+        # Same-day window
+        if start_today <= now < end_today:
+            return today.weekday() in selected_days
+        return False
+
+
 def scheduler_loop(shutdown: threading.Event) -> None:
     """Main sweep loop — runs in the main thread for the lifetime of the process.
 
@@ -360,10 +443,21 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                     should_run = True
                     STATUS["run_requested"] = False
 
-            # Cron trigger: check if a scheduled fire time just passed (within 90s window)
+            # Cron trigger: check if a scheduled fire time just passed (within 90s window).
+            # Manual run-now requests (above) bypass this check entirely — suppression
+            # only applies to scheduled fires. See _in_maintenance_window for full logic.
             if not should_run and scheduler_enabled and cron_expression:
                 if _cron_due(cron_expression):
-                    should_run = True
+                    if _in_maintenance_window(cfg):
+                        logger.info(
+                            "[Scheduler] Sweep suppressed by maintenance window "
+                            "(window: %s to %s, now: %s)",
+                            cfg.get("maintenance_window_start", "?"),
+                            cfg.get("maintenance_window_end", "?"),
+                            _dt.datetime.now().strftime("%H:%M"),
+                        )
+                    else:
+                        should_run = True
 
             if should_run:
                 if RUN_LOCK.locked():

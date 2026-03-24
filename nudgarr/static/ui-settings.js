@@ -412,6 +412,17 @@ function fillSettings() {
   el('batch_size').value = CFG.batch_size;
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
+  // Maintenance window (v4.2.0)
+  if (el('maintenance_window_enabled')) {
+    el('maintenance_window_enabled').checked = !!CFG.maintenance_window_enabled;
+    el('maintenance_window_start').value = CFG.maintenance_window_start || '';
+    el('maintenance_window_end').value = CFG.maintenance_window_end || '';
+    const days = CFG.maintenance_window_days || [];
+    document.querySelectorAll('#maint_day_pills .day-pill').forEach(btn => {
+      btn.classList.toggle('on', days.includes(parseInt(btn.dataset.day, 10)));
+    });
+    syncMaintUi();
+  }
   syncSchedulerUi();
   el('setMsg').textContent = ''; el('setMsg').className = 'msg';
   checkCooldownWarning();
@@ -449,6 +460,14 @@ async function saveSettings() {
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
+    // Maintenance window (v4.2.0)
+    if (el('maintenance_window_enabled')) {
+      CFG.maintenance_window_enabled = el('maintenance_window_enabled').checked;
+      CFG.maintenance_window_start = el('maintenance_window_start').value.trim() || '00:00';
+      CFG.maintenance_window_end = el('maintenance_window_end').value.trim() || '00:00';
+      CFG.maintenance_window_days = [...document.querySelectorAll('#maint_day_pills .day-pill.on')]
+        .map(btn => parseInt(btn.dataset.day, 10));
+    }
     const res = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     if (!res.ok) {
       const body = await res.json().catch(() => null);
@@ -542,4 +561,85 @@ function syncSupportLinkUi() {
   if (sl) sl.style.display = show ? 'inline-flex' : 'none';
   const lbl = el('support_link_label');
   if (lbl) lbl.textContent = show ? 'Shown' : 'Hidden';
+}
+
+// ── Maintenance Window (v4.2.0) ──
+
+// syncMaintUi — enables or disables the time/day fields based on the toggle.
+// Called on toggle change and on fillSettings() load.
+function syncMaintUi() {
+  const on = el('maintenance_window_enabled') && el('maintenance_window_enabled').checked;
+  const lbl = el('maint_label');
+  if (lbl) lbl.textContent = on ? 'Enabled' : 'Disabled';
+  const ctrl = el('maint_controls');
+  if (ctrl) {
+    ctrl.style.opacity = on ? '1' : '0.35';
+    ctrl.style.pointerEvents = on ? '' : 'none';
+  }
+  if (on) validateMaintTime();
+  else {
+    const hint = el('maint_hint');
+    if (hint) { hint.className = 'cron-hint-line'; hint.textContent = ''; }
+  }
+}
+
+// validateMaintTime — validates both HH:MM inputs and updates the hint line.
+// Describes the window once both times are valid and at least one day is selected.
+// Detects and labels overnight ranges (start > end).
+function validateMaintTime() {
+  const sInput = el('maintenance_window_start');
+  const eInput = el('maintenance_window_end');
+  const hint   = el('maint_hint');
+  if (!sInput || !eInput || !hint) return;
+
+  const timeRe = /^(\d{2}):(\d{2})$/;
+  const sMatch = sInput.value.trim().match(timeRe);
+  const eMatch = eInput.value.trim().match(timeRe);
+
+  sInput.classList.remove('cron-valid', 'cron-invalid');
+  eInput.classList.remove('cron-valid', 'cron-invalid');
+
+  if (!sInput.value && !eInput.value) {
+    hint.className = 'cron-hint-line'; hint.textContent = ''; return;
+  }
+
+  const sOk = !!(sMatch && parseInt(sMatch[1],10) <= 23 && parseInt(sMatch[2],10) <= 59);
+  const eOk = !!(eMatch && parseInt(eMatch[1],10) <= 23 && parseInt(eMatch[2],10) <= 59);
+  sInput.classList.add(sOk ? 'cron-valid' : 'cron-invalid');
+  eInput.classList.add(eOk ? 'cron-valid' : 'cron-invalid');
+
+  if (!sOk || !eOk) {
+    hint.className = 'cron-hint-line cron-bad';
+    hint.textContent = 'Enter times in HH:MM format (e.g. 23:00)';
+    return;
+  }
+
+  const startMins = parseInt(sMatch[1],10) * 60 + parseInt(sMatch[2],10);
+  const endMins   = parseInt(eMatch[1],10) * 60 + parseInt(eMatch[2],10);
+
+  if (startMins === endMins) {
+    hint.className = 'cron-hint-line cron-bad';
+    hint.textContent = 'Start and end time cannot be the same';
+    return;
+  }
+
+  const selectedDays = [...document.querySelectorAll('#maint_day_pills .day-pill.on')]
+    .map(btn => btn.textContent);
+
+  if (selectedDays.length === 0) {
+    hint.className = 'cron-hint-line cron-bad';
+    hint.textContent = 'Select at least one day';
+    return;
+  }
+
+  const dayStr = selectedDays.length === 7 ? 'every day' : selectedDays.join(', ');
+  const overnight = startMins > endMins;
+  hint.className = 'cron-hint-line cron-ok';
+  hint.textContent = `${sInput.value.trim()} to ${eInput.value.trim()}${overnight ? ' (overnight)' : ''} on ${dayStr}`;
+}
+
+// toggleMaintDay — toggles the on state of a day pill and re-validates the hint.
+function toggleMaintDay(btn) {
+  btn.classList.toggle('on');
+  validateMaintTime();
 }

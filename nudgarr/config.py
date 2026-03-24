@@ -16,7 +16,7 @@ import json
 import logging
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
 from nudgarr.utils import load_json, save_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,11 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     for mode_key in ("radarr_sample_mode", "sonarr_sample_mode"):
         if cfg.get(mode_key) not in VALID_SAMPLE_MODES:
             errs.append(f"{mode_key} must be one of {VALID_SAMPLE_MODES}")
+
+    # Backlog sample mode — independent pipeline, validated against VALID_BACKLOG_SAMPLE_MODES
+    for mode_key in ("radarr_backlog_sample_mode", "sonarr_backlog_sample_mode"):
+        if cfg.get(mode_key) not in VALID_BACKLOG_SAMPLE_MODES:
+            errs.append(f"{mode_key} must be one of {VALID_BACKLOG_SAMPLE_MODES}")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -101,6 +106,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         sm = overrides.get("sample_mode")
                         if sm is not None and sm not in VALID_SAMPLE_MODES:
                             errs.append(f"instances.{app}[{i}].overrides.sample_mode must be one of {VALID_SAMPLE_MODES}")
+                        # Backlog sample mode override — validated against VALID_BACKLOG_SAMPLE_MODES
+                        bsm = overrides.get("backlog_sample_mode")
+                        if bsm is not None and bsm not in VALID_BACKLOG_SAMPLE_MODES:
+                            errs.append(f"instances.{app}[{i}].overrides.backlog_sample_mode must be one of {VALID_BACKLOG_SAMPLE_MODES}")
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")
@@ -116,6 +125,23 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     log_level = cfg.get("log_level")
     if log_level is not None and log_level not in ("DEBUG", "INFO", "WARNING", "ERROR"):
         errs.append("log_level must be one of: DEBUG, INFO, WARNING, ERROR")
+
+    # Maintenance Window (v4.2.0)
+    mw_enabled = cfg.get("maintenance_window_enabled")
+    if mw_enabled is not None and not isinstance(mw_enabled, bool):
+        errs.append("maintenance_window_enabled must be boolean")
+    for time_key in ("maintenance_window_start", "maintenance_window_end"):
+        t = cfg.get(time_key)
+        if t is not None:
+            import re as _re
+            if not isinstance(t, str) or not _re.match(r"^\d{2}:\d{2}$", t):
+                errs.append(f"{time_key} must be a string in HH:MM format")
+    mw_days = cfg.get("maintenance_window_days")
+    if mw_days is not None:
+        if not isinstance(mw_days, list):
+            errs.append("maintenance_window_days must be a list")
+        elif not all(isinstance(d, int) and 0 <= d <= 6 for d in mw_days):
+            errs.append("maintenance_window_days must be a list of integers 0-6")
 
     return (len(errs) == 0), errs
 

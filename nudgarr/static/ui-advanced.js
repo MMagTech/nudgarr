@@ -8,8 +8,11 @@ function fillAdvanced() {
   el('radarr_backlog_enabled').checked = !!CFG.radarr_backlog_enabled;
   el('radarr_missing_max').value = CFG.radarr_missing_max ?? 1;
   el('radarr_missing_added_days').value = CFG.radarr_missing_added_days ?? 14;
+  // Backlog sample mode — independent of cutoff sample mode (v4.2.0)
+  if (el('radarr_backlog_sample_mode')) el('radarr_backlog_sample_mode').value = CFG.radarr_backlog_sample_mode || 'random';
   el('sonarr_backlog_enabled').checked = !!CFG.sonarr_backlog_enabled;
   el('sonarr_missing_max').value = CFG.sonarr_missing_max ?? 1;
+  if (el('sonarr_backlog_sample_mode')) el('sonarr_backlog_sample_mode').value = CFG.sonarr_backlog_sample_mode || 'random';
   el('state_retention_days').value = CFG.state_retention_days ?? 180;
   el('auth_enabled').checked = CFG.auth_enabled !== false;
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
@@ -84,8 +87,11 @@ async function saveAdvanced() {
     CFG.radarr_backlog_enabled = el('radarr_backlog_enabled').checked;
     CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value !== '' ? el('radarr_missing_max').value : '1', 10);
     CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value !== '' ? el('radarr_missing_added_days').value : '14', 10);
+    // Backlog sample mode — independent of cutoff sample mode (v4.2.0)
+    if (el('radarr_backlog_sample_mode')) CFG.radarr_backlog_sample_mode = el('radarr_backlog_sample_mode').value || 'random';
     CFG.sonarr_backlog_enabled = el('sonarr_backlog_enabled').checked;
     CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value !== '' ? el('sonarr_missing_max').value : '1', 10);
+    if (el('sonarr_backlog_sample_mode')) CFG.sonarr_backlog_sample_mode = el('sonarr_backlog_sample_mode').value || 'random';
     CFG.state_retention_days = parseInt(el('state_retention_days').value !== '' ? el('state_retention_days').value : '180', 10);
     CFG.auth_enabled = el('auth_enabled').checked;
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);

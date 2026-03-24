@@ -67,11 +67,11 @@ JS_LOAD_ORDER = [
 LINE_COUNT_CEILINGS = {
     'ui-core.js':                      400,
     'ui-instances.js':                 450,
-    'ui-overrides.js':                 420,
+    'ui-overrides.js':                 440,  # raised v4.2.0: +backlog_sample_mode field, new card layout
     'ui-sweep.js':                     200,
     'ui-history.js':                   380,
     'ui-imports.js':                   250,
-    'ui-settings.js':                  620,
+    'ui-settings.js':                  660,  # raised v4.2.0: +syncMaintUi/validateMaintTime/toggleMaintDay + load/save
     'ui-notifications.js':             120,
     'ui-advanced.js':                  280,
     'ui-filters.js':                   450,

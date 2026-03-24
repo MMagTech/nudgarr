@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "4.1.0"
+VERSION = "4.2.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")
@@ -23,6 +23,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "cooldown_hours": 48,
     "radarr_sample_mode": "random",    # random | alphabetical | oldest_added | newest_added
     "sonarr_sample_mode": "random",    # random | alphabetical | oldest_added | newest_added
+
+    # Backlog Sample Mode (v4.2.0)
+    # Independent sample mode for the backlog (missing) pipeline. Separate from
+    # radarr_sample_mode / sonarr_sample_mode which control the cutoff unmet pipeline.
+    # Backlog mode intentionally excludes any cutoff-only modes since missing items
+    # have no existing file to score against.
+    "radarr_backlog_sample_mode": "random",  # random | alphabetical | oldest_added | newest_added
+    "sonarr_backlog_sample_mode": "random",  # random | alphabetical | oldest_added | newest_added
 
     "radarr_max_movies_per_run": 1,
     "sonarr_max_episodes_per_run": 1,
@@ -88,8 +96,26 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # making them eligible again. 0 means they stay excluded until manually removed.
     "auto_unexclude_movies_days": 0,      # days before a movie auto-exclusion expires
     "auto_unexclude_shows_days": 0,       # days before a show auto-exclusion expires
+
+    # Maintenance Window (v4.2.0)
+    # Suppresses scheduled (cron-triggered) sweeps during a defined time window.
+    # Manual runs via Run Now are never affected — suppression applies only to the
+    # automatic schedule. If maintenance_window_days is empty the feature behaves
+    # as if disabled regardless of the toggle. Overnight ranges are supported
+    # (e.g. 23:00 to 07:00 spanning midnight). Days stored as integers 0-6
+    # where 0 = Monday and 6 = Sunday, matching Python's datetime.weekday().
+    "maintenance_window_enabled": False,
+    "maintenance_window_start": "00:00",  # HH:MM 24-hour start of suppression window
+    "maintenance_window_end": "00:00",    # HH:MM 24-hour end of suppression window
+    "maintenance_window_days": [],        # list of ints 0-6; empty = window never fires
 }
 
 # Valid sample modes for radarr_sample_mode, sonarr_sample_mode, and per-instance overrides.
 # Single definition — sweep.py and config.py import this instead of defining their own.
 VALID_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
+
+# Valid sample modes for the backlog (missing) pipeline.
+# Kept separate from VALID_SAMPLE_MODES so the backlog dropdown never exposes
+# any future cutoff-only modes (e.g. quality gap scoring) that require an
+# existing file. Missing items have no file, so those modes cannot apply.
+VALID_BACKLOG_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")

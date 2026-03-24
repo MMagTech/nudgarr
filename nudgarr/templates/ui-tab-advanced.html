@@ -37,12 +37,29 @@
             </div>
             <div class="field">
               <div class="tooltip-wrap">
-                <label>Radarr Missing Added Days</label>
+                <label>Missing Added Days</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Set to 0 to remove the age filter and search all missing items regardless of when they were added.</div></span>
               </div>
               <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
-              <div class="help">Only search missing items older than this many days. 0 = no age filter.</div>
+              <div class="help">Only search missing items older than this many days (0 = No Age Filter)</div>
             </div>
+          </div>
+          <!-- Backlog Sample Mode — independent of cutoff sample mode (Settings tab) (v4.2.0) -->
+          <div class="grid cols2" style="gap:12px;margin-top:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Backlog Sample Mode</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible missing Radarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              </div>
+              <select id="radarr_backlog_sample_mode" onchange="markUnsaved('advMsg')">
+                <option value="random">Random</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="oldest_added">Oldest Added</option>
+                <option value="newest_added">Newest Added</option>
+              </select>
+              <div class="help">How Nudgarr picks which missing Radarr items to search each run</div>
+            </div>
+            <div></div>
           </div>
           </div>
           <div style="margin-top:14px">
@@ -67,8 +84,23 @@
               <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Maximum missing episodes searched per instance per run</div>
             </div>
+            <!-- Backlog Sample Mode — independent of cutoff sample mode (Settings tab) (v4.2.0) -->
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Backlog Sample Mode</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible missing Sonarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              </div>
+              <select id="sonarr_backlog_sample_mode" onchange="markUnsaved('advMsg')">
+                <option value="random">Random</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="oldest_added">Oldest Added</option>
+                <option value="newest_added">Newest Added</option>
+              </select>
+              <div class="help">How Nudgarr picks which missing Sonarr items to search each run</div>
+            </div>
           </div>
           </div>
+          <!-- TODO(v4.2.0-mobile): add radarr_backlog_sample_mode and sonarr_backlog_sample_mode fields to mobile portrait settings — see desktop ui-tab-advanced.html -->
           </div>
           <div class="hr"></div>
           <p class="section-label">For the Arr-tists</p>

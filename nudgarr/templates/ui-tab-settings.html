@@ -45,6 +45,56 @@
 
       </div>
 
+      <!-- Maintenance Window (v4.2.0) — scheduled sweep suppression, manual runs unaffected -->
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.10);margin:20px 0"/>
+      <div style="display:flex;gap:20px;flex-wrap:nowrap;align-items:flex-start">
+        <div class="field" style="flex:1">
+          <label>Maintenance Window</label>
+          <div class="toggle-wrap" style="height:34px;">
+            <label class="toggle">
+              <input type="checkbox" id="maintenance_window_enabled" onchange="syncMaintUi(); markUnsaved('setMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="help" id="maint_label">Disabled</span>
+          </div>
+          <div class="help">Scheduled sweep suppression. Manual runs are not affected.</div>
+        </div>
+        <!-- Time inputs and day pills — greyed when toggle is off -->
+        <div class="field" id="maint_controls" style="max-width:340px;opacity:0.35;pointer-events:none">
+          <label style="margin-bottom:6px">Suppress Between</label>
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="flex:1">
+              <input type="text" id="maintenance_window_start" class="cron-expr-input"
+                placeholder="23:00" maxlength="5"
+                oninput="validateMaintTime(); markUnsaved('setMsg')"
+                autocomplete="off" spellcheck="false"/>
+            </div>
+            <span style="font-size:12px;color:var(--muted);padding-top:9px">to</span>
+            <div style="flex:1">
+              <input type="text" id="maintenance_window_end" class="cron-expr-input"
+                placeholder="07:00" maxlength="5"
+                oninput="validateMaintTime(); markUnsaved('setMsg')"
+                autocomplete="off" spellcheck="false"/>
+            </div>
+          </div>
+          <div class="cron-hint-line" id="maint_hint"></div>
+          <div style="margin-top:12px">
+            <label style="display:block;margin-bottom:6px">Days</label>
+            <div style="display:flex;gap:5px;flex-wrap:wrap" id="maint_day_pills">
+              <button class="day-pill" data-day="0" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Mon</button>
+              <button class="day-pill" data-day="1" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Tue</button>
+              <button class="day-pill" data-day="2" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Wed</button>
+              <button class="day-pill" data-day="3" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Thu</button>
+              <button class="day-pill" data-day="4" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Fri</button>
+              <button class="day-pill" data-day="5" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Sat</button>
+              <button class="day-pill" data-day="6" onclick="toggleMaintDay(this); markUnsaved('setMsg')">Sun</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- TODO(v4.2.0-mobile): add maintenance window fields to mobile portrait settings — see desktop ui-tab-settings.html -->
+
       <div class="card">
         <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p></div>
         <div class="grid cols1" style="gap:12px">

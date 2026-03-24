@@ -37,7 +37,7 @@ from nudgarr.arr_clients import (
     sonarr_search_episodes,
     _sonarr_get_series_meta,
 )
-from nudgarr.constants import VALID_SAMPLE_MODES
+from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
 from nudgarr.globals import STATUS
 from nudgarr.state import load_exclusions, prune_state_by_retention, state_key
 from nudgarr.stats import (
@@ -68,6 +68,7 @@ def _sweep_instance(
     notifications_enabled: bool,
     app: str,
     missing_added_days: int = 0,
+    backlog_sample_mode: str = "random",
 ) -> Dict[str, Any]:
     """Run one Radarr or Sonarr instance through a full sweep cycle.
 
@@ -82,6 +83,11 @@ def _sweep_instance(
 
     All resolved values (cooldown, caps, modes) arrive pre-resolved from
     run_sweep via _resolve() — this function never reads cfg directly for those.
+
+    sample_mode controls the cutoff unmet pipeline pick order.
+    backlog_sample_mode controls the backlog (missing) pipeline pick order
+    independently. Both are validated against their respective constants before
+    being passed in — invalid values fall back to "random" in run_sweep.
 
     Returns a summary dict consumed by run_sweep and ultimately /api/status.
     """
@@ -293,7 +299,10 @@ def _sweep_instance(
 
         chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
             missing_records, app, name, inst_url, missing_type,
-            cooldown_hours, missing_max, sample_mode
+            # backlog_sample_mode is independent of sample_mode (cutoff pipeline).
+            # Both arrive pre-resolved from run_sweep — invalid values fall back
+            # to "random" before reaching this point.
+            cooldown_hours, missing_max, backlog_sample_mode
         )
 
         if app == "radarr":
@@ -418,6 +427,14 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     if sonarr_sample_mode not in VALID_SAMPLE_MODES:
         sonarr_sample_mode = "random"
 
+    # Backlog sample mode — independent of cutoff sample mode (v4.2.0)
+    radarr_backlog_sample_mode = str(cfg.get("radarr_backlog_sample_mode", "random")).lower()
+    if radarr_backlog_sample_mode not in VALID_BACKLOG_SAMPLE_MODES:
+        radarr_backlog_sample_mode = "random"
+    sonarr_backlog_sample_mode = str(cfg.get("sonarr_backlog_sample_mode", "random")).lower()
+    if sonarr_backlog_sample_mode not in VALID_BACKLOG_SAMPLE_MODES:
+        sonarr_backlog_sample_mode = "random"
+
     radarr_max = int(cfg.get("radarr_max_movies_per_run", 25))
     sonarr_max = int(cfg.get("sonarr_max_episodes_per_run", 25))
     batch_size = max(1, int(cfg.get("batch_size", 20)))
@@ -447,15 +464,17 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     # use the global values extracted above. When True, per-instance overrides stored
     # in inst["overrides"] take precedence over globals for any field they define.
 
-    for app, instances, global_max, global_mode, global_missing_max in [
+    for app, instances, global_max, global_mode, global_missing_max, global_backlog_mode in [
         ("radarr",
          cfg.get("instances", {}).get("radarr", []),
          radarr_max, radarr_sample_mode,
-         int(cfg.get("radarr_missing_max", 1))),
+         int(cfg.get("radarr_missing_max", 1)),
+         radarr_backlog_sample_mode),
         ("sonarr",
          cfg.get("instances", {}).get("sonarr", []),
          sonarr_max, sonarr_sample_mode,
-         int(cfg.get("sonarr_missing_max", 1))),
+         int(cfg.get("sonarr_missing_max", 1)),
+         sonarr_backlog_sample_mode),
     ]:
         APP = app.capitalize()
         for inst in instances:
@@ -482,6 +501,13 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             if app == "radarr":
                 inst_missing_days = _resolve(inst, cfg, overrides_enabled, "max_missing_days",
                                              int(cfg.get("radarr_missing_added_days", 14)))
+            # Backlog sample mode override — falls back to global backlog mode if not set
+            inst_backlog_mode = _resolve(inst, cfg, overrides_enabled, "backlog_sample_mode", global_backlog_mode)
+            if inst_backlog_mode not in VALID_BACKLOG_SAMPLE_MODES:
+                inst_backlog_mode = global_backlog_mode
+            logger.debug("[%s:%s] backlog_sample_mode resolved: %s%s",
+                         APP, name, inst_backlog_mode,
+                         " (override)" if inst_backlog_mode != global_backlog_mode else " (global)")
             try:
                 inst_summary = _sweep_instance(
                     session, inst, cfg, excluded_titles,
@@ -491,6 +517,7 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
                     inst_notifications_enabled,
                     app=app,
                     missing_added_days=inst_missing_days,
+                    backlog_sample_mode=inst_backlog_mode,
                 )
                 summary[app].append(inst_summary)
                 lk = f"{app}|{state_key(name, url)}"

@@ -64,6 +64,8 @@ function _getGlobal(kind, field) {
     max_missing_days:      CFG.radarr_missing_added_days ?? 14,
     backlog_enabled:       kind === 'radarr' ? !!CFG.radarr_backlog_enabled : !!CFG.sonarr_backlog_enabled,
     notifications_enabled: !!CFG.notify_enabled,
+    // Backlog sample mode — independent of cutoff sample mode (v4.2.0)
+    backlog_sample_mode:   kind === 'radarr' ? (CFG.radarr_backlog_sample_mode || 'random') : (CFG.sonarr_backlog_sample_mode || 'random'),
   };
   return field in map ? map[field] : '';
 }
@@ -71,12 +73,14 @@ function _getGlobal(kind, field) {
 function _ovCardId(kind, idx) { return `ov-card-${kind}-${idx}`; }
 
 // _buildOverrideCard — renders the HTML for a single per-instance override card.
-// Defines three inner builders: numField (numeric inputs with reset button),
-// modeField (Sample Mode select with Use Global sentinel), and backlogField
-// (toggle with live label). Fields with an active override get the ov-active class
-// to highlight them visually. Disabled instances are fully dimmed and pointer-events
-// are removed so their fields cannot be edited. The notifications footer row is
-// rendered separately at the bottom of each card.
+// Layout (v4.2.0):
+//   Cooldown — spans full width, applies to both pipelines
+//   [Cutoff Unmet group] Max Cutoff Unmet / Sample Mode
+//   [Backlog group] toggle row, Max Backlog / Backlog Sample Mode,
+//                  Max Missing Days / empty (Radarr only)
+//   Notifications footer row
+// Fields with an active override get the ov-active class to highlight them visually.
+// Disabled instances are fully dimmed and pointer-events are removed.
 // Returns a raw HTML string for innerHTML injection by renderOverridesCards().
 function _buildOverrideCard(kind, idx, inst, solo = false) {
   const ov = inst.overrides || {};
@@ -114,6 +118,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
     </div>`;
   };
 
+  // Cutoff sample mode — uses __global__ sentinel; follows existing pattern
   const globalMode = _getGlobal(kind, 'sample_mode');
   const hasOvMode = 'sample_mode' in ov;
   const modeVal = hasOvMode ? ov.sample_mode : '__global__';
@@ -121,12 +126,25 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
     <label>Sample Mode</label>
     <select id="${cardId}-sample_mode" class="${hasOvMode ? 'ov-active' : ''}"
       onchange="markCardDirty('${kind}',${idx})">
-      <option value="__global__"${!hasOvMode ? ' selected' : ''}>Use Global</option>
+      <option value="__global__"${!hasOvMode ? ' selected' : ''}>Use Global (${MODE_LABELS[globalMode] || globalMode})</option>
       ${VALID_MODES.map(m => `<option value="${m}"${modeVal === m ? ' selected' : ''}>${MODE_LABELS[m]}</option>`).join('')}
     </select>
-    <span class="help">Global: ${MODE_LABELS[globalMode] || globalMode}</span>
   </div>`;
 
+  // Backlog sample mode — independent of cutoff sample mode; same __global__ sentinel pattern (v4.2.0)
+  const globalBacklogMode = _getGlobal(kind, 'backlog_sample_mode');
+  const hasOvBacklogMode = 'backlog_sample_mode' in ov;
+  const backlogModeVal = hasOvBacklogMode ? ov.backlog_sample_mode : '__global__';
+  const backlogModeField = `<div class="field">
+    <label>Backlog Sample Mode</label>
+    <select id="${cardId}-backlog_sample_mode" class="${hasOvBacklogMode ? 'ov-active' : ''}"
+      onchange="markCardDirty('${kind}',${idx})">
+      <option value="__global__"${!hasOvBacklogMode ? ' selected' : ''}>Use Global (${MODE_LABELS[globalBacklogMode] || globalBacklogMode})</option>
+      ${VALID_MODES.map(m => `<option value="${m}"${backlogModeVal === m ? ' selected' : ''}>${MODE_LABELS[m]}</option>`).join('')}
+    </select>
+  </div>`;
+
+  // Backlog enabled toggle
   const globalBacklog = _getGlobal(kind, 'backlog_enabled');
   const hasOvBacklog = 'backlog_enabled' in ov;
   const backlogVal = hasOvBacklog ? ov.backlog_enabled : globalBacklog;
@@ -134,32 +152,25 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const blLabel = hasOvBacklog
     ? `${backlogVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalBacklog ? 'On' : 'Off'}`
     : `${backlogVal ? 'On' : 'Off'} (Global: ${globalBacklog ? 'On' : 'Off'})`;
-  const backlogField = `<div class="field">
-    <label>Backlog</label>
-    <div class="${blRowClass}" id="${cardId}-bl-row">
-      <span class="help" style="font-size:11px" id="${cardId}-bl-label">${blLabel}</span>
-      <label class="toggle">
-        <input type="checkbox" id="${cardId}-backlog_enabled"${backlogVal ? ' checked' : ''}
-          onchange="markCardDirty('${kind}',${idx}); updateBacklogLabel('${kind}',${idx})"/>
-        <span class="toggle-track"></span>
-        <span class="toggle-thumb"></span>
-      </label>
-    </div>
-  </div>`;
 
   const gCooldown = _getGlobal(kind, 'cooldown_hours');
   const gCutoff   = _getGlobal(kind, 'max_cutoff_unmet');
   const gBacklog  = _getGlobal(kind, 'max_backlog');
   const gMissing  = _getGlobal(kind, 'max_missing_days');
 
-  // Row 1: Cooldown / Sample Mode
-  // Row 2: Max Cutoff Unmet / Backlog toggle
-  // Row 3 Radarr: Max Backlog left / Max Missing Days right
-  // Row 3 Sonarr: Max Backlog left / empty right
-  const row3 = kind === 'radarr'
-    ? `${numField('max_backlog', 'Max Backlog', gBacklog)}
-       ${numField('max_missing_days', 'Max Missing Days', gMissing)}`
-    : `${numField('max_backlog', 'Max Backlog', gBacklog)}<div></div>`;
+  // Backlog fields row: Max Backlog / Backlog Sample Mode
+  // Radarr gets an additional row: Max Missing Days / empty
+  const backlogFieldsHtml = kind === 'radarr'
+    ? `<div class="ov-fields">
+        ${numField('max_backlog', 'Max Backlog', gBacklog)}
+        ${backlogModeField}
+        ${numField('max_missing_days', 'Max Missing Days', gMissing)}
+        <div></div>
+      </div>`
+    : `<div class="ov-fields">
+        ${numField('max_backlog', 'Max Backlog', gBacklog)}
+        ${backlogModeField}
+      </div>`;
 
   const disabledTag = isDisabled
     ? `<span class="help" style="font-size:11px;color:var(--muted)">Disabled</span>`
@@ -173,6 +184,10 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
     ? `${notifyVal ? 'On (Override)' : 'Off (Override)'} Global: ${globalNotify ? 'On' : 'Off'}`
     : `${notifyVal ? 'On' : 'Off'} (Global: ${globalNotify ? 'On' : 'Off'})`;
 
+  // Inner divider + group label helpers (inline styles — no new CSS classes required)
+  const innerDivider = `<div style="height:1px;background:var(--border);margin:10px 0"></div>`;
+  const grpHead = (text) => `<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">${text}</div>`;
+
   return `<div class="${'ov-card' + (solo ? ' ov-solo' : '')}" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
@@ -180,28 +195,47 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
       </div>
       ${disabledTag}
     </div>
-    <div class="ov-fields" style="${disabledStyle}">
-      ${numField('cooldown_hours', 'Cooldown Hours', gCooldown)}
-      ${modeField}
-      ${numField('max_cutoff_unmet', 'Max Cutoff Unmet', gCutoff)}
-      ${backlogField}
-      ${row3}
-    </div>
-    <div class="${notifyRowClass}" id="${cardId}-notify-row" style="${disabledStyle};margin-bottom:8px">
-      <div>
-        <span style="font-size:11px;font-weight:500;color:#bcc4dc">Notifications</span>
-        <span class="help" style="font-size:10px;margin-left:8px" id="${cardId}-notify-label">${notifyLabel}</span>
+    <div style="${disabledStyle}">
+      <!-- Cooldown — applies to both pipelines, sits above the cutoff/backlog split -->
+      <div class="ov-fields" style="margin-bottom:10px">
+        <div style="grid-column:1/-1;max-width:50%">
+          ${numField('cooldown_hours', 'Cooldown Hours', gCooldown)}
+        </div>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="${cardId}-notifications_enabled"${notifyVal ? ' checked' : ''}
-          onchange="markCardDirty('${kind}',${idx}); updateNotifyLabel('${kind}',${idx})"/>
-        <span class="toggle-track"></span>
-        <span class="toggle-thumb"></span>
-      </label>
-    </div>
-    <div class="ov-card-foot" style="${disabledStyle}">
-      <button class="ov-rst-all" onclick="resetCardOverrides('${kind}',${idx})">Reset All to Global</button>
-      <button class="btn sm primary" onclick="applyOverrides('${kind}',${idx})">Apply</button>
+      ${innerDivider}
+      <!-- Cutoff Unmet group -->
+      ${grpHead('Cutoff Unmet')}
+      <div class="ov-fields" style="margin-bottom:10px">
+        ${numField('max_cutoff_unmet', 'Max', gCutoff)}
+        ${modeField}
+      </div>
+      ${innerDivider}
+      <!-- Backlog group — toggle gates the fields below it visually -->
+      ${grpHead('Backlog')}
+      <div class="${blRowClass}" id="${cardId}-bl-row" style="margin-bottom:8px">
+        <span class="help" style="font-size:11px" id="${cardId}-bl-label">${blLabel}</span>
+        <label class="toggle">
+          <input type="checkbox" id="${cardId}-backlog_enabled"${backlogVal ? ' checked' : ''}
+            onchange="markCardDirty('${kind}',${idx}); updateBacklogLabel('${kind}',${idx})"/>
+          <span class="toggle-track"></span>
+          <span class="toggle-thumb"></span>
+        </label>
+      </div>
+      ${backlogFieldsHtml}
+      <!-- Notifications footer -->
+      <div class="${notifyRowClass}" id="${cardId}-notify-row">
+        <span class="help" style="font-size:11.5px" id="${cardId}-notify-label">${notifyLabel}</span>
+        <label class="toggle">
+          <input type="checkbox" id="${cardId}-notifications_enabled"${notifyVal ? ' checked' : ''}
+            onchange="markCardDirty('${kind}',${idx}); updateNotifyLabel('${kind}',${idx})"/>
+          <span class="toggle-track"></span>
+          <span class="toggle-thumb"></span>
+        </label>
+      </div>
+      <div class="ov-card-foot">
+        <button class="ov-rst-all" onclick="resetCardOverrides('${kind}',${idx})">Reset All to Global</button>
+        <button class="btn sm primary" onclick="applyOverrides('${kind}',${idx})">Apply</button>
+      </div>
     </div>
   </div>`;
 }
@@ -312,6 +346,18 @@ async function applyOverrides(kind, idx) {
     }
   }
 
+  // Backlog sample mode — same __global__ sentinel pattern as sample_mode (v4.2.0)
+  const backlogModeEl = el(cardId + '-backlog_sample_mode');
+  if (backlogModeEl) {
+    if (backlogModeEl.value === '__global__' || backlogModeEl.value === '') {
+      delete newOv.backlog_sample_mode;
+      backlogModeEl.classList.remove('ov-active');
+    } else {
+      newOv.backlog_sample_mode = backlogModeEl.value;
+      backlogModeEl.classList.add('ov-active');
+    }
+  }
+
   // Backlog enabled — always store current value if input has been interacted with
   const blInput = el(cardId + '-backlog_enabled');
   if (blInput) {
@@ -365,8 +411,9 @@ async function resetCardOverrides(kind, idx) {
 
 function resetFieldOverride(kind, idx, field) {
   const cardId = _ovCardId(kind, idx);
-  if (field === 'sample_mode') {
-    const sel = el(cardId + '-sample_mode');
+  if (field === 'sample_mode' || field === 'backlog_sample_mode') {
+    // Both mode selects use the __global__ sentinel to indicate no override
+    const sel = el(cardId + '-' + field);
     if (sel) { sel.value = '__global__'; sel.classList.remove('ov-active'); }
   } else {
     const input = el(cardId + '-' + field);

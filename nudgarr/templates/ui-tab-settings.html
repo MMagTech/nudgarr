@@ -64,13 +64,13 @@
           <div style="display:flex;align-items:flex-start;gap:10px">
             <input type="text" id="maintenance_window_start"
               placeholder="23:00" maxlength="5"
-              style="width:90px;font-family:ui-monospace,monospace;letter-spacing:.03em"
+              style="flex:1;font-family:ui-monospace,monospace;letter-spacing:.03em"
               oninput="validateMaintTime(); markUnsaved('setMsg')"
               autocomplete="off" spellcheck="false"/>
-            <span style="font-size:12px;color:var(--muted);padding-top:9px">to</span>
+            <span style="font-size:12px;color:var(--muted);padding-top:9px;flex-shrink:0">to</span>
             <input type="text" id="maintenance_window_end"
               placeholder="07:00" maxlength="5"
-              style="width:90px;font-family:ui-monospace,monospace;letter-spacing:.03em"
+              style="flex:1;font-family:ui-monospace,monospace;letter-spacing:.03em"
               oninput="validateMaintTime(); markUnsaved('setMsg')"
               autocomplete="off" spellcheck="false"/>
           </div>

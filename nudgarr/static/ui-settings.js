@@ -598,6 +598,8 @@ function validateMaintTime() {
 
   sInput.classList.remove('cron-valid', 'cron-invalid');
   eInput.classList.remove('cron-valid', 'cron-invalid');
+  sInput.style.borderColor = '';
+  eInput.style.borderColor = '';
 
   if (!sInput.value && !eInput.value) {
     hint.className = 'cron-hint-line'; hint.textContent = ''; return;
@@ -605,8 +607,8 @@ function validateMaintTime() {
 
   const sOk = !!(sMatch && parseInt(sMatch[1],10) <= 23 && parseInt(sMatch[2],10) <= 59);
   const eOk = !!(eMatch && parseInt(eMatch[1],10) <= 23 && parseInt(eMatch[2],10) <= 59);
-  sInput.classList.add(sOk ? 'cron-valid' : 'cron-invalid');
-  eInput.classList.add(eOk ? 'cron-valid' : 'cron-invalid');
+  sInput.style.borderColor = sOk ? 'rgba(34,197,94,.45)' : 'rgba(239,68,68,.45)';
+  eInput.style.borderColor = eOk ? 'rgba(34,197,94,.45)' : 'rgba(239,68,68,.45)';
 
   if (!sOk || !eOk) {
     hint.className = 'cron-hint-line cron-bad';

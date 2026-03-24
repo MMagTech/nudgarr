@@ -58,19 +58,15 @@
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🚫 Auto-Exclusion</div>
-           <div class="help">Titles that keep getting searched with no download can now exclude themselves automatically. Set a search count threshold per app in Advanced → page 2. Auto-excluded titles show an amber badge in the Exclusions tab and can be cleared individually or in bulk from the Danger Zone. A configurable unexclude timer gives them another chance after a set number of days.</div>
+           <div class="help">Disabled by default. Titles that keep getting searched with no confirmed download can now exclude themselves automatically. Set a search count threshold per app in Advanced → page 2. Auto-excluded titles show an amber badge in the Exclusions tab and can be cleared individually or in bulk from the Danger Zone. A configurable unexclude timer returns them to eligibility after a set number of days.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Import Stats Period</div>
            <div class="help">The Imports tab stats card now lets you switch between Lifetime, Last 30 Days, and Last 7 Days. Lifetime totals are protected and survive a Clear Stats — the rolling windows calculate from your import history and update immediately when you switch.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📱 Mobile Auto-Exclusion</div>
-           <div class="help">Auto-exclusion is now fully surfaced on mobile. Configure thresholds and unexclude days directly in the Settings tab alongside Cutoff Max. A red badge on the History nav item shows new auto-exclusions — tap to review and clear. Auto-excluded titles appear in amber in the Excluded list so you can tell them apart from manual ones at a glance.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
-           <div class="help">Log timestamps now use container local time (set via the TZ env var). Notifications have proper debug and warning logging throughout. All dependencies are now pinned in requirements.txt for reproducible builds. Mobile pinch-to-zoom is enabled on both iOS and Android.</div>
+           <div class="help">Large libraries now get full results — the 500-item pagination cap is removed, so Oldest Added and Newest Added modes work correctly regardless of library size. Log timestamps use container local time. All static files are cache-busted on upgrade so browsers automatically load fresh JS and CSS without a hard refresh. Flask development server replaced with Waitress for more reliable request handling. In-progress sweeps now complete cleanly on container stop.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">

@@ -244,36 +244,47 @@
         <span class="msg" id="advMsg"></span>
       </div>
 
-      <div class="card danger-section" style="margin-bottom:12px">
-        <p class="section-label" style="color:#fca5a5">Danger Zone</p>
-        <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
-        <div class="row" style="flex-wrap:wrap;gap:8px">
-          <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
-          <button class="btn sm danger" onclick="resetAutoExclusions()">Reset Auto-Exclusions</button>
-          <button class="btn sm danger" onclick="clearState()">Clear History</button>
-          <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
-          <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
-          <button class="btn sm danger" onclick="resetIntelData()">Reset Intel</button>
-        </div>
-      </div>
+      <div class="grid cols2" style="align-items:start;">
 
-      <div class="card">
-        <p class="section-label" style="display:flex;align-items:baseline;gap:8px">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
-        <p class="help" style="margin:0 0 16px">Data backup and diagnostic tools.</p>
-        <div class="hr"></div>
-        <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center">
-          <button class="btn sm" onclick="backupAll()">Backup All</button>
-          <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
-          <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
-          <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:auto;font-family:inherit;font-weight:500;letter-spacing:.01em">
-            <option value="DEBUG">Log: DEBUG</option>
-            <option value="INFO">Log: INFO</option>
-            <option value="WARNING">Log: WARNING</option>
-            <option value="ERROR">Log: ERROR</option>
-          </select>
+        <div class="card">
+          <p class="section-label" style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
+          <p class="help" style="margin:0 0 14px;">Data backup and diagnostic tools.</p>
+          <div style="display:grid;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn sm" onclick="backupAll()">Backup All</button>
+              <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:auto;font-family:inherit;font-weight:500;letter-spacing:.01em">
+                <option value="DEBUG">Log: DEBUG</option>
+                <option value="INFO">Log: INFO</option>
+                <option value="WARNING">Log: WARNING</option>
+                <option value="ERROR">Log: ERROR</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+              <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
+            </div>
+          </div>
+          <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
+          <div id="diagBox" class="diag-box" style="display:none"></div>
         </div>
-        <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
-        <div id="diagBox" class="diag-box" style="display:none"></div>
+
+        <div class="card danger-section">
+          <p class="section-label" style="color:#fca5a5">Danger Zone</p>
+          <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+          <div style="display:grid;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm danger" onclick="clearState()">Clear History</button>
+              <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
+              <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm danger" onclick="resetAutoExclusions()">Reset Auto-Exclusions</button>
+              <button class="btn sm danger" onclick="resetIntelData()">Reset Intel</button>
+              <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

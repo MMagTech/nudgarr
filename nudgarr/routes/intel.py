@@ -29,8 +29,8 @@ _CALIBRATION_HIGH = 0.20
 _CALIBRATION_LOW = 0.05
 
 # Cold start minimum thresholds.
-_COLD_START_MIN_IMPORTS = 10
-_COLD_START_MIN_RUNS = 30
+_COLD_START_MIN_IMPORTS = 25
+_COLD_START_MIN_RUNS = 50
 
 
 # ── GET /api/intel ────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ def _build_intel_payload():
     cold_start = (
         agg["success_total_imported"] < _COLD_START_MIN_IMPORTS
         and total_runs < _COLD_START_MIN_RUNS
-    )
+    ) or agg["success_total_worked"] == 0
     logger.debug("[Intel] cold_start=%s total_runs=%d imported=%d",
                  cold_start, total_runs, agg["success_total_imported"])
 
@@ -297,6 +297,7 @@ def _build_intel_payload():
     logger.debug("[Intel] payload assembled successfully")
     return jsonify({
         "cold_start": cold_start,
+        "total_runs": total_runs,
         "library_score": library_score,
         "search_health": search_health,
         "instance_performance": instance_performance,

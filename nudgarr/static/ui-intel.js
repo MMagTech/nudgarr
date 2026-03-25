@@ -25,8 +25,21 @@ function fillIntel() {
 // ── Public: renderIntel ───────────────────────────────────────────────────
 
 function renderIntel(d) {
-  if (!d) return _intelError('No data received.');
+  if (!d) return _intelError('Failed to load Intel data.');
   _intelLoaded = true;
+
+  const coldEl    = document.getElementById('intelColdStart');
+  const contentEl = document.getElementById('intelContent');
+
+  if (d.cold_start) {
+    if (coldEl)    coldEl.style.display    = '';
+    if (contentEl) contentEl.style.display = 'none';
+    _renderColdStart(d);
+    return;
+  }
+
+  if (coldEl)    coldEl.style.display    = 'none';
+  if (contentEl) contentEl.style.display = '';
 
   // ── Library Score ──────────────────────────────────────────────────
   _renderScore(d);
@@ -51,6 +64,46 @@ function renderIntel(d) {
 
   // ── Sweep Efficiency ───────────────────────────────────────────────
   _renderSweepEfficiency(d.sweep_efficiency || []);
+}
+
+// ── Cold Start ────────────────────────────────────────────────────────────
+
+function _renderColdStart(d) {
+  const sh      = d.search_health || {};
+  const imports = sh.success_total_imported || 0;
+  const runs    = d.total_runs || 0;
+
+  const importsEl = document.getElementById('intelColdImports');
+  const runsEl    = document.getElementById('intelColdRuns');
+  const progressWrap = document.getElementById('intelColdProgressWrap');
+  const progressFill = document.getElementById('intelColdProgressFill');
+  const progressPct  = document.getElementById('intelColdProgressPct');
+
+  if (importsEl) {
+    importsEl.textContent = imports;
+    importsEl.style.color = imports > 0 ? 'var(--ok)' : 'var(--muted)';
+  }
+  if (runsEl) {
+    runsEl.textContent = runs;
+    runsEl.style.color = runs > 0 ? 'var(--accent-lt)' : 'var(--muted)';
+  }
+
+  // Progress bar — show only when at least one counter is above zero.
+  // Uses the higher of the two completion percentages since either hitting
+  // 100% unlocks the score.
+  const importsPct = Math.round((imports / 25) * 100);
+  const runsPct    = Math.round((runs / 50) * 100);
+  const best       = Math.min(100, Math.max(importsPct, runsPct));
+
+  if (progressWrap && progressFill && progressPct) {
+    if (imports > 0 || runs > 0) {
+      progressWrap.style.display = '';
+      progressFill.style.width   = best + '%';
+      progressPct.textContent    = best + '%';
+    } else {
+      progressWrap.style.display = 'none';
+    }
+  }
 }
 
 // ── Public: resetIntel ───────────────────────────────────────────────────
@@ -94,7 +147,7 @@ function _renderScore(d) {
   // Ring fill: circumference = 339.3
   const offset = 339.3 * (1 - score / 100);
   fillEl.style.strokeDashoffset = offset;
-  fillEl.className = 'intel-score-fill ' + (score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low');
+  fillEl.setAttribute('class', 'intel-score-fill ' + (score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low'));
 
   // Grade pill.
   gradeEl.style.display = '';

@@ -1,6 +1,45 @@
 <!-- ══════════════════════════════ INTEL ══════════════════════════════ -->
   <div class="section" id="tab-intel">
 
+    <!-- Cold start state — shown until threshold is reached -->
+    <div id="intelColdStart" style="display:none;">
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;text-align:center;gap:16px;">
+        <div style="font-size:48px;line-height:1;">📡</div>
+        <div class="card-title" style="font-size:20px;margin:0;">Intel is Building...</div>
+        <p class="help" style="max-width:480px;margin:0;font-size:13.5px;color:var(--text-dim);line-height:1.6;">
+          Intel tracks your library performance over time and needs a minimum amount of data before it can produce meaningful scores. Run a few sweeps and come back once things have settled in.
+        </p>
+        <div style="display:flex;gap:24px;align-items:center;margin-top:4px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px 28px;">
+            <div id="intelColdImports" style="font-size:28px;font-weight:800;line-height:1;color:var(--muted);">0</div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);">Confirmed Imports</div>
+            <div style="font-size:11px;color:var(--muted);">Need 25</div>
+          </div>
+          <div style="color:var(--muted);font-size:18px;">or</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px 28px;">
+            <div id="intelColdRuns" style="font-size:28px;font-weight:800;line-height:1;color:var(--muted);">0</div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);">Sweep Runs</div>
+            <div style="font-size:11px;color:var(--muted);">Need 50</div>
+          </div>
+        </div>
+        <div id="intelColdProgressWrap" style="display:none;width:100%;max-width:360px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;">
+            <span>Progress toward first score</span>
+            <span id="intelColdProgressPct">0%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;">
+            <div id="intelColdProgressFill" style="height:100%;border-radius:3px;background:var(--accent);width:0%;transition:width .4s ease;"></div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:8px;padding:10px 18px;max-width:400px;">
+          Intel data is protected. It is never affected by Clear History or Clear Stats.
+        </div>
+      </div>
+    </div>
+
+    <!-- Normal content — hidden during cold start -->
+    <div id="intelContent">
+
     <!-- ROW 1 — Library Score + Search Health -->
     <div class="intel-grid-score intel-row">
 
@@ -206,4 +245,5 @@
       </div>
     </div>
 
+    </div><!-- end #intelContent -->
   </div>

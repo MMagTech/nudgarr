@@ -137,10 +137,9 @@ def _build_intel_payload():
 
     instance_performance = []
     for lr in lifetime_rows:
-        parts = lr["instance_key"].split("|", 1)
-        inst_url = parts[1].rstrip("/") if len(parts) > 1 else parts[0].rstrip("/")
-        inst_name = url_to_name.get(inst_url, parts[0] if len(parts) > 1 else inst_url)
-        app_name = url_to_app.get(inst_url, "unknown")
+        inst_url, inst_name, app_name = _parse_instance_key(
+            lr["instance_key"], url_to_name, url_to_app
+        )
 
         confirmed = per_inst_imports.get(inst_url, 0)
         inst_ta = per_inst_ta.get(inst_url, {"sum": 0.0, "count": 0})
@@ -231,10 +230,9 @@ def _build_intel_payload():
     # ── 8. Sweep Efficiency ───────────────────────────────────────────
     sweep_efficiency = []
     for lr in lifetime_rows:
-        parts = lr["instance_key"].split("|", 1)
-        inst_url = parts[1].rstrip("/") if len(parts) > 1 else parts[0].rstrip("/")
-        inst_name = url_to_name.get(inst_url, parts[0] if len(parts) > 1 else inst_url)
-        app_name = url_to_app.get(inst_url, "unknown")
+        inst_url, inst_name, app_name = _parse_instance_key(
+            lr["instance_key"], url_to_name, url_to_app
+        )
         eligible = lr["eligible"] or 0
         searched = lr["searched"] or 0
         ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
@@ -460,3 +458,32 @@ def _sh_field(conn, app, instance_url, item_id, field):
         (app, instance_url, item_id)
     ).fetchone()
     return row[field] if row else ""
+
+
+def _parse_instance_key(instance_key, url_to_name, url_to_app):
+    """Parse a sweep_lifetime instance_key into (inst_url, inst_name, app_name).
+
+    instance_key format is 'app|name|url' (set in sweep.py as
+    f"{app}|{state_key(name, url)}"). Split on | with maxsplit=2 to
+    correctly separate the three components. Falls back gracefully if the
+    key is in an older format.
+    """
+    parts = instance_key.split("|", 2)
+    if len(parts) == 3:
+        # Current format: app|name|url
+        app_from_key = parts[0]
+        name_from_key = parts[1]
+        inst_url = parts[2].rstrip("/")
+    elif len(parts) == 2:
+        # Legacy format: name|url
+        app_from_key = None
+        name_from_key = parts[0]
+        inst_url = parts[1].rstrip("/")
+    else:
+        app_from_key = None
+        name_from_key = instance_key
+        inst_url = instance_key.rstrip("/")
+
+    inst_name = url_to_name.get(inst_url, name_from_key)
+    app_name = url_to_app.get(inst_url, app_from_key or "unknown")
+    return inst_url, inst_name, app_name

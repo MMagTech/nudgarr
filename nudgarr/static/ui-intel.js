@@ -246,7 +246,10 @@ function _renderInstanceTable(rows) {
 
   const tbody = rows.map(r => {
     const app       = r.app || 'radarr';
-    const dot       = `<div class="run-dot ${app === 'sonarr' ? 'ok' : ''}" style="${app === 'radarr' ? 'background:var(--accent);box-shadow:0 0 5px rgba(91,114,245,.5)' : ''}"></div>`;
+    const dotStyle  = app === 'sonarr'
+      ? 'background:var(--ok);box-shadow:0 0 5px rgba(34,197,94,.5)'
+      : 'background:var(--accent);box-shadow:0 0 5px rgba(91,114,245,.5)';
+    const dot       = `<div class="run-dot" style="${dotStyle}"></div>`;
     const tag       = `<span class="intel-app-tag ${app}">${app.charAt(0).toUpperCase() + app.slice(1)}</span>`;
     const nameCell  = `<div class="intel-inst-cell">${dot}<div><div style="color:var(--text);font-weight:500;font-size:13px;">${_esc(r.instance_name)}</div>${tag}</div></div>`;
     const sucPct    = Math.round((r.success_rate || 0) * 100);
@@ -439,10 +442,10 @@ function _renderSweepEfficiency(rows) {
     const barColor = isHigh ? 'var(--warn)' : 'var(--accent)';
     const pctColor = isHigh ? 'var(--warn)' : 'var(--text)';
     const app      = r.app || 'radarr';
-    const dotStyle = app === 'radarr'
-      ? 'background:var(--accent);box-shadow:0 0 5px rgba(91,114,245,.5)'
-      : '';
-    const dotClass = app === 'sonarr' ? 'run-dot ok' : 'run-dot';
+    const dotStyle = app === 'sonarr'
+      ? 'background:var(--ok);box-shadow:0 0 5px rgba(34,197,94,.5)'
+      : 'background:var(--accent);box-shadow:0 0 5px rgba(91,114,245,.5)';
+    const dotClass = 'run-dot';
     const callout  = isHigh
       ? `<div class="intel-callout warn" style="margin:0 0 4px;">
            <div class="intel-callout-label">Cap Warning \u2014 ${_esc(r.instance_name)}</div>

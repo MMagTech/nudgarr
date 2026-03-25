@@ -46,7 +46,7 @@
       <!-- Library Score -->
       <div class="card intel-score-card">
         <div style="text-align:center;">
-          <div class="card-title" style="text-align:center;margin-bottom:2px;">Library Score</div>
+          <div class="card-title" style="text-align:center;margin-bottom:2px;">Library Score <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">A 0 to 100 composite score summarising overall Nudgarr health. Weighted from four components: success rate (40%), turnaround (25%), stuck items (20%), and sweep efficiency (15%). Shows Building until 25 confirmed imports or 50 sweep runs have accumulated.</div></span></span></div>
           <p class="help" style="text-align:center;margin:0;">Overall Nudgarr health</p>
         </div>
         <div class="intel-score-ring-wrap" id="intelScoreRingWrap">
@@ -138,7 +138,7 @@
 
     <!-- ROW 2 — Instance Performance -->
     <div class="card intel-row">
-      <div class="card-title">Instance Performance</div>
+      <div class="card-title">Instance Performance <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime metrics broken down per instance. Sweep Runs and Total Searched are protected and unaffected by any clear operation. Confirmed Imports, Success Rate, and Turnaround come from the protected Intel aggregate and survive Clear History and Clear Stats. Eligible Used is a lifetime average across all runs for that instance.</div></span></span></div>
       <p class="card-sub">Lifetime metrics per instance — eligible used is a lifetime average</p>
       <div id="intelInstanceTable">
         <p class="help">Loading…</p>
@@ -150,7 +150,7 @@
 
       <!-- Stuck Items -->
       <div class="card">
-        <div class="card-title">Stuck Items</div>
+        <div class="card-title">Stuck Items <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Titles searched at or above your auto-exclusion threshold with no confirmed import and not yet excluded. Sorted by search count. Use this list to decide which titles to manually exclude or to review your threshold setting. Only available when auto-exclusion thresholds are enabled.</div></span></span></div>
         <p class="card-sub" id="intelStuckSub">Items searched repeatedly with no confirmed import</p>
         <div id="intelStuckList" style="max-height:320px;overflow-y:auto;padding-right:4px;">
           <p class="help">Loading…</p>
@@ -159,7 +159,7 @@
 
       <!-- Exclusion Intel -->
       <div class="card">
-        <div class="card-title">Exclusion Intel</div>
+        <div class="card-title">Exclusion Intel <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime summary of your exclusions activity. The Calibration Signal shows how many auto-excluded titles eventually imported after being given a second chance, helping you assess whether your auto-exclusion threshold is set at the right level.</div></span></span></div>
         <p class="card-sub">Lifetime exclusion activity and threshold calibration</p>
         <div class="intel-excl-stats">
           <div class="intel-excl-stat">
@@ -207,7 +207,7 @@
 
       <!-- Library Age vs Success -->
       <div class="card">
-        <div class="card-title">Library Age vs Success</div>
+        <div class="card-title">Library Age vs Success <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Import success rate grouped by how long items had been in your library at the time Nudgarr first searched them. A drop in success rate at older age buckets typically means long-tail content that indexers do not carry. Items without a recorded library added date are excluded from the chart.</div></span></span></div>
         <p class="card-sub">Import success rate by how long items were in your library at first search</p>
         <div class="intel-age-chart" id="intelAgeChart">
           <p class="help">Loading…</p>
@@ -217,7 +217,7 @@
 
       <!-- Quality Iteration -->
       <div class="card">
-        <div class="card-title">Quality Iteration</div>
+        <div class="card-title">Quality Iteration <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Shows how many titles were imported once versus upgraded at least once after the initial import. The most common upgrade path is shown separately for Radarr and Sonarr since quality profile naming differs between apps.</div></span></span></div>
         <p class="card-sub">How many titles were upgraded after initial import</p>
         <div class="intel-qi-split">
           <div class="intel-qi-cell">
@@ -238,7 +238,7 @@
 
     <!-- ROW 5 — Sweep Efficiency -->
     <div class="card intel-row">
-      <div class="card-title">Sweep Efficiency</div>
+      <div class="card-title">Sweep Efficiency <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime average ratio of items searched versus items eligible per sweep, per instance. Green means strong coverage, amber means moderate, red means low. This is a lifetime average so recent cap changes will drift toward the new value over time rather than reflecting it immediately.</div></span></span></div>
       <p class="card-sub">Lifetime average ratio of items searched vs eligible per instance</p>
       <div id="intelEfficiency">
         <p class="help">Loading…</p>

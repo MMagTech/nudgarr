@@ -156,7 +156,6 @@ def _build_intel_payload():
         eligible = lr["eligible"] or 0
         searched = lr["searched"] or 0
         ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
-        callout = ratio >= 0.95 and lr["runs"] >= 10
 
         instance_performance.append({
             "instance_url": inst_url,
@@ -169,7 +168,6 @@ def _build_intel_payload():
             "turnaround_avg_days": inst_turnaround,
             "eligible": eligible,
             "eligible_used_ratio": ratio,
-            "eligible_used_callout": callout,
             "stuck_items": stuck_by_url.get(inst_url, 0),
         })
 
@@ -236,7 +234,6 @@ def _build_intel_payload():
         eligible = lr["eligible"] or 0
         searched = lr["searched"] or 0
         ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
-        callout = ratio >= 0.95 and lr["runs"] >= 10
         sweep_efficiency.append({
             "instance_url": inst_url,
             "instance_name": inst_name,
@@ -245,7 +242,6 @@ def _build_intel_payload():
             "eligible": eligible,
             "searched": searched,
             "ratio": ratio,
-            "callout": callout,
         })
 
     # ── 9. Library Age ────────────────────────────────────────────────

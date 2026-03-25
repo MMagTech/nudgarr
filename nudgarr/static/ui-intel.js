@@ -255,8 +255,8 @@ function _renderInstanceTable(rows) {
     const sucPct    = Math.round((r.success_rate || 0) * 100);
     const sucColor  = sucPct >= 60 ? 'var(--ok)' : 'var(--warn)';
     const ratio     = r.eligible_used_ratio || 0;
-    const barColor  = ratio >= 0.95 ? 'var(--warn)' : 'var(--accent)';
     const barPct    = Math.round(ratio * 100);
+    const barColor  = barPct >= 80 ? 'var(--ok)' : barPct >= 50 ? 'var(--warn)' : 'var(--bad)';
     const bar       = `<div class="intel-bar-wrap"><div class="intel-bar-track"><div class="intel-bar-fill" style="width:${barPct}%;background:${barColor};"></div></div><span style="font-size:11px;color:${barColor};min-width:34px;text-align:right;">${barPct}%</span></div>`;
     const stuckVal  = r.stuck_items || 0;
     const stuckClr  = stuckVal > 0 ? 'var(--warn)' : 'var(--muted)';
@@ -438,9 +438,8 @@ function _renderSweepEfficiency(rows) {
   el.innerHTML = rows.map(r => {
     const ratio    = r.ratio || 0;
     const pct      = Math.round(ratio * 100);
-    const isHigh   = r.callout;
-    const barColor = isHigh ? 'var(--warn)' : 'var(--accent)';
-    const pctColor = isHigh ? 'var(--warn)' : 'var(--text)';
+    const barColor = pct >= 80 ? 'var(--ok)' : pct >= 50 ? 'var(--warn)' : 'var(--bad)';
+    const pctColor = pct >= 80 ? 'var(--ok)' : pct >= 50 ? 'var(--warn)' : 'var(--bad)';
     const app      = r.app || 'radarr';
     const dotStyle = app === 'sonarr'
       ? 'background:var(--ok);box-shadow:0 0 5px rgba(34,197,94,.5)'
@@ -462,7 +461,7 @@ function _renderSweepEfficiency(rows) {
         <div class="intel-eff-numbers">${_num(r.searched)} searched of ${_num(r.eligible)} eligible &middot; lifetime average</div>
       </div>
       <div class="intel-eff-pct${isHigh ? ' warn' : ''}" style="color:${pctColor};">${pct}%</div>
-    </div>${callout}`;
+    </div>`;
   }).join('');
 }
 

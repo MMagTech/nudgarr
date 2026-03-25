@@ -11,12 +11,10 @@ All aggregate writes happen at confirm and exclusion event time in
 db/entries.py and db/exclusions.py. This route only reads and resets.
 """
 
-import json
 import logging
-from calendar import monthrange
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 
 from nudgarr import db
 from nudgarr.auth import requires_auth
@@ -27,12 +25,12 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("intel", __name__)
 
 # Calibration thresholds -- ratio of auto-excluded titles that later imported.
-_CALIBRATION_HIGH = 0.20   # above this: threshold may be too aggressive
-_CALIBRATION_LOW  = 0.05   # below this: not enough signal yet
+_CALIBRATION_HIGH = 0.20
+_CALIBRATION_LOW = 0.05
 
 # Cold start minimum thresholds.
 _COLD_START_MIN_IMPORTS = 10
-_COLD_START_MIN_RUNS    = 30
+_COLD_START_MIN_RUNS = 30
 
 
 # ── GET /api/intel ────────────────────────────────────────────────────
@@ -47,10 +45,22 @@ def api_intel():
     counts, sweep lifetime, upgrade paths, calibration signal). All computation
     happens in Python; the frontend receives a single flat JSON object.
     """
+    logger.debug("[Intel] GET /api/intel called")
+    try:
+        return _build_intel_payload()
+    except Exception:
+        logger.exception("[Intel] GET /api/intel failed")
+        return {"error": "Intel data unavailable -- check logs for details."}, 500
+
+
+def _build_intel_payload():
+    """Assemble the full Intel payload. Separated from the route handler so
+    exceptions are caught and logged at the route boundary."""
     cfg = load_or_init_config()
     conn = db.get_connection()
 
     # ── 1. Aggregate read ─────────────────────────────────────────────
+    logger.debug("[Intel] reading intel_aggregate")
     agg = db.get_intel_aggregate()
 
     # ── 2. Cold start check ───────────────────────────────────────────
@@ -60,15 +70,20 @@ def api_intel():
         agg["success_total_imported"] < _COLD_START_MIN_IMPORTS
         and total_runs < _COLD_START_MIN_RUNS
     )
+    logger.debug("[Intel] cold_start=%s total_runs=%d imported=%d",
+                 cold_start, total_runs, agg["success_total_imported"])
 
     # ── 3. Library Score ──────────────────────────────────────────────
     library_score = None
     if not cold_start:
         library_score = _compute_library_score(agg, cfg)
+        logger.debug("[Intel] library_score=%d", library_score)
 
     # ── 4. Search Health ──────────────────────────────────────────────
     movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
-    shows_threshold  = int(cfg.get("auto_exclude_shows_threshold", 0))
+    shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
+    logger.debug("[Intel] fetching stuck items (movies_threshold=%d shows_threshold=%d)",
+                 movies_threshold, shows_threshold)
     stuck_rows = db.get_high_search_count_unconfirmed(movies_threshold, shows_threshold)
 
     success_rate = 0.0
@@ -85,7 +100,7 @@ def api_intel():
             agg["searches_per_import_sum"] / agg["searches_per_import_count"], 2
         )
 
-    stuck_disabled = (movies_threshold == 0 and shows_threshold == 0)
+    stuck_disabled = movies_threshold == 0 and shows_threshold == 0
     stuck_total = len(stuck_rows) if not stuck_disabled else None
 
     search_health = {
@@ -102,92 +117,96 @@ def api_intel():
     }
 
     # ── 5. Instance Performance ───────────────────────────────────────
+    logger.debug("[Intel] building instance performance")
     lifetime_rows = conn.execute("SELECT * FROM sweep_lifetime").fetchall()
     per_inst_imports = agg["per_instance_imports"]
-    per_inst_ta      = agg["per_instance_turnaround"]
+    per_inst_ta = agg["per_instance_turnaround"]
 
-    # Resolve instance_url -> friendly name from config.
-    url_to_name: dict = {}
-    url_to_app: dict  = {}
+    url_to_name = {}
+    url_to_app = {}
     for app_name in ("radarr", "sonarr"):
         for inst in cfg.get("instances", {}).get(app_name, []):
             url = inst["url"].rstrip("/")
             url_to_name[url] = inst["name"]
-            url_to_app[url]  = app_name
+            url_to_app[url] = app_name
 
-    # Group stuck items by instance_url for per-instance column.
-    stuck_by_url: dict = {}
+    stuck_by_url = {}
     for s in stuck_rows:
         u = s["instance_url"].rstrip("/")
         stuck_by_url[u] = stuck_by_url.get(u, 0) + 1
 
     instance_performance = []
     for lr in lifetime_rows:
-        # instance_key format is "name|url"
         parts = lr["instance_key"].split("|", 1)
         inst_url = parts[1].rstrip("/") if len(parts) > 1 else parts[0].rstrip("/")
         inst_name = url_to_name.get(inst_url, parts[0] if len(parts) > 1 else inst_url)
-        app_name  = url_to_app.get(inst_url, "unknown")
+        app_name = url_to_app.get(inst_url, "unknown")
 
         confirmed = per_inst_imports.get(inst_url, 0)
-        inst_ta   = per_inst_ta.get(inst_url, {"sum": 0.0, "count": 0})
-        inst_turnaround = round(inst_ta["sum"] / inst_ta["count"], 2) if inst_ta["count"] > 0 else 0.0
+        inst_ta = per_inst_ta.get(inst_url, {"sum": 0.0, "count": 0})
+        inst_turnaround = (
+            round(inst_ta["sum"] / inst_ta["count"], 2) if inst_ta["count"] > 0 else 0.0
+        )
 
-        # Per-instance success rate: confirmed / total searched in search_history.
         sh_count = conn.execute(
             "SELECT COUNT(DISTINCT item_id) FROM search_history WHERE instance_url = ?",
             (inst_url,)
         ).fetchone()[0]
         inst_success_rate = round(confirmed / sh_count, 4) if sh_count > 0 else 0.0
 
-        eligible  = lr["eligible"] or 0
-        searched  = lr["searched"] or 0
-        ratio     = round(searched / eligible, 4) if eligible > 0 else 0.0
-        callout   = ratio >= 0.95 and lr["runs"] >= 10
+        eligible = lr["eligible"] or 0
+        searched = lr["searched"] or 0
+        ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
+        callout = ratio >= 0.95 and lr["runs"] >= 10
 
         instance_performance.append({
-            "instance_url":        inst_url,
-            "instance_name":       inst_name,
-            "app":                 app_name,
-            "runs":                lr["runs"] or 0,
-            "searched":            searched,
-            "confirmed_imports":   confirmed,
-            "success_rate":        inst_success_rate,
+            "instance_url": inst_url,
+            "instance_name": inst_name,
+            "app": app_name,
+            "runs": lr["runs"] or 0,
+            "searched": searched,
+            "confirmed_imports": confirmed,
+            "success_rate": inst_success_rate,
             "turnaround_avg_days": inst_turnaround,
-            "eligible":            eligible,
+            "eligible": eligible,
             "eligible_used_ratio": ratio,
             "eligible_used_callout": callout,
-            "stuck_items":         stuck_by_url.get(inst_url, 0),
+            "stuck_items": stuck_by_url.get(inst_url, 0),
         })
 
     # ── 6. Stuck items detail list (top 20) ───────────────────────────
     stuck_items = []
     for s in sorted(stuck_rows, key=lambda x: x["search_count"], reverse=True)[:20]:
         stuck_items.append({
-            "title":          s["title"],
-            "app":            s["app"],
-            "instance_name":  s["instance_name"],
-            "search_count":   s["search_count"],
-            "first_searched": _sh_field(conn, s["app"], s["instance_url"], s["item_id"], "first_searched_ts"),
-            "library_added":  _sh_field(conn, s["app"], s["instance_url"], s["item_id"], "library_added") or "",
+            "title": s["title"],
+            "app": s["app"],
+            "instance_name": s["instance_name"],
+            "search_count": s["search_count"],
+            "first_searched": _sh_field(
+                conn, s["app"], s["instance_url"], s["item_id"], "first_searched_ts"
+            ),
+            "library_added": _sh_field(
+                conn, s["app"], s["instance_url"], s["item_id"], "library_added"
+            ) or "",
         })
 
     # ── 7. Exclusion Intel ────────────────────────────────────────────
+    logger.debug("[Intel] building exclusion intel")
     excl_counts = conn.execute(
         "SELECT source, COUNT(*) as cnt FROM exclusions GROUP BY source"
     ).fetchall()
     manual_count = 0
-    auto_count   = 0
+    auto_count = 0
     for row in excl_counts:
         if row["source"] == "manual":
             manual_count = row["cnt"]
         elif row["source"] == "auto":
             auto_count = row["cnt"]
 
-    avg_searches_at_excl_row = conn.execute(
+    avg_row = conn.execute(
         "SELECT AVG(search_count) as avg FROM exclusions WHERE source = 'auto'"
     ).fetchone()
-    avg_searches_at_excl = round(avg_searches_at_excl_row["avg"] or 0.0, 1)
+    avg_searches_at_excl = round(avg_row["avg"] or 0.0, 1)
 
     now_utc = datetime.now(timezone.utc)
     first_of_month = now_utc.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -197,40 +216,42 @@ def api_intel():
         (first_of_month_iso,)
     ).fetchone()[0]
 
+    logger.debug("[Intel] running calibration query")
     calibration = _compute_calibration(conn)
 
     exclusion_intel = {
-        "total":                    manual_count + auto_count,
-        "manual_count":             manual_count,
-        "auto_count":               auto_count,
+        "total": manual_count + auto_count,
+        "manual_count": manual_count,
+        "auto_count": auto_count,
         "avg_searches_at_exclusion": avg_searches_at_excl,
         "auto_exclusions_this_month": auto_this_month,
-        "calibration":              calibration,
+        "calibration": calibration,
     }
 
     # ── 8. Sweep Efficiency ───────────────────────────────────────────
     sweep_efficiency = []
     for lr in lifetime_rows:
-        parts    = lr["instance_key"].split("|", 1)
+        parts = lr["instance_key"].split("|", 1)
         inst_url = parts[1].rstrip("/") if len(parts) > 1 else parts[0].rstrip("/")
         inst_name = url_to_name.get(inst_url, parts[0] if len(parts) > 1 else inst_url)
-        app_name  = url_to_app.get(inst_url, "unknown")
-        eligible  = lr["eligible"] or 0
-        searched  = lr["searched"] or 0
-        ratio     = round(searched / eligible, 4) if eligible > 0 else 0.0
-        callout   = ratio >= 0.95 and lr["runs"] >= 10
+        app_name = url_to_app.get(inst_url, "unknown")
+        eligible = lr["eligible"] or 0
+        searched = lr["searched"] or 0
+        ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
+        callout = ratio >= 0.95 and lr["runs"] >= 10
         sweep_efficiency.append({
-            "instance_url":  inst_url,
+            "instance_url": inst_url,
             "instance_name": inst_name,
-            "app":           app_name,
-            "runs":          lr["runs"] or 0,
-            "eligible":      eligible,
-            "searched":      searched,
-            "ratio":         ratio,
-            "callout":       callout,
+            "app": app_name,
+            "runs": lr["runs"] or 0,
+            "eligible": eligible,
+            "searched": searched,
+            "ratio": ratio,
+            "callout": callout,
         })
 
     # ── 9. Library Age ────────────────────────────────────────────────
+    logger.debug("[Intel] building library age buckets")
     age_buckets_raw = agg["library_age_buckets"]
     bucket_order = [
         "Under 1 month", "1 to 3 months", "3 to 6 months",
@@ -243,8 +264,8 @@ def api_intel():
         if label == "Unknown":
             unknown_count = data.get("total", 0)
         age_buckets.append({
-            "label":    label,
-            "total":    data.get("total", 0),
+            "label": label,
+            "total": data.get("total", 0),
             "imported": data.get("imported", 0),
         })
 
@@ -256,32 +277,34 @@ def api_intel():
         )
 
     library_age = {
-        "buckets":      age_buckets,
+        "buckets": age_buckets,
         "unknown_count": unknown_count,
-        "unknown_note":  unknown_note,
+        "unknown_note": unknown_note,
     }
 
     # ── 10. Quality Iteration ─────────────────────────────────────────
-    upgrade_path_radarr  = _most_common_upgrade_path(conn, "radarr")
-    upgrade_path_sonarr  = _most_common_upgrade_path(conn, "sonarr")
+    logger.debug("[Intel] fetching upgrade paths")
+    upgrade_path_radarr = _most_common_upgrade_path(conn, "radarr")
+    upgrade_path_sonarr = _most_common_upgrade_path(conn, "sonarr")
 
     quality_iteration = {
-        "imported_once":       agg["imported_once_count"],
-        "upgraded":            agg["upgraded_count"],
+        "imported_once": agg["imported_once_count"],
+        "upgraded": agg["upgraded_count"],
         "upgrade_path_radarr": upgrade_path_radarr,
         "upgrade_path_sonarr": upgrade_path_sonarr,
     }
 
+    logger.debug("[Intel] payload assembled successfully")
     return jsonify({
-        "cold_start":           cold_start,
-        "library_score":        library_score,
-        "search_health":        search_health,
+        "cold_start": cold_start,
+        "library_score": library_score,
+        "search_health": search_health,
         "instance_performance": instance_performance,
-        "stuck_items":          stuck_items,
-        "exclusion_intel":      exclusion_intel,
-        "sweep_efficiency":     sweep_efficiency,
-        "library_age":          library_age,
-        "quality_iteration":    quality_iteration,
+        "stuck_items": stuck_items,
+        "exclusion_intel": exclusion_intel,
+        "sweep_efficiency": sweep_efficiency,
+        "library_age": library_age,
+        "quality_iteration": quality_iteration,
     })
 
 
@@ -303,30 +326,30 @@ def api_intel_reset():
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
-def _compute_library_score(agg: dict, cfg: dict) -> int:
+def _compute_library_score(agg, cfg):
     """Compute a 0-100 Library Score from four weighted sub-scores.
 
     Weights: success rate 40%, turnaround 25%, stuck items 20%,
     sweep efficiency 15%. Each sub-score is normalised to 0-100 before
     weighting. Returns an integer.
     """
-    # Success rate sub-score (0-100).
-    success_score = round((agg["success_total_imported"] / agg["success_total_worked"]) * 100) \
+    success_score = (
+        round((agg["success_total_imported"] / agg["success_total_worked"]) * 100)
         if agg["success_total_worked"] > 0 else 0
+    )
 
-    # Turnaround sub-score: 100 at <=1 day, decays to 0 at 30+ days.
-    avg_days = agg["turnaround_sum_days"] / agg["turnaround_count"] \
+    avg_days = (
+        agg["turnaround_sum_days"] / agg["turnaround_count"]
         if agg["turnaround_count"] > 0 else 30
+    )
     turnaround_score = max(0, round(100 - (avg_days / 30) * 100))
 
-    # Stuck items sub-score: 100 when zero stuck, decays by 5 per stuck item.
     movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
-    shows_threshold  = int(cfg.get("auto_exclude_shows_threshold", 0))
+    shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
     stuck_rows = db.get_high_search_count_unconfirmed(movies_threshold, shows_threshold)
     stuck_count = len(stuck_rows)
     stuck_score = max(0, 100 - stuck_count * 5)
 
-    # Sweep efficiency sub-score: average eligible_used_ratio across all instances.
     from nudgarr.db.connection import get_connection
     conn = get_connection()
     eff_rows = conn.execute(
@@ -335,18 +358,18 @@ def _compute_library_score(agg: dict, cfg: dict) -> int:
     if eff_rows and eff_rows["e"] and eff_rows["e"] > 0:
         efficiency_score = round((eff_rows["s"] / eff_rows["e"]) * 100)
     else:
-        efficiency_score = 50  # neutral default when no data
+        efficiency_score = 50
 
     score = round(
-        success_score    * 0.40
+        success_score * 0.40
         + turnaround_score * 0.25
-        + stuck_score      * 0.20
+        + stuck_score * 0.20
         + efficiency_score * 0.15
     )
     return min(100, max(0, score))
 
 
-def _compute_calibration(conn) -> dict:
+def _compute_calibration(conn):
     """Run the calibration signal query and return recommendation text."""
     row = conn.execute(
         """
@@ -367,8 +390,8 @@ def _compute_calibration(conn) -> dict:
         """
     ).fetchone()
 
-    total      = row["total_unexcluded"] if row else 0
-    imported   = row["later_imported"]   if row else 0
+    total = row["total_unexcluded"] if row else 0
+    imported = row["later_imported"] if row else 0
     cold_start = total < 5
 
     if cold_start:
@@ -397,13 +420,13 @@ def _compute_calibration(conn) -> dict:
 
     return {
         "total_unexcluded": total,
-        "later_imported":   imported,
-        "recommendation":   recommendation,
-        "cold_start":       cold_start,
+        "later_imported": imported,
+        "recommendation": recommendation,
+        "cold_start": cold_start,
     }
 
 
-def _most_common_upgrade_path(conn, app: str) -> dict:
+def _most_common_upgrade_path(conn, app):
     """Return the most common quality_from -> quality_to upgrade path for an app."""
     row = conn.execute(
         """
@@ -422,16 +445,17 @@ def _most_common_upgrade_path(conn, app: str) -> dict:
     if not row:
         return {"from": None, "to": None, "count": 0}
     return {
-        "from":  row["quality_from"],
-        "to":    row["quality_to"],
+        "from": row["quality_from"],
+        "to": row["quality_to"],
         "count": row["count"],
     }
 
 
-def _sh_field(conn, app: str, instance_url: str, item_id: str, field: str) -> str:
+def _sh_field(conn, app, instance_url, item_id, field):
     """Read a single field from search_history for a specific item."""
     row = conn.execute(
-        f"SELECT {field} FROM search_history WHERE app = ? AND instance_url = ? AND item_id = ? LIMIT 1",
+        f"SELECT {field} FROM search_history"
+        f" WHERE app = ? AND instance_url = ? AND item_id = ? LIMIT 1",
         (app, instance_url, item_id)
     ).fetchone()
     return row[field] if row else ""

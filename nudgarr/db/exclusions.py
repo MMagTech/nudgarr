@@ -16,7 +16,6 @@ exclusions table — all read/write operations.
 from typing import Dict, List
 
 from nudgarr.db.connection import get_connection
-from nudgarr.db.intel import get_intel_aggregate, update_intel_aggregate
 import logging
 
 from nudgarr.utils import iso_z, utcnow

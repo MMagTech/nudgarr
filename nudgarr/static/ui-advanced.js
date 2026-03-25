@@ -190,6 +190,22 @@ async function resetAutoExclusions() {
   await loadExclusions();
 }
 
+// resetIntelData -- permanently resets the Intel dashboard to a clean slate.
+// Clears intel_aggregate back to zero defaults and deletes all exclusion_events
+// rows. Clear History and Clear Stats do not touch Intel data -- this is the
+// only operation that resets it. Intel data will begin accumulating again
+// immediately on the next sweep.
+async function resetIntelData() {
+  if (!await showConfirm(
+    'Reset Intel',
+    'This will permanently reset your Intel dashboard, including all lifetime performance data and exclusion event history. Intel data will begin accumulating again on the next sweep. This cannot be undone.',
+    'Reset Intel',
+    true
+  )) return;
+  await api('/api/intel/reset', {method:'POST'});
+  showAlert('Intel data has been reset.');
+}
+
 async function backupAll() {
   try {
     const res = await fetch('/api/file/backup', { credentials: 'same-origin' });

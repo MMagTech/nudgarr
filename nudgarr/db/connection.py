@@ -144,6 +144,41 @@ CREATE TABLE IF NOT EXISTS quality_history (
     imported_ts  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_qh_entry_id ON quality_history (entry_id);
+
+CREATE TABLE IF NOT EXISTS exclusion_events (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    title                 TEXT NOT NULL COLLATE NOCASE,
+    event_type            TEXT NOT NULL,
+    source                TEXT NOT NULL,
+    search_count_at_event INTEGER NOT NULL DEFAULT 0,
+    event_ts              TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ee_title
+    ON exclusion_events (title);
+CREATE INDEX IF NOT EXISTS idx_ee_event_ts
+    ON exclusion_events (event_ts);
+CREATE INDEX IF NOT EXISTS idx_ee_type_source
+    ON exclusion_events (event_type, source);
+
+CREATE TABLE IF NOT EXISTS intel_aggregate (
+    id                          INTEGER PRIMARY KEY CHECK (id = 1),
+    success_total_imported      INTEGER NOT NULL DEFAULT 0,
+    success_total_worked        INTEGER NOT NULL DEFAULT 0,
+    turnaround_sum_days         REAL    NOT NULL DEFAULT 0.0,
+    turnaround_count            INTEGER NOT NULL DEFAULT 0,
+    searches_per_import_sum     INTEGER NOT NULL DEFAULT 0,
+    searches_per_import_count   INTEGER NOT NULL DEFAULT 0,
+    cutoff_import_count         INTEGER NOT NULL DEFAULT 0,
+    backlog_import_count        INTEGER NOT NULL DEFAULT 0,
+    quality_upgrades_count      INTEGER NOT NULL DEFAULT 0,
+    imported_once_count         INTEGER NOT NULL DEFAULT 0,
+    upgraded_count              INTEGER NOT NULL DEFAULT 0,
+    per_instance_imports        TEXT    NOT NULL DEFAULT '{}',
+    per_instance_turnaround     TEXT    NOT NULL DEFAULT '{}',
+    library_age_buckets         TEXT    NOT NULL DEFAULT '{}',
+    calibration_later_imported  INTEGER NOT NULL DEFAULT 0
+);
+INSERT OR IGNORE INTO intel_aggregate (id) VALUES (1);
 """
 
 
@@ -165,6 +200,7 @@ def init_db() -> None:
     _run_migration_v7(conn)
     _run_migration_v8(conn)
     _run_migration_v9(conn)
+    _run_migration_v10(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -289,3 +325,74 @@ def _run_migration_v9(conn: sqlite3.Connection) -> None:
         logger.info("[Migration v9] Added source, search_count, acknowledged to exclusions")
     except Exception:
         logger.exception("[Migration v9] FAILED")
+
+
+def _run_migration_v10(conn: sqlite3.Connection) -> None:
+    """Create exclusion_events and intel_aggregate tables for the Intel tab.
+
+    exclusion_events -- append-only audit log of every exclude and unexclude
+    action. Captures title, event type (excluded/unexcluded), source
+    (manual/auto), search_count at the moment of the event, and a timestamp.
+    Never cleared by Clear History or Clear Stats. Only Reset Intel removes rows.
+
+    intel_aggregate -- single-row accumulator protected from all clear and prune
+    operations. Stores lifetime Intel metrics as dedicated typed columns.
+    The CHECK (id = 1) constraint enforces exactly one row at all times.
+    Seeded with a single zero row on creation via INSERT OR IGNORE.
+
+    Both tables are also defined in _SCHEMA_SQL for fresh installs. This
+    migration handles all existing installs on v4.1.x and above upgrading
+    to v4.2.0. This is not accidental duplication -- both paths are required.
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 10"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS exclusion_events (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                title                 TEXT NOT NULL COLLATE NOCASE,
+                event_type            TEXT NOT NULL,
+                source                TEXT NOT NULL,
+                search_count_at_event INTEGER NOT NULL DEFAULT 0,
+                event_ts              TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_ee_title
+                ON exclusion_events (title);
+            CREATE INDEX IF NOT EXISTS idx_ee_event_ts
+                ON exclusion_events (event_ts);
+            CREATE INDEX IF NOT EXISTS idx_ee_type_source
+                ON exclusion_events (event_type, source);
+
+            CREATE TABLE IF NOT EXISTS intel_aggregate (
+                id                          INTEGER PRIMARY KEY CHECK (id = 1),
+                success_total_imported      INTEGER NOT NULL DEFAULT 0,
+                success_total_worked        INTEGER NOT NULL DEFAULT 0,
+                turnaround_sum_days         REAL    NOT NULL DEFAULT 0.0,
+                turnaround_count            INTEGER NOT NULL DEFAULT 0,
+                searches_per_import_sum     INTEGER NOT NULL DEFAULT 0,
+                searches_per_import_count   INTEGER NOT NULL DEFAULT 0,
+                cutoff_import_count         INTEGER NOT NULL DEFAULT 0,
+                backlog_import_count        INTEGER NOT NULL DEFAULT 0,
+                quality_upgrades_count      INTEGER NOT NULL DEFAULT 0,
+                imported_once_count         INTEGER NOT NULL DEFAULT 0,
+                upgraded_count              INTEGER NOT NULL DEFAULT 0,
+                per_instance_imports        TEXT    NOT NULL DEFAULT '{}',
+                per_instance_turnaround     TEXT    NOT NULL DEFAULT '{}',
+                library_age_buckets         TEXT    NOT NULL DEFAULT '{}',
+                calibration_later_imported  INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT OR IGNORE INTO intel_aggregate (id) VALUES (1);
+            """
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (10, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        logger.info("[Migration v10] Created exclusion_events and intel_aggregate tables")
+    except Exception:
+        logger.exception("[Migration v10] FAILED")

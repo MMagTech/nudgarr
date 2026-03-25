@@ -6,7 +6,7 @@ Called once from main.py before app.run().
 """
 
 from nudgarr.globals import app
-from nudgarr.routes import arr, auth, config, diagnostics, notifications, state, stats, sweep
+from nudgarr.routes import arr, auth, config, diagnostics, intel, notifications, state, stats, sweep
 
 
 def register_blueprints() -> None:
@@ -14,6 +14,7 @@ def register_blueprints() -> None:
     app.register_blueprint(auth.bp)
     app.register_blueprint(config.bp)
     app.register_blueprint(diagnostics.bp)
+    app.register_blueprint(intel.bp)
     app.register_blueprint(notifications.bp)
     app.register_blueprint(state.bp)
     app.register_blueprint(stats.bp)

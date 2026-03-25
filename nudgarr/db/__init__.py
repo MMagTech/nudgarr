@@ -15,6 +15,7 @@ Sub-modules:
   lifetime    -- sweep_lifetime and lifetime_totals tables
   backup      -- JSON export
   appstate    -- nudgarr_state key/value table
+  intel       -- intel_aggregate and exclusion_events tables
 """
 
 from nudgarr.db.connection import (
@@ -71,6 +72,12 @@ from nudgarr.db.backup import export_as_json_dict
 
 from nudgarr.db.appstate import get_state, set_state
 
+from nudgarr.db.intel import (
+    get_intel_aggregate,
+    update_intel_aggregate,
+    reset_intel,
+)
+
 __all__ = [
     # connection
     "get_connection",
@@ -116,4 +123,8 @@ __all__ = [
     # appstate
     "get_state",
     "set_state",
+    # intel
+    "get_intel_aggregate",
+    "update_intel_aggregate",
+    "reset_intel",
 ]

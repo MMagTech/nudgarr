@@ -12,11 +12,16 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='ui-landscape.css', v=VERSION) }}">
 </head>
 <body>
-<div class="wrap">
+<div class="sticky-shell">
+  <div class="sticky-inner">
 
   {% include "ui-header.html" %}
 
   {% include "ui-nav.html" %}
+
+  </div>
+</div>
+<div class="wrap">
 
     {% include "ui-tab-instances.html" %}
 
@@ -29,6 +34,8 @@
     {% include "ui-tab-history.html" %}
 
     {% include "ui-tab-imports.html" %}
+
+    {% include "ui-tab-intel.html" %}
 
     {% include "ui-tab-notifications.html" %}
 
@@ -45,6 +52,7 @@
 <script src="{{ url_for('static', filename='ui-sweep.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-history.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-imports.js', v=VERSION) }}"></script>
+<script src="{{ url_for('static', filename='ui-intel.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-settings.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-notifications.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-advanced.js', v=VERSION) }}"></script>

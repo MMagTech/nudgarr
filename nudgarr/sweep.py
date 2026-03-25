@@ -404,7 +404,7 @@ def _run_auto_unexclude(cfg: Dict[str, Any]) -> None:
             continue
         aged = db.get_auto_exclusions_older_than(days)
         for row in aged:
-            db.remove_exclusion(row["title"])
+            db.remove_exclusion(row["title"], source="auto")
             # Reset search_count by title so the title gets a genuine fresh
             # start and is not immediately re-excluded on the next import check
             db.reset_search_count_by_title(row["title"])

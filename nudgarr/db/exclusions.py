@@ -16,6 +16,7 @@ exclusions table — all read/write operations.
 from typing import Dict, List
 
 from nudgarr.db.connection import get_connection
+from nudgarr.db.intel import get_intel_aggregate, update_intel_aggregate
 import logging
 
 from nudgarr.utils import iso_z, utcnow
@@ -45,15 +46,25 @@ def add_exclusion(title: str) -> None:
 
     Manual exclusions are acknowledged by default since the user added them
     deliberately and does not need a status bar notification.
+    Appends an exclusion_events row so Intel can track the full lifecycle.
     """
     conn = get_connection()
+    now = iso_z(utcnow())
     conn.execute(
         """
         INSERT OR IGNORE INTO exclusions
             (title, excluded_at, source, search_count, acknowledged)
         VALUES (?, ?, 'manual', 0, 1)
         """,
-        (title.strip(), iso_z(utcnow()))
+        (title.strip(), now)
+    )
+    conn.execute(
+        """
+        INSERT INTO exclusion_events
+            (title, event_type, source, search_count_at_event, event_ts)
+        VALUES (?, 'excluded', 'manual', 0, ?)
+        """,
+        (title.strip(), now)
     )
     conn.commit()
 
@@ -64,28 +75,61 @@ def add_auto_exclusion(title: str, search_count: int) -> None:
     Auto-exclusions are unacknowledged (acknowledged=0) so the status bar
     badge fires. If the title is already excluded (e.g. manually added),
     the INSERT OR IGNORE is a no-op — the existing row is preserved.
+    Appends an exclusion_events row so Intel can track the full lifecycle.
 
     title        -- exact title string from the search history record
     search_count -- number of searches that triggered the auto-exclusion
     """
     conn = get_connection()
+    now = iso_z(utcnow())
     conn.execute(
         """
         INSERT OR IGNORE INTO exclusions
             (title, excluded_at, source, search_count, acknowledged)
         VALUES (?, ?, 'auto', ?, 0)
         """,
-        (title.strip(), iso_z(utcnow()), search_count)
+        (title.strip(), now, search_count)
+    )
+    conn.execute(
+        """
+        INSERT INTO exclusion_events
+            (title, event_type, source, search_count_at_event, event_ts)
+        VALUES (?, 'excluded', 'auto', ?, ?)
+        """,
+        (title.strip(), search_count, now)
     )
     conn.commit()
 
 
-def remove_exclusion(title: str) -> None:
-    """Remove a title from the exclusions list (case-insensitive match)."""
+def remove_exclusion(title: str, source: str = "manual") -> None:
+    """Remove a title from the exclusions list (case-insensitive match).
+
+    Reads the current search_count from the exclusions row before deletion
+    so it can be snapshotted in exclusion_events. This preserves the
+    pre-deletion count for Intel calibration even after the row is gone.
+
+    source -- 'manual' when the user deletes via the UI (default),
+              'auto' when the sweep timer triggers auto-unexclude.
+    """
     conn = get_connection()
+    title_clean = title.strip()
+    now = iso_z(utcnow())
+    existing = conn.execute(
+        "SELECT search_count FROM exclusions WHERE title = ? COLLATE NOCASE",
+        (title_clean,)
+    ).fetchone()
+    search_count_at_event = existing["search_count"] if existing else 0
     conn.execute(
         "DELETE FROM exclusions WHERE title = ? COLLATE NOCASE",
-        (title.strip(),)
+        (title_clean,)
+    )
+    conn.execute(
+        """
+        INSERT INTO exclusion_events
+            (title, event_type, source, search_count_at_event, event_ts)
+        VALUES (?, 'unexcluded', ?, ?, ?)
+        """,
+        (title_clean, source, search_count_at_event, now)
     )
     conn.commit()
 
@@ -95,8 +139,23 @@ def clear_auto_exclusions() -> int:
 
     Manual exclusions are never touched by this operation. Used by the
     Danger Zone reset button and the auto-exclusion disabled popup (Clear).
+    Appends an unexcluded event row for each auto-exclusion removed so Intel
+    calibration data is preserved across bulk clears.
     """
     conn = get_connection()
+    now = iso_z(utcnow())
+    rows = conn.execute(
+        "SELECT title, search_count FROM exclusions WHERE source = 'auto'"
+    ).fetchall()
+    for r in rows:
+        conn.execute(
+            """
+            INSERT INTO exclusion_events
+                (title, event_type, source, search_count_at_event, event_ts)
+            VALUES (?, 'unexcluded', 'auto', ?, ?)
+            """,
+            (r["title"], r["search_count"], now)
+        )
     cursor = conn.execute("DELETE FROM exclusions WHERE source = 'auto'")
     conn.commit()
     return cursor.rowcount

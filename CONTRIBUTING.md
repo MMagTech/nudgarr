@@ -25,6 +25,7 @@ nudgarr/                    ← Python package
     lifetime.py             ← sweep_lifetime and lifetime_totals tables
     appstate.py             ← nudgarr_state key/value table
     backup.py               ← JSON export helper
+    intel.py                ← intel_aggregate and exclusion_events tables; get_intel_aggregate, update_intel_aggregate, reset_intel
   state.py                  ← exclusions and history helpers built on top of nudgarr.db;
                               also exposes state_key(name, url) — the canonical composite
                               key used across search_history, stat_entries, and cooldown
@@ -50,6 +51,7 @@ nudgarr/                    ← Python package
     sweep.py                ← /api/status, /api/run-now, /api/test, /api/test-instance
     state.py                ← /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*, /api/arr-link
     stats.py                ← /api/stats, /api/stats/clear, check-imports
+    intel.py                ← /api/intel (full Intel payload), /api/intel/reset (Danger Zone)
     notifications.py        ← /api/notifications/test
     diagnostics.py          ← /api/diagnostic, /api/log/clear
   static/                   ← JS and CSS served as static assets
@@ -58,6 +60,7 @@ nudgarr/                    ← Python package
     ui-sweep.js             ← sweep tab rendering, Run Now
     ui-history.js           ← history tab, exclusions, shared sort/pagination helpers
     ui-imports.js           ← imports/stats tab
+    ui-intel.js             ← Intel tab — fillIntel, renderIntel, resetIntel and all render helpers
     ui-settings.js          ← settings tab, tab switching, onboarding, What's New modal
     ui-notifications.js     ← notifications tab
     ui-advanced.js          ← advanced tab, danger zone, diagnostics
@@ -86,6 +89,7 @@ nudgarr/                    ← Python package
     ui-tab-filters.html     ← Filters tab section
     ui-tab-history.html     ← History tab section
     ui-tab-imports.html     ← Imports tab section
+    ui-tab-intel.html       ← Intel tab section
     ui-tab-notifications.html ← Notifications tab section
     ui-tab-advanced.html    ← Advanced tab section
     ui-tab-overrides.html   ← Overrides tab section
@@ -104,7 +108,19 @@ All persistence goes through the `nudgarr/db/` package. Import from it as `from 
 
 The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FILE` env var). Schema is defined in `_SCHEMA_SQL` in `nudgarr/db/connection.py` and applied by `init_db()`. Migrations are versioned in the `schema_migrations` table. If adding a new migration, write a new `_run_migration_vN` function in `nudgarr/db/connection.py` and call it from `init_db()`. Do not modify or remove existing migration functions — they may have already run on installed databases.
 
-Key tables:
+**Intel aggregate write points**
+
+`intel_aggregate` is a protected accumulator — it must never be cleared by any normal operation (Clear History, Clear Stats, pruning). It is only reset by the explicit Reset Intel action in the Danger Zone. The aggregate is updated at three write points:
+
+- `confirm_stat_entry()` in `db/entries.py` — snapshots turnaround, searches per import, cutoff vs backlog split, quality upgrades, iteration counts, per-instance imports and turnaround, and library age bucket imported counts at the moment each import is confirmed.
+- `batch_upsert_search_history()` in `db/history.py` — increments `success_total_worked` and library age bucket totals on first insert of each new item (when `search_count == 1` after the upsert).
+- `reset_intel()` in `db/intel.py` — the only operation that clears both `intel_aggregate` and `exclusion_events`.
+
+All aggregate writes happen inside the same transaction as the operation that triggers them. A rollback undoes both the primary write and the aggregate update atomically.
+
+**Exclusion event write points**
+
+`exclusion_events` is append-only. A row is written at every exclude and unexclude action in `db/exclusions.py`: `add_exclusion()` (manual exclude), `add_auto_exclusion()` (auto exclude), `remove_exclusion()` (manual or auto unexclude — source passed as a parameter), and `clear_auto_exclusions()` (bulk auto unexclude). The table is never modified or deleted from outside of `reset_intel()`.
 
 | Table | Purpose |
 |---|---|
@@ -112,6 +128,8 @@ Key tables:
 | `stat_entries` | Items pending import confirmation and confirmed imports |
 | `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
 | `exclusions` | Titles excluded from sweeps — includes source (manual/auto), search count, and acknowledged flag |
+| `exclusion_events` | Append-only audit log of every exclude and unexclude action — powers Intel calibration signal |
+| `intel_aggregate` | Single protected row accumulating lifetime Intel metrics — never cleared by Clear History, Clear Stats, or pruning |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |
 | `nudgarr_state` | General key/value persistent state (e.g. last run time) |
@@ -316,7 +334,7 @@ pytest tests/test_frontend_structure.py -v
 
 The test suite must pass at exactly the expected check count. If you add or remove files, functions, or validate.py checks, update `EXPECTED_CHECK_COUNT` and `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` accordingly.
 
-The current expected check count is **295** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks — which happens when you add new static files, new route files, or new required element IDs — update this constant or the test will fail with a count mismatch even though validate.py itself passes.
+The current expected check count is **327** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks — which happens when you add new static files, new route files, or new required element IDs — update this constant or the test will fail with a count mismatch even though validate.py itself passes.
 
 `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` sets a per-file line ceiling for every JS file. If you add code to an existing file and push it over its ceiling, the structural test will fail. Raise the ceiling deliberately in the same commit rather than working around it.
 

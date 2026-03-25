@@ -465,11 +465,13 @@
 
     /* ── Media query activation ── */
     @media screen and (max-width: 500px) {
+      .sticky-shell { display: none !important; }
       .wrap { display: none !important; }
       #mobile-ui { display: flex !important; }
       body { background: var(--surface); }
     }
     @media screen and (max-height: 500px) and (orientation: landscape) {
+      .sticky-shell { display: none !important; }
       .wrap { display: none !important; }
       #mobile-ui { display: none !important; }
       body { background: var(--surface); }

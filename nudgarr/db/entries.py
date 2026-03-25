@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 import logging
 
 from nudgarr.db.connection import get_connection
+from nudgarr.db.intel import get_intel_aggregate, update_intel_aggregate
 from nudgarr.utils import iso_z, parse_iso, utcnow
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ def confirm_stat_entry(
     # Read the unconfirmed row first — we need quality_from before it is deleted.
     pending = conn.execute(
         """
-        SELECT id, quality_from FROM stat_entries
+        SELECT id, quality_from, first_searched_ts FROM stat_entries
         WHERE app = ? AND item_id = ? AND type = ? AND imported = 0
           AND (instance = ? OR instance_url = ?)
         LIMIT 1
@@ -118,6 +119,7 @@ def confirm_stat_entry(
 
     if existing:
         new_iteration = (existing["iteration"] + 1) if existing["type"] == entry_type else 1
+        final_iteration = new_iteration
         entry_id = existing["id"]
         conn.execute(
             """
@@ -136,6 +138,7 @@ def confirm_stat_entry(
             (app, item_id, entry_type, instance, instance_url)
         )
     else:
+        final_iteration = 1
         conn.execute(
             """
             UPDATE stat_entries
@@ -158,8 +161,155 @@ def confirm_stat_entry(
             (entry_id, quality_from, quality_to, imported_ts)
         )
 
+    # ── Intel aggregate update ────────────────────────────────────────────
+    # All writes happen inside the same transaction before commit so a failure
+    # rolls back both the confirm and the aggregate update cleanly.
+    _update_intel_on_confirm(
+        conn=conn,
+        app=app,
+        instance_url=instance_url,
+        item_id=item_id,
+        entry_type=entry_type,
+        imported_ts=imported_ts,
+        first_searched_ts=pending["first_searched_ts"],
+        quality_from=quality_from,
+        quality_to=quality_to,
+        final_iteration=final_iteration,
+    )
+
     conn.commit()
     return True
+
+
+def _get_library_age_bucket(library_added: str, first_searched_ts: str) -> str:
+    """Return the library age bucket label for an item at the time of first search.
+
+    Age is the gap between library_added and first_searched_ts in days.
+    Returns an empty string if either timestamp is missing or unparseable,
+    which causes the item to fall into the 'Unknown' bucket at display time.
+    """
+    if not library_added or not first_searched_ts:
+        return ""
+    dt_added = parse_iso(library_added)
+    dt_searched = parse_iso(first_searched_ts)
+    if dt_added is None or dt_searched is None:
+        return ""
+    age_days = (dt_searched - dt_added).total_seconds() / 86400
+    if age_days < 0:
+        return ""
+    if age_days < 30:
+        return "Under 1 month"
+    if age_days < 90:
+        return "1 to 3 months"
+    if age_days < 180:
+        return "3 to 6 months"
+    if age_days < 365:
+        return "6 to 12 months"
+    return "12+ months"
+
+
+def _update_intel_on_confirm(
+    conn,
+    app: str,
+    instance_url: str,
+    item_id: str,
+    entry_type: str,
+    imported_ts: str,
+    first_searched_ts: str,
+    quality_from: Optional[str],
+    quality_to: str,
+    final_iteration: int,
+) -> None:
+    """Update intel_aggregate counters at the moment a confirm fires.
+
+    Called inside confirm_stat_entry() before conn.commit() so aggregate
+    writes are always atomic with the confirm itself. A rollback undoes both.
+
+    Reads search_count and library_added from search_history for the confirmed
+    item (point-in-time snapshot before any future reset). Uses update_intel_aggregate
+    which issues a single UPDATE against the existing aggregate row.
+    """
+    # Read search_count and library_added from search_history at confirm time.
+    # This snapshots the count before any future auto-unexclude reset can alter it.
+    url = instance_url.rstrip("/")
+    sh_row = conn.execute(
+        """
+        SELECT search_count, library_added FROM search_history
+        WHERE app = ? AND instance_url = ? AND item_id = ?
+        LIMIT 1
+        """,
+        (app, url, item_id)
+    ).fetchone()
+    search_count = sh_row["search_count"] if sh_row else 0
+    library_added = sh_row["library_added"] if sh_row else ""
+
+    # Turnaround in days.
+    turnaround_days = 0.0
+    dt_first = parse_iso(first_searched_ts)
+    dt_imported = parse_iso(imported_ts)
+    if dt_first and dt_imported:
+        turnaround_days = max(0.0, (dt_imported - dt_first).total_seconds() / 86400)
+
+    # Read current aggregate for JSON blob updates.
+    agg = get_intel_aggregate()
+
+    updates = {}
+
+    # Turnaround — always recorded regardless of iteration.
+    updates["turnaround_sum_days"] = agg["turnaround_sum_days"] + turnaround_days
+    updates["turnaround_count"] = agg["turnaround_count"] + 1
+
+    # Searches per import — always recorded.
+    updates["searches_per_import_sum"] = agg["searches_per_import_sum"] + search_count
+    updates["searches_per_import_count"] = agg["searches_per_import_count"] + 1
+
+    # Cutoff vs backlog split — only on first import (iteration = 1).
+    if final_iteration == 1:
+        if entry_type == "cutoff_unmet":
+            updates["cutoff_import_count"] = agg["cutoff_import_count"] + 1
+        else:
+            updates["backlog_import_count"] = agg["backlog_import_count"] + 1
+        updates["success_total_imported"] = agg["success_total_imported"] + 1
+
+    # Quality upgrades — only genuine upgrades (quality_from populated).
+    if quality_to and quality_from:
+        updates["quality_upgrades_count"] = agg["quality_upgrades_count"] + 1
+
+    # Imported once vs upgraded tracking.
+    # iteration=1: new first-time import, add to imported_once.
+    # iteration=2: first upgrade, move title from imported_once to upgraded.
+    # iteration>2: already in upgraded, no change needed.
+    if final_iteration == 1:
+        updates["imported_once_count"] = agg["imported_once_count"] + 1
+    elif final_iteration == 2:
+        updates["imported_once_count"] = max(0, agg["imported_once_count"] - 1)
+        updates["upgraded_count"] = agg["upgraded_count"] + 1
+
+    # Per-instance imports (JSON blob) — only on first import.
+    if final_iteration == 1:
+        per_inst = agg["per_instance_imports"]
+        per_inst[url] = per_inst.get(url, 0) + 1
+        updates["per_instance_imports"] = per_inst
+
+    # Per-instance turnaround (JSON blob) — always recorded.
+    per_ta = agg["per_instance_turnaround"]
+    inst_ta = per_ta.get(url, {"sum": 0.0, "count": 0})
+    inst_ta["sum"] = inst_ta["sum"] + turnaround_days
+    inst_ta["count"] = inst_ta["count"] + 1
+    per_ta[url] = inst_ta
+    updates["per_instance_turnaround"] = per_ta
+
+    # Library age bucket imported count (JSON blob) — only on first import.
+    if final_iteration == 1:
+        bucket = _get_library_age_bucket(library_added, first_searched_ts)
+        age_buckets = agg["library_age_buckets"]
+        bucket_key = bucket if bucket else "Unknown"
+        bucket_data = age_buckets.get(bucket_key, {"total": 0, "imported": 0})
+        bucket_data["imported"] = bucket_data["imported"] + 1
+        age_buckets[bucket_key] = bucket_data
+        updates["library_age_buckets"] = age_buckets
+
+    update_intel_aggregate(updates)
 
 
 def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:

@@ -20,6 +20,7 @@ JS_FILES = [
     'ui-sweep.js',
     'ui-history.js',
     'ui-imports.js',
+    'ui-intel.js',
     'ui-settings.js',
     'ui-notifications.js',
     'ui-advanced.js',
@@ -349,7 +350,8 @@ for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
            'markCardDirty','updateBacklogLabel','updateNotifyLabel',
-           'fillFilters','loadArrData','saveFilters']:
+           'fillFilters','loadArrData','saveFilters',
+           'fillIntel','renderIntel','resetIntel']:
     if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 
@@ -440,7 +442,9 @@ try:
 
     # Required tables in schema SQL (lives in connection.py)
     for table in ['search_history', 'stat_entries', 'exclusions',
-                  'sweep_lifetime', 'lifetime_totals', 'schema_migrations', 'nudgarr_state']:
+                  'sweep_lifetime', 'lifetime_totals', 'schema_migrations',
+                  'nudgarr_state', 'quality_history',
+                  'exclusion_events', 'intel_aggregate']:
         if f'CREATE TABLE IF NOT EXISTS {table}' in db_conn_content:
             ok(f"Schema defines table: {table}")
         else:
@@ -448,7 +452,7 @@ try:
 
     # Required sub-modules exist
     for mod in ['connection', 'history', 'entries', 'exclusions',
-                'lifetime', 'backup', 'appstate']:
+                'lifetime', 'backup', 'appstate', 'intel']:
         path = f'{DB_PKG}/{mod}.py'
         if os.path.exists(path):
             ok(f"db sub-module exists: {mod}.py")
@@ -458,11 +462,22 @@ try:
     # Required public functions exported from __init__.py
     for fn in ['init_db', 'get_state', 'set_state', 'close_connection',
                'export_as_json_dict', 'upsert_search_history',
-               'get_search_history', 'upsert_stat_entry']:
+               'get_search_history', 'upsert_stat_entry',
+               'get_intel_aggregate', 'update_intel_aggregate', 'reset_intel']:
         if fn in db_init_content:
             ok(f"db.__init__ exports: {fn}")
         else:
             fail(f"db.__init__ missing export: {fn}")
+
+    # Migration v10 must be defined and called in init_db
+    if '_run_migration_v10' in db_conn_content:
+        ok("Migration v10 function present in connection.py")
+    else:
+        fail("Migration v10 function missing from connection.py")
+    if '_run_migration_v10(conn)' in db_conn_content:
+        ok("Migration v10 called in init_db()")
+    else:
+        fail("Migration v10 not called in init_db()")
 
     # _SCHEMA_SQL defined in connection.py
     if '_SCHEMA_SQL' in db_conn_content:
@@ -553,6 +568,33 @@ if 'unhandledrejection' in js_content:
     ok("Global unhandledrejection handler present in JS")
 else:
     fail("Global unhandledrejection handler missing from JS (expected in ui-core.js)")
+
+# ── Intel tab structural checks ───────────────────────────────────────────────
+section("Intel Tab")
+if 'id="tab-intel"' in content:
+    ok("Intel tab section present in HTML (tab-intel)")
+else:
+    fail("Intel tab section missing from HTML (id='tab-intel')")
+if 'data-tab="intel"' in content:
+    ok("Intel tab nav button present in HTML")
+else:
+    fail("Intel tab nav button missing from HTML (data-tab='intel')")
+if 'sticky-shell' in content:
+    ok("Sticky header shell present in HTML")
+else:
+    fail("sticky-shell missing from HTML")
+if '.sticky-shell' in open('nudgarr/static/ui.css').read():
+    ok(".sticky-shell CSS defined in ui.css")
+else:
+    fail(".sticky-shell CSS missing from ui.css")
+if 'resetIntelData' in js_content:
+    ok("resetIntelData() present in JS (Danger Zone handler)")
+else:
+    fail("resetIntelData() missing from JS")
+if 'resetIntelData' in content:
+    ok("Reset Intel button present in HTML (Danger Zone)")
+else:
+    fail("Reset Intel button missing from HTML (Danger Zone)")
 
 # ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
 import shutil

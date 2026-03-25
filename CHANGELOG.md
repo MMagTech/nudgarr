@@ -6,6 +6,45 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.2.0
 
+**Intel Tab, Sticky Header, and Exclusion Event Tracking.**
+
+**Intel Tab**
+
+- New Intel tab added between Imports and Notifications — a read-only lifetime performance dashboard that gets richer the longer Nudgarr has been running. Answers the question "how is Nudgarr performing for my library overall?" — distinct from the Sweep tab which covers the last run.
+- Library Score: a single 0-100 composite score based on success rate (40%), turnaround (25%), stuck items (20%), and sweep efficiency (15%). Shows "Building…" on fresh installs until 10 confirmed imports or 30 sweep runs have accumulated.
+- Search Health card: lifetime success rate, average turnaround, average searches per import, stuck item count, cutoff unmet vs backlog import split, quality upgrades confirmed.
+- Instance Performance table: per-instance sweep runs, total searched, confirmed imports, success rate, average turnaround, eligible used bar, and stuck items.
+- Stuck Items: titles searched at or above the auto-exclusion threshold with no confirmed import and not yet excluded — the only actionable card in Intel.
+- Exclusion Intel: total exclusions, manual vs auto breakdown, average searches at auto-exclusion, auto-exclusions this month, and a calibration signal showing how many auto-excluded titles later imported after being given a second chance.
+- Library Age vs Success: import success rate bucketed by how long items had been in the library at first search. Reveals long-tail content that indexers may not carry.
+- Quality Iteration: titles imported once vs upgraded, most common upgrade path per app (Radarr and Sonarr shown separately).
+- Sweep Efficiency: per-instance lifetime average of items searched vs eligible with a callout when an instance is consistently hitting its search cap.
+- Reset Intel button added to the Danger Zone — clears `intel_aggregate` and `exclusion_events`. Clear History and Clear Stats do not affect Intel data.
+
+**Sticky Header**
+
+- Header (wordmark, status bar, Run Now) and tab bar now pin to the top of the viewport while tab content scrolls beneath. Applies to all tabs. Hidden on mobile where the fixed mobile nav takes over.
+
+**Exclusion Event Tracking**
+
+- New `exclusion_events` table — append-only audit log written at every exclude and unexclude action (manual or auto). Captures title, event type, source, search count at the moment of the event, and a timestamp. Never affected by Clear History, Clear Stats, or pruning.
+- Powers the Intel calibration signal: tracks whether auto-excluded titles that later received a second chance (via auto-unexclude timer or manual deletion) eventually imported.
+
+**Protected Aggregate**
+
+- New `intel_aggregate` table — single-row accumulator that is written to at confirm time and never cleared by any normal operation. Protects Intel metrics from Clear History, Clear Stats, and retention pruning.
+- Snapshot of `search_count` is taken at confirm time before any future auto-unexclude reset can affect it, ensuring searches-per-import is accurate even on installs with heavy auto-exclusion cycling.
+- Migration v10 adds both new tables. Handles all existing installs upgrading to v4.2.0. Fresh installs receive both tables via `_SCHEMA_SQL`.
+
+**Minor improvements**
+
+- Backup JSON export (`/api/file/state`) now includes `exclusion_events` and `intel_aggregate` sections. The primary backup (`/api/file/backup`) already included full database coverage as it packages the raw SQLite file directly.
+- `db/backup.py` docstring updated to reflect the complete export structure.
+
+---
+
+## v4.2.0
+
 **Backlog Sample Mode Split and Maintenance Window.**
 
 **Backlog Sample Mode Split**

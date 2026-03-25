@@ -445,12 +445,6 @@ function _renderSweepEfficiency(rows) {
       ? 'background:var(--ok);box-shadow:0 0 5px rgba(34,197,94,.5)'
       : 'background:var(--accent);box-shadow:0 0 5px rgba(91,114,245,.5)';
     const dotClass = 'run-dot';
-    const callout  = isHigh
-      ? `<div class="intel-callout warn" style="margin:0 0 4px;">
-           <div class="intel-callout-label">Cap Warning \u2014 ${_esc(r.instance_name)}</div>
-           This instance is consistently hitting its search cap. If your library is growing, lower-priority items may wait longer between searches. Consider raising your search limit.
-         </div>`
-      : '';
     return `<div class="intel-eff-row">
       <div class="intel-eff-name">
         <div class="${dotClass}" style="${dotStyle}"></div>
@@ -460,7 +454,7 @@ function _renderSweepEfficiency(rows) {
         <div class="intel-eff-track"><div class="intel-eff-fill" style="width:${pct}%;background:${barColor};"></div></div>
         <div class="intel-eff-numbers">${_num(r.searched)} searched of ${_num(r.eligible)} eligible &middot; lifetime average</div>
       </div>
-      <div class="intel-eff-pct${isHigh ? ' warn' : ''}" style="color:${pctColor};">${pct}%</div>
+      <div class="intel-eff-pct" style="color:${pctColor};">${pct}%</div>
     </div>`;
   }).join('');
 }

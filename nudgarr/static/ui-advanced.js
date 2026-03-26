@@ -203,7 +203,6 @@ async function resetIntelData() {
     true
   )) return;
   await api('/api/intel/reset', {method:'POST'});
-  showAlert('Intel data has been reset.');
 }
 
 async function backupAll() {

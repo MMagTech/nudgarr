@@ -61,10 +61,9 @@ def update_intel_aggregate(updates: Dict[str, Any]) -> None:
         set_clauses.append(f"{col} = ?")
         params.append(json.dumps(val) if col in json_cols else val)
     params.append(1)  # WHERE id = 1
-    conn.execute(
-        f"UPDATE intel_aggregate SET {', '.join(set_clauses)} WHERE id = 1",
-        params
-    )
+    sql = f"UPDATE intel_aggregate SET {', '.join(set_clauses)} WHERE id = ?"
+    logger.debug("[intel] update_intel_aggregate: %d clauses, %d params", len(set_clauses), len(params))
+    conn.execute(sql, tuple(params))
 
 
 def reset_intel() -> None:

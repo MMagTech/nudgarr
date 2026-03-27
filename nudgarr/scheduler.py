@@ -317,25 +317,12 @@ def _in_maintenance_window(cfg: Dict[str, Any]) -> bool:
       maintenance_window_enabled -- bool
       maintenance_window_start   -- "HH:MM" 24-hour string
       maintenance_window_end     -- "HH:MM" 24-hour string
-      maintenance_window_days    -- list of strings e.g. ["Mon","Fri"] or legacy
-                                    list of ints 0-6 (Monday=0, Sunday=6)
+      maintenance_window_days    -- list of ints 0-6 (Monday=0, Sunday=6)
     """
     if not cfg.get("maintenance_window_enabled", False):
         return False
 
-    # Normalise days to a set of integers (0=Mon, 6=Sun). Accepts both the
-    # current string format ("Mon","Tue"...) and the legacy integer format (0-6)
-    # so installs that saved days before the string migration still work.
-    _DAY_MAP = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
-    raw_days = cfg.get("maintenance_window_days") or []
-    selected_days = set()
-    for d in raw_days:
-        if isinstance(d, str):
-            if d in _DAY_MAP:
-                selected_days.add(_DAY_MAP[d])
-        elif isinstance(d, int):
-            selected_days.add(d)
-
+    selected_days = set(cfg.get("maintenance_window_days") or [])
     if not selected_days:
         # Empty day list — window never fires regardless of toggle state
         return False

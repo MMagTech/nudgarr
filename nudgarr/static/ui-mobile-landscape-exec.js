@@ -72,9 +72,9 @@ function lsPopulate() {
   const maintEnd = document.getElementById('ls-maint-end');
   if (maintEnd) maintEnd.value = CFG.maintenance_window_end || '';
   const days = CFG.maintenance_window_days || [];
-  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => {
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach((d, i) => {
     const pill = document.getElementById('ls-maint-day-' + d);
-    if (pill) pill.classList.toggle('ls-on', days.includes(d));
+    if (pill) pill.classList.toggle('ls-on', days.includes(i));
   });
   lsSyncMaintUi();
 
@@ -145,15 +145,16 @@ function lsSaveMaintTime() {
   }, 800);
 }
 
-// lsToggleMaintDay — toggles a day in maintenance_window_days and saves.
+// lsToggleMaintDay — toggles a day in maintenance_window_days (integer 0-6) and saves.
 function lsToggleMaintDay(day) {
   mHaptic(20);
+  const dayIndex = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(day);
   const days = Array.isArray(CFG.maintenance_window_days) ? [...CFG.maintenance_window_days] : [];
-  const idx = days.indexOf(day);
-  if (idx === -1) days.push(day); else days.splice(idx, 1);
+  const idx = days.indexOf(dayIndex);
+  if (idx === -1) days.push(dayIndex); else days.splice(idx, 1);
   mSaveCfgKeys({maintenance_window_days: days}).then(() => {
     const pill = document.getElementById('ls-maint-day-' + day);
-    if (pill) pill.classList.toggle('ls-on', days.includes(day));
+    if (pill) pill.classList.toggle('ls-on', days.includes(dayIndex));
     lsSyncMaintUi();
   });
 }
@@ -167,8 +168,10 @@ function lsBuildMaintHint() {
   const days  = Array.isArray(CFG.maintenance_window_days) ? CFG.maintenance_window_days : [];
   const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
   if (!validTime.test(start) || !validTime.test(end) || days.length === 0) return '';
+  const _DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const dayNames = days.map(d => _DAY_NAMES[d] || d).join(', ');
   const overnight = end <= start;
-  return 'Active ' + days.join(', ') + ' from ' + start + ' to ' + end + '.' + (overnight ? ' Overnight range.' : '');
+  return 'Active ' + dayNames + ' from ' + start + ' to ' + end + '.' + (overnight ? ' Overnight range.' : '');
 }
 
 // lsSyncMaintUi — updates enabled/disabled state of MW controls and hint line.

@@ -69,8 +69,8 @@ nudgarr/                    ← Python package
     ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
     ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions
     ui-mobile-landscape-filters.js ← landscape Filters rail/panel — lsFilters* functions
-    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state
-    ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs
+    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state; backlog sample mode selects (lsSaveBacklogSampleMode), Maintenance Window band (lsToggleMaint, lsSaveMaintTime, lsToggleMaintDay, lsSyncMaintUi, lsBuildMaintHint)
+    ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs; mToggleAuto and mToggleMaintWindow live here
     ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
     ui-mobile-portrait-settings.js ← portrait Settings tab
     ui-mobile-portrait.js          ← portrait tab switcher, swipe gesture, mobile init block

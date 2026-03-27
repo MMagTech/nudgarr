@@ -168,7 +168,7 @@ function _renderScore(d) {
 
   const avgDays = sh.turnaround_avg_days || 0;
   const tScore  = Math.max(0, Math.round(100 - (avgDays / 30) * 100));
-  _setComp('Turnaround', avgDays.toFixed(1) + ' days', tScore, 'var(--accent)');
+  _setComp('Turnaround', avgDays.toFixed(1) + ' Days', tScore, 'var(--accent)');
 
   const stuck = sh.stuck_items_disabled ? null : (sh.stuck_items_total || 0);
   const stuckScore = stuck === null ? 50 : Math.max(0, 100 - stuck * 5);
@@ -198,15 +198,15 @@ function _renderSearchHealth(sh) {
     successPct + '% \u200b(' + totalImported + ' of ' + totalWorked + ' items)');
 
   const avgDays = sh.turnaround_avg_days || 0;
-  _setText('intelTurnaround', avgDays.toFixed(1) + ' days');
-  _setText('intelSearchesPerImport', (sh.searches_per_import_avg || 0).toFixed(1) + ' searches');
+  _setText('intelTurnaround', avgDays.toFixed(1) + ' Days');
+  _setText('intelSearchesPerImport', (sh.searches_per_import_avg || 0).toFixed(1) + ' Searches');
 
   if (sh.stuck_items_disabled) {
     _setText('intelStuckTotal', 'N/A');
     document.getElementById('intelStuckTotal').className = 'intel-stat-val muted';
   } else {
     const stuck = sh.stuck_items_total || 0;
-    _setText('intelStuckTotal', stuck + ' item' + (stuck !== 1 ? 's' : ''));
+    _setText('intelStuckTotal', stuck + ' Item' + (stuck !== 1 ? 's' : ''));
     document.getElementById('intelStuckTotal').className =
       'intel-stat-val ' + (stuck > 0 ? 'warn' : 'ok');
   }
@@ -220,7 +220,7 @@ function _renderSearchHealth(sh) {
   _setText('intelBacklogPct', total > 0 ? Math.round(backlog / total * 100) + '% of imports' : '');
 
   const upg = sh.quality_upgrades_count || 0;
-  _setText('intelUpgradesCount', upg + ' upgrade' + (upg !== 1 ? 's' : ''));
+  _setText('intelUpgradesCount', upg + ' Upgrade' + (upg !== 1 ? 's' : ''));
 }
 
 // ── Instance Performance Table ────────────────────────────────────────────
@@ -266,7 +266,7 @@ function _renderInstanceTable(rows) {
       <td><strong>${_num(r.searched)}</strong></td>
       <td><strong>${_num(r.confirmed_imports)}</strong></td>
       <td><strong style="color:${sucColor};">${sucPct}%</strong></td>
-      <td><strong>${(r.turnaround_avg_days || 0).toFixed(1)} days</strong></td>
+      <td><strong>${(r.turnaround_avg_days || 0).toFixed(1)} Days</strong></td>
       <td>${bar}</td>
       <td><strong style="color:${stuckClr};">${stuckVal}</strong></td>
     </tr>`;
@@ -333,7 +333,7 @@ function _renderExclusionIntel(ei) {
   _setText('intelExclAuto',   auto);
   _setText('intelExclManualPct', total > 0 ? Math.round(manual / total * 100) + '% of exclusions' : '');
   _setText('intelExclAutoPct',   total > 0 ? Math.round(auto   / total * 100) + '% of exclusions' : '');
-  _setText('intelAvgSearches', (ei.avg_searches_at_exclusion || 0).toFixed(1) + ' searches');
+  _setText('intelAvgSearches', (ei.avg_searches_at_exclusion || 0).toFixed(1) + ' Searches');
 
   const cal      = ei.calibration || {};
   const ratioEl  = document.getElementById('intelCalibrationRatio');

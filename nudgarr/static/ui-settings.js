@@ -420,7 +420,7 @@ function fillSettings() {
     el('maintenance_window_end').value = CFG.maintenance_window_end || '';
     const days = CFG.maintenance_window_days || [];
     document.querySelectorAll('#maint_day_pills .day-pill').forEach(btn => {
-      btn.classList.toggle('on', days.includes(parseInt(btn.dataset.day, 10)));
+      btn.classList.toggle('on', days.includes(btn.dataset.day));
     });
     syncMaintUi();
   }
@@ -467,7 +467,7 @@ async function saveSettings() {
       CFG.maintenance_window_start = el('maintenance_window_start').value.trim() || '00:00';
       CFG.maintenance_window_end = el('maintenance_window_end').value.trim() || '00:00';
       CFG.maintenance_window_days = [...document.querySelectorAll('#maint_day_pills .day-pill.on')]
-        .map(btn => parseInt(btn.dataset.day, 10));
+        .map(btn => btn.dataset.day);
     }
     const res = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     if (!res.ok) {

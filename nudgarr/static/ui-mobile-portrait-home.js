@@ -1,6 +1,7 @@
 // ── Portrait Home, Instances, Sweep tabs ──────────────────────────────────
 // mUpdateHome, mRenderInstanceRows, mRunNow, mInitRunBtn,
-// mToggle*, mRenderInstances, mToggleInstance, mRenderSweep, mAccordion,
+// mToggleAuto, mToggleMaintWindow, mToggleRadarrBacklog, mToggleSonarrBacklog,
+// mRenderInstances, mToggleInstance, mRenderSweep, mAccordion,
 // mAddArrLinkHandler
 
 // ── Home ───────────────────────────────────────────────────────────────────

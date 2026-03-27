@@ -6,7 +6,7 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.2.0
 
-**Intel Tab, Sticky Header, and Exclusion Event Tracking.**
+**Intel Tab, Backlog Sample Mode Split, Maintenance Window, and Sticky Header.**
 
 **Intel Tab**
 
@@ -36,17 +36,6 @@ All notable changes to Nudgarr are documented here.
 - Snapshot of `search_count` is taken at confirm time before any future auto-unexclude reset can affect it, ensuring searches-per-import is accurate even on installs with heavy auto-exclusion cycling.
 - Migration v10 adds both new tables. Handles all existing installs upgrading to v4.2.0. Fresh installs receive both tables via `_SCHEMA_SQL`.
 
-**Minor improvements**
-
-- Backup JSON export (`/api/file/state`) now includes `exclusion_events` and `intel_aggregate` sections. The primary backup (`/api/file/backup`) already included full database coverage as it packages the raw SQLite file directly.
-- `db/backup.py` docstring updated to reflect the complete export structure.
-
----
-
-## v4.2.0
-
-**Backlog Sample Mode Split and Maintenance Window.**
-
 **Backlog Sample Mode Split**
 
 - Cutoff Unmet and Backlog (missing) sweeps now have independent sample mode settings. Previously one sample mode applied to both pipelines.
@@ -65,10 +54,20 @@ All notable changes to Nudgarr are documented here.
 - Backend — `_in_maintenance_window()` in `scheduler.py` handles both same-day and overnight range detection. Uses container local time via the `TZ` environment variable, consistent with cron evaluation.
 - Suppressed sweeps log at INFO: `[Scheduler] Sweep suppressed by maintenance window (window: HH:MM to HH:MM, now: HH:MM)`.
 
+**Mobile**
+
+- Portrait Settings tab — "Sample Mode" renamed to "Cutoff Sample Mode" on the Radarr and Sonarr cards. The segment control already wrote to `radarr_sample_mode` / `sonarr_sample_mode` (cutoff only) — the rename makes this explicit and distinguishes it from the new backlog mode.
+- Portrait Home Automation card — Maintenance Window toggle added directly below Auto Schedule. Greys out when Auto Schedule is off since the window has nothing to suppress. Static sub-label "Suppresses scheduled sweeps".
+- Landscape Backlog tab — Radarr and Sonarr backlog fields each gain a Backlog Sample Mode dropdown (`<select>`) at the bottom of their fields div. Options match desktop: Random, Alphabetical, Oldest Added, Newest Added. Select inherits the existing backlog fields greying when backlog is disabled.
+- Landscape Execution tab — Maintenance Window added as a full-width band below the two-column Throttling/Scheduler grid. Three sub-columns: Suppress Sweeps toggle; Hours (24h) with start and end text inputs; Active Days with Mon through Sun pill toggles. Live hint line matches desktop behaviour. The entire band dims when Auto Schedule is off; Hours and Days columns additionally dim when the MW toggle is off.
+- Desktop View bug fix — tapping Desktop View in landscape mode now correctly shows the full desktop header and tab nav. The landscape media query was hiding `.sticky-shell` with `!important`, overriding the JS show logic. Fixed by setting `data-desktop-override` on `<body>` when entering desktop override mode and adding a CSS counter-rule that restores `.sticky-shell` and `.wrap` under that attribute selector.
+
 **Minor improvements**
 
 - Advanced tab — "Radarr Missing Added Days" label corrected to "Missing Added Days".
 - Advanced tab — help text standardised: "Only search missing items older than this many days (0 = No Age Filter)".
+- Backup JSON export (`/api/file/state`) now includes `exclusion_events` and `intel_aggregate` sections. The primary backup (`/api/file/backup`) already included full database coverage as it packages the raw SQLite file directly.
+- `db/backup.py` docstring updated to reflect the complete export structure.
 
 ---
 

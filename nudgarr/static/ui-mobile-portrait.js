@@ -88,14 +88,17 @@ function checkOrientation() {
   if (!isLandscape) {
     LS_DESKTOP_OVERRIDE = false;
     sessionStorage.removeItem('nudgarr_desktop_override');
+    document.body.removeAttribute('data-desktop-override');
     if (wrap) wrap.style.removeProperty('display');
     if (landscapeUi) landscapeUi.style.display = 'none';
     if (mobileUi) mobileUi.style.cssText = MOBILE_UI_STYLE;
   } else if (LS_DESKTOP_OVERRIDE) {
+    document.body.setAttribute('data-desktop-override', '1');
     if (mobileUi) mobileUi.style.display = 'none';
     if (landscapeUi) landscapeUi.style.display = 'none';
     if (wrap) wrap.style.setProperty('display','block','important');
   } else {
+    document.body.removeAttribute('data-desktop-override');
     if (mobileUi) mobileUi.style.display = 'none';
     if (wrap) wrap.style.display = 'none';
     if (landscapeUi) landscapeUi.style.cssText = LS_UI_STYLE;

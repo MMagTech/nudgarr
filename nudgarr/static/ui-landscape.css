@@ -143,6 +143,13 @@
     .ls-cron-ok { color: var(--ok); }
     .ls-cron-warn { color: var(--warn); }
     .ls-cron-bad { color: var(--bad); }
+    .ls-day-pill {
+      font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12); color: var(--muted);
+      background: rgba(255,255,255,.04); letter-spacing: .02em; cursor: pointer;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .ls-day-pill.ls-on { background: rgba(91,114,245,.18); border-color: var(--accent-border); color: var(--accent-lt); }
 
     /* ── Bottom nav ── */
     #ls-nav {

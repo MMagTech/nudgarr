@@ -475,6 +475,8 @@
       .wrap { display: none !important; }
       #mobile-ui { display: none !important; }
       body { background: var(--surface); }
+      body[data-desktop-override] .sticky-shell { display: block !important; }
+      body[data-desktop-override] .wrap { display: block !important; }
     }
 
     /* ── Update banner ── */

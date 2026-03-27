@@ -48,6 +48,14 @@ function mUpdateHome(cfg, st) {
   const tAuto = document.getElementById('m-toggle-auto');
   if (tAuto) tAuto.classList.toggle('m-on', !!autoActive);
 
+  const maintRow = document.getElementById('m-maint-row');
+  const tMaint = document.getElementById('m-toggle-maint');
+  if (maintRow) {
+    maintRow.style.opacity = autoActive ? '' : '.38';
+    maintRow.style.pointerEvents = autoActive ? '' : 'none';
+  }
+  if (tMaint) tMaint.classList.toggle('m-on', !!cfg.maintenance_window_enabled);
+
   mRenderInstanceRows();
 }
 
@@ -124,6 +132,11 @@ function mInitRunBtn() {
 function mToggleAuto() {
   mHaptic(40);
   mSaveCfgKeys({scheduler_enabled: !CFG.scheduler_enabled});
+}
+
+function mToggleMaintWindow() {
+  mHaptic(40);
+  mSaveCfgKeys({maintenance_window_enabled: !CFG.maintenance_window_enabled});
 }
 
 function mToggleRadarrBacklog() {

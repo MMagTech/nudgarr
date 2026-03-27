@@ -62,6 +62,13 @@
         </div>
         <div class="m-toggle" id="m-toggle-auto" onclick="mToggleAuto()"></div>
       </div>
+      <div class="m-toggle-row" id="m-maint-row">
+        <div>
+          <div class="m-toggle-label">Maintenance Window</div>
+          <div class="m-toggle-sub">Suppresses scheduled sweeps</div>
+        </div>
+        <div class="m-toggle" id="m-toggle-maint" onclick="mToggleMaintWindow()"></div>
+      </div>
     </div>
 
     <div class="m-section-label">Instances</div>
@@ -145,7 +152,7 @@
         </div>
       </div>
       <div class="m-seg-row">
-        <div class="m-stepper-label">Sample Mode</div>
+        <div class="m-stepper-label">Cutoff Sample Mode</div>
         <div class="m-seg" id="m-seg-radarr">
           <div class="m-seg-opt m-seg-active" onclick="mSetSeg('radarr','random',this)">Random</div>
           <div class="m-seg-opt" onclick="mSetSeg('radarr','alphabetical',this)">Alpha</div>
@@ -191,7 +198,7 @@
         </div>
       </div>
       <div class="m-seg-row">
-        <div class="m-stepper-label">Sample Mode</div>
+        <div class="m-stepper-label">Cutoff Sample Mode</div>
         <div class="m-seg" id="m-seg-sonarr">
           <div class="m-seg-opt m-seg-active" onclick="mSetSeg('sonarr','random',this)">Random</div>
           <div class="m-seg-opt" onclick="mSetSeg('sonarr','alphabetical',this)">Alpha</div>
@@ -378,6 +385,15 @@
                   <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-days',1)" onmouseup="lsHoldEnd('r-days',1)" onmouseleave="lsHoldEnd('r-days',1)" ontouchstart="event.preventDefault();lsHoldStart('r-days',1)" ontouchend="lsHoldEnd('r-days',1)" ontouchcancel="lsHoldEnd('r-days',1)">+</button>
                 </div>
               </div>
+              <div class="ls-row ls-row-col">
+                <div class="ls-row-label">Backlog Sample Mode</div>
+                <select id="ls-sel-radarr-backlog-mode" class="ls-cron-input" onchange="lsSaveBacklogSampleMode('radarr')">
+                  <option value="random">Random</option>
+                  <option value="alphabetical">Alphabetical</option>
+                  <option value="oldest_added">Oldest Added</option>
+                  <option value="newest_added">Newest Added</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -403,6 +419,15 @@
                   <div class="ls-stepper-val" id="ls-v-s-missing">1</div>
                   <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',1)" onmouseup="lsHoldEnd('s-missing',1)" onmouseleave="lsHoldEnd('s-missing',1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',1)" ontouchend="lsHoldEnd('s-missing',1)" ontouchcancel="lsHoldEnd('s-missing',1)">+</button>
                 </div>
+              </div>
+              <div class="ls-row ls-row-col">
+                <div class="ls-row-label">Backlog Sample Mode</div>
+                <select id="ls-sel-sonarr-backlog-mode" class="ls-cron-input" onchange="lsSaveBacklogSampleMode('sonarr')">
+                  <option value="random">Random</option>
+                  <option value="alphabetical">Alphabetical</option>
+                  <option value="oldest_added">Oldest Added</option>
+                  <option value="newest_added">Newest Added</option>
+                </select>
               </div>
             </div>
           </div>
@@ -470,6 +495,39 @@
               </div>
               <input type="text" id="ls-cron-input" class="ls-cron-input" placeholder="0 */12 * * *" oninput="lsValidateCron()" />
               <div class="ls-cron-hint" id="ls-cron-hint"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="ls-maint-band" style="margin-top:8px;border-top:1px solid rgba(91,114,245,.2);padding-top:7px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;">Maintenance Window</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr) 1px minmax(0,2fr);">
+            <div style="padding:0 10px 0 0;display:flex;align-items:center;" id="ls-maint-fields">
+              <div style="flex:1;font-size:12px;font-weight:500;color:var(--text);">Suppress Sweeps</div>
+              <div class="ls-toggle" id="ls-tog-maint" onclick="lsToggleMaint()" style="margin-left:10px;"></div>
+            </div>
+            <div style="background:rgba(255,255,255,.07);"></div>
+            <div style="padding:0 10px;" id="ls-maint-time-col">
+              <div style="font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;">Hours (24h)</div>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <input type="text" id="ls-maint-start" class="ls-cron-input" placeholder="23:00" style="flex:1;text-align:center;min-width:0;" oninput="lsSaveMaintTime()" />
+                <span style="font-size:10px;color:var(--muted);flex-shrink:0;">to</span>
+                <input type="text" id="ls-maint-end" class="ls-cron-input" placeholder="07:00" style="flex:1;text-align:center;min-width:0;" oninput="lsSaveMaintTime()" />
+              </div>
+            </div>
+            <div style="background:rgba(255,255,255,.07);"></div>
+            <div style="padding:0 0 0 10px;" id="ls-maint-days-col">
+              <div style="font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;">Active Days</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <span class="ls-day-pill" id="ls-maint-day-Mon" onclick="lsToggleMaintDay('Mon')">Mon</span>
+                <span class="ls-day-pill" id="ls-maint-day-Tue" onclick="lsToggleMaintDay('Tue')">Tue</span>
+                <span class="ls-day-pill" id="ls-maint-day-Wed" onclick="lsToggleMaintDay('Wed')">Wed</span>
+                <span class="ls-day-pill" id="ls-maint-day-Thu" onclick="lsToggleMaintDay('Thu')">Thu</span>
+                <span class="ls-day-pill" id="ls-maint-day-Fri" onclick="lsToggleMaintDay('Fri')">Fri</span>
+                <span class="ls-day-pill" id="ls-maint-day-Sat" onclick="lsToggleMaintDay('Sat')">Sat</span>
+                <span class="ls-day-pill" id="ls-maint-day-Sun" onclick="lsToggleMaintDay('Sun')">Sun</span>
+              </div>
+              <div id="ls-maint-hint" class="ls-cron-hint" style="margin-top:5px;"></div>
             </div>
           </div>
         </div>

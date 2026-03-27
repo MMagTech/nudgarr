@@ -140,8 +140,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if mw_days is not None:
         if not isinstance(mw_days, list):
             errs.append("maintenance_window_days must be a list")
-        elif not all(isinstance(d, int) and 0 <= d <= 6 for d in mw_days):
-            errs.append("maintenance_window_days must be a list of integers 0-6")
+        elif not all(d in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun") for d in mw_days):
+            errs.append("maintenance_window_days must be a list of day abbreviations e.g. [\"Mon\",\"Fri\"]")
 
     return (len(errs) == 0), errs
 

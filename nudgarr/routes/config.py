@@ -73,7 +73,12 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
 @bp.get("/api/config")
 @requires_auth
 def api_get_config():
-    return jsonify(_mask_config(load_or_init_config()))
+    out = _mask_config(load_or_init_config())
+    reset_keys = STATUS.get("config_reset_keys")
+    if reset_keys:
+        out["_config_reset_keys"] = reset_keys
+        STATUS["config_reset_keys"] = []
+    return jsonify(out)
 
 
 @bp.post("/api/config")

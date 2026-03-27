@@ -34,6 +34,8 @@ def main() -> None:
     # set in Advanced → Log Level will be ignored on restart.
     cfg = load_or_init_config()
     setup_logging(cfg.get("log_level", "INFO"))
+    if cfg.get("_config_reset_keys"):
+        STATUS["config_reset_keys"] = cfg["_config_reset_keys"]
 
     register_blueprints()
 

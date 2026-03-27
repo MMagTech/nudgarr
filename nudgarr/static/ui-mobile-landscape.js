@@ -1,5 +1,8 @@
 // ── Landscape Overrides ────────────────────────────────────────────────────
 // Handles the Overrides rail/panel in landscape mode.
+// Panel layout matches desktop: Cooldown, Cutoff Unmet group (Max + Sample Mode),
+// Backlog group (toggle, Max Backlog, Backlog Sample Mode, Max Missing Days),
+// Notifications. Backlog fields grey when backlog is off.
 // All other landscape logic lives inside if(MOBILE) in ui-mobile-portrait.js.
 
 const LS_OV_PENDING = {};
@@ -79,6 +82,8 @@ function _lsOvSavePendingFromDOM() {
   });
   const modeEl = document.getElementById('ls-ov-f-sample_mode');
   if (modeEl) pending.sample_mode = modeEl.value;
+  const blModeEl = document.getElementById('ls-ov-f-backlog_sample_mode');
+  if (blModeEl) pending.backlog_sample_mode = blModeEl.value;
   const blEl = document.getElementById('ls-ov-f-backlog_enabled');
   if (blEl) pending.backlog_enabled = blEl.checked;
   const notEl = document.getElementById('ls-ov-f-notifications_enabled');
@@ -89,9 +94,12 @@ function _lsOvSavePendingFromDOM() {
 }
 
 // lsOvRenderPanel — builds the right-column panel for the selected instance.
-// Renders all override fields (cooldown, mode, cutoff, backlog, missing days,
-// notifications) showing current override value or global fallback. Wires
-// hold-to-accelerate touch/mouse events on stepper buttons.
+// Layout matches desktop:
+//   Cooldown (full width)
+//   Cutoff Unmet group: Max Cutoff Unmet / Sample Mode
+//   Backlog group: toggle (full width), Max Backlog / Backlog Sample Mode,
+//                 Max Missing Days / empty (Radarr only)
+//   Notifications footer row
 function lsOvRenderPanel() {
   if (!LS_OV_SEL || !CFG) return;
   const {kind, idx} = LS_OV_SEL;
@@ -127,6 +135,9 @@ function lsOvRenderPanel() {
       + '</div>';
   };
 
+  const grpHead = (text, first) => '<div style="grid-column:1/-1;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:' + (first ? '2px 0 3px' : '6px 0 3px') + ';' + (first ? '' : 'border-top:1px solid rgba(255,255,255,.07);') + '">' + text + '</div>';
+
+  // Cutoff sample mode
   const gMode = gv('sample_mode');
   const modeVal = pending && 'sample_mode' in pending ? pending.sample_mode
     : ('sample_mode' in ov ? ov.sample_mode : '__global__');
@@ -140,24 +151,40 @@ function lsOvRenderPanel() {
     + '<span class="ls-ov-global">Global: ' + (MODE_LABELS[gMode] || gMode) + '</span>'
     + '</div>';
 
+  // Backlog sample mode
+  const gBlMode = gv('backlog_sample_mode');
+  const blModeVal = pending && 'backlog_sample_mode' in pending ? pending.backlog_sample_mode
+    : ('backlog_sample_mode' in ov ? ov.backlog_sample_mode : '__global__');
+  const blModeActive = blModeVal !== '__global__' ? ' ls-ov-active' : '';
+  const blModeField = '<div class="ls-ov-field">'
+    + '<label>Backlog Sample Mode</label>'
+    + '<select id="ls-ov-f-backlog_sample_mode" class="' + blModeActive + '" onchange="lsOvMarkDirty()">'
+    + '<option value="__global__"' + (blModeVal === '__global__' ? ' selected' : '') + '>Use Global</option>'
+    + VALID_MODES.map(m => '<option value="' + m + '"' + (blModeVal === m ? ' selected' : '') + '>' + MODE_LABELS[m] + '</option>').join('')
+    + '</select>'
+    + '<span class="ls-ov-global">Global: ' + (MODE_LABELS[gBlMode] || gBlMode) + '</span>'
+    + '</div>';
+
+  // Backlog enabled toggle
   const gBl = gv('backlog_enabled');
   const blVal = pending && 'backlog_enabled' in pending ? pending.backlog_enabled
     : ('backlog_enabled' in ov ? ov.backlog_enabled : gBl);
   const blActive = 'backlog_enabled' in ov || (pending && 'backlog_enabled' in pending) ? ' ls-ov-active' : '';
-  const blField = '<div class="ls-ov-field">'
-    + '<label style="visibility:hidden">Backlog</label>'
-    + '<div class="ls-ov-bl-row' + blActive + '" id="ls-ov-bl-row">'
+  const blFieldsStyle = blVal ? '' : 'opacity:0.38;pointer-events:none';
+  const blField = '<div class="ls-ov-bl-row' + blActive + '" id="ls-ov-bl-row" style="grid-column:1/-1">'
     + '<div><div class="ls-ov-bl-label">Backlog</div>'
     + '<div class="ls-ov-bl-sub" id="ls-ov-bl-sub">Global: ' + (gBl ? 'On' : 'Off') + '</div></div>'
     + '<label class="ls-ov-toggle">'
     + '<input type="checkbox" id="ls-ov-f-backlog_enabled"' + (blVal ? ' checked' : '') + ' onchange="lsOvMarkDirty(); updateBacklogLabel()"/>'
     + '<span class="ls-ov-toggle-track"></span><span class="ls-ov-toggle-thumb"></span>'
-    + '</label></div></div>';
+    + '</label></div>';
 
-  const row3 = kind === 'radarr'
-    ? numField('max_backlog','Max Backlog') + numField('max_missing_days','Max Missing Days')
-    : numField('max_backlog','Max Backlog') + '<div></div>';
+  // Backlog numeric fields + backlog sample mode
+  const blFieldsHtml = kind === 'radarr'
+    ? numField('max_backlog', 'Max Backlog') + blModeField + numField('max_missing_days', 'Max Missing Days') + '<div></div>'
+    : numField('max_backlog', 'Max Backlog') + blModeField;
 
+  // Notifications
   const gNot = gv('notifications_enabled');
   const notVal = pending && 'notifications_enabled' in pending ? pending.notifications_enabled
     : ('notifications_enabled' in ov ? ov.notifications_enabled : gNot);
@@ -169,11 +196,21 @@ function lsOvRenderPanel() {
   if (body) {
     body.dataset.dirty = pending ? '1' : '0';
     body.classList.toggle('ls-ov-panel-disabled', isInstDisabled);
-    body.innerHTML = numField('cooldown_hours','Cooldown Hours')
+    body.innerHTML =
+      // Cooldown
+      grpHead('Cooldown', true)
+      + '<div style="grid-column:1/-1;max-width:50%">' + numField('cooldown_hours', 'Cooldown Hours') + '</div>'
+      // Cutoff Unmet
+      + grpHead('Cutoff Unmet', false)
+      + numField('max_cutoff_unmet', 'Max')
       + modeField
-      + numField('max_cutoff_unmet','Max Cutoff Unmet')
+      // Backlog
+      + grpHead('Backlog', false)
       + blField
-      + row3
+      + '<div id="ls-ov-bl-fields" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;' + blFieldsStyle + '">'
+      + blFieldsHtml
+      + '</div>'
+      // Notifications
       + '<div class="ls-ov-notify-row' + notActive + '" id="ls-ov-notify-row" style="grid-column:1/-1">'
       + '<div style="display:flex;align-items:baseline;gap:6px">'
       + '<span class="ls-ov-notify-label">Notifications</span>'
@@ -290,11 +327,19 @@ function lsOvUpdateFooter() {
 function updateBacklogLabel() {
   if (!LS_OV_SEL) return;
   const {kind} = LS_OV_SEL;
+  const checked = document.getElementById('ls-ov-f-backlog_enabled')?.checked;
+  const gBl = _getGlobal(kind, 'backlog_enabled');
   const lblEl = document.getElementById('ls-ov-bl-sub');
   const rowEl = document.getElementById('ls-ov-bl-row');
-  if (!lblEl) return;
-  lblEl.textContent = 'Global: ' + (_getGlobal(kind, 'backlog_enabled') ? 'On' : 'Off');
+  const fields = document.getElementById('ls-ov-bl-fields');
+  if (lblEl) lblEl.textContent = checked
+    ? (gBl ? 'Override: On · Global: On' : 'Override: On · Global: Off')
+    : (gBl ? 'Override: Off · Global: On' : 'Global: Off');
   if (rowEl) rowEl.classList.add('ls-ov-active');
+  if (fields) {
+    fields.style.opacity = checked ? '' : '0.38';
+    fields.style.pointerEvents = checked ? '' : 'none';
+  }
 }
 
 function updateNotifyLabel() {
@@ -334,6 +379,11 @@ async function lsOvApply() {
     if (modeEl) {
       if (modeEl.value === '__global__' || modeEl.value === '') { delete newOv.sample_mode; }
       else { newOv.sample_mode = modeEl.value; }
+    }
+    const blModeEl = document.getElementById('ls-ov-f-backlog_sample_mode');
+    if (blModeEl) {
+      if (blModeEl.value === '__global__' || blModeEl.value === '') { delete newOv.backlog_sample_mode; }
+      else { newOv.backlog_sample_mode = blModeEl.value; }
     }
     const blEl = document.getElementById('ls-ov-f-backlog_enabled');
     if (blEl) {

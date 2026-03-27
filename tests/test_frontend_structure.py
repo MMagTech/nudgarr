@@ -76,7 +76,7 @@ LINE_COUNT_CEILINGS = {
     'ui-advanced.js':                  280,
     'ui-filters.js':                   450,
     'ui-mobile-core.js':               300,
-    'ui-mobile-landscape.js':          430,
+    'ui-mobile-landscape.js':          460,
     'ui-mobile-landscape-filters.js':  340,
     'ui-mobile-landscape-exec.js':     360,
     'ui-mobile-portrait-home.js':      320,

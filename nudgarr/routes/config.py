@@ -101,6 +101,7 @@ def api_set_config():
     ok, errs = validate_config(cfg)
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400
+    cfg.pop("_config_reset_keys", None)
     try:
         save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     except Exception:

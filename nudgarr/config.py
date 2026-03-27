@@ -240,6 +240,7 @@ def load_or_init_config() -> Dict[str, Any]:
             logger.warning("Reset keys to defaults: %s", reset_keys)
 
     # Only persist if merged differs from what was on disk (e.g. new default keys added)
-    if merged != cfg:
-        save_json_atomic(CONFIG_FILE, merged, pretty=True)
+    clean = {k: v for k, v in merged.items() if k != "_config_reset_keys"}
+    if clean != cfg:
+        save_json_atomic(CONFIG_FILE, clean, pretty=True)
     return merged

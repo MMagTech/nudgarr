@@ -195,8 +195,49 @@ def load_or_init_config() -> Dict[str, Any]:
 
     ok, errs = validate_config(merged)
     if not ok:
-        logger.warning("Config validation failed — using defaults for this run: %s", errs)
-        return deep_copy(DEFAULT_CONFIG)
+        logger.warning("Config validation failed on some keys — resetting only affected keys to defaults: %s", errs)
+        # Non-destructive recovery: reset only the specific keys that failed
+        # rather than discarding the entire config. This preserves instances,
+        # credentials, and all other settings when a single key is bad.
+        _FIELD_DEFAULTS = {
+            "scheduler_enabled": DEFAULT_CONFIG["scheduler_enabled"],
+            "cron_expression": DEFAULT_CONFIG["cron_expression"],
+            "radarr_sample_mode": DEFAULT_CONFIG["radarr_sample_mode"],
+            "sonarr_sample_mode": DEFAULT_CONFIG["sonarr_sample_mode"],
+            "radarr_backlog_sample_mode": DEFAULT_CONFIG["radarr_backlog_sample_mode"],
+            "sonarr_backlog_sample_mode": DEFAULT_CONFIG["sonarr_backlog_sample_mode"],
+            "radarr_max_movies_per_run": DEFAULT_CONFIG["radarr_max_movies_per_run"],
+            "sonarr_max_episodes_per_run": DEFAULT_CONFIG["sonarr_max_episodes_per_run"],
+            "cooldown_hours": DEFAULT_CONFIG["cooldown_hours"],
+            "sleep_seconds": DEFAULT_CONFIG["sleep_seconds"],
+            "jitter_seconds": DEFAULT_CONFIG["jitter_seconds"],
+            "batch_size": DEFAULT_CONFIG["batch_size"],
+            "state_retention_days": DEFAULT_CONFIG["state_retention_days"],
+            "radarr_missing_max": DEFAULT_CONFIG["radarr_missing_max"],
+            "radarr_missing_added_days": DEFAULT_CONFIG["radarr_missing_added_days"],
+            "sonarr_missing_max": DEFAULT_CONFIG["sonarr_missing_max"],
+            "sonarr_missing_added_days": DEFAULT_CONFIG["sonarr_missing_added_days"],
+            "auto_exclude_movies_threshold": DEFAULT_CONFIG["auto_exclude_movies_threshold"],
+            "auto_exclude_shows_threshold": DEFAULT_CONFIG["auto_exclude_shows_threshold"],
+            "auto_unexclude_movies_days": DEFAULT_CONFIG["auto_unexclude_movies_days"],
+            "auto_unexclude_shows_days": DEFAULT_CONFIG["auto_unexclude_shows_days"],
+            "log_level": DEFAULT_CONFIG["log_level"],
+            "maintenance_window_enabled": DEFAULT_CONFIG["maintenance_window_enabled"],
+            "maintenance_window_start": DEFAULT_CONFIG["maintenance_window_start"],
+            "maintenance_window_end": DEFAULT_CONFIG["maintenance_window_end"],
+            "maintenance_window_days": DEFAULT_CONFIG["maintenance_window_days"],
+        }
+        reset_keys = []
+        for err in errs:
+            for field in _FIELD_DEFAULTS:
+                if err.startswith(field):
+                    merged[field] = deep_copy(_FIELD_DEFAULTS[field])
+                    if field not in reset_keys:
+                        reset_keys.append(field)
+                    break
+        if reset_keys:
+            merged["_config_reset_keys"] = reset_keys
+            logger.warning("Reset keys to defaults: %s", reset_keys)
 
     # Only persist if merged differs from what was on disk (e.g. new default keys added)
     if merged != cfg:

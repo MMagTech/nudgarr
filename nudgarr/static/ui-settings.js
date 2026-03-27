@@ -538,6 +538,12 @@ function fadeNewestAddedWarnings() {
 }
 
 // ── What's New modal ──
+function dismissCfgResetModal() {
+  const modal = el('cfgResetModal');
+  if (modal) modal.style.display = 'none';
+  if (CFG) delete CFG._config_reset_keys;
+}
+
 async function dismissWhatsNew() {
   el('whatsNewModal').style.display = 'none';
   await api('/api/whats-new/dismiss', {method: 'POST'});

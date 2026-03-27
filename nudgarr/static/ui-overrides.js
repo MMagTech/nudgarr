@@ -160,14 +160,16 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
 
   // Backlog fields row: Max Backlog / Backlog Sample Mode
   // Radarr gets an additional row: Max Missing Days / empty
+  // Grey the entire fields block when backlog is effectively off (resolved value)
+  const backlogFieldsStyle = backlogVal ? '' : 'opacity:0.38;pointer-events:none';
   const backlogFieldsHtml = kind === 'radarr'
-    ? `<div class="ov-fields">
+    ? `<div class="ov-fields" id="${cardId}-backlog-fields" style="${backlogFieldsStyle}">
         ${numField('max_backlog', 'Max Backlog', gBacklog)}
         ${backlogModeField}
         ${numField('max_missing_days', 'Max Missing Days', gMissing)}
         <div></div>
       </div>`
-    : `<div class="ov-fields">
+    : `<div class="ov-fields" id="${cardId}-backlog-fields" style="${backlogFieldsStyle}">
         ${numField('max_backlog', 'Max Backlog', gBacklog)}
         ${backlogModeField}
       </div>`;
@@ -289,6 +291,11 @@ function updateBacklogLabel(kind, idx) {
   const label = `${checked ? 'On (Override)' : 'Off (Override)'} Global: ${globalBacklog ? 'On' : 'Off'}`;
   if (lbl) lbl.textContent = label;
   if (row) { row.classList.add('ov-active'); }
+  const fields = el(cardId + '-backlog-fields');
+  if (fields) {
+    fields.style.opacity = checked ? '' : '0.38';
+    fields.style.pointerEvents = checked ? '' : 'none';
+  }
 }
 
 function updateNotifyLabel(kind, idx) {

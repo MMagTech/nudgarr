@@ -161,6 +161,7 @@ function lsToggleMaintDay(day) {
 
 // lsBuildMaintHint — builds the hint line from current config values.
 // Returns empty string if window is disabled, times invalid, or no days selected.
+// Format matches desktop: "HH:MM to HH:MM (overnight) on Mon, Wed, Fri"
 function lsBuildMaintHint() {
   if (!CFG.maintenance_window_enabled) return '';
   const start = (document.getElementById('ls-maint-start') || {}).value || CFG.maintenance_window_start || '';
@@ -169,9 +170,9 @@ function lsBuildMaintHint() {
   const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
   if (!validTime.test(start) || !validTime.test(end) || days.length === 0) return '';
   const _DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const dayNames = days.map(d => _DAY_NAMES[d] || d).join(', ');
+  const dayStr = days.length === 7 ? 'every day' : days.map(d => _DAY_NAMES[d] || d).join(', ');
   const overnight = end <= start;
-  return 'Active ' + dayNames + ' from ' + start + ' to ' + end + '.' + (overnight ? ' Overnight range.' : '');
+  return start + ' to ' + end + (overnight ? ' (overnight)' : '') + ' on ' + dayStr;
 }
 
 // lsSyncMaintUi — updates enabled/disabled state of MW controls and hint line.

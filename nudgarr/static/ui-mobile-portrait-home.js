@@ -56,6 +56,12 @@ function mUpdateHome(cfg, st) {
     maintRow.style.pointerEvents = autoActive ? '' : 'none';
   }
   if (tMaint) tMaint.classList.toggle('m-on', !!cfg.maintenance_window_enabled);
+  const maintSub = document.querySelector('#m-maint-row .m-toggle-sub');
+  if (maintSub) {
+    const noDays = cfg.maintenance_window_enabled && !(cfg.maintenance_window_days || []).length;
+    maintSub.textContent = noDays ? 'Select at least one day' : 'Suppresses scheduled sweeps';
+    maintSub.style.color = noDays ? 'var(--bad)' : '';
+  }
 
   mRenderInstanceRows();
 }

@@ -45,6 +45,7 @@
     .m-nav-item.m-active .m-nav-icon { filter: drop-shadow(0 0 5px rgba(91,114,245,.45)); }
 
     /* ── Shared components ── */
+    .mobile-view-btn { display: none; }
     .m-section-label {
       font-size: 10px; font-weight: 700; letter-spacing: .1em;
       text-transform: uppercase; color: var(--accent);
@@ -478,7 +479,6 @@
       body[data-desktop-override] .sticky-shell { display: block !important; }
       body[data-desktop-override] .wrap { display: block !important; }
       body[data-desktop-override] .sticky-shell { position: relative; }
-      .mobile-view-btn { display: none; }
       body[data-desktop-override] .mobile-view-btn {
         display: inline-flex; align-items: center; gap: 5px;
         background: transparent; border-color: rgba(255,255,255,.1);

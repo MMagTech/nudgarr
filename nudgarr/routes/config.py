@@ -73,13 +73,25 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
 @bp.get("/api/config")
 @requires_auth
 def api_get_config():
-    out = _mask_config(load_or_init_config())
-    reset_keys = STATUS.get("config_reset_keys")
-    logger.debug("[api/config] config_reset_keys in STATUS: %s", reset_keys)
+    cfg = load_or_init_config()
+    out = _mask_config(cfg)
+    # Collect reset keys from both the loaded config (persisted across restarts)
+    # and STATUS (set in the same session before any restart).
+    reset_keys = list(cfg.get("_config_reset_keys") or [])
+    for k in (STATUS.get("config_reset_keys") or []):
+        if k not in reset_keys:
+            reset_keys.append(k)
+    STATUS["config_reset_keys"] = []
     if reset_keys:
         out["_config_reset_keys"] = reset_keys
-        STATUS["config_reset_keys"] = []
         logger.info("[api/config] Attached config_reset_keys to response: %s", reset_keys)
+        # Strip _config_reset_keys from disk now that the browser has received it
+        from nudgarr.utils import save_json_atomic as _save
+        from nudgarr.constants import CONFIG_FILE as _cf
+        clean = {k: v for k, v in cfg.items() if k != "_config_reset_keys"}
+        _save(_cf, clean, pretty=True)
+    else:
+        logger.debug("[api/config] config_reset_keys in STATUS: []")
     return jsonify(out)
 
 

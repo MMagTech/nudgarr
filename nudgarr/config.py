@@ -240,7 +240,13 @@ def load_or_init_config() -> Dict[str, Any]:
             logger.warning("Reset keys to defaults: %s", reset_keys)
 
     # Only persist if merged differs from what was on disk (e.g. new default keys added)
+    # Always strip _config_reset_keys from the comparison but write it to disk so it
+    # survives a container restart before the browser calls GET /api/config.
     clean = {k: v for k, v in merged.items() if k != "_config_reset_keys"}
     if clean != cfg:
-        save_json_atomic(CONFIG_FILE, clean, pretty=True)
+        # Write with _config_reset_keys included so it survives restarts
+        to_write = dict(clean)
+        if merged.get("_config_reset_keys"):
+            to_write["_config_reset_keys"] = merged["_config_reset_keys"]
+        save_json_atomic(CONFIG_FILE, to_write, pretty=True)
     return merged

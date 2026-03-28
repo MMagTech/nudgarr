@@ -113,7 +113,6 @@ STATUS: Dict[str, Any] = {
     "run_requested": False,
     "last_error": None,
     "instance_health": {},  # {"radarr|name": "ok"|"bad"|"disabled", ...}
-    "config_reset_keys": [],  # keys reset to defaults on last load; cleared after first GET /api/config
 }
 
 # ── Sweep lock ────────────────────────────────────────────────────────

@@ -158,7 +158,7 @@ def load_or_init_config() -> Dict[str, Any]:
     Applies the v3.1.0 run_interval_minutes -> cron_expression migration if needed,
     drops legacy keys (run_interval_minutes, cron_enabled), and writes back to disk
     only when the merged result differs from what was on disk (e.g. new default keys
-    were added). Falls back to defaults if validation fails after merging."""
+    were added). Invalid values are reset to defaults with a warning logged."""
     cfg = load_json(CONFIG_FILE, None)
     if not isinstance(cfg, dict):
         cfg = deep_copy(DEFAULT_CONFIG)
@@ -166,28 +166,18 @@ def load_or_init_config() -> Dict[str, Any]:
         return cfg
 
     merged = deep_copy(DEFAULT_CONFIG)
-    # Capture any _config_reset_keys persisted from a previous validation failure
-    # before the merge loop (which skips the key). This ensures api_get_config
-    # can find it even when validation passes on this load.
-    _persisted_reset_keys = cfg.get("_config_reset_keys") or []
-    # merge non-instance keys — skip _config_reset_keys so it never leaks into merged
-    # from a previous write; it is only ever set explicitly in the validation block below.
     for k, v in cfg.items():
-        if k != "instances" and k != "_config_reset_keys":
+        if k != "instances":
             merged[k] = v
-    # merge instances
     merged["instances"]["radarr"] = cfg.get("instances", {}).get("radarr", merged["instances"]["radarr"])
     merged["instances"]["sonarr"] = cfg.get("instances", {}).get("sonarr", merged["instances"]["sonarr"])
 
     # ── Migration: interval → cron (v3.1.0) ──
-    # Old installs may have run_interval_minutes and/or cron_enabled.
-    # Convert to cron_expression if missing or empty, then drop legacy keys.
     if not merged.get("cron_expression"):
         interval_min = cfg.get("run_interval_minutes")
         converted = False
         if isinstance(interval_min, int) and interval_min > 0:
             if interval_min < 60 and 60 % interval_min == 0:
-                # Sub-hour clean divisor e.g. 30 → */30 * * * *
                 merged["cron_expression"] = f"*/{interval_min} * * * *"
                 converted = True
             elif interval_min % 60 == 0:
@@ -200,81 +190,19 @@ def load_or_init_config() -> Dict[str, Any]:
         if not converted:
             merged["cron_expression"] = DEFAULT_CONFIG["cron_expression"]
 
-    # Drop legacy keys that no longer exist in DEFAULT_CONFIG
     for legacy_key in ("run_interval_minutes", "cron_enabled"):
         merged.pop(legacy_key, None)
 
     ok, errs = validate_config(merged)
     if not ok:
-        logger.warning("Config validation failed on some keys — resetting only affected keys to defaults: %s", errs)
-        # Non-destructive recovery: reset only the specific keys that failed
-        # rather than discarding the entire config. This preserves instances,
-        # credentials, and all other settings when a single key is bad.
-        _FIELD_DEFAULTS = {
-            "scheduler_enabled": DEFAULT_CONFIG["scheduler_enabled"],
-            "cron_expression": DEFAULT_CONFIG["cron_expression"],
-            "radarr_sample_mode": DEFAULT_CONFIG["radarr_sample_mode"],
-            "sonarr_sample_mode": DEFAULT_CONFIG["sonarr_sample_mode"],
-            "radarr_backlog_sample_mode": DEFAULT_CONFIG["radarr_backlog_sample_mode"],
-            "sonarr_backlog_sample_mode": DEFAULT_CONFIG["sonarr_backlog_sample_mode"],
-            "radarr_max_movies_per_run": DEFAULT_CONFIG["radarr_max_movies_per_run"],
-            "sonarr_max_episodes_per_run": DEFAULT_CONFIG["sonarr_max_episodes_per_run"],
-            "cooldown_hours": DEFAULT_CONFIG["cooldown_hours"],
-            "sleep_seconds": DEFAULT_CONFIG["sleep_seconds"],
-            "jitter_seconds": DEFAULT_CONFIG["jitter_seconds"],
-            "batch_size": DEFAULT_CONFIG["batch_size"],
-            "state_retention_days": DEFAULT_CONFIG["state_retention_days"],
-            "radarr_missing_max": DEFAULT_CONFIG["radarr_missing_max"],
-            "radarr_missing_added_days": DEFAULT_CONFIG["radarr_missing_added_days"],
-            "sonarr_missing_max": DEFAULT_CONFIG["sonarr_missing_max"],
-            "sonarr_missing_added_days": DEFAULT_CONFIG["sonarr_missing_added_days"],
-            "auto_exclude_movies_threshold": DEFAULT_CONFIG["auto_exclude_movies_threshold"],
-            "auto_exclude_shows_threshold": DEFAULT_CONFIG["auto_exclude_shows_threshold"],
-            "auto_unexclude_movies_days": DEFAULT_CONFIG["auto_unexclude_movies_days"],
-            "auto_unexclude_shows_days": DEFAULT_CONFIG["auto_unexclude_shows_days"],
-            "log_level": DEFAULT_CONFIG["log_level"],
-            "maintenance_window_enabled": DEFAULT_CONFIG["maintenance_window_enabled"],
-            "maintenance_window_start": DEFAULT_CONFIG["maintenance_window_start"],
-            "maintenance_window_end": DEFAULT_CONFIG["maintenance_window_end"],
-            "maintenance_window_days": DEFAULT_CONFIG["maintenance_window_days"],
-            "radarr_backlog_enabled": DEFAULT_CONFIG["radarr_backlog_enabled"],
-            "sonarr_backlog_enabled": DEFAULT_CONFIG["sonarr_backlog_enabled"],
-            "notify_enabled": DEFAULT_CONFIG["notify_enabled"],
-            "notify_on_sweep_complete": DEFAULT_CONFIG["notify_on_sweep_complete"],
-            "notify_on_import": DEFAULT_CONFIG["notify_on_import"],
-            "notify_on_error": DEFAULT_CONFIG["notify_on_error"],
-            "notify_on_auto_exclusion": DEFAULT_CONFIG["notify_on_auto_exclusion"],
-            "notify_on_queue_threshold": DEFAULT_CONFIG["notify_on_queue_threshold"],
-            "dry_run": DEFAULT_CONFIG["dry_run"],
-            "per_instance_overrides_enabled": DEFAULT_CONFIG["per_instance_overrides_enabled"],
-        }
-        reset_keys = []
+        logger.warning("Config validation failed — resetting affected keys to defaults: %s", errs)
         for err in errs:
-            for field in _FIELD_DEFAULTS:
-                if err.startswith(field):
-                    merged[field] = deep_copy(_FIELD_DEFAULTS[field])
-                    if field not in reset_keys:
-                        reset_keys.append(field)
+            for field, default in DEFAULT_CONFIG.items():
+                if err.startswith(field) and not isinstance(default, dict):
+                    merged[field] = deep_copy(default)
+                    logger.warning("Reset %s to default: %r", field, default)
                     break
-        if reset_keys:
-            merged["_config_reset_keys"] = reset_keys
-            logger.warning("Reset keys to defaults: %s", reset_keys)
-    elif _persisted_reset_keys:
-        # Validation passed but a previous run wrote reset keys to disk — carry them
-        # through so api_get_config can surface them to the browser.
-        merged["_config_reset_keys"] = _persisted_reset_keys
 
-    # Only persist new default keys added since last run. If validation failed,
-    # leave the bad values on disk — the user must Acknowledge the popup before
-    # they are corrected. Only write _config_reset_keys alongside the bad values
-    # so it survives restarts until the user acknowledges.
-    clean = {k: v for k, v in merged.items() if k != "_config_reset_keys"}
-    if merged.get("_config_reset_keys") and not _persisted_reset_keys:
-        # First detection — write bad config + reset key list to disk.
-        to_write = dict(cfg)
-        to_write["_config_reset_keys"] = merged["_config_reset_keys"]
-        save_json_atomic(CONFIG_FILE, to_write, pretty=True)
-    elif not merged.get("_config_reset_keys") and clean != cfg:
-        # No validation issues — persist any new default keys added.
-        save_json_atomic(CONFIG_FILE, clean, pretty=True)
+    if merged != cfg:
+        save_json_atomic(CONFIG_FILE, merged, pretty=True)
     return merged

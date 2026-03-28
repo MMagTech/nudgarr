@@ -173,18 +173,3 @@
   </div>
 </div>
 
-<!-- ══ Config Reset Warning Modal ══ -->
-<div class="modal-backdrop" id="cfgResetModal" style="display:none" onclick="event.stopPropagation()">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
-    <h2 style="margin:0 0 8px">Config Values Reset</h2>
-    <p class="help" style="margin:0 0 16px;color:var(--muted)">One or more config values failed validation and were reset to their defaults. Your instances and all other settings are unaffected.</p>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:20px">
-      <p class="help" style="margin:0 0 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Affected keys</p>
-      <p id="cfgResetKeysList" class="help" style="margin:0;color:var(--warn);font-size:12px;line-height:1.7"></p>
-    </div>
-    <p class="help" style="margin:0 0 20px">Check the diagnostic log in Advanced for details.</p>
-    <div class="row" style="justify-content:flex-end">
-      <button class="btn sm primary" onclick="dismissCfgResetModal()">Acknowledge</button>
-    </div>
-  </div>
-</div>

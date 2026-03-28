@@ -73,37 +73,7 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
 @bp.get("/api/config")
 @requires_auth
 def api_get_config():
-    cfg = load_or_init_config()
-    out = _mask_config(cfg)
-    reset_keys = list(cfg.get("_config_reset_keys") or [])
-    for k in (STATUS.get("config_reset_keys") or []):
-        if k not in reset_keys:
-            reset_keys.append(k)
-    STATUS["config_reset_keys"] = []
-    if reset_keys:
-        out["_config_reset_keys"] = reset_keys
-        logger.info("[api/config] Attached config_reset_keys to response: %s", reset_keys)
-    return jsonify(out)
-
-
-@bp.post("/api/config/acknowledge-reset")
-@requires_auth
-def api_acknowledge_reset():
-    """Acknowledge a config reset — writes corrected values to disk and removes
-    _config_reset_keys. Called when the user clicks Acknowledge on the popup."""
-    stored = load_or_init_config()
-    reset_keys = stored.get("_config_reset_keys") or []
-    if not reset_keys:
-        return jsonify({"ok": True, "corrected": []})
-    # stored already has corrected in-memory values; write them to disk without the flag
-    clean = {k: v for k, v in stored.items() if k != "_config_reset_keys"}
-    try:
-        save_json_atomic(CONFIG_FILE, clean, pretty=True)
-    except Exception:
-        logger.exception("Failed to write corrected config in acknowledge-reset")
-        return jsonify({"ok": False, "error": "Failed to write config"}), 500
-    logger.info("[api/config/acknowledge-reset] Corrected and saved: %s", reset_keys)
-    return jsonify({"ok": True, "corrected": reset_keys})
+    return jsonify(_mask_config(load_or_init_config()))
 
 
 @bp.post("/api/config")
@@ -131,7 +101,6 @@ def api_set_config():
     ok, errs = validate_config(cfg)
     if not ok:
         return jsonify({"ok": False, "errors": errs}), 400
-    cfg.pop("_config_reset_keys", None)
     try:
         save_json_atomic(CONFIG_FILE, cfg, pretty=True)
     except Exception:

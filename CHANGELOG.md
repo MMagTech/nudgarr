@@ -61,8 +61,6 @@ All notable changes to Nudgarr are documented here.
 **Non-destructive config validation**
 
 - Config validation failure no longer wipes the entire config. Only the specific failing keys are identified and reset to their defaults individually. All other keys — instances, credentials, and all other settings — are preserved.
-- The affected key names are stored in `STATUS["config_reset_keys"]` at startup and on every scheduler loop cycle, so bad values edited into the config while the container is running are also caught.
-- A one-time popup appears on next page load listing the affected keys and directing the user to the diagnostic log. Single Acknowledge button. STATUS is cleared after the first `GET /api/config` so the popup never re-fires for the same event.
 
 **Mobile**
 

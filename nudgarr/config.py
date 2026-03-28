@@ -117,7 +117,13 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         if ne is not None and not isinstance(ne, bool):
                             errs.append(f"instances.{app}[{i}].overrides.notifications_enabled must be boolean")
 
-    for bool_key in ("per_instance_overrides_enabled", "per_instance_overrides_seen", "per_instance_overrides_seen_mobile"):
+    for bool_key in (
+        "per_instance_overrides_enabled", "per_instance_overrides_seen",
+        "per_instance_overrides_seen_mobile", "radarr_backlog_enabled",
+        "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
+        "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
+        "notify_on_queue_threshold", "dry_run",
+    ):
         v = cfg.get(bool_key)
         if v is not None and not isinstance(v, bool):
             errs.append(f"{bool_key} must be boolean")
@@ -231,6 +237,16 @@ def load_or_init_config() -> Dict[str, Any]:
             "maintenance_window_start": DEFAULT_CONFIG["maintenance_window_start"],
             "maintenance_window_end": DEFAULT_CONFIG["maintenance_window_end"],
             "maintenance_window_days": DEFAULT_CONFIG["maintenance_window_days"],
+            "radarr_backlog_enabled": DEFAULT_CONFIG["radarr_backlog_enabled"],
+            "sonarr_backlog_enabled": DEFAULT_CONFIG["sonarr_backlog_enabled"],
+            "notify_enabled": DEFAULT_CONFIG["notify_enabled"],
+            "notify_on_sweep_complete": DEFAULT_CONFIG["notify_on_sweep_complete"],
+            "notify_on_import": DEFAULT_CONFIG["notify_on_import"],
+            "notify_on_error": DEFAULT_CONFIG["notify_on_error"],
+            "notify_on_auto_exclusion": DEFAULT_CONFIG["notify_on_auto_exclusion"],
+            "notify_on_queue_threshold": DEFAULT_CONFIG["notify_on_queue_threshold"],
+            "dry_run": DEFAULT_CONFIG["dry_run"],
+            "per_instance_overrides_enabled": DEFAULT_CONFIG["per_instance_overrides_enabled"],
         }
         reset_keys = []
         for err in errs:

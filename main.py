@@ -36,6 +36,7 @@ def main() -> None:
     setup_logging(cfg.get("log_level", "INFO"))
     if cfg.get("_config_reset_keys"):
         STATUS["config_reset_keys"] = cfg["_config_reset_keys"]
+        logger.warning("[startup] Config reset keys stored in STATUS: %s", cfg["_config_reset_keys"])
 
     register_blueprints()
 

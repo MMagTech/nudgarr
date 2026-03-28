@@ -144,6 +144,12 @@ if (MOBILE) {
     mRefreshMobileAutoExclBadge();
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
+    if (CFG && CFG._config_reset_keys && CFG._config_reset_keys.length) {
+      const list = el('cfgResetKeysList');
+      if (list) list.textContent = CFG._config_reset_keys.join('\n');
+      const modal = el('cfgResetModal');
+      if (modal) modal.style.display = 'flex';
+    }
     if (typeof lsPopulate === 'function') lsPopulate();
   });
 

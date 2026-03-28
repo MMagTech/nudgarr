@@ -75,9 +75,11 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
 def api_get_config():
     out = _mask_config(load_or_init_config())
     reset_keys = STATUS.get("config_reset_keys")
+    logger.debug("[api/config] config_reset_keys in STATUS: %s", reset_keys)
     if reset_keys:
         out["_config_reset_keys"] = reset_keys
         STATUS["config_reset_keys"] = []
+        logger.info("[api/config] Attached config_reset_keys to response: %s", reset_keys)
     return jsonify(out)
 
 

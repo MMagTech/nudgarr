@@ -160,9 +160,10 @@ def load_or_init_config() -> Dict[str, Any]:
         return cfg
 
     merged = deep_copy(DEFAULT_CONFIG)
-    # merge non-instance keys
+    # merge non-instance keys — skip _config_reset_keys so it never leaks into merged
+    # from a previous write; it is only ever set explicitly in the validation block below.
     for k, v in cfg.items():
-        if k != "instances":
+        if k != "instances" and k != "_config_reset_keys":
             merged[k] = v
     # merge instances
     merged["instances"]["radarr"] = cfg.get("instances", {}).get("radarr", merged["instances"]["radarr"])

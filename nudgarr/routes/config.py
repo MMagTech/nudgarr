@@ -75,8 +75,6 @@ def _restore_keys(incoming: dict, stored: dict) -> None:
 def api_get_config():
     cfg = load_or_init_config()
     out = _mask_config(cfg)
-    # Collect reset keys from both the loaded config (persisted across restarts)
-    # and STATUS (set in the same session before any restart).
     reset_keys = list(cfg.get("_config_reset_keys") or [])
     for k in (STATUS.get("config_reset_keys") or []):
         if k not in reset_keys:
@@ -85,14 +83,27 @@ def api_get_config():
     if reset_keys:
         out["_config_reset_keys"] = reset_keys
         logger.info("[api/config] Attached config_reset_keys to response: %s", reset_keys)
-        # Strip _config_reset_keys from disk now that the browser has received it
-        from nudgarr.utils import save_json_atomic as _save
-        from nudgarr.constants import CONFIG_FILE as _cf
-        clean = {k: v for k, v in cfg.items() if k != "_config_reset_keys"}
-        _save(_cf, clean, pretty=True)
-    else:
-        logger.debug("[api/config] config_reset_keys in STATUS: []")
     return jsonify(out)
+
+
+@bp.post("/api/config/acknowledge-reset")
+@requires_auth
+def api_acknowledge_reset():
+    """Acknowledge a config reset — writes corrected values to disk and removes
+    _config_reset_keys. Called when the user clicks Acknowledge on the popup."""
+    stored = load_or_init_config()
+    reset_keys = stored.get("_config_reset_keys") or []
+    if not reset_keys:
+        return jsonify({"ok": True, "corrected": []})
+    # stored already has corrected in-memory values; write them to disk without the flag
+    clean = {k: v for k, v in stored.items() if k != "_config_reset_keys"}
+    try:
+        save_json_atomic(CONFIG_FILE, clean, pretty=True)
+    except Exception:
+        logger.exception("Failed to write corrected config in acknowledge-reset")
+        return jsonify({"ok": False, "error": "Failed to write config"}), 500
+    logger.info("[api/config/acknowledge-reset] Corrected and saved: %s", reset_keys)
+    return jsonify({"ok": True, "corrected": reset_keys})
 
 
 @bp.post("/api/config")

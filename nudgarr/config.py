@@ -248,14 +248,17 @@ def load_or_init_config() -> Dict[str, Any]:
         # through so api_get_config can surface them to the browser.
         merged["_config_reset_keys"] = _persisted_reset_keys
 
-    # Only persist if merged differs from what was on disk (e.g. new default keys added)
-    # Always strip _config_reset_keys from the comparison but write it to disk so it
-    # survives a container restart before the browser calls GET /api/config.
+    # Only persist new default keys added since last run. If validation failed,
+    # leave the bad values on disk — the user must Acknowledge the popup before
+    # they are corrected. Only write _config_reset_keys alongside the bad values
+    # so it survives restarts until the user acknowledges.
     clean = {k: v for k, v in merged.items() if k != "_config_reset_keys"}
-    if clean != cfg:
-        # Write with _config_reset_keys included so it survives restarts
-        to_write = dict(clean)
-        if merged.get("_config_reset_keys"):
-            to_write["_config_reset_keys"] = merged["_config_reset_keys"]
+    if merged.get("_config_reset_keys") and not _persisted_reset_keys:
+        # First detection — write bad config + reset key list to disk.
+        to_write = dict(cfg)
+        to_write["_config_reset_keys"] = merged["_config_reset_keys"]
         save_json_atomic(CONFIG_FILE, to_write, pretty=True)
+    elif not merged.get("_config_reset_keys") and clean != cfg:
+        # No validation issues — persist any new default keys added.
+        save_json_atomic(CONFIG_FILE, clean, pretty=True)
     return merged

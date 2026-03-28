@@ -423,6 +423,9 @@ def scheduler_loop(shutdown: threading.Event) -> None:
     try:
         while not shutdown.is_set():
             cfg = load_or_init_config()
+            if cfg.get("_config_reset_keys"):
+                STATUS["config_reset_keys"] = cfg["_config_reset_keys"]
+                logger.warning("[scheduler] Config reset keys stored in STATUS: %s", cfg["_config_reset_keys"])
             scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
             cron_expression = cfg.get("cron_expression", "0 */6 * * *")
 

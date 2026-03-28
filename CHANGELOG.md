@@ -54,13 +54,26 @@ All notable changes to Nudgarr are documented here.
 - Backend — `_in_maintenance_window()` in `scheduler.py` handles both same-day and overnight range detection. Uses container local time via the `TZ` environment variable, consistent with cron evaluation.
 - Suppressed sweeps log at INFO: `[Scheduler] Sweep suppressed by maintenance window (window: HH:MM to HH:MM, now: HH:MM)`.
 
+**Backlog fields greying in Overrides**
+
+- Desktop and mobile landscape override cards now grey out Max Backlog, Backlog Sample Mode, and Max Missing Days when the backlog toggle is off (resolved value, accounting for overrides). Fields ungrey immediately when backlog is enabled via override even if disabled globally. `updateBacklogLabel()` syncs the grey state live on toggle change.
+
+**Non-destructive config validation**
+
+- Config validation failure no longer wipes the entire config. Only the specific failing keys are identified and reset to their defaults individually. All other keys — instances, credentials, and all other settings — are preserved.
+- The affected key names are stored in `STATUS["config_reset_keys"]` at startup and on every scheduler loop cycle, so bad values edited into the config while the container is running are also caught.
+- A one-time popup appears on next page load listing the affected keys and directing the user to the diagnostic log. Single Acknowledge button. STATUS is cleared after the first `GET /api/config` so the popup never re-fires for the same event.
+
 **Mobile**
 
 - Portrait Settings tab — "Sample Mode" renamed to "Cutoff Sample Mode" on the Radarr and Sonarr cards. The segment control already wrote to `radarr_sample_mode` / `sonarr_sample_mode` (cutoff only) — the rename makes this explicit and distinguishes it from the new backlog mode.
-- Portrait Home Automation card — Maintenance Window toggle added directly below Auto Schedule. Greys out when Auto Schedule is off since the window has nothing to suppress. Static sub-label "Suppresses scheduled sweeps".
-- Landscape Backlog tab — Radarr and Sonarr backlog fields each gain a Backlog Sample Mode dropdown (`<select>`) at the bottom of their fields div. Options match desktop: Random, Alphabetical, Oldest Added, Newest Added. Select inherits the existing backlog fields greying when backlog is disabled.
-- Landscape Execution tab — Maintenance Window added as a full-width band below the two-column Throttling/Scheduler grid. Three sub-columns: Suppress Sweeps toggle; Hours (24h) with start and end text inputs; Active Days with Mon through Sun pill toggles. Live hint line matches desktop behaviour. The entire band dims when Auto Schedule is off; Hours and Days columns additionally dim when the MW toggle is off.
-- Desktop View bug fix — tapping Desktop View in landscape mode now correctly shows the full desktop header and tab nav. The landscape media query was hiding `.sticky-shell` with `!important`, overriding the JS show logic. Fixed by setting `data-desktop-override` on `<body>` when entering desktop override mode and adding a CSS counter-rule that restores `.sticky-shell` and `.wrap` under that attribute selector.
+- Portrait Home Automation card — Maintenance Window toggle added directly below Auto Schedule. Greys out when Auto Schedule is off. Sub-label reads "Select at least one day" in red when enabled with no days configured, matching desktop hint behaviour.
+- Landscape Backlog tab — Radarr and Sonarr backlog fields each gain a Backlog Sample Mode dropdown at the bottom of their fields div. Inherits the existing backlog fields greying when backlog is disabled.
+- Landscape Execution tab — Maintenance Window added as a full-width band below the two-column grid. Three sub-columns: Suppress Sweeps toggle; Hours (24h) with start and end text inputs; Active Days with Mon through Sun pill toggles. Live hint line matches desktop format exactly.
+- Landscape Overrides panel — rebuilt to match desktop layout and feature parity. Order: Cooldown (full width) → Cutoff Unmet group (Max + Sample Mode) → Backlog group (toggle + Max Backlog + Backlog Sample Mode + Max Missing Days) → Notifications. Group headers added. Backlog Sample Mode was previously missing entirely.
+- Desktop View bug fix — tapping Desktop View in landscape mode now correctly shows the full desktop header and tab nav.
+- Mobile View button — a subtle ghost button ("◱ Mobile") appears in the desktop header when the desktop override is active, allowing return to the mobile UI without rotating the device. Hidden on all non-override loads via CSS.
+- Maintenance window hint format — landscape hint now matches desktop exactly: `HH:MM to HH:MM (overnight) on Mon, Wed, Fri`.
 
 **Minor improvements**
 
@@ -68,6 +81,7 @@ All notable changes to Nudgarr are documented here.
 - Advanced tab — help text standardised: "Only search missing items older than this many days (0 = No Age Filter)".
 - Backup JSON export (`/api/file/state`) now includes `exclusion_events` and `intel_aggregate` sections. The primary backup (`/api/file/backup`) already included full database coverage as it packages the raw SQLite file directly.
 - `db/backup.py` docstring updated to reflect the complete export structure.
+- Intel tab unit labels capitalised — Days, Searches, Items, Upgrades throughout all cards and the instance table.
 
 ---
 

@@ -67,9 +67,9 @@ nudgarr/                    ← Python package
     ui-overrides.js         ← per-instance overrides tab and modal
     ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
     ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
-    ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions
+    ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions; panel layout matches desktop (Cooldown, Cutoff Unmet, Backlog with Backlog Sample Mode, Notifications); backlog fields grey when backlog is off
     ui-mobile-landscape-filters.js ← landscape Filters rail/panel — lsFilters* functions
-    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state; backlog sample mode selects (lsSaveBacklogSampleMode), Maintenance Window band (lsToggleMaint, lsSaveMaintTime, lsToggleMaintDay, lsSyncMaintUi, lsBuildMaintHint)
+    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state; backlog sample mode selects (lsSaveBacklogSampleMode), Maintenance Window band (lsToggleMaint, lsSaveMaintTime, lsToggleMaintDay, lsSyncMaintUi, lsBuildMaintHint), switchToMobileView()
     ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs; mToggleAuto and mToggleMaintWindow live here
     ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
     ui-mobile-portrait-settings.js ← portrait Settings tab

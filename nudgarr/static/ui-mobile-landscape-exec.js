@@ -326,6 +326,12 @@ function lsSwitchToDesktop() {
   checkOrientation();
 }
 
+function switchToMobileView() {
+  LS_DESKTOP_OVERRIDE = false;
+  sessionStorage.removeItem('nudgarr_desktop_override');
+  checkOrientation();
+}
+
 // ── Landscape swipe ────────────────────────────────────────────────────────
 
 (function() {

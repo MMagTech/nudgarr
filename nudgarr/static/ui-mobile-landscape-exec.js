@@ -2,7 +2,7 @@
 // LS_* state (LS_VALS, LS_MINS, LS_CFG_KEYS, LS_SAVE_TIMER, LS_HIDE_TIMER,
 // LS_TAB), lsPopulate, lsToggleBacklog, lsSyncBacklogFields, lsSaveBacklogSampleMode,
 // lsToggleAuto, lsValidateCron, lsHoldStart/End/Step, lsTriggerSave, lsSwitchTab,
-// _lsDoSwitchTab, lsSwitchToDesktop, lsToggleMaint, lsSaveMaintTime,
+// _lsDoSwitchTab, lsSwitchToDesktop, switchToMobileView, lsToggleMaint, lsSaveMaintTime,
 // lsToggleMaintDay, lsBuildMaintHint, lsSyncMaintUi, landscape swipe gesture.
 // cronIntervalMinutes (shared cron helper) lives in ui-core.js.
 
@@ -323,6 +323,12 @@ function _lsDoSwitchTab(idx) {
 function lsSwitchToDesktop() {
   LS_DESKTOP_OVERRIDE = true;
   sessionStorage.setItem('nudgarr_desktop_override','1');
+  checkOrientation();
+}
+
+function switchToMobileView() {
+  LS_DESKTOP_OVERRIDE = false;
+  sessionStorage.removeItem('nudgarr_desktop_override');
   checkOrientation();
 }
 

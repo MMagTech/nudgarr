@@ -478,6 +478,12 @@
       body[data-desktop-override] .sticky-shell { display: block !important; }
       body[data-desktop-override] .wrap { display: block !important; }
       body[data-desktop-override] .sticky-shell { position: relative; }
+      .mobile-view-btn { display: none; }
+      body[data-desktop-override] .mobile-view-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: transparent; border-color: rgba(255,255,255,.1);
+        color: var(--muted); font-size: 11px; padding: 4px 10px; border-radius: 999px;
+      }
     }
 
     /* ── Update banner ── */

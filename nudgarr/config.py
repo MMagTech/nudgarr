@@ -160,6 +160,10 @@ def load_or_init_config() -> Dict[str, Any]:
         return cfg
 
     merged = deep_copy(DEFAULT_CONFIG)
+    # Capture any _config_reset_keys persisted from a previous validation failure
+    # before the merge loop (which skips the key). This ensures api_get_config
+    # can find it even when validation passes on this load.
+    _persisted_reset_keys = cfg.get("_config_reset_keys") or []
     # merge non-instance keys — skip _config_reset_keys so it never leaks into merged
     # from a previous write; it is only ever set explicitly in the validation block below.
     for k, v in cfg.items():
@@ -239,6 +243,10 @@ def load_or_init_config() -> Dict[str, Any]:
         if reset_keys:
             merged["_config_reset_keys"] = reset_keys
             logger.warning("Reset keys to defaults: %s", reset_keys)
+    elif _persisted_reset_keys:
+        # Validation passed but a previous run wrote reset keys to disk — carry them
+        # through so api_get_config can surface them to the browser.
+        merged["_config_reset_keys"] = _persisted_reset_keys
 
     # Only persist if merged differs from what was on disk (e.g. new default keys added)
     # Always strip _config_reset_keys from the comparison but write it to disk so it

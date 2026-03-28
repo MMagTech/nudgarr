@@ -126,6 +126,13 @@ async function loadAll() {
   // Sync mobile overrides state (portrait sub-labels + landscape nav)
   if (typeof mOvUpdateSubLabels === 'function') mOvUpdateSubLabels();
   if (typeof mInitRunBtn === 'function') mInitRunBtn();
+  // Show config reset popup whenever _config_reset_keys is present in the response
+  if (CFG && CFG._config_reset_keys && CFG._config_reset_keys.length) {
+    const list = el('cfgResetKeysList');
+    if (list) list.textContent = CFG._config_reset_keys.join('\n');
+    const modal = el('cfgResetModal');
+    if (modal && modal.style.display === 'none') modal.style.display = 'flex';
+  }
 }
 // ── Page size memory (shared across History and Stats) ──
 function syncPageSize(source) {
@@ -256,12 +263,6 @@ if (!MOBILE) {
     });
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
-    if (CFG && CFG._config_reset_keys && CFG._config_reset_keys.length) {
-      const list = el('cfgResetKeysList');
-      if (list) list.textContent = CFG._config_reset_keys.join('\n');
-      const modal = el('cfgResetModal');
-      if (modal) modal.style.display = 'flex';
-    }
   }).catch(e => showAlert('Failed to load — please refresh the page. (' + e.message + ')'));
   setInterval(pollCycle, 5000);
 }

@@ -13,6 +13,7 @@ import datetime as _dt
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any, Dict
 
@@ -44,18 +45,30 @@ def print_banner(cfg: Dict[str, Any]) -> None:
 
 
 def start_ui_server() -> None:
-    """Start the Flask development server. Blocking — must be run in a dedicated thread."""
-    import logging as _logging
-    _logging.getLogger("werkzeug").setLevel(_logging.CRITICAL)
-    cli = _logging.getLogger("werkzeug._internal")
-    cli.setLevel(_logging.CRITICAL)
-    import werkzeug.serving as _ws
-    if hasattr(_ws, "_log"):
-        _ws._log = lambda *a, **kw: None
-    app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
+    """Start the WSGI server. Blocking — must be run in a dedicated thread.
+
+    Uses Waitress in production (present in requirements.txt and the Docker
+    image). Falls back to Flask's development server with a warning if
+    Waitress is not installed — this should only happen when running from
+    source without installing requirements.txt.
+
+    threads=4 is sufficient for Nudgarr's single-user workload. The status
+    poll (every 5s per tab) is the most frequent caller — 4 threads handles
+    multiple open tabs with headroom to spare.
+    """
+    try:
+        from waitress import serve
+        logger.debug("Starting Waitress WSGI server on port %s (threads=4)", PORT)
+        serve(app, host="0.0.0.0", port=PORT, threads=4)
+    except ImportError:
+        logger.warning(
+            "Waitress not found — falling back to Flask development server. "
+            "Install waitress via requirements.txt for production use."
+        )
+        app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
 
 
-def import_check_loop(stop_flag: Dict[str, bool]) -> None:
+def import_check_loop(shutdown: threading.Event) -> None:
     """Independent import-check timer running in its own daemon thread.
 
     Wakes every 60 seconds and checks whether import_check_minutes has elapsed
@@ -76,9 +89,9 @@ def import_check_loop(stop_flag: Dict[str, bool]) -> None:
     last_check_ts = utcnow()
 
     try:
-        while not stop_flag["stop"]:
+        while not shutdown.is_set():
             time.sleep(60)
-            if stop_flag["stop"]:
+            if shutdown.is_set():
                 break
 
             cfg = load_or_init_config()
@@ -282,7 +295,90 @@ def _cron_due(expression: str) -> bool:
         return False
 
 
-def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
+def _in_maintenance_window(cfg: Dict[str, Any]) -> bool:
+    """Return True if the current local time falls inside the configured maintenance window.
+
+    The maintenance window suppresses scheduled (cron-triggered) sweeps. Manual
+    runs via Run Now are never passed through this check — callers are responsible
+    for only calling this on cron-triggered fires.
+
+    Behaviour summary:
+      - Returns False immediately if maintenance_window_enabled is False.
+      - Returns False immediately if maintenance_window_days is empty — an empty
+        day list means the window never fires, equivalent to disabled.
+      - Supports overnight ranges (e.g. 23:00 to 07:00 spanning midnight). The
+        window is considered active if the current time falls between start and end
+        taking the overnight crossing into account. The day check is against the
+        day the window opened, not the current calendar day.
+      - Uses container local time via the TZ environment variable, consistent with
+        how cron expressions are evaluated elsewhere in this module.
+
+    cfg keys consumed:
+      maintenance_window_enabled -- bool
+      maintenance_window_start   -- "HH:MM" 24-hour string
+      maintenance_window_end     -- "HH:MM" 24-hour string
+      maintenance_window_days    -- list of ints 0-6 (Monday=0, Sunday=6)
+    """
+    if not cfg.get("maintenance_window_enabled", False):
+        return False
+
+    selected_days = set(cfg.get("maintenance_window_days") or [])
+    if not selected_days:
+        # Empty day list — window never fires regardless of toggle state
+        return False
+
+    start_str = cfg.get("maintenance_window_start", "00:00")
+    end_str = cfg.get("maintenance_window_end", "00:00")
+    if start_str == end_str:
+        return False
+
+    # Resolve local time using TZ, consistent with _cron_due
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(tz_name)
+        now = _dt.datetime.now(tz)
+    except Exception:
+        now = _dt.datetime.utcnow()
+
+    try:
+        sh, sm = int(start_str[:2]), int(start_str[3:])
+        eh, em = int(end_str[:2]), int(end_str[3:])
+    except (ValueError, IndexError):
+        return False
+
+    start_mins = sh * 60 + sm
+    end_mins = eh * 60 + em
+    overnight = start_mins > end_mins
+
+    today = now.date()
+    start_today = now.replace(hour=sh, minute=sm, second=0, microsecond=0)
+    end_today = now.replace(hour=eh, minute=em, second=0, microsecond=0)
+
+    if overnight:
+        # Two candidate windows — the window that opened yesterday (tail end)
+        # and the window that opens today (opening side).
+        window_a_open = start_today - _dt.timedelta(days=1)
+        window_a_close = end_today
+        window_b_open = start_today
+        window_b_close = end_today + _dt.timedelta(days=1)
+
+        if window_a_open <= now < window_a_close:
+            # Active window opened yesterday — check yesterday's weekday
+            yesterday = (today - _dt.timedelta(days=1)).weekday()
+            return yesterday in selected_days
+        if window_b_open <= now < window_b_close:
+            # Active window opened today
+            return today.weekday() in selected_days
+        return False
+    else:
+        # Same-day window
+        if start_today <= now < end_today:
+            return today.weekday() in selected_days
+        return False
+
+
+def scheduler_loop(shutdown: threading.Event) -> None:
     """Main sweep loop — runs in the main thread for the lifetime of the process.
 
     Wakes every 60 seconds to check for:
@@ -325,7 +421,7 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
     _prev_cron_expression = cron_expression
 
     try:
-        while not stop_flag["stop"]:
+        while not shutdown.is_set():
             cfg = load_or_init_config()
             scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
             cron_expression = cfg.get("cron_expression", "0 */6 * * *")
@@ -347,10 +443,21 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                     should_run = True
                     STATUS["run_requested"] = False
 
-            # Cron trigger: check if a scheduled fire time just passed (within 90s window)
+            # Cron trigger: check if a scheduled fire time just passed (within 90s window).
+            # Manual run-now requests (above) bypass this check entirely — suppression
+            # only applies to scheduled fires. See _in_maintenance_window for full logic.
             if not should_run and scheduler_enabled and cron_expression:
                 if _cron_due(cron_expression):
-                    should_run = True
+                    if _in_maintenance_window(cfg):
+                        logger.info(
+                            "[Scheduler] Sweep suppressed by maintenance window "
+                            "(window: %s to %s, now: %s)",
+                            cfg.get("maintenance_window_start", "?"),
+                            cfg.get("maintenance_window_end", "?"),
+                            _dt.datetime.now().strftime("%H:%M"),
+                        )
+                    else:
+                        should_run = True
 
             if should_run:
                 if RUN_LOCK.locked():
@@ -378,12 +485,12 @@ def scheduler_loop(stop_flag: Dict[str, bool]) -> None:
                     STATUS["run_in_progress"] = False
                     STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
 
-            if stop_flag["stop"]:
+            if shutdown.is_set():
                 break
 
             # Always wake every 60s to check for due cron fires and config changes
             deadline = time.monotonic() + 60
-            while not stop_flag["stop"] and time.monotonic() < deadline:
+            while not shutdown.is_set() and time.monotonic() < deadline:
                 with RUN_LOCK:
                     if STATUS.get("run_requested"):
                         break

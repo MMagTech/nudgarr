@@ -16,7 +16,7 @@ import json
 import logging
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
 from nudgarr.utils import load_json, save_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,11 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     for mode_key in ("radarr_sample_mode", "sonarr_sample_mode"):
         if cfg.get(mode_key) not in VALID_SAMPLE_MODES:
             errs.append(f"{mode_key} must be one of {VALID_SAMPLE_MODES}")
+
+    # Backlog sample mode — independent pipeline, validated against VALID_BACKLOG_SAMPLE_MODES
+    for mode_key in ("radarr_backlog_sample_mode", "sonarr_backlog_sample_mode"):
+        if cfg.get(mode_key) not in VALID_BACKLOG_SAMPLE_MODES:
+            errs.append(f"{mode_key} must be one of {VALID_BACKLOG_SAMPLE_MODES}")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -101,6 +106,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         sm = overrides.get("sample_mode")
                         if sm is not None and sm not in VALID_SAMPLE_MODES:
                             errs.append(f"instances.{app}[{i}].overrides.sample_mode must be one of {VALID_SAMPLE_MODES}")
+                        # Backlog sample mode override — validated against VALID_BACKLOG_SAMPLE_MODES
+                        bsm = overrides.get("backlog_sample_mode")
+                        if bsm is not None and bsm not in VALID_BACKLOG_SAMPLE_MODES:
+                            errs.append(f"instances.{app}[{i}].overrides.backlog_sample_mode must be one of {VALID_BACKLOG_SAMPLE_MODES}")
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")
@@ -108,7 +117,13 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         if ne is not None and not isinstance(ne, bool):
                             errs.append(f"instances.{app}[{i}].overrides.notifications_enabled must be boolean")
 
-    for bool_key in ("per_instance_overrides_enabled", "per_instance_overrides_seen", "per_instance_overrides_seen_mobile"):
+    for bool_key in (
+        "per_instance_overrides_enabled", "per_instance_overrides_seen",
+        "per_instance_overrides_seen_mobile", "radarr_backlog_enabled",
+        "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
+        "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
+        "notify_on_queue_threshold", "dry_run",
+    ):
         v = cfg.get(bool_key)
         if v is not None and not isinstance(v, bool):
             errs.append(f"{bool_key} must be boolean")
@@ -116,6 +131,23 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     log_level = cfg.get("log_level")
     if log_level is not None and log_level not in ("DEBUG", "INFO", "WARNING", "ERROR"):
         errs.append("log_level must be one of: DEBUG, INFO, WARNING, ERROR")
+
+    # Maintenance Window (v4.2.0)
+    mw_enabled = cfg.get("maintenance_window_enabled")
+    if mw_enabled is not None and not isinstance(mw_enabled, bool):
+        errs.append("maintenance_window_enabled must be boolean")
+    for time_key in ("maintenance_window_start", "maintenance_window_end"):
+        t = cfg.get(time_key)
+        if t is not None:
+            import re as _re
+            if not isinstance(t, str) or not _re.match(r"^\d{2}:\d{2}$", t):
+                errs.append(f"{time_key} must be a string in HH:MM format")
+    mw_days = cfg.get("maintenance_window_days")
+    if mw_days is not None:
+        if not isinstance(mw_days, list):
+            errs.append("maintenance_window_days must be a list")
+        elif not all(isinstance(d, int) and 0 <= d <= 6 for d in mw_days):
+            errs.append("maintenance_window_days must be a list of integers 0-6")
 
     return (len(errs) == 0), errs
 
@@ -126,7 +158,7 @@ def load_or_init_config() -> Dict[str, Any]:
     Applies the v3.1.0 run_interval_minutes -> cron_expression migration if needed,
     drops legacy keys (run_interval_minutes, cron_enabled), and writes back to disk
     only when the merged result differs from what was on disk (e.g. new default keys
-    were added). Falls back to defaults if validation fails after merging."""
+    were added). Invalid values are reset to defaults with a warning logged."""
     cfg = load_json(CONFIG_FILE, None)
     if not isinstance(cfg, dict):
         cfg = deep_copy(DEFAULT_CONFIG)
@@ -134,23 +166,18 @@ def load_or_init_config() -> Dict[str, Any]:
         return cfg
 
     merged = deep_copy(DEFAULT_CONFIG)
-    # merge non-instance keys
     for k, v in cfg.items():
         if k != "instances":
             merged[k] = v
-    # merge instances
     merged["instances"]["radarr"] = cfg.get("instances", {}).get("radarr", merged["instances"]["radarr"])
     merged["instances"]["sonarr"] = cfg.get("instances", {}).get("sonarr", merged["instances"]["sonarr"])
 
     # ── Migration: interval → cron (v3.1.0) ──
-    # Old installs may have run_interval_minutes and/or cron_enabled.
-    # Convert to cron_expression if missing or empty, then drop legacy keys.
     if not merged.get("cron_expression"):
         interval_min = cfg.get("run_interval_minutes")
         converted = False
         if isinstance(interval_min, int) and interval_min > 0:
             if interval_min < 60 and 60 % interval_min == 0:
-                # Sub-hour clean divisor e.g. 30 → */30 * * * *
                 merged["cron_expression"] = f"*/{interval_min} * * * *"
                 converted = True
             elif interval_min % 60 == 0:
@@ -163,16 +190,19 @@ def load_or_init_config() -> Dict[str, Any]:
         if not converted:
             merged["cron_expression"] = DEFAULT_CONFIG["cron_expression"]
 
-    # Drop legacy keys that no longer exist in DEFAULT_CONFIG
     for legacy_key in ("run_interval_minutes", "cron_enabled"):
         merged.pop(legacy_key, None)
 
     ok, errs = validate_config(merged)
     if not ok:
-        logger.warning("Config validation failed — using defaults for this run: %s", errs)
-        return deep_copy(DEFAULT_CONFIG)
+        logger.warning("Config validation failed — resetting affected keys to defaults: %s", errs)
+        for err in errs:
+            for field, default in DEFAULT_CONFIG.items():
+                if err.startswith(field) and not isinstance(default, dict):
+                    merged[field] = deep_copy(default)
+                    logger.warning("Reset %s to default: %r", field, default)
+                    break
 
-    # Only persist if merged differs from what was on disk (e.g. new default keys added)
     if merged != cfg:
         save_json_atomic(CONFIG_FILE, merged, pretty=True)
     return merged

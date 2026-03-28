@@ -3,7 +3,8 @@ main.py — Nudgarr entry point.
 
 Wires everything together:
   1. Registers Flask route blueprints
-  2. Handles SIGTERM / SIGINT for clean shutdown
+  2. Registers SIGTERM / SIGINT handlers and a threading.Event for clean shutdown
+     — allows an in-progress sweep to finish before the process exits
   3. Pre-populates STATUS from persisted state (so UI dots show immediately)
   4. Fires a parallel startup health-ping to all configured instances
   5. Starts the Flask UI server in a daemon thread
@@ -39,11 +40,15 @@ def main() -> None:
     # Initialise database (schema creation + one-time JSON migration if needed)
     db.init_db()
 
-    stop_flag = {"stop": False}
+    # _shutdown is set by SIGTERM/SIGINT handlers. The scheduler and import
+    # check loops check is_set() at each cycle boundary — an in-progress
+    # sweep is always allowed to finish before the process exits.
+    _shutdown = threading.Event()
 
     def handle_signal(signum, frame):
-        logger.info("Shutdown signal received. Stopping...")
-        stop_flag["stop"] = True
+        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+        logger.info("Received %s — waiting for active sweep to finish before exiting...", sig_name)
+        _shutdown.set()
 
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
@@ -98,10 +103,20 @@ def main() -> None:
     threading.Thread(target=start_ui_server, daemon=True).start()
 
     # Start import check loop in a daemon thread — independent of sweep schedule
-    threading.Thread(target=import_check_loop, args=(stop_flag,), daemon=True).start()
+    import_check_thread = threading.Thread(
+        target=import_check_loop, args=(_shutdown,), daemon=True, name="import-check"
+    )
+    import_check_thread.start()
 
-    # Run scheduler loop in main thread
-    scheduler_loop(stop_flag)
+    # Run scheduler loop in main thread — blocks until _shutdown is set
+    scheduler_loop(_shutdown)
+
+    # Wait for the import check loop to exit cleanly before process teardown.
+    # 10 seconds is generous — the loop wakes every 60s so it will see
+    # _shutdown.is_set() on its next tick without delay after being interrupted.
+    import_check_thread.join(timeout=10)
+    if import_check_thread.is_alive():
+        logger.warning("Import check thread did not exit within 10s — proceeding with shutdown")
 
     logger.info("Nudgarr exiting.")
 

@@ -1,6 +1,7 @@
 // ── Portrait Home, Instances, Sweep tabs ──────────────────────────────────
-// mUpdateHome, mRenderInstanceRows, mRunNow, mInitRunBtn, mSaveCfgKeys,
-// mToggle*, mRenderInstances, mToggleInstance, mRenderSweep, mAccordion,
+// mUpdateHome, mRenderInstanceRows, mRunNow, mInitRunBtn,
+// mToggleAuto, mToggleMaintWindow, mToggleRadarrBacklog, mToggleSonarrBacklog,
+// mRenderInstances, mToggleInstance, mRenderSweep, mAccordion,
 // mAddArrLinkHandler
 
 // ── Home ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,20 @@ function mUpdateHome(cfg, st) {
   if (autoSub) autoSub.textContent = cfg.scheduler_enabled ? describeCron(cfg.cron_expression || '') : 'Manual';
   const tAuto = document.getElementById('m-toggle-auto');
   if (tAuto) tAuto.classList.toggle('m-on', !!autoActive);
+
+  const maintRow = document.getElementById('m-maint-row');
+  const tMaint = document.getElementById('m-toggle-maint');
+  if (maintRow) {
+    maintRow.style.opacity = autoActive ? '' : '.38';
+    maintRow.style.pointerEvents = autoActive ? '' : 'none';
+  }
+  if (tMaint) tMaint.classList.toggle('m-on', !!cfg.maintenance_window_enabled);
+  const maintSub = document.querySelector('#m-maint-row .m-toggle-sub');
+  if (maintSub) {
+    const noDays = cfg.maintenance_window_enabled && !(cfg.maintenance_window_days || []).length;
+    maintSub.textContent = noDays ? 'Select at least one day' : 'Suppresses scheduled sweeps';
+    maintSub.style.color = noDays ? 'var(--bad)' : '';
+  }
 
   mRenderInstanceRows();
 }
@@ -120,21 +135,15 @@ function mInitRunBtn() {
 
 // ── Toggles ────────────────────────────────────────────────────────────────
 
-async function mSaveCfgKeys(updates) {
-  try {
-    const cfg = await api('/api/config');
-    Object.assign(cfg, updates);
-    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
-    Object.assign(CFG, updates);
-    const st = await api('/api/status');
-    STATUS_CACHE = st.instance_health || {};
-    mUpdateHome(CFG, st);
-  } catch(e) {}
-}
 
 function mToggleAuto() {
   mHaptic(40);
   mSaveCfgKeys({scheduler_enabled: !CFG.scheduler_enabled});
+}
+
+function mToggleMaintWindow() {
+  mHaptic(40);
+  mSaveCfgKeys({maintenance_window_enabled: !CFG.maintenance_window_enabled});
 }
 
 function mToggleRadarrBacklog() {

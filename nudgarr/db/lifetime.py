@@ -3,9 +3,8 @@ nudgarr/db/lifetime.py
 
 sweep_lifetime and lifetime_totals tables.
 
-  upsert_sweep_lifetime()  -- insert or update counters for one instance
-  get_sweep_lifetime()     -- return all rows as a dict keyed by instance_key
-  get_sweep_lifetime_row() -- return one row by instance_key
+  upsert_sweep_lifetime()    -- insert or update counters for one instance
+  get_sweep_lifetime()       -- return all rows as a dict keyed by instance_key
   increment_lifetime_total() -- add delta to movies or shows counter
   get_lifetime_totals()    -- return {movies: N, shows: N}
 """
@@ -52,15 +51,6 @@ def get_sweep_lifetime() -> Dict[str, Any]:
     conn = get_connection()
     rows = conn.execute("SELECT * FROM sweep_lifetime").fetchall()
     return {r["instance_key"]: dict(r) for r in rows}
-
-
-def get_sweep_lifetime_row(instance_key: str) -> Optional[Dict]:
-    """Return the sweep_lifetime row for one instance, or None if not found."""
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT * FROM sweep_lifetime WHERE instance_key = ?", (instance_key,)
-    ).fetchone()
-    return dict(row) if row else None
 
 
 def increment_lifetime_total(key: str, delta: int = 1) -> None:

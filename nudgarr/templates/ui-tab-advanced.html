@@ -1,0 +1,290 @@
+<!-- ══════════════════════════════ ADVANCED ══════════════════════════════ -->
+  <div class="section" id="tab-advanced">
+    <div class="grid">
+      <div class="grid cols2">
+        <div class="card">
+          <!-- Page navigation header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+            <button class="btn sm adv-pager-btn" id="advPagerPrev" onclick="advSetPage(1)" disabled style="width:28px;padding:0;display:flex;align-items:center;justify-content:center">&#8249;</button>
+            <span style="font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.04em"><span id="advPageNum">1</span> / 2</span>
+            <button class="btn sm adv-pager-btn" id="advPagerNext" onclick="advSetPage(2)" style="width:28px;padding:0;display:flex;align-items:center;justify-content:center">&#8250;</button>
+          </div>
+
+          <!-- Page 1: Backlog Nudges + For the Arr-tists (existing content unchanged) -->
+          <div id="advPage1">
+          <p class="section-label">Backlog Nudges</p>
+          <div class="help" style="margin-bottom:12px">Finds and searches items missing from your library on top of your regular cutoff sweeps.</div>
+          <p class="section-label" style="margin:0 0 8px">Radarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); checkNewestAddedWarning(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="radarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="radarr_backlog_fields" style="opacity:0.35;pointer-events:none">
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
+              </div>
+              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <div class="help">Maximum missing movies searched per instance per run</div>
+            </div>
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Missing Added Days</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Set to 0 to remove the age filter and search all missing items regardless of when they were added.</div></span>
+              </div>
+              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <div class="help">Only search missing items older than this many days (0 = No Age Filter)</div>
+            </div>
+          </div>
+          <!-- Backlog Sample Mode — independent of cutoff sample mode (Settings tab) (v4.2.0) -->
+          <div class="grid cols2" style="gap:12px;margin-top:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Backlog Sample Mode</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible missing Radarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              </div>
+              <select id="radarr_backlog_sample_mode" onchange="markUnsaved('advMsg')">
+                <option value="random">Random</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="oldest_added">Oldest Added</option>
+                <option value="newest_added">Newest Added</option>
+              </select>
+              <div class="help">How Nudgarr picks which missing Radarr items to search each run</div>
+            </div>
+            <div></div>
+          </div>
+          </div>
+          <div style="margin-top:14px">
+          <p class="section-label" style="margin:0 0 8px">Sonarr</p>
+          <div class="field" style="margin-bottom:10px">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="sonarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="sonarr_backlog_label">Disabled</span>
+            </div>
+          </div>
+          <div id="sonarr_backlog_fields" style="opacity:0.35;pointer-events:none">
+          <div class="grid cols2" style="gap:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Missing Max (Per Instance)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
+              </div>
+              <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Maximum missing episodes searched per instance per run</div>
+            </div>
+            <!-- Backlog Sample Mode — independent of cutoff sample mode (Settings tab) (v4.2.0) -->
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Backlog Sample Mode</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible missing Sonarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              </div>
+              <select id="sonarr_backlog_sample_mode" onchange="markUnsaved('advMsg')">
+                <option value="random">Random</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="oldest_added">Oldest Added</option>
+                <option value="newest_added">Newest Added</option>
+              </select>
+              <div class="help">How Nudgarr picks which missing Sonarr items to search each run</div>
+            </div>
+          </div>
+          </div>
+          <!-- TODO(v4.2.0-mobile): add radarr_backlog_sample_mode and sonarr_backlog_sample_mode fields to mobile portrait settings — see desktop ui-tab-advanced.html -->
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">For the Arr-tists</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Per-Instance Overrides</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or backlog behaviour. Enable and disable without losing your saved overrides.</div></span>
+            </div>
+            <div class="toggle-wrap" style="margin-top:4px">
+              <label class="toggle">
+                <input type="checkbox" id="per_instance_overrides_enabled" onchange="toggleOverridesFeature(this.checked)"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="overrides_enabled_label">Disabled</span>
+            </div>
+          </div>
+          <div class="amber-warn" style="margin-top:16px">
+            <p class="amber-warn-title">USE WITH CAUTION</p>
+            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and frequent cron schedule this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
+          </div>
+          <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
+            <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
+          </div>
+          </div><!-- end advPage1 -->
+
+          <!-- Page 2: Auto-Exclusion -->
+          <div id="advPage2" style="display:none">
+          <p class="section-label">Auto-Exclusion</p>
+          <div class="help" style="margin-bottom:14px">Automatically exclude titles searched repeatedly with no confirmed import. (0 Disables)</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+            <!-- Radarr column -->
+            <div>
+              <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Radarr</p>
+              <div class="field" style="margin-bottom:10px">
+                <div class="tooltip-wrap">
+                  <label>Exclude After X Searches</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. 0 disables auto-exclusion for movies and greys out the unexclude field.</div></span>
+                </div>
+                <input id="auto_exclude_movies_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
+                <div class="help">0 = Disabled</div>
+              </div>
+              <div class="field" id="auto_unexclude_movies_wrap">
+                <div class="tooltip-wrap">
+                  <label>Unexclude After X Days</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a movie from auto-exclusions after this many days, giving it another chance. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+                </div>
+                <input id="auto_unexclude_movies_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+                <div class="help">0 = Permanent until manually removed</div>
+              </div>
+            </div>
+
+            <!-- Sonarr column -->
+            <div>
+              <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Sonarr</p>
+              <div class="field" style="margin-bottom:10px">
+                <div class="tooltip-wrap">
+                  <label>Exclude After X Searches</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a show after this many searches with no confirmed import. 0 disables auto-exclusion for shows and greys out the unexclude field.</div></span>
+                </div>
+                <input id="auto_exclude_shows_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
+                <div class="help">0 = Disabled</div>
+              </div>
+              <div class="field" id="auto_unexclude_shows_wrap">
+                <div class="tooltip-wrap">
+                  <label>Unexclude After X Days</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a show from auto-exclusions after this many days. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+                </div>
+                <input id="auto_unexclude_shows_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+                <div class="help">0 = Permanent until manually removed</div>
+              </div>
+            </div>
+
+          </div>
+          </div><!-- end advPage2 -->
+        </div>
+
+        <div class="card">
+          <p class="section-label">Data Retention</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Days to Keep</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many days Nudgarr keeps history and stats entries before pruning them on the next sweep. This applies to both the History tab and the Stats tab. Lifetime Movies and Episodes totals are never affected by pruning — only the individual entry records are removed. Setting to 0 disables pruning entirely and entries are kept forever.</div></span>
+            </div>
+            <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed (0 Disables)</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Stats</p>
+          <div class="field">
+            <div class="tooltip-wrap">
+              <label>Import Check (Minutes)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. Setting this too low may miss slow downloads — 120 minutes is a safe default. Confirmed imports appear in the Stats tab.</div></span>
+            </div>
+            <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">How often Nudgarr checks for confirmed imports</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">Security</p>
+          <div class="field">
+            <label>Require Login</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="auth_enabled" onchange="syncAuthUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="auth_label">Enabled</span>
+            </div>
+          </div>
+          <div class="field" style="margin-top:16px">
+            <label>Session Timeout (Minutes)</label>
+            <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
+            <div class="help">Minutes of inactivity before requiring re-login</div>
+          </div>
+          <div class="hr"></div>
+          <p class="section-label">UI Preferences</p>
+          <div class="field">
+            <label>Onboarding</label>
+            <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
+            <div class="help" style="margin-top:6px">View the initial walkthrough.</div>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>Show Support Link</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="show_support_link" onchange="syncSupportLinkUi(); markUnsaved('advMsg')"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="support_link_label">Shown</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn primary" onclick="saveAdvanced()">Save Changes</button>
+        <span class="msg" id="advMsg"></span>
+      </div>
+
+      <div class="grid cols2" style="align-items:stretch;">
+
+        <div class="card">
+          <p class="section-label" style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
+          <p class="help" style="margin:0 0 14px;">Data backup and diagnostic tools.</p>
+          <div style="display:grid;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn sm" onclick="backupAll()">Backup All</button>
+              <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:auto;font-family:inherit;font-weight:500;letter-spacing:.01em">
+                <option value="DEBUG">Log: DEBUG</option>
+                <option value="INFO">Log: INFO</option>
+                <option value="WARNING">Log: WARNING</option>
+                <option value="ERROR">Log: ERROR</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
+              <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
+            </div>
+          </div>
+          <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
+          <div id="diagBox" class="diag-box" style="display:none"></div>
+        </div>
+
+        <div class="card danger-section">
+          <p class="section-label" style="color:#fca5a5">Danger Zone</p>
+          <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+          <div style="display:grid;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm danger" onclick="clearState()">Clear History</button>
+              <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
+              <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm danger" onclick="resetAutoExclusions()">Reset Auto-Exclusions</button>
+              <button class="btn sm danger" onclick="resetIntelData()">Reset Intel</button>
+              <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>

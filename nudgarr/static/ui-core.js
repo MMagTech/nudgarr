@@ -58,6 +58,19 @@ function fmtTimePadded(s) {
   } catch(e) { return s; }
 }
 
+// ── Cron helpers (shared by desktop settings and landscape mobile) ────────────
+function cronIntervalMinutes(expr) {
+  // Returns the minimum firing interval in minutes, or null if can't determine
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [min, hr] = parts;
+  if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
+  if (min === '*') return 1;
+  if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
+  if (hr === '*' && /^\d+$/.test(min)) return 60;
+  return 60; // default assume hourly or longer
+}
+
 async function api(path, opts) {
   const r = await fetch(path, opts || {});
   if (r.status === 401) { window.location.href = '/login'; return; }

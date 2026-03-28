@@ -53,20 +53,20 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v4.1.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v4.2.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🚫 Auto-Exclusion</div>
-           <div class="help">Disabled by default. Titles that keep getting searched with no confirmed download can now exclude themselves automatically. Set a search count threshold per app in Advanced → page 2. Auto-excluded titles show an amber badge in the Exclusions tab and can be cleared individually or in bulk from the Danger Zone. A configurable unexclude timer returns them to eligibility after a set number of days.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Intel Tab</div>
+           <div class="help">A new lifetime performance dashboard between Imports and Notifications. Tracks search health, instance efficiency, stuck items, exclusion calibration, library age vs success rate, and quality upgrade paths. Gets richer the longer Nudgarr runs. Reset from the Danger Zone if needed.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">📊 Import Stats Period</div>
-           <div class="help">The Imports tab stats card now lets you switch between Lifetime, Last 30 Days, and Last 7 Days. Lifetime totals are protected and survive a Clear Stats — the rolling windows calculate from your import history and update immediately when you switch.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🕐 Maintenance Window</div>
+           <div class="help">Scheduled sweeps can now be suppressed during a defined time window — useful for avoiding indexer searches during peak hours. Configure in Settings → Scheduler. Supports overnight ranges and per-day selection. Manual Run Now always bypasses the window.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔧 Under the Hood</div>
-           <div class="help">Large libraries now get full results — the 500-item pagination cap is removed, so Oldest Added and Newest Added modes work correctly regardless of library size. Log timestamps use container local time. All static files are cache-busted on upgrade so browsers automatically load fresh JS and CSS without a hard refresh. Flask development server replaced with Waitress for more reliable request handling. In-progress sweeps now complete cleanly on container stop.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔀 Backlog Sample Mode Split</div>
+           <div class="help">Cutoff Unmet and Backlog searches now have independent sample modes. Previously one mode applied to both. Configure separately in Advanced and per-instance in Overrides. Quality gap modes are not available for Backlog since missing items have no existing file to score against.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
@@ -172,3 +172,4 @@
     </div>
   </div>
 </div>
+

@@ -3,9 +3,8 @@ nudgarr/db/history.py
 
 search_history table — all read/write operations.
 
-  upsert_search_history()      -- insert or update a row
-  get_last_searched_ts()       -- single-item cooldown lookup
-  get_last_searched_ts_bulk()  -- batch cooldown lookup
+  batch_upsert_search_history() -- batch insert or update rows
+  get_last_searched_ts_bulk()   -- batch cooldown lookup
   get_search_history()         -- paginated history with cooldown metadata
   get_search_history_summary() -- entry counts per instance
   get_high_search_count_unconfirmed() -- titles above threshold with no confirmed import
@@ -20,75 +19,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from nudgarr.constants import DB_FILE
 from nudgarr.db.connection import get_connection
+from nudgarr.db.intel import get_intel_aggregate, update_intel_aggregate
 from nudgarr.utils import iso_z, parse_iso, utcnow
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-def upsert_search_history(
-    app: str,
-    instance_name: str,
-    instance_url: str,
-    item_type: str,
-    item_id: str,
-    title: str,
-    sweep_type: str,
-    library_added: str,
-    now_ts: str,
-    series_id: str = "",
-) -> None:
-    """Insert or update a search_history row for one searched item.
-    On conflict (same app, instance_url, item_type, item_id), increments
-    search_count and updates last_searched_ts. sweep_type, library_added,
-    series_id, and title are updated only when the incoming value is non-empty,
-    preserving the original value if the caller passes an empty string."""
-    conn = get_connection()
-    conn.execute(
-        """
-        INSERT INTO search_history
-            (app, instance_name, instance_url, item_type, item_id, series_id,
-             title, sweep_type, library_added,
-             first_searched_ts, last_searched_ts, search_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        ON CONFLICT (app, instance_url, item_type, item_id) DO UPDATE SET
-            last_searched_ts = excluded.last_searched_ts,
-            search_count     = search_history.search_count + 1,
-            instance_name    = excluded.instance_name,
-            series_id        = CASE WHEN excluded.series_id != '' THEN excluded.series_id
-                                    ELSE search_history.series_id END,
-            title            = CASE WHEN excluded.title != '' THEN excluded.title
-                                    ELSE search_history.title END,
-            sweep_type       = CASE WHEN excluded.sweep_type != '' THEN excluded.sweep_type
-                                    ELSE search_history.sweep_type END,
-            library_added    = CASE WHEN excluded.library_added != '' THEN excluded.library_added
-                                    ELSE search_history.library_added END
-        """,
-        (app, instance_name, instance_url, item_type, item_id, series_id,
-         title, sweep_type, library_added, now_ts, now_ts)
-    )
-    conn.commit()
-
-
-def get_last_searched_ts(
-    app: str,
-    instance_name: str,
-    instance_url: str,
-    item_type: str,
-    item_id: str,
-) -> Optional[str]:
-    """Return the last_searched_ts ISO string for one item, or None if not in history."""
-    conn = get_connection()
-    row = conn.execute(
-        """
-        SELECT last_searched_ts FROM search_history
-        WHERE app = ? AND instance_url = ?
-          AND item_type = ? AND item_id = ?
-        """,
-        (app, instance_url, item_type, item_id)
-    ).fetchone()
-    return row["last_searched_ts"] if row else None
 
 
 def get_last_searched_ts_bulk(
@@ -303,11 +239,18 @@ def batch_upsert_search_history(items: List[Dict]) -> None:
     Each item must be a dict with the same keys accepted by upsert_search_history.
     A single commit covers the entire batch so a mid-batch failure rolls back cleanly
     rather than leaving partially-written rows.
+
+    On first insert of a new item (search_count becomes 1), increments
+    intel_aggregate.success_total_worked and the appropriate library_age_bucket
+    total so Intel has accurate denominator data regardless of future clears.
     """
     if not items:
         return
     conn = get_connection()
     now_s = items[0].get("now_ts", "")  # all items in a batch share the same timestamp
+    new_item_count = 0
+    new_item_buckets: Dict[str, int] = {}
+
     for item in items:
         conn.execute(
             """
@@ -337,7 +280,68 @@ def batch_upsert_search_history(items: List[Dict]) -> None:
                 item.get("now_ts", now_s), item.get("now_ts", now_s),
             )
         )
+        # Detect first-time inserts by checking search_count = 1 after upsert.
+        # New rows start at 1; existing rows are incremented to >= 2.
+        check = conn.execute(
+            """
+            SELECT search_count, library_added, first_searched_ts
+            FROM search_history
+            WHERE app = ? AND instance_url = ? AND item_type = ? AND item_id = ?
+            """,
+            (item["app"], item["instance_url"], item["item_type"], item["item_id"])
+        ).fetchone()
+        if check and check["search_count"] == 1:
+            new_item_count += 1
+            # Compute library age bucket for the denominator side of the chart.
+            library_added = check["library_added"] or ""
+            first_ts = check["first_searched_ts"] or ""
+            bucket = _get_library_age_bucket_for_history(library_added, first_ts)
+            bucket_key = bucket if bucket else "Unknown"
+            new_item_buckets[bucket_key] = new_item_buckets.get(bucket_key, 0) + 1
+
+    # Update intel_aggregate for new items in a single pass.
+    if new_item_count > 0:
+        agg = get_intel_aggregate()
+        intel_updates: Dict = {
+            "success_total_worked": agg["success_total_worked"] + new_item_count,
+        }
+        if new_item_buckets:
+            age_buckets = agg["library_age_buckets"]
+            for bucket_key, count in new_item_buckets.items():
+                bucket_data = age_buckets.get(bucket_key, {"total": 0, "imported": 0})
+                bucket_data["total"] = bucket_data["total"] + count
+                age_buckets[bucket_key] = bucket_data
+            intel_updates["library_age_buckets"] = age_buckets
+        update_intel_aggregate(intel_updates)
+
     conn.commit()
+
+
+def _get_library_age_bucket_for_history(library_added: str, first_searched_ts: str) -> str:
+    """Return the library age bucket label for a newly tracked search history item.
+
+    Mirrors the bucket logic in entries.py._get_library_age_bucket so both
+    the denominator (total items per bucket) and numerator (imported items per
+    bucket) use identical bucketing. Returns empty string for unknown/invalid dates.
+    """
+    if not library_added or not first_searched_ts:
+        return ""
+    dt_added = parse_iso(library_added)
+    dt_searched = parse_iso(first_searched_ts)
+    if dt_added is None or dt_searched is None:
+        return ""
+    age_days = (dt_searched - dt_added).total_seconds() / 86400
+    if age_days < 0:
+        return ""
+    if age_days < 30:
+        return "Under 1 month"
+    if age_days < 90:
+        return "1 to 3 months"
+    if age_days < 180:
+        return "3 to 6 months"
+    if age_days < 365:
+        return "6 to 12 months"
+    return "12+ months"
 
 
 def reset_search_count_by_title(title: str) -> None:

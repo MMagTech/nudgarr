@@ -26,12 +26,16 @@ function mHaptic(ms) {
 
 // ── Sheet helpers ──────────────────────────────────────────────────────────
 
+// mSheetOpen — slides a bottom sheet into view by adding the m-visible class.
+// id is the element ID of the .m-sheet-backdrop to open.
 function mSheetOpen(id) {
   const el = document.getElementById(id);
   if (!el) return;
   el.classList.add('m-visible');
 }
 
+// mSheetClose — removes m-visible then waits 300ms for the CSS transition
+// to complete before running the optional callback cb and hiding the element.
 function mSheetClose(id, cb) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -50,6 +54,8 @@ function mSheetClose(id, cb) {
   }, 300);
 }
 
+// mSheetDrag — wires a drag-to-dismiss gesture on a bottom sheet handle.
+// If the user drags down more than 60px, closeFn() is called to close it.
 function mSheetDrag(handleId, backdropId, closeFn) {
   const handle = document.getElementById(handleId);
   if (!handle) return;
@@ -72,6 +78,8 @@ function mSheetDrag(handleId, backdropId, closeFn) {
   });
 }
 
+// mBtnPress — briefly scales a button to give tactile feedback on tap.
+// Used on destructive or prominent actions alongside mHaptic().
 function mBtnPress(el) {
   el.classList.add('m-pressed');
   setTimeout(() => el.classList.remove('m-pressed'), 150);
@@ -79,6 +87,9 @@ function mBtnPress(el) {
 
 // ── Overrides sub-label helpers ────────────────────────────────────────────
 
+// _mOvCountFieldOverrides — returns how many instances of the given kind
+// have an active override for field. Used by mOvUpdateSubLabels() to
+// show "N overrides" in the Overrides toggle sub-label on the home screen.
 function _mOvCountFieldOverrides(field, kind) {
   if (!CFG) return 0;
   const apps = kind ? [kind] : ['radarr', 'sonarr'];
@@ -113,6 +124,9 @@ function _mOvSetStepperSub(key, showOverride, normalText, overrideText) {
   }
 }
 
+// mOvUpdateSubLabels — updates the sub-labels on the portrait home screen
+// Overrides toggle rows to show how many instances have active overrides
+// for cooldown, cutoff, backlog, and notifications.
 function mOvUpdateSubLabels() {
   const enabled = CFG && CFG.per_instance_overrides_enabled;
 
@@ -167,7 +181,7 @@ function mDismissOvModal() {
   if (modal) { modal.classList.remove('m-visible'); setTimeout(() => { modal.style.display = 'none'; }, 300); }
   if (CFG && !CFG.per_instance_overrides_seen_mobile) {
     CFG.per_instance_overrides_seen_mobile = true;
-    if (typeof mSaveCfgKeys === 'function') mSaveCfgKeys({per_instance_overrides_seen_mobile: true});
+    mSaveCfgKeys({per_instance_overrides_seen_mobile: true});
   }
 }
 
@@ -223,4 +237,19 @@ function lsSwitchTabSafe(idx) {
 
 function lsIsOnOverridesTab() {
   return typeof LS_TAB !== 'undefined' && LS_TAB === 2;
+}
+
+// ── Shared config save helper ─────────────────────────────────────────────────
+// Used by portrait home, settings, and history to patch one or more config keys,
+// persist to the API, and refresh the home screen with the new state.
+async function mSaveCfgKeys(updates) {
+  try {
+    const cfg = await api('/api/config');
+    Object.assign(cfg, updates);
+    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+    Object.assign(CFG, updates);
+    const st = await api('/api/status');
+    STATUS_CACHE = st.instance_health || {};
+    mUpdateHome(CFG, st);
+  } catch(e) {}
 }

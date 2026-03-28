@@ -1,9 +1,10 @@
-// ── Settings, Advanced, Notifications, and modal logic ─────────────────────────
+// ── Settings tab and modal logic ───────────────────────────────────────────
 // Owns: Onboarding walkthrough, tab switching (_doShowTab, _onTabShown), Settings
-// form (scheduler, cron, cooldown, sample mode, batch/sleep/jitter), Advanced form
-// (backlog, retention, auth, imports, UI prefs, per-instance overrides toggle),
-// Notifications form, cron validation (validateCronExpr, describeCron), cooldown
-// and newest-added warnings, What's New modal, support-link sync, and save helpers.
+// form (scheduler, cron, cooldown, sample mode, batch/sleep/jitter), cron
+// validation (validateCronExpr, describeCron), cooldown and newest-added warnings,
+// What's New modal, and support-link sync.
+// Notifications tab logic lives in ui-notifications.js.
+// Advanced tab logic lives in ui-advanced.js.
 const ONBOARDING_STEPS = [
   {
     title: "Welcome to Nudgarr",
@@ -274,6 +275,7 @@ function _onTabShown(name) {
   }
   if (name === 'overrides') renderOverridesCards();
   if (name === 'filters') fillFilters();
+  if (name === 'intel') fillIntel();
 }
 // ── Settings tab ──
 function updateContainerTime(timeStr) {
@@ -301,17 +303,6 @@ function syncSchedulerUi() {
   }
 }
 
-function cronIntervalMinutes(expr) {
-  // Returns the minimum firing interval in minutes, or null if can't determine
-  const parts = expr.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [min, hr] = parts;
-  if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
-  if (min === '*') return 1;
-  if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
-  if (hr === '*' && /^\d+$/.test(min)) return 60;
-  return 60; // default assume hourly or longer
-}
 
 function validateCronExpr() {
   const input = el('cron_expression');
@@ -422,6 +413,17 @@ function fillSettings() {
   el('batch_size').value = CFG.batch_size;
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
+  // Maintenance window (v4.2.0)
+  if (el('maintenance_window_enabled')) {
+    el('maintenance_window_enabled').checked = !!CFG.maintenance_window_enabled;
+    el('maintenance_window_start').value = CFG.maintenance_window_start || '';
+    el('maintenance_window_end').value = CFG.maintenance_window_end || '';
+    const days = CFG.maintenance_window_days || [];
+    document.querySelectorAll('#maint_day_pills .day-pill').forEach(btn => {
+      btn.classList.toggle('on', days.includes(parseInt(btn.dataset.day, 10)));
+    });
+    syncMaintUi();
+  }
   syncSchedulerUi();
   el('setMsg').textContent = ''; el('setMsg').className = 'msg';
   checkCooldownWarning();
@@ -459,6 +461,14 @@ async function saveSettings() {
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
+    // Maintenance window (v4.2.0)
+    if (el('maintenance_window_enabled')) {
+      CFG.maintenance_window_enabled = el('maintenance_window_enabled').checked;
+      CFG.maintenance_window_start = el('maintenance_window_start').value.trim() || '00:00';
+      CFG.maintenance_window_end = el('maintenance_window_end').value.trim() || '00:00';
+      CFG.maintenance_window_days = [...document.querySelectorAll('#maint_day_pills .day-pill.on')]
+        .map(btn => parseInt(btn.dataset.day, 10));
+    }
     const res = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
     if (!res.ok) {
       const body = await res.json().catch(() => null);
@@ -553,268 +563,86 @@ function syncSupportLinkUi() {
   const lbl = el('support_link_label');
   if (lbl) lbl.textContent = show ? 'Shown' : 'Hidden';
 }
-function fillNotifications() {
-  if (!CFG) return;
-  el('notify_enabled').checked = !!CFG.notify_enabled;
-  el('notify_url').value = CFG.notify_url || '';
-  el('notify_on_sweep_complete').checked = CFG.notify_on_sweep_complete !== false;
-  el('notify_on_import').checked = CFG.notify_on_import !== false;
-  if (el('notify_on_auto_exclusion')) el('notify_on_auto_exclusion').checked = CFG.notify_on_auto_exclusion !== false;
-  el('notify_on_error').checked = CFG.notify_on_error !== false;
-  syncNotifyUi();
-}
 
-function syncNotifyUi() {
-  const enabled = el('notify_enabled').checked;
-  el('notify_label').textContent = enabled ? 'Enabled' : 'Disabled';
-  el('notify_url_field').style.opacity = enabled ? '1' : '0.5';
-  el('notify_url_field').style.pointerEvents = enabled ? '' : 'none';
-  el('notify_events_card').style.opacity = enabled ? '1' : '0.5';
-  el('notify_events_card').style.pointerEvents = enabled ? '' : 'none';
-  el('notify_test_row').style.display = enabled ? '' : 'none';
-}
+// ── Maintenance Window (v4.2.0) ──
 
-function toggleNotifyUrl() {
-  const inp = el('notify_url');
-  const btn = el('notifyUrlToggleBtn');
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
-  else { inp.type = 'password'; btn.textContent = 'Show'; }
-}
-
-async function testNotification() {
-  const url = el('notify_url').value.trim();
-  const msg = el('notifyTestMsg');
-  if (!url) { msg.textContent = 'Enter a URL first.'; msg.className = 'msg err'; return; }
-  msg.textContent = 'Sending…'; msg.className = 'msg';
-  const r = await api('/api/notifications/test', {method: 'POST', body: JSON.stringify({url})});
-  if (r && r.ok) {
-    msg.textContent = '✓ Notification sent successfully';
-    msg.className = 'msg ok';
-  } else {
-    msg.textContent = '✗ ' + (r?.error || 'Failed — check your URL');
-    msg.className = 'msg err';
+// syncMaintUi — enables or disables the time/day fields based on the toggle.
+// Called on toggle change and on fillSettings() load.
+function syncMaintUi() {
+  const on = el('maintenance_window_enabled') && el('maintenance_window_enabled').checked;
+  const lbl = el('maint_label');
+  if (lbl) lbl.textContent = on ? 'Enabled' : 'Disabled';
+  const ctrl = el('maint_controls');
+  if (ctrl) {
+    ctrl.style.opacity = on ? '1' : '0.35';
+    ctrl.style.pointerEvents = on ? '' : 'none';
   }
-  setTimeout(() => { msg.textContent = ''; msg.className = 'msg'; }, 5000);
-}
-
-async function saveNotifications() {
-  CFG.notify_enabled = el('notify_enabled').checked;
-  CFG.notify_url = el('notify_url').value.trim();
-  CFG.notify_on_sweep_complete = el('notify_on_sweep_complete').checked;
-  CFG.notify_on_import = el('notify_on_import').checked;
-  if (el('notify_on_auto_exclusion')) CFG.notify_on_auto_exclusion = el('notify_on_auto_exclusion').checked;
-  CFG.notify_on_error = el('notify_on_error').checked;
-  const r = await api('/api/config', {method: 'POST', body: JSON.stringify(CFG)});
-  if (r && r.ok) {
-    await loadAll();
-    await new Promise(res => setTimeout(res, 400));
-    el('notifyMsg').textContent = 'Saved'; el('notifyMsg').className = 'msg ok'; fadeMsg('notifyMsg');
+  if (on) validateMaintTime();
+  else {
+    const hint = el('maint_hint');
+    if (hint) { hint.className = 'cron-hint-line'; hint.textContent = ''; }
   }
 }
 
-function fillAdvanced() {
-  if (!CFG) return;
-  el('radarr_backlog_enabled').checked = !!CFG.radarr_backlog_enabled;
-  el('radarr_missing_max').value = CFG.radarr_missing_max ?? 1;
-  el('radarr_missing_added_days').value = CFG.radarr_missing_added_days ?? 14;
-  el('sonarr_backlog_enabled').checked = !!CFG.sonarr_backlog_enabled;
-  el('sonarr_missing_max').value = CFG.sonarr_missing_max ?? 1;
-  el('state_retention_days').value = CFG.state_retention_days ?? 180;
-  el('auth_enabled').checked = CFG.auth_enabled !== false;
-  el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
-  el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
-  if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
-  if (el('log_level')) el('log_level').value = CFG.log_level || 'INFO';
-  if (el('per_instance_overrides_enabled')) {
-    el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
-    syncOverridesToggleLabel();
+// validateMaintTime — validates both HH:MM inputs and updates the hint line.
+// Describes the window once both times are valid and at least one day is selected.
+// Detects and labels overnight ranges (start > end).
+function validateMaintTime() {
+  const sInput = el('maintenance_window_start');
+  const eInput = el('maintenance_window_end');
+  const hint   = el('maint_hint');
+  if (!sInput || !eInput || !hint) return;
+
+  const timeRe = /^(\d{2}):(\d{2})$/;
+  const sMatch = sInput.value.trim().match(timeRe);
+  const eMatch = eInput.value.trim().match(timeRe);
+
+  sInput.classList.remove('cron-valid', 'cron-invalid');
+  eInput.classList.remove('cron-valid', 'cron-invalid');
+  sInput.style.borderColor = '';
+  eInput.style.borderColor = '';
+
+  if (!sInput.value && !eInput.value) {
+    hint.className = 'cron-hint-line'; hint.textContent = ''; return;
   }
-  // Auto-exclusion fields (page 2)
-  if (el('auto_exclude_movies_threshold')) el('auto_exclude_movies_threshold').value = CFG.auto_exclude_movies_threshold ?? 0;
-  if (el('auto_exclude_shows_threshold')) el('auto_exclude_shows_threshold').value = CFG.auto_exclude_shows_threshold ?? 0;
-  if (el('auto_unexclude_movies_days')) el('auto_unexclude_movies_days').value = CFG.auto_unexclude_movies_days ?? 0;
-  if (el('auto_unexclude_shows_days')) el('auto_unexclude_shows_days').value = CFG.auto_unexclude_shows_days ?? 0;
-  syncAuthUi();
-  syncBacklogUi();
-  syncSupportLinkUi();
-  syncAutoExclUi();
-  el('advMsg').textContent = ''; el('advMsg').className = 'msg';
-}
 
-// advSetPage — switches the Advanced left card between page 1 (Backlog Nudges /
-// For the Arr-tists) and page 2 (Auto-Exclusion). Updates arrow button states.
-function advSetPage(n) {
-  el('advPage1').style.display = n === 1 ? '' : 'none';
-  el('advPage2').style.display = n === 2 ? '' : 'none';
-  el('advPageNum').textContent = n;
-  el('advPagerPrev').disabled = n === 1;
-  el('advPagerNext').disabled = n === 2;
-}
+  const sOk = !!(sMatch && parseInt(sMatch[1],10) <= 23 && parseInt(sMatch[2],10) <= 59);
+  const eOk = !!(eMatch && parseInt(eMatch[1],10) <= 23 && parseInt(eMatch[2],10) <= 59);
+  sInput.style.borderColor = sOk ? 'rgba(34,197,94,.45)' : 'rgba(239,68,68,.45)';
+  eInput.style.borderColor = eOk ? 'rgba(34,197,94,.45)' : 'rgba(239,68,68,.45)';
 
-// syncAutoExclUi — greys out the unexclude day fields when the corresponding
-// threshold is 0 (auto-exclusion disabled for that app).
-function syncAutoExclUi() {
-  const moviesOn = parseInt(el('auto_exclude_movies_threshold')?.value || '0', 10) > 0;
-  const showsOn = parseInt(el('auto_exclude_shows_threshold')?.value || '0', 10) > 0;
-  const mWrap = el('auto_unexclude_movies_wrap');
-  const sWrap = el('auto_unexclude_shows_wrap');
-  if (mWrap) { mWrap.style.opacity = moviesOn ? '1' : '0.35'; mWrap.style.pointerEvents = moviesOn ? '' : 'none'; }
-  if (sWrap) { sWrap.style.opacity = showsOn ? '1' : '0.35'; sWrap.style.pointerEvents = showsOn ? '' : 'none'; }
-}
-
-function syncAuthUi() {
-  const enabled = el('auth_enabled').checked;
-  el('auth_label').textContent = enabled ? 'Enabled' : 'Disabled';
-}
-
-function markUnsaved(msgId) {
-  const m = el(msgId);
-  if (!m) return;
-  clearTimeout(m._fadeTimer);
-  m.classList.remove('fade');
-  m.style.opacity = '';
-  m.textContent = 'Unsaved Changes';
-  m.className = 'msg unsaved';
-}
-
-function syncBacklogUi() {
-  const radarrOn = el('radarr_backlog_enabled').checked;
-  const sonarrOn = el('sonarr_backlog_enabled').checked;
-  el('radarr_backlog_label').textContent = radarrOn ? 'Enabled' : 'Disabled';
-  el('sonarr_backlog_label').textContent = sonarrOn ? 'Enabled' : 'Disabled';
-  el('radarr_backlog_fields').style.opacity = radarrOn ? '1' : '0.35';
-  el('radarr_backlog_fields').style.pointerEvents = radarrOn ? '' : 'none';
-  el('sonarr_backlog_fields').style.opacity = sonarrOn ? '1' : '0.35';
-  el('sonarr_backlog_fields').style.pointerEvents = sonarrOn ? '' : 'none';
-}
-
-async function saveAdvanced() {
-  try {
-    CFG.radarr_backlog_enabled = el('radarr_backlog_enabled').checked;
-    CFG.radarr_missing_max = parseInt(el('radarr_missing_max').value !== '' ? el('radarr_missing_max').value : '1', 10);
-    CFG.radarr_missing_added_days = parseInt(el('radarr_missing_added_days').value !== '' ? el('radarr_missing_added_days').value : '14', 10);
-    CFG.sonarr_backlog_enabled = el('sonarr_backlog_enabled').checked;
-    CFG.sonarr_missing_max = parseInt(el('sonarr_missing_max').value !== '' ? el('sonarr_missing_max').value : '1', 10);
-    CFG.state_retention_days = parseInt(el('state_retention_days').value !== '' ? el('state_retention_days').value : '180', 10);
-    CFG.auth_enabled = el('auth_enabled').checked;
-    CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
-    CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
-    if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
-    if (el('log_level')) CFG.log_level = el('log_level').value || 'INFO';
-
-    // Auto-exclusion fields — capture previous threshold values before updating
-    // so we can detect a non-zero to zero transition and show the popup if needed
-    const prevMovies = CFG.auto_exclude_movies_threshold ?? 0;
-    const prevShows = CFG.auto_exclude_shows_threshold ?? 0;
-    const newMovies = parseInt(el('auto_exclude_movies_threshold')?.value || '0', 10);
-    const newShows = parseInt(el('auto_exclude_shows_threshold')?.value || '0', 10);
-    CFG.auto_exclude_movies_threshold = newMovies;
-    CFG.auto_exclude_shows_threshold = newShows;
-    CFG.auto_unexclude_movies_days = parseInt(el('auto_unexclude_movies_days')?.value || '0', 10);
-    CFG.auto_unexclude_shows_days = parseInt(el('auto_unexclude_shows_days')?.value || '0', 10);
-
-    await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(CFG)});
-    await loadAll();
-    await new Promise(r => setTimeout(r, 400));
-    el('advMsg').textContent = 'Saved'; el('advMsg').className = 'msg ok'; fadeMsg('advMsg');
-    fadeNewestAddedWarnings();
-    syncAutoExclUi();
-
-    // Show the auto-exclusion disabled popup if either threshold changed from
-    // non-zero to zero and auto-exclusions currently exist
-    const moviesDisabled = prevMovies > 0 && newMovies === 0;
-    const showsDisabled = prevShows > 0 && newShows === 0;
-    if (moviesDisabled || showsDisabled) {
-      _maybeShowAutoExclDisabledPopup(moviesDisabled, showsDisabled);
-    }
-  } catch(e) {
-    el('advMsg').textContent = 'Save failed: ' + e.message; el('advMsg').className = 'msg err';
+  if (!sOk || !eOk) {
+    hint.className = 'cron-hint-line cron-bad';
+    hint.textContent = 'Enter times in HH:MM format (e.g. 23:00)';
+    return;
   }
-}
 
-// _maybeShowAutoExclDisabledPopup — queries the current auto-exclusion counts
-// and shows the disabled popup only if rows actually exist to act on.
-async function _maybeShowAutoExclDisabledPopup(moviesDisabled, showsDisabled) {
-  try {
-    const data = await api('/api/exclusions');
-    const autoRows = (data || []).filter(e => e.source === 'auto');
-    if (autoRows.length === 0) return;
+  const startMins = parseInt(sMatch[1],10) * 60 + parseInt(sMatch[2],10);
+  const endMins   = parseInt(eMatch[1],10) * 60 + parseInt(eMatch[2],10);
 
-    // Show combined total — clearing is a global action that affects all
-    // auto-exclusions regardless of which app's threshold was set to 0
-    const count = autoRows.length;
-    el('autoExclDisabledBody').textContent =
-      `You have ${count} auto-excluded title${count !== 1 ? 's' : ''}. You can clear them all now or keep them.`;
-    el('autoExclDisabledModal').style.display = 'flex';
-  } catch(e) { /* silent — popup is non-critical */ }
-}
-
-// onAutoExclDisabledKeep — closes the popup, keeping all auto-exclusions intact.
-function onAutoExclDisabledKeep() {
-  el('autoExclDisabledModal').style.display = 'none';
-}
-
-// onAutoExclDisabledClear — deletes all auto-exclusion rows then closes popup.
-async function onAutoExclDisabledClear() {
-  try {
-    await api('/api/exclusions/clear-auto', {method:'POST'});
-    await loadExclusions();
-  } catch(e) { /* silent */ }
-  el('autoExclDisabledModal').style.display = 'none';
-}
-
-async function logout() {
-  try {
-    await fetch('/api/auth/logout', {method:'POST'});
-  } catch(e) {
-    console.warn('[logout] request failed:', e.message);
+  if (startMins === endMins) {
+    hint.className = 'cron-hint-line cron-bad';
+    hint.textContent = 'Start and end time cannot be the same';
+    return;
   }
-  window.location.href = '/login';
+
+  const selectedDays = [...document.querySelectorAll('#maint_day_pills .day-pill.on')]
+    .map(btn => btn.textContent);
+
+  if (selectedDays.length === 0) {
+    hint.className = 'cron-hint-line cron-bad';
+    hint.textContent = 'Select at least one day';
+    return;
+  }
+
+  const dayStr = selectedDays.length === 7 ? 'every day' : selectedDays.join(', ');
+  const overnight = startMins > endMins;
+  hint.className = 'cron-hint-line cron-ok';
+  hint.textContent = `${sInput.value.trim()} to ${eInput.value.trim()}${overnight ? ' (overnight)' : ''} on ${dayStr}`;
 }
 
-async function resetConfig() {
-  if (!await showConfirm('Reset Config', 'This will reset all settings to defaults — all instances and configuration will be lost. Consider using Backup All in Support & Diagnostics first.', 'Reset', true)) return;
-  await api('/api/config/reset', {method:'POST'});
-  showAlert('Config reset to defaults.');
-  await loadAll();
-}
-
-async function clearLog() {
-  if (!await showConfirm('Clear Log', 'This will clear the active nudgarr.log file. Rotation backups are not affected. The log will resume writing immediately on the next sweep.', 'Clear', true)) return;
-  await api('/api/log/clear', {method:'POST'});
-}
-
-// resetAutoExclusions — removes all auto-excluded entries from the exclusions
-// table. Manual exclusions are not affected. Refreshes the exclusions state
-// and badge after completion.
-async function resetAutoExclusions() {
-  if (!await showConfirm('Reset Auto-Exclusions', 'This will remove all auto-excluded titles. They will become eligible for search again on the next sweep. Manual exclusions are not affected.', 'Reset', true)) return;
-  await api('/api/exclusions/clear-auto', {method:'POST'});
-  await loadExclusions();
-}
-
-async function backupAll() {
-  try {
-    const res = await fetch('/api/file/backup', { credentials: 'same-origin' });
-    if (!res.ok) { showAlert('Backup failed — please try again.'); return; }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'nudgarr-backup.zip';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  } catch(e) { showAlert('Backup failed: ' + e.message); }
-}
-
-function downloadDiagnostic() {
-  fetch('/api/diagnostic', { credentials: 'same-origin' })
-    .then(res => { if (!res.ok) throw new Error('Request failed'); return res.blob(); })
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'nudgarr-diagnostic.txt';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    })
-    .catch(e => showAlert('Diagnostic failed: ' + e.message));
+// toggleMaintDay — toggles the on state of a day pill and re-validates the hint.
+function toggleMaintDay(btn) {
+  btn.classList.toggle('on');
+  validateMaintTime();
 }

@@ -54,7 +54,9 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 - Radarr minimumAvailability filter — movies that haven't reached their availability threshold are automatically skipped
 
 **UI**
-- Web UI with Instances, Sweep, Settings, Filters, History, Imports, Notifications, Advanced, and Overrides tabs
+- Web UI with Instances, Sweep, Settings, Filters, History, Imports, Intel, Notifications, Advanced, and Overrides tabs
+- Sticky header — wordmark, status bar, and tab bar pin to the top of the viewport on all tabs; tab content scrolls beneath
+- Intel tab — lifetime performance dashboard showing Library Score, Search Health, Instance Performance, Stuck Items, Exclusion Intel, Library Age vs Success, Quality Iteration, and Sweep Efficiency
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Exclusion list — exclude specific titles from future searches via the ⊘ icon in History
@@ -182,7 +184,9 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.1.0** — Auto-exclusion, mobile auto-exclusion, import stats period toggle, and logging improvements. No config changes required. Pull the new image and restart. Migration v9 runs automatically on first start — adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing exclusions are preserved and default to `source=manual`.
+**v4.2.0** — Intel tab, sticky header, exclusion event tracking, and protected aggregate. No config changes required. Pull the new image and restart. Migration v10 runs automatically on first start — adds `exclusion_events` and `intel_aggregate` tables. Existing data is fully preserved. Intel data begins accumulating immediately from the first sweep after upgrade.
+
+**v4.1.0** — Auto-exclusion, mobile auto-exclusion, import stats period toggle, logging improvements, and a full code quality refactor. No config changes required. Pull the new image and restart. Migration v9 runs automatically on first start — adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing exclusions are preserved and default to `source=manual`. From this version onwards, static assets include version query strings — browsers automatically receive fresh JS and CSS after a container upgrade without requiring a hard refresh.
 
 **v4.0.0** — Foundations release. No config changes required, no data migration needed. Pull the new image and restart. v4.0.0 removes the v1–v6 migration chain and resets the migration baseline. Two post-reset migrations are included: v7 adds the `series_id` column to `search_history`, and v8 adds quality upgrade tracking. If you are upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
 

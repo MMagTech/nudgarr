@@ -1,0 +1,29 @@
+  <!-- ── ui-header.html ──────────────────────────────────────────────────────
+       Desktop header bar: wordmark, auto-exclusion badge, scheduler status,
+       last/next run timestamps, Run Now button, Sign Out, and Donate link.
+       Included by ui.html. All element IDs here are referenced by ui-core.js
+       and ui-advanced.js. ── -->
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="wordmark" id="wordmark">Nudgarr</div>
+      <div class="tagline">Sweeping your library, one nudge at a time.</div>
+    </div>
+    <div class="header-right">
+      <div class="status-bar">
+        <div class="status-seg" id="autoExclBadgeSeg" style="display:none">
+          <span id="autoExclBadge" class="auto-excl-badge" onclick="onAutoExclBadgeClick()" title="New auto-exclusions — click to review"></span>
+        </div>
+        <div class="status-seg">
+          <div class="run-dot" id="dot-scheduler"></div>
+          <span id="txt-scheduler">Loading…</span>
+        </div>
+        <div class="status-seg">Last: <strong id="lastRun">—</strong></div>
+        <div class="status-seg">Next: <strong id="nextRun">—</strong></div>
+      </div>
+      <button class="btn run-now" onclick="runNow()">▷ Run Now</button>
+      <button class="btn mobile-view-btn" id="mobileViewBtn" onclick="switchToMobileView()">◱ Mobile</button>
+      <button class="btn sign-out" onclick="logout()" id="logoutBtn" style="display:none">Sign Out</button>
+      <a id="supportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="btn donate" style="text-decoration:none;display:none" title="Buy Me a Coffee">🍺 Donate</a>
+    </div>
+  </div>

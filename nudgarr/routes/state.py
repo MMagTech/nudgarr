@@ -100,7 +100,7 @@ def api_state_items():
 @requires_auth
 def api_state_prune():
     cfg = load_or_init_config()
-    removed = prune_state_by_retention({}, int(cfg.get("state_retention_days", 180)))
+    removed = prune_state_by_retention(int(cfg.get("state_retention_days", 180)))
     return jsonify({"ok": True, "removed": removed})
 
 

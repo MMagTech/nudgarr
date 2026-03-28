@@ -4,7 +4,87 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v4.2.0
+
+**Intel Tab, Backlog Sample Mode Split, Maintenance Window, and Sticky Header.**
+
+**Intel Tab**
+
+- New Intel tab added between Imports and Notifications — a read-only lifetime performance dashboard that gets richer the longer Nudgarr has been running. Answers the question "how is Nudgarr performing for my library overall?" — distinct from the Sweep tab which covers the last run.
+- Library Score: a single 0-100 composite score based on success rate (40%), turnaround (25%), stuck items (20%), and sweep efficiency (15%). Shows "Building…" on fresh installs until 10 confirmed imports or 30 sweep runs have accumulated.
+- Search Health card: lifetime success rate, average turnaround, average searches per import, stuck item count, cutoff unmet vs backlog import split, quality upgrades confirmed.
+- Instance Performance table: per-instance sweep runs, total searched, confirmed imports, success rate, average turnaround, eligible used bar, and stuck items.
+- Stuck Items: titles searched at or above the auto-exclusion threshold with no confirmed import and not yet excluded — the only actionable card in Intel.
+- Exclusion Intel: total exclusions, manual vs auto breakdown, average searches at auto-exclusion, auto-exclusions this month, and a calibration signal showing how many auto-excluded titles later imported after being given a second chance.
+- Library Age vs Success: import success rate bucketed by how long items had been in the library at first search. Reveals long-tail content that indexers may not carry.
+- Quality Iteration: titles imported once vs upgraded, most common upgrade path per app (Radarr and Sonarr shown separately).
+- Sweep Efficiency: per-instance lifetime average of items searched vs eligible with a callout when an instance is consistently hitting its search cap.
+- Reset Intel button added to the Danger Zone — clears `intel_aggregate` and `exclusion_events`. Clear History and Clear Stats do not affect Intel data.
+
+**Sticky Header**
+
+- Header (wordmark, status bar, Run Now) and tab bar now pin to the top of the viewport while tab content scrolls beneath. Applies to all tabs. Hidden on mobile where the fixed mobile nav takes over.
+
+**Exclusion Event Tracking**
+
+- New `exclusion_events` table — append-only audit log written at every exclude and unexclude action (manual or auto). Captures title, event type, source, search count at the moment of the event, and a timestamp. Never affected by Clear History, Clear Stats, or pruning.
+- Powers the Intel calibration signal: tracks whether auto-excluded titles that later received a second chance (via auto-unexclude timer or manual deletion) eventually imported.
+
+**Protected Aggregate**
+
+- New `intel_aggregate` table — single-row accumulator that is written to at confirm time and never cleared by any normal operation. Protects Intel metrics from Clear History, Clear Stats, and retention pruning.
+- Snapshot of `search_count` is taken at confirm time before any future auto-unexclude reset can affect it, ensuring searches-per-import is accurate even on installs with heavy auto-exclusion cycling.
+- Migration v10 adds both new tables. Handles all existing installs upgrading to v4.2.0. Fresh installs receive both tables via `_SCHEMA_SQL`.
+
+**Backlog Sample Mode Split**
+
+- Cutoff Unmet and Backlog (missing) sweeps now have independent sample mode settings. Previously one sample mode applied to both pipelines.
+- Two new global config keys: `radarr_backlog_sample_mode` and `sonarr_backlog_sample_mode`. Both default to Random.
+- Advanced tab page 1 — Radarr backlog section gains a Backlog Sample Mode dropdown alongside Missing Max. Sonarr backlog section gains a Backlog Sample Mode dropdown alongside Missing Max. Options are Random, Alphabetical, Oldest Added, Newest Added. Quality gap modes are not available for backlog since missing items have no existing file to score against.
+- Overrides tab — per-instance override cards restructured into two clear groups: Cutoff Unmet (Max + Sample Mode) and Backlog (toggle + Max + Backlog Sample Mode + Max Missing Days for Radarr). Cooldown sits above both groups as it applies to the full pipeline. Backlog Sample Mode follows the existing Use Global sentinel pattern.
+- Backend — the backlog pipeline in `sweep.py` reads `backlog_sample_mode` independently from the cutoff `sample_mode`. Per-instance overrides support `backlog_sample_mode` with the same resolution logic as all other override fields.
+
+**Maintenance Window**
+
+- Scheduled sweeps can now be suppressed during a defined time window. Manual Run Now is never affected — suppression applies only to cron-triggered fires.
+- Configure in Settings tab → Scheduler card, below the cron expression row. Toggle enables the feature and greys out all dependent fields when off.
+- Time inputs use 24-hour HH:MM format. Overnight ranges are supported (e.g. 23:00 to 07:00 spanning midnight) — the window stays active until the configured end time regardless of the calendar day boundary.
+- Day-of-week selectors are individual pill toggles (Mon through Sun). Default is no days selected — days must be deliberately chosen. If no days are selected the feature behaves as disabled regardless of the toggle state.
+- The hint line below the time inputs describes the active window once both times and at least one day are valid, and flags overnight ranges explicitly.
+- Backend — `_in_maintenance_window()` in `scheduler.py` handles both same-day and overnight range detection. Uses container local time via the `TZ` environment variable, consistent with cron evaluation.
+- Suppressed sweeps log at INFO: `[Scheduler] Sweep suppressed by maintenance window (window: HH:MM to HH:MM, now: HH:MM)`.
+
+**Backlog fields greying in Overrides**
+
+- Desktop and mobile landscape override cards now grey out Max Backlog, Backlog Sample Mode, and Max Missing Days when the backlog toggle is off (resolved value, accounting for overrides). Fields ungrey immediately when backlog is enabled via override even if disabled globally. `updateBacklogLabel()` syncs the grey state live on toggle change.
+
+**Non-destructive config validation**
+
+- Config validation failure no longer wipes the entire config. Only the specific failing keys are identified and reset to their defaults individually. All other keys — instances, credentials, and all other settings — are preserved.
+
+**Mobile**
+
+- Portrait Settings tab — "Sample Mode" renamed to "Cutoff Sample Mode" on the Radarr and Sonarr cards. The segment control already wrote to `radarr_sample_mode` / `sonarr_sample_mode` (cutoff only) — the rename makes this explicit and distinguishes it from the new backlog mode.
+- Portrait Home Automation card — Maintenance Window toggle added directly below Auto Schedule. Greys out when Auto Schedule is off. Sub-label reads "Select at least one day" in red when enabled with no days configured, matching desktop hint behaviour.
+- Landscape Backlog tab — Radarr and Sonarr backlog fields each gain a Backlog Sample Mode dropdown at the bottom of their fields div. Inherits the existing backlog fields greying when backlog is disabled.
+- Landscape Execution tab — Maintenance Window added as a full-width band below the two-column grid. Three sub-columns: Suppress Sweeps toggle; Hours (24h) with start and end text inputs; Active Days with Mon through Sun pill toggles. Live hint line matches desktop format exactly.
+- Landscape Overrides panel — rebuilt to match desktop layout and feature parity. Order: Cooldown (full width) → Cutoff Unmet group (Max + Sample Mode) → Backlog group (toggle + Max Backlog + Backlog Sample Mode + Max Missing Days) → Notifications. Group headers added. Backlog Sample Mode was previously missing entirely.
+- Desktop View bug fix — tapping Desktop View in landscape mode now correctly shows the full desktop header and tab nav.
+- Mobile View button — a subtle ghost button ("◱ Mobile") appears in the desktop header when the desktop override is active, allowing return to the mobile UI without rotating the device. Hidden on all non-override loads via CSS.
+- Maintenance window hint format — landscape hint now matches desktop exactly: `HH:MM to HH:MM (overnight) on Mon, Wed, Fri`.
+
+**Minor improvements**
+
+- Advanced tab — "Radarr Missing Added Days" label corrected to "Missing Added Days".
+- Advanced tab — help text standardised: "Only search missing items older than this many days (0 = No Age Filter)".
+- Backup JSON export (`/api/file/state`) now includes `exclusion_events` and `intel_aggregate` sections. The primary backup (`/api/file/backup`) already included full database coverage as it packages the raw SQLite file directly.
+- `db/backup.py` docstring updated to reflect the complete export structure.
+- Intel tab unit labels capitalised — Days, Searches, Items, Upgrades throughout all cards and the instance table.
+
+---
+
 ## v4.1.0
+
 
 **Auto-exclusion and import stats period toggle.**
 
@@ -32,8 +112,6 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
-
-
 **Logging improvements, notification visibility, dependency pinning, and mobile zoom support.**
 
 - Log timestamps now reflect container local time (controlled by the `TZ` environment variable) instead of UTC, matching the time displayed in the scheduler. Both stdout and the rotating log file use local time.
@@ -58,6 +136,24 @@ All notable changes to Nudgarr are documented here.
 **Bug fixes**
 
 - History tab Eligible Again column now shows a calculated date for auto-excluded titles when Unexclude Days is above 0 (`excluded_at + unexclude_days`). Previously showed `—` for all excluded titles regardless of source or unexclude config. Manual exclusions and auto-exclusions with Unexclude Days = 0 continue to show `—`. Date recalculates from live config on every history refresh so changing the Unexclude Days field updates the column immediately after saving.
+
+**Under the Hood**
+
+- Frontend split into focused single-responsibility files — `ui-settings.js` split into `ui-settings.js`, `ui-notifications.js`, and `ui-advanced.js`; `ui-mobile-landscape.js` split into `ui-mobile-landscape.js` (Overrides) and `ui-mobile-landscape-filters.js` (Filters); `ui-sweep.js` split into `ui-sweep.js` (Sweep + Run Now), `ui-history.js` (History + Exclusions), and `ui-imports.js` (Imports)
+- `ui.html` reduced from 1,481 lines to a 61-line shell — all tab sections, modals, and the mobile/landscape UI block extracted into dedicated template partials (`ui-header.html`, `ui-nav.html`, `ui-tab-*.html`, `ui-modals.html`, `ui-mobile.html`) loaded via Jinja2 `{% include %}`
+- `sweep.py` consolidated — `_sweep_radarr_instance` and `_sweep_sonarr_instance` merged into a single `_sweep_instance` helper parameterised on app type; `run_sweep` loop unified across both apps
+- Shared `cronIntervalMinutes()` moved to `ui-core.js` — previously duplicated independently in `ui-settings.js` and `ui-mobile-landscape-exec.js`
+- `mSaveCfgKeys()` moved to `ui-mobile-core.js` alongside other shared mobile helpers; `typeof` guard removed since function now loads before all call sites
+- Inline styles replaced with named CSS classes throughout JS render functions — `ui.css` gains `.sweep-disabled-badge`, `.count-pill`, `.iter-pill`, `.eligible-next-sweep`, `.td-*` table cell helpers, and full upgrade tooltip anatomy; `ui-mobile.css` gains `.m-inst-pill`, `.m-count-pill`, `.m-type-badge`, `.m-excl-inline`, and related import row helpers
+- Dead code removed — `record_stat_entry()` wrapper in `stats.py`, `upsert_search_history()` and `get_last_searched_ts()` in `db/history.py` (both superseded by batch variants), `get_sweep_lifetime_row()` in `db/lifetime.py`, unused `state` parameter on `prune_state_by_retention()` in `state.py`, `mCloseExclusions()` empty stub, and orphaned `m-excl-sheet` HTML block
+- `validate.py` updated to load template partials into combined content for all HTML checks; `html_lines` rebuilt from the rendered skeleton for wrap/mobile-ui nesting checks
+- `tests/test_frontend_structure.py` added — 110-test pytest suite covering file existence, HTML links, script load order, line count ceilings, duplicate function detection, onclick resolution, element ID resolution, shared state location, load order safety, split integrity, and validate.py passthrough
+- Pagination cap removed from `arr_clients.py` — `_radarr_movies_from_wanted` and `_sonarr_episodes_from_wanted` previously capped at 500 items regardless of library size. All four public fetch functions now paginate until the API returns an empty page. Default `page_size` raised from 100 to 500 to reduce API round-trips for large libraries. All sample modes now operate on the full library unconditionally.
+- Graceful SIGTERM shutdown — `stop_flag` dict replaced with `threading.Event` across `main.py` and `scheduler.py`. Signal handler logs the received signal name and sets the event. The import check thread is joined with a 10-second timeout before process exit, allowing an in-progress sweep to finish naturally on `docker stop`.
+- Cache-busting added to all static file URLs — all 21 CSS and JS references in `ui.html` now include `?v={{ VERSION }}` via Flask's `url_for` keyword argument pattern. Browsers treat each version as a distinct resource and serve fresh files automatically after a container upgrade without requiring a hard reload.
+- Contributor commenting pass — all new and split files gained function-level docstrings, ownership headers, and cross-file navigation comments. Stale function references removed from module docstrings in `stats.py`, `db/history.py`, and `db/lifetime.py`.
+- Waitress production WSGI server added — replaces Flask's development server. `waitress==3.0.2` added to `requirements.txt`. Configured at 4 threads, sufficient for Nudgarr's single-user workload. Falls back to Flask development server with a warning if Waitress is not installed.
+- CI element ID check fixed — the check previously read only `ui.html` to find element IDs. After the template split, all IDs live in partial files. Updated to glob all `nudgarr/templates/*.html` files, matching how `validate.py` handles the same check. 197 el() calls now verified correctly.
 
 ---
 

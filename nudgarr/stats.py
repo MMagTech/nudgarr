@@ -3,8 +3,8 @@ nudgarr/stats.py
 
 Stats recording, import confirmation checking, and cooldown selection.
 
-  Stats recording : record_stat_entry
   Import checking : check_imports
+  Stats recording : batch_record_stat_entries
   Cooldown logic  : is_allowed_by_cooldown, pick_items_with_cooldown
   State marking   : mark_items_searched
 
@@ -29,19 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 # ── Stats recording ───────────────────────────────────────────────────
-
-def record_stat_entry(
-    app: str,
-    instance_name: str,
-    instance_url: str,
-    item_id: str,
-    title: str,
-    entry_type: str,
-    searched_ts: str,
-    quality_from: str = "",
-) -> None:
-    """Record a searched item for later import checking (single-item convenience wrapper)."""
-    db.upsert_stat_entry(app, instance_name, instance_url, str(item_id), title, entry_type, searched_ts, quality_from)
 
 
 def batch_record_stat_entries(

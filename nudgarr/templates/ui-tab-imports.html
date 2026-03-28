@@ -1,0 +1,57 @@
+<!-- ══════════════════════════════ IMPORTS ═════════════════════════════ -->
+  <div class="section" id="tab-imports">
+    <div class="card">
+      <div class="import-stats">
+        <div class="import-stat-card movies">
+          <span class="import-stat-label">Movies:</span>
+          <span class="import-stat-value" id="statMoviesTotal">—</span>
+        </div>
+        <div class="import-stat-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.3);gap:6px;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(16,185,129,0.6);">Confirmed</span>
+            <span class="tooltip-icon" style="text-transform:none;font-style:normal;font-weight:400;color:rgba(16,185,129,0.6);border-color:rgba(16,185,129,0.4)">i<div class="tooltip-box">Confirmed imports Nudgarr was responsible for in the selected period. Only the Lifetime total persists through Clear Stats. Last 30 Days and Last 7 Days show a rolling window from today — older entries naturally fall off as time passes.</div></span>
+          </div>
+          <select id="importsPeriod" onchange="onImportsPeriodChange()" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);color:rgba(16,185,129,0.9);border-radius:8px;padding:5px 24px 5px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;text-align:center;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(16,185,129,0.6)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 8px center;">
+            <option value="lifetime">Lifetime</option>
+            <option value="30">Last 30 Days</option>
+            <option value="7">Last 7 Days</option>
+          </select>
+        </div>
+        <div class="import-stat-card shows">
+          <span class="import-stat-label">Episodes:</span>
+          <span class="import-stat-value" id="statShowsTotal">—</span>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="checkImportsNow()">Check Now</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="importsInstance" onchange="IMPORTS_PAGE=0; refreshImports()">
+              <option value="">All Instances</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:150px">
+            <select id="importsType" onchange="IMPORTS_PAGE=0; refreshImports()">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="importsLimit" onchange="syncPageSize('imports'); IMPORTS_PAGE=0; refreshImports()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="importsSearch" placeholder="Search title…" oninput="filterImportsSearch()" style="padding-right:28px"/>
+            <button id="importsSearchClear" onclick="clearImportsSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+          </div>
+        </div>
+      </div>
+      <div id="importsTableWrap"></div>
+      <div id="importsNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div class="row" style="margin-top:12px" id="statsPagination">
+        <button class="btn sm" onclick="prevStatsPage()">Prev</button>
+        <button class="btn sm" onclick="nextStatsPage()">Next</button>
+        <span class="msg" id="importsPageInfo"></span>
+      </div>
+    </div>
+  </div>

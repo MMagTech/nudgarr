@@ -18,10 +18,16 @@ JS_FILES = [
     'ui-instances.js',
     'ui-overrides.js',
     'ui-sweep.js',
+    'ui-history.js',
+    'ui-imports.js',
+    'ui-intel.js',
     'ui-settings.js',
+    'ui-notifications.js',
+    'ui-advanced.js',
     'ui-filters.js',
     'ui-mobile-core.js',
     'ui-mobile-landscape.js',
+    'ui-mobile-landscape-filters.js',
     'ui-mobile-landscape-exec.js',
     'ui-mobile-portrait-home.js',
     'ui-mobile-portrait-history.js',
@@ -46,6 +52,29 @@ try:
     lines   = content.split('\n')
 except FileNotFoundError:
     print(f"\nERROR: {UI_FILE} not found. Run from repo root.\n"); sys.exit(1)
+
+# Append any template partials so HTML checks cover the full rendered output.
+TEMPLATE_DIR = os.path.join('nudgarr', 'templates')
+for _partial in sorted(os.listdir(TEMPLATE_DIR)):
+    if _partial != 'ui.html' and _partial.startswith('ui') and _partial.endswith('.html'):
+        try:
+            content += open(os.path.join(TEMPLATE_DIR, _partial)).read() + '\n'
+        except FileNotFoundError:
+            pass
+
+# Rebuild lines from combined content so ID presence and element searches
+# cover all template partials.
+lines = content.split('\n')
+
+# Build html_lines for wrap/mobile-ui nesting checks — these depend on document
+# order, so we reconstruct from the three files that form the structural skeleton:
+# ui.html -> ui-modals.html (closes .wrap) -> ui-mobile.html (opens #mobile-ui).
+_structural = open(UI_FILE).read()
+for _sk in ('ui-modals.html', 'ui-mobile.html'):
+    _sp = os.path.join(TEMPLATE_DIR, _sk)
+    if os.path.exists(_sp):
+        _structural += open(_sp).read() + '\n'
+html_lines = _structural.split('\n')
 
 # Load all static JS files into a combined string for JS checks
 js_content = ''
@@ -260,14 +289,14 @@ if dupes:
     [fail(f"Duplicate id: #{d}") for d in sorted(dupes)]
 else: ok(f"No duplicate IDs ({len(all_ids)} total)")
 
-wrap_start   = next((i for i,l in enumerate(lines) if 'class="wrap"' in l), None)
-mobile_start = next((i for i,l in enumerate(lines) if 'id="mobile-ui"' in l), None)
+wrap_start   = next((i for i,l in enumerate(html_lines) if 'class="wrap"' in l), None)
+mobile_start = next((i for i,l in enumerate(html_lines) if 'id="mobile-ui"' in l), None)
 
 if not wrap_start:   fail(".wrap div not found")
 elif not mobile_start: fail("#mobile-ui not found")
 else:
     depth, wrap_closed_at = 0, None
-    for i, line in enumerate(lines):
+    for i, line in enumerate(html_lines):
         if i < wrap_start: continue
         depth += line.count('<div') - line.count('</div')
         if i > wrap_start and depth == 0: wrap_closed_at = i; break
@@ -277,7 +306,7 @@ else:
     else: ok(f".wrap closes at line {wrap_closed_at+1}, #mobile-ui at line {mobile_start+1} — correct")
 
 if mobile_start:
-    depth = sum(l.count('<div') - l.count('</div') for l in lines[:mobile_start])
+    depth = sum(l.count('<div') - l.count('</div') for l in html_lines[:mobile_start])
     if depth != 0: fail(f"#mobile-ui nested inside {depth} unclosed div(s) — should be at body level")
     else: ok("#mobile-ui is at body level (depth 0)")
 
@@ -288,7 +317,7 @@ for label, pat in {
     '#mobile-ui':'id="mobile-ui"',
     '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
     '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
-    '#m-excl-sheet':'id="m-excl-sheet"', '#m-imports-sheet':'id="m-imports-sheet"',
+    '#m-imports-sheet':'id="m-imports-sheet"',
     '#ls-tab-filters':'id="ls-tab-filters"', '#ls-nav-filters':'id="ls-nav-filters"'
 }.items():
     if pat not in content: fail(f"Missing element: {label}")
@@ -311,17 +340,18 @@ for nav in nav_ids:
 section("JavaScript Sanity")
 
 for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
-           'mRunNow','mToggleAuto','mToggleNotify','mToggleRadarrBacklog',
+           'mRunNow','mToggleAuto','mToggleNotifySettings','mToggleRadarrBacklog',
            'mToggleSonarrBacklog','mToggleInstance',
            'mAccordion','mSwitchTab','mPollCycle',
-           'mOpenExclusions','mCloseExclusions','mSwitchExclTab',
+           'mOpenExclusions','mSwitchExclTab',
            'mLoadExclusions','mExclRemove','mLoadExclHistory','mExclAdd',
            'mOpenImports','mCloseImports','mLoadImports',
            'toggleOverridesFeature','dismissOverridesModal',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
            'markCardDirty','updateBacklogLabel','updateNotifyLabel',
-           'fillFilters','loadArrData','saveFilters']:
+           'fillFilters','loadArrData','saveFilters',
+           'fillIntel','renderIntel','resetIntel']:
     if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 
@@ -412,7 +442,9 @@ try:
 
     # Required tables in schema SQL (lives in connection.py)
     for table in ['search_history', 'stat_entries', 'exclusions',
-                  'sweep_lifetime', 'lifetime_totals', 'schema_migrations', 'nudgarr_state']:
+                  'sweep_lifetime', 'lifetime_totals', 'schema_migrations',
+                  'nudgarr_state', 'quality_history',
+                  'exclusion_events', 'intel_aggregate']:
         if f'CREATE TABLE IF NOT EXISTS {table}' in db_conn_content:
             ok(f"Schema defines table: {table}")
         else:
@@ -420,7 +452,7 @@ try:
 
     # Required sub-modules exist
     for mod in ['connection', 'history', 'entries', 'exclusions',
-                'lifetime', 'backup', 'appstate']:
+                'lifetime', 'backup', 'appstate', 'intel']:
         path = f'{DB_PKG}/{mod}.py'
         if os.path.exists(path):
             ok(f"db sub-module exists: {mod}.py")
@@ -430,11 +462,22 @@ try:
     # Required public functions exported from __init__.py
     for fn in ['init_db', 'get_state', 'set_state', 'close_connection',
                'export_as_json_dict', 'upsert_search_history',
-               'get_search_history', 'upsert_stat_entry']:
+               'get_search_history', 'upsert_stat_entry',
+               'get_intel_aggregate', 'update_intel_aggregate', 'reset_intel']:
         if fn in db_init_content:
             ok(f"db.__init__ exports: {fn}")
         else:
             fail(f"db.__init__ missing export: {fn}")
+
+    # Migration v10 must be defined and called in init_db
+    if '_run_migration_v10' in db_conn_content:
+        ok("Migration v10 function present in connection.py")
+    else:
+        fail("Migration v10 function missing from connection.py")
+    if '_run_migration_v10(conn)' in db_conn_content:
+        ok("Migration v10 called in init_db()")
+    else:
+        fail("Migration v10 not called in init_db()")
 
     # _SCHEMA_SQL defined in connection.py
     if '_SCHEMA_SQL' in db_conn_content:
@@ -525,6 +568,33 @@ if 'unhandledrejection' in js_content:
     ok("Global unhandledrejection handler present in JS")
 else:
     fail("Global unhandledrejection handler missing from JS (expected in ui-core.js)")
+
+# ── Intel tab structural checks ───────────────────────────────────────────────
+section("Intel Tab")
+if 'id="tab-intel"' in content:
+    ok("Intel tab section present in HTML (tab-intel)")
+else:
+    fail("Intel tab section missing from HTML (id='tab-intel')")
+if 'data-tab="intel"' in content:
+    ok("Intel tab nav button present in HTML")
+else:
+    fail("Intel tab nav button missing from HTML (data-tab='intel')")
+if 'sticky-shell' in content:
+    ok("Sticky header shell present in HTML")
+else:
+    fail("sticky-shell missing from HTML")
+if '.sticky-shell' in open('nudgarr/static/ui.css').read():
+    ok(".sticky-shell CSS defined in ui.css")
+else:
+    fail(".sticky-shell CSS missing from ui.css")
+if 'resetIntelData' in js_content:
+    ok("resetIntelData() present in JS (Danger Zone handler)")
+else:
+    fail("resetIntelData() missing from JS")
+if 'resetIntelData' in content:
+    ok("Reset Intel button present in HTML (Danger Zone)")
+else:
+    fail("Reset Intel button missing from HTML (Danger Zone)")
 
 # ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
 import shutil

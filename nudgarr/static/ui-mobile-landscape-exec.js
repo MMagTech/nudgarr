@@ -1,8 +1,10 @@
 // ── Landscape Backlog and Execution tabs ────────────────────────────────────
 // LS_* state (LS_VALS, LS_MINS, LS_CFG_KEYS, LS_SAVE_TIMER, LS_HIDE_TIMER,
-// LS_TAB), lsPopulate, lsToggleBacklog, lsSyncBacklogFields, lsToggleAuto,
-// lsValidateCron, lsCronIntervalMinutes, lsHoldStart/End/Step, lsTriggerSave,
-// lsSwitchTab, _lsDoSwitchTab, lsSwitchToDesktop, landscape swipe gesture
+// LS_TAB), lsPopulate, lsToggleBacklog, lsSyncBacklogFields, lsSaveBacklogSampleMode,
+// lsToggleAuto, lsValidateCron, lsHoldStart/End/Step, lsTriggerSave, lsSwitchTab,
+// _lsDoSwitchTab, lsSwitchToDesktop, switchToMobileView, lsToggleMaint, lsSaveMaintTime,
+// lsToggleMaintDay, lsBuildMaintHint, lsSyncMaintUi, landscape swipe gesture.
+// cronIntervalMinutes (shared cron helper) lives in ui-core.js.
 
 // ── Landscape section (inside if(MOBILE)) ─────────────────────────────────
 
@@ -40,11 +42,15 @@ function lsPopulate() {
     if (el) { el.textContent = LS_VALS[k]; el.classList.toggle('ls-zero', LS_VALS[k] === 0); }
   });
 
-  // Backlog toggles
+  // Backlog toggles and sample mode selects
   const rBl = document.getElementById('ls-tog-radarr-backlog');
   const sBl = document.getElementById('ls-tog-sonarr-backlog');
   if (rBl) rBl.classList.toggle('ls-on', !!CFG.radarr_backlog_enabled);
   if (sBl) sBl.classList.toggle('ls-on', !!CFG.sonarr_backlog_enabled);
+  const rSel = document.getElementById('ls-sel-radarr-backlog-mode');
+  if (rSel) rSel.value = CFG.radarr_backlog_sample_mode || 'random';
+  const sSel = document.getElementById('ls-sel-sonarr-backlog-mode');
+  if (sSel) sSel.value = CFG.sonarr_backlog_sample_mode || 'random';
   lsSyncBacklogFields('radarr');
   lsSyncBacklogFields('sonarr');
 
@@ -57,6 +63,20 @@ function lsPopulate() {
   if (cronInput) { cronInput.value = CFG.cron_expression || ''; lsValidateCron(); }
   const cronRow = document.getElementById('ls-cron-row');
   if (cronRow) cronRow.style.opacity = CFG.scheduler_enabled ? '' : '.38';
+
+  // Maintenance Window
+  const maintTog = document.getElementById('ls-tog-maint');
+  if (maintTog) maintTog.classList.toggle('ls-on', !!CFG.maintenance_window_enabled);
+  const maintStart = document.getElementById('ls-maint-start');
+  if (maintStart) maintStart.value = CFG.maintenance_window_start || '';
+  const maintEnd = document.getElementById('ls-maint-end');
+  if (maintEnd) maintEnd.value = CFG.maintenance_window_end || '';
+  const days = CFG.maintenance_window_days || [];
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach((d, i) => {
+    const pill = document.getElementById('ls-maint-day-' + d);
+    if (pill) pill.classList.toggle('ls-on', days.includes(i));
+  });
+  lsSyncMaintUi();
 
   if (typeof mOvUpdateSubLabels === 'function') mOvUpdateSubLabels();
 }
@@ -84,6 +104,13 @@ function lsSyncBacklogFields(app) {
   fieldsDiv.style.pointerEvents = enabled ? '' : 'none';
 }
 
+// lsSaveBacklogSampleMode — saves the backlog sample mode select value for the given app.
+function lsSaveBacklogSampleMode(app) {
+  const sel = document.getElementById('ls-sel-' + app + '-backlog-mode');
+  if (!sel) return;
+  mSaveCfgKeys({[app + '_backlog_sample_mode']: sel.value});
+}
+
 function lsToggleAuto() {
   mHaptic(40);
   mSaveCfgKeys({scheduler_enabled: !CFG.scheduler_enabled}).then(() => {
@@ -93,7 +120,86 @@ function lsToggleAuto() {
     if (sub) sub.textContent = CFG.scheduler_enabled ? describeCron(CFG.cron_expression || '') : 'Manual';
     const cronRow = document.getElementById('ls-cron-row');
     if (cronRow) cronRow.style.opacity = CFG.scheduler_enabled ? '' : '.38';
+    lsSyncMaintUi();
   });
+}
+
+// lsToggleMaint — toggles maintenance_window_enabled and syncs UI.
+function lsToggleMaint() {
+  mHaptic(40);
+  mSaveCfgKeys({maintenance_window_enabled: !CFG.maintenance_window_enabled}).then(() => {
+    lsSyncMaintUi();
+  });
+}
+
+// lsSaveMaintTime — debounced save for start/end time inputs.
+let _lsMaintTimeTimer = null;
+function lsSaveMaintTime() {
+  clearTimeout(_lsMaintTimeTimer);
+  _lsMaintTimeTimer = setTimeout(() => {
+    const start = (document.getElementById('ls-maint-start') || {}).value || '';
+    const end   = (document.getElementById('ls-maint-end')   || {}).value || '';
+    mSaveCfgKeys({maintenance_window_start: start, maintenance_window_end: end}).then(() => {
+      lsSyncMaintUi();
+    });
+  }, 800);
+}
+
+// lsToggleMaintDay — toggles a day in maintenance_window_days (integer 0-6) and saves.
+function lsToggleMaintDay(day) {
+  mHaptic(20);
+  const dayIndex = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(day);
+  const days = Array.isArray(CFG.maintenance_window_days) ? [...CFG.maintenance_window_days] : [];
+  const idx = days.indexOf(dayIndex);
+  if (idx === -1) days.push(dayIndex); else days.splice(idx, 1);
+  mSaveCfgKeys({maintenance_window_days: days}).then(() => {
+    const pill = document.getElementById('ls-maint-day-' + day);
+    if (pill) pill.classList.toggle('ls-on', days.includes(dayIndex));
+    lsSyncMaintUi();
+  });
+}
+
+// lsBuildMaintHint — builds the hint line from current config values.
+// Returns empty string if window is disabled, times invalid, or no days selected.
+// Format matches desktop: "HH:MM to HH:MM (overnight) on Mon, Wed, Fri"
+function lsBuildMaintHint() {
+  if (!CFG.maintenance_window_enabled) return '';
+  const start = (document.getElementById('ls-maint-start') || {}).value || CFG.maintenance_window_start || '';
+  const end   = (document.getElementById('ls-maint-end')   || {}).value || CFG.maintenance_window_end   || '';
+  const days  = Array.isArray(CFG.maintenance_window_days) ? CFG.maintenance_window_days : [];
+  const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (!validTime.test(start) || !validTime.test(end) || days.length === 0) return '';
+  const _DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const dayStr = days.length === 7 ? 'every day' : days.map(d => _DAY_NAMES[d] || d).join(', ');
+  const overnight = end <= start;
+  return start + ' to ' + end + (overnight ? ' (overnight)' : '') + ' on ' + dayStr;
+}
+
+// lsSyncMaintUi — updates enabled/disabled state of MW controls and hint line.
+function lsSyncMaintUi() {
+  const schedulerOn = !!CFG.scheduler_enabled;
+  const maintOn     = !!CFG.maintenance_window_enabled;
+  const band = document.getElementById('ls-maint-band');
+  if (band) {
+    band.style.opacity       = schedulerOn ? '' : '.38';
+    band.style.pointerEvents = schedulerOn ? '' : 'none';
+  }
+  const tog = document.getElementById('ls-tog-maint');
+  if (tog) tog.classList.toggle('ls-on', maintOn);
+  const timeCol = document.getElementById('ls-maint-time-col');
+  const daysCol = document.getElementById('ls-maint-days-col');
+  const inactive = !schedulerOn || !maintOn;
+  [timeCol, daysCol].forEach(el => {
+    if (!el) return;
+    el.style.opacity       = inactive ? '.38' : '';
+    el.style.pointerEvents = inactive ? 'none' : '';
+  });
+  const hint = document.getElementById('ls-maint-hint');
+  if (hint) {
+    const text = lsBuildMaintHint();
+    hint.textContent = text;
+    hint.className = 'ls-cron-hint' + (text ? ' ls-cron-ok' : '');
+  }
 }
 
 function lsValidateCron() {
@@ -107,7 +213,7 @@ function lsValidateCron() {
   input.classList.toggle('ls-cron-valid', valid);
   input.classList.toggle('ls-cron-invalid', !valid);
   if (valid) {
-    const interval = lsCronIntervalMinutes(val);
+    const interval = cronIntervalMinutes(val);
     if (interval !== null && interval < 60) {
       hint.textContent = '\u26a0 May stress indexers \u00b7 ' + describeCron(val);
       hint.className = 'ls-cron-hint ls-cron-warn';
@@ -128,16 +234,6 @@ function lsValidateCron() {
   }
 }
 
-function lsCronIntervalMinutes(expr) {
-  const parts = expr.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [min, hr] = parts;
-  if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
-  if (min === '*') return 1;
-  if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
-  if (hr === '*' && /^\d+$/.test(min)) return 60;
-  return 60;
-}
 
 const LS_HOLD_INCREMENTS = {
   batch: 1, sleep: 1, jitter: 1,
@@ -227,6 +323,12 @@ function _lsDoSwitchTab(idx) {
 function lsSwitchToDesktop() {
   LS_DESKTOP_OVERRIDE = true;
   sessionStorage.setItem('nudgarr_desktop_override','1');
+  checkOrientation();
+}
+
+function switchToMobileView() {
+  LS_DESKTOP_OVERRIDE = false;
+  sessionStorage.removeItem('nudgarr_desktop_override');
   checkOrientation();
 }
 

@@ -1,0 +1,33 @@
+<!-- ══════════════════════════════ HISTORY ══════════════════════════════ -->
+  <div class="section" id="tab-history">
+    <div class="card">
+      <div class="kpis" id="kpis"></div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn sm" onclick="refreshHistory()">Refresh</button>
+        <button class="btn sm" onclick="pruneState()">Prune Expired</button>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <div class="field" style="min-width:200px">
+            <select id="historyInstance" onchange="PAGE=0; refreshHistory()"></select>
+          </div>
+          <div class="field" style="min-width:100px">
+            <select id="historyLimit" onchange="syncPageSize('history'); PAGE=0; refreshHistory()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative">
+            <input type="text" id="historySearch" placeholder="Search title…" oninput="filterHistorySearch()" style="padding-right:28px"/>
+            <button id="historySearchClear" onclick="clearHistorySearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1">✕</button>
+          </div>
+          <span id="exclusionsPill" onclick="toggleExclusionsFilter()" class="pill clickable excl-pill" style="cursor:pointer;white-space:nowrap">Exclusions</span>
+        </div>
+      </div>
+      <p id="exclusionsHint" class="help" style="margin:0 0 10px;display:block">Hover over any row to access exclusion options.</p>
+      <div id="historyTableWrap"></div>
+      <div id="historyNoResults" style="display:none;text-align:center;padding:24px;color:var(--text-dim)">No results match your search.</div>
+      <div class="row" style="margin-top:12px" id="historyPagination">
+        <button class="btn sm" onclick="prevPage()">Prev</button>
+        <button class="btn sm" onclick="nextPage()">Next</button>
+        <span class="msg" id="pageInfo"></span>
+      </div>
+    </div>
+  </div>

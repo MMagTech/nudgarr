@@ -490,6 +490,7 @@ def cf_radarr_get_all_movies(
                 "quality_profile_id": rec.get("qualityProfileId", 0),
                 "monitored": rec.get("monitored", True),
                 "tag_ids": set(int(t) for t in (rec.get("tags") or [])),
+                "added_date": rec.get("added", ""),
             })
         logger.debug("[CF Sync] Radarr %s: %d eligible movies (hasFile, monitored, cutoff met)",
                      mask_url(url), len(result))
@@ -654,11 +655,10 @@ def cf_sonarr_get_episodes_for_series(
 
     Calls GET /api/v3/episode?seriesId=X.  Used alongside
     cf_sonarr_get_episode_files to match episodes to their file scores
-    and check qualityCutoffNotMet per episode.
-
-    Only returns monitored episodes that have a file and where
-    qualityCutoffNotMet is False -- same eligibility logic as the Radarr
-    movie fetch.  Returns empty list on any API error.
+    Only returns monitored episodes that have a file. The CF score
+    comparison (customFormatScore < cutoffFormatScore) is the sole
+    qualification criteria applied by the syncer after fetching file
+    scores. Returns empty list on any API error.
 
     Args:
         session:   Shared requests.Session

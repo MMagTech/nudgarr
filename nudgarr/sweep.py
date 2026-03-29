@@ -399,8 +399,9 @@ def _sweep_instance(
     # sample_mode strings.
     #
     # Searches are recorded in search_history (sweep_type='CF Score') and
-    # stat_entries (entry_type='Upgraded') so History, Imports, import
-    # confirmation, Intel, and auto-exclusion all see CF Score activity.
+    # stat_entries (entry_type='CF Score') so History, Imports, import
+    # confirmation, Intel, and auto-exclusion all see CF Score activity
+    # attributed correctly and independently from Cutoff Unmet.
 
     searched_cf = 0
     cf_max = int(cfg.get(
@@ -436,7 +437,8 @@ def _sweep_instance(
                 "title": c.get("title", ""),
                 "series_id": c.get("series_id", 0) or "",
                 "quality_from": "",
-                "added": "",
+                "added": c.get("added_date", ""),
+                "library_added": c.get("added_date", ""),
                 "current_score": c.get("current_score", 0),
                 "cutoff_score": c.get("cutoff_score", 0),
                 "gap": c.get("gap", 0),
@@ -479,7 +481,7 @@ def _sweep_instance(
                 app, name, inst_url, cf_item_type, chosen_cf, "CF Score"
             )
             batch_record_stat_entries(
-                app, name, inst_url, chosen_cf, "Upgraded", iso_z(utcnow())
+                app, name, inst_url, chosen_cf, "CF Score", iso_z(utcnow())
             )
         else:
             logger.debug(

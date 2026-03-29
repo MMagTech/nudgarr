@@ -187,7 +187,7 @@ async function refreshHistory() {
         <td class="arr-link" title="Open in ${it.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(it.app)}','${escapeHtml(it.instance_name)}','${escapeHtml(it.item_id)}','${escapeHtml(it.series_id || '')}')">${escapeHtml(title)}</td>
         <td class="excl-col"><button class="${exclClass}" title="${exclTitle}" data-title="${escapeHtml(title)}" onclick="toggleExclusion(this.dataset.title)">\u2298</button></td>
         <td class="td-dim">${escapeHtml(it.instance || '')}</td>
-        <td class="td-nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
+        <td class="td-nowrap">${it.sweep_type ? `<span class="tag${it.sweep_type === 'Backlog' ? ' acquired' : it.sweep_type === 'CF Score' ? ' cf-score' : ''}">${escapeHtml(it.sweep_type)}</span>` : ''}</td>
         <td>${it.search_count > 1 ? `<span class="count-pill">×${it.search_count}</span>` : ''}</td>
         ${sourceCell}
         ${excludedOnCell}

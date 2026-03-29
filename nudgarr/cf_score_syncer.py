@@ -340,6 +340,7 @@ class CustomFormatScoreSyncer:
                 "quality_profile_id": profile_id,
                 "quality_profile_name": profile.get("name", ""),
                 "is_monitored": 1 if movie.get("monitored", True) else 0,
+                "added_date": movie.get("added_date", ""),
             })
 
         # Batch upsert -- 200 rows per DB transaction
@@ -505,6 +506,7 @@ class CustomFormatScoreSyncer:
                     "quality_profile_id": profile_id,
                     "quality_profile_name": profile.get("name", ""),
                     "is_monitored": 1 if ep.get("monitored", True) else 0,
+                    "added_date": "",
                 })
 
             # Random delay between series -- avoids bursting Sonarr API

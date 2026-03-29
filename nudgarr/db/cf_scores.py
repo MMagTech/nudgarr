@@ -53,6 +53,7 @@ def upsert_cf_score_entry(
     quality_profile_id: int,
     quality_profile_name: str,
     is_monitored: int = 1,
+    added_date: str = "",
 ) -> None:
     """Insert or update a single CF score entry.
 
@@ -73,6 +74,7 @@ def upsert_cf_score_entry(
         quality_profile_id:   Quality profile database ID from Radarr/Sonarr
         quality_profile_name: Quality profile display name for UI
         is_monitored:         1 if the item is monitored, 0 otherwise
+        added_date:           ISO timestamp when the item was added to Radarr
     """
     conn = get_connection()
     conn.execute(
@@ -81,8 +83,8 @@ def upsert_cf_score_entry(
             arr_instance_id, item_type, external_item_id, series_id,
             file_id, title, current_score, cutoff_score,
             quality_profile_id, quality_profile_name,
-            is_monitored, last_synced_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            is_monitored, added_date, last_synced_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (arr_instance_id, item_type, external_item_id)
         DO UPDATE SET
             series_id            = excluded.series_id,
@@ -93,13 +95,16 @@ def upsert_cf_score_entry(
             quality_profile_id   = excluded.quality_profile_id,
             quality_profile_name = excluded.quality_profile_name,
             is_monitored         = excluded.is_monitored,
+            added_date           = CASE WHEN excluded.added_date != ''
+                                        THEN excluded.added_date
+                                        ELSE cf_score_entries.added_date END,
             last_synced_at       = excluded.last_synced_at
         """,
         (
             arr_instance_id, item_type, external_item_id, series_id,
             file_id, title, current_score, cutoff_score,
             quality_profile_id, quality_profile_name,
-            is_monitored, iso_z(utcnow()),
+            is_monitored, added_date, iso_z(utcnow()),
         ),
     )
     conn.commit()
@@ -398,12 +403,12 @@ def batch_upsert_cf_scores(entries: List[Dict[str, Any]]) -> None:
                 arr_instance_id, item_type, external_item_id, series_id,
                 file_id, title, current_score, cutoff_score,
                 quality_profile_id, quality_profile_name,
-                is_monitored, last_synced_at
+                is_monitored, added_date, last_synced_at
             ) VALUES (
                 :arr_instance_id, :item_type, :external_item_id, :series_id,
                 :file_id, :title, :current_score, :cutoff_score,
                 :quality_profile_id, :quality_profile_name,
-                :is_monitored, :last_synced_at
+                :is_monitored, :added_date, :last_synced_at
             )
             ON CONFLICT (arr_instance_id, item_type, external_item_id)
             DO UPDATE SET
@@ -415,6 +420,9 @@ def batch_upsert_cf_scores(entries: List[Dict[str, Any]]) -> None:
                 quality_profile_id   = excluded.quality_profile_id,
                 quality_profile_name = excluded.quality_profile_name,
                 is_monitored         = excluded.is_monitored,
+                added_date           = CASE WHEN excluded.added_date != ''
+                                            THEN excluded.added_date
+                                            ELSE cf_score_entries.added_date END,
                 last_synced_at       = excluded.last_synced_at
             """,
             [{**e, "last_synced_at": now} for e in batch],

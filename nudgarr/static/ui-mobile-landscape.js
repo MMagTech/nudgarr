@@ -76,6 +76,7 @@ function _lsOvSavePendingFromDOM() {
   const pending = {};
   const numFields = ['cooldown_hours','max_cutoff_unmet','max_backlog'];
   if (kind === 'radarr') numFields.push('max_missing_days');
+  numFields.push('missing_grace_hours');
   numFields.forEach(f => {
     const el = document.getElementById('ls-ov-f-' + f);
     if (el) pending[f] = el.value;
@@ -180,9 +181,11 @@ function lsOvRenderPanel() {
     + '</label></div>';
 
   // Backlog numeric fields + backlog sample mode
+  // Radarr: Max Backlog / Backlog Sample Mode / Max Missing Days / Grace Period (Hours)
+  // Sonarr: Max Backlog / Backlog Sample Mode / Grace Period (Hours) / empty
   const blFieldsHtml = kind === 'radarr'
-    ? numField('max_backlog', 'Max Backlog') + blModeField + numField('max_missing_days', 'Max Missing Days') + '<div></div>'
-    : numField('max_backlog', 'Max Backlog') + blModeField;
+    ? numField('max_backlog', 'Max Backlog') + blModeField + numField('max_missing_days', 'Max Missing Days') + numField('missing_grace_hours', 'Grace Period (Hours)')
+    : numField('max_backlog', 'Max Backlog') + blModeField + numField('missing_grace_hours', 'Grace Period (Hours)') + '<div></div>';
 
   // Notifications
   const gNot = gv('notifications_enabled');
@@ -245,6 +248,7 @@ function lsOvRenderPanel() {
 const LS_OV_HOLD_INCREMENTS = {
   cooldown_hours: 24, max_cutoff_unmet: 5,
   max_backlog: 5, max_missing_days: 7,
+  missing_grace_hours: 6,
 };
 let _lsOvHoldTimer = null;
 let _lsOvHoldInterval = null;
@@ -368,6 +372,7 @@ async function lsOvApply() {
   const numFields = ['cooldown_hours','max_cutoff_unmet','max_backlog'];
   _lsOvApplyTimer = setTimeout(async () => {
     if (kind === 'radarr') numFields.push('max_missing_days');
+    numFields.push('missing_grace_hours');
     numFields.forEach(field => {
       const input = document.getElementById('ls-ov-f-' + field);
       if (!input) return;

@@ -222,6 +222,7 @@ def pick_items_with_cooldown(
     """
     Filter items by cooldown, sort by sample_mode, and return up to max_per_run.
     Cooldown timestamps are fetched from the DB per item.
+    max_per_run=0 means all eligible items are returned (no cap).
     Returns (chosen_items, eligible_count, skipped_count).
     """
     eligible: List[Dict[str, Any]] = []

@@ -66,6 +66,8 @@ function _getGlobal(kind, field) {
     notifications_enabled: !!CFG.notify_enabled,
     // Backlog sample mode — independent of cutoff sample mode (v4.2.0)
     backlog_sample_mode:   kind === 'radarr' ? (CFG.radarr_backlog_sample_mode || 'random') : (CFG.sonarr_backlog_sample_mode || 'random'),
+    // Grace period — applied after availability date before first missing search (v4.2.0)
+    missing_grace_hours:   kind === 'radarr' ? (CFG.radarr_missing_grace_hours ?? 0) : (CFG.sonarr_missing_grace_hours ?? 0),
   };
   return field in map ? map[field] : '';
 }
@@ -157,9 +159,11 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const gCutoff   = _getGlobal(kind, 'max_cutoff_unmet');
   const gBacklog  = _getGlobal(kind, 'max_backlog');
   const gMissing  = _getGlobal(kind, 'max_missing_days');
+  const gGrace    = _getGlobal(kind, 'missing_grace_hours');
 
-  // Backlog fields row: Max Backlog / Backlog Sample Mode
-  // Radarr gets an additional row: Max Missing Days / empty
+  // Backlog fields: Max Backlog / Backlog Sample Mode (both apps)
+  // Radarr row 2: Max Missing Days / Grace Period (Hours)
+  // Sonarr row 2: Grace Period (Hours) / empty
   // Grey the entire fields block when backlog is effectively off (resolved value)
   const backlogFieldsStyle = backlogVal ? '' : 'opacity:0.38;pointer-events:none';
   const backlogFieldsHtml = kind === 'radarr'
@@ -167,11 +171,13 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
         ${numField('max_backlog', 'Max Backlog', gBacklog)}
         ${backlogModeField}
         ${numField('max_missing_days', 'Max Missing Days', gMissing)}
-        <div></div>
+        ${numField('missing_grace_hours', 'Grace Period (Hours)', gGrace)}
       </div>`
     : `<div class="ov-fields" id="${cardId}-backlog-fields" style="${backlogFieldsStyle}">
         ${numField('max_backlog', 'Max Backlog', gBacklog)}
         ${backlogModeField}
+        ${numField('missing_grace_hours', 'Grace Period (Hours)', gGrace)}
+        <div></div>
       </div>`;
 
   const disabledTag = isDisabled
@@ -327,6 +333,7 @@ async function applyOverrides(kind, idx) {
 
   const numFields = ['cooldown_hours', 'max_cutoff_unmet', 'max_backlog'];
   if (kind === 'radarr') numFields.push('max_missing_days');
+  numFields.push('missing_grace_hours');
 
   numFields.forEach(field => {
     const input = el(cardId + '-' + field);

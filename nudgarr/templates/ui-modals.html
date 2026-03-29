@@ -68,6 +68,10 @@
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">🔀 Backlog Sample Mode Split</div>
            <div class="help">Cutoff Unmet and Backlog searches now have independent sample modes. Previously one mode applied to both. Configure separately in Advanced and per-instance in Overrides. Quality gap modes are not available for Backlog since missing items have no existing file to score against.</div>
          </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">⏳ Grace Period (Hours)</div>
+           <div class="help">New per-app setting that delays Nudgarr's first missing search until a configured number of hours after an item's availability date — giving indexers time to populate before the first search attempt. 0 disables it. Configure in Advanced → Backlog Nudges. Also available as a per-instance override.</div>
+         </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
          <button class="btn sm primary" onclick="dismissWhatsNew()">Continue</button>

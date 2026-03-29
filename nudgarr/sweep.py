@@ -104,6 +104,10 @@ def _sweep_instance(
     independently. Both are validated against their respective constants before
     being passed in — invalid values fall back to "random" in run_sweep.
 
+    missing_grace_hours delays the first missing search for an item until at
+    least that many hours have elapsed since its release/availability date.
+    Applies to both Radarr and Sonarr. 0 disables the filter.
+
     Returns a summary dict consumed by run_sweep and ultimately /api/status.
     """
     assert app in ("radarr", "sonarr"), f"Unknown app: {app}"
@@ -314,12 +318,21 @@ def _sweep_instance(
 
         # Grace period filter — skip items whose availability date is within
         # the configured grace window to allow indexers time to populate.
+        skipped_grace = 0
         if missing_grace_hours > 0:
             grace_cutoff = utcnow() - timedelta(hours=missing_grace_hours)
-            missing_records = [
-                rec for rec in missing_records
-                if _release_date(rec) is None or _release_date(rec) <= grace_cutoff
-            ]
+            grace_filtered: List[Dict[str, Any]] = []
+            for rec in missing_records:
+                rel = _release_date(rec)
+                if rel is not None and rel > grace_cutoff:
+                    skipped_grace += 1
+                    logger.debug(
+                        "[%s:%s] skipped_grace: %s — release %s within grace window of %dh",
+                        APP, name, rec.get("title", rec["id"]), rel, missing_grace_hours,
+                    )
+                else:
+                    grace_filtered.append(rec)
+            missing_records = grace_filtered
 
         chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
             missing_records, app, name, inst_url, missing_type,
@@ -332,16 +345,16 @@ def _sweep_instance(
         if app == "radarr":
             logger.info(
                 "[Radarr:%s] missing_total=%d eligible_missing=%d "
-                "skipped_missing_cooldown=%d will_search_missing=%d "
+                "skipped_missing_grace=%d skipped_missing_cooldown=%d will_search_missing=%d "
                 "limit_missing=%d older_than_days=%d",
-                name, missing_total, eligible_missing, skipped_missing,
+                name, missing_total, eligible_missing, skipped_grace, skipped_missing,
                 len(chosen_missing), missing_max, missing_added_days,
             )
         else:
             logger.info(
                 "[Sonarr:%s] missing_total=%d eligible_missing=%d "
-                "skipped_missing_cooldown=%d will_search_missing=%d limit_missing=%d",
-                name, missing_total, eligible_missing, skipped_missing,
+                "skipped_missing_grace=%d skipped_missing_cooldown=%d will_search_missing=%d limit_missing=%d",
+                name, missing_total, eligible_missing, skipped_grace, skipped_missing,
                 len(chosen_missing), missing_max,
             )
 
@@ -525,8 +538,9 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             if app == "radarr":
                 inst_missing_days = _resolve(inst, cfg, overrides_enabled, "max_missing_days",
                                              int(cfg.get("radarr_missing_added_days", 14)))
-            # Grace period — applies to both Radarr and Sonarr missing searches
-            inst_missing_grace = int(cfg.get(f"{app}_missing_grace_hours", 0))
+            # Grace period — applies to both Radarr and Sonarr, supports per-instance override
+            inst_missing_grace = _resolve(inst, cfg, overrides_enabled, "missing_grace_hours",
+                                          int(cfg.get(f"{app}_missing_grace_hours", 0)))
             # Backlog sample mode override — falls back to global backlog mode if not set
             inst_backlog_mode = _resolve(inst, cfg, overrides_enabled, "backlog_sample_mode", global_backlog_mode)
             if inst_backlog_mode not in VALID_BACKLOG_SAMPLE_MODES:

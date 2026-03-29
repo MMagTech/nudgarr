@@ -67,9 +67,9 @@ nudgarr/                    ← Python package
     ui-overrides.js         ← per-instance overrides tab and modal
     ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
     ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
-    ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions; panel layout matches desktop (Cooldown, Cutoff Unmet, Backlog with Backlog Sample Mode, Notifications); backlog fields grey when backlog is off
+    ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions; panel layout matches desktop (Cooldown, Cutoff Unmet, Backlog with Backlog Sample Mode + Grace Period, Notifications); backlog fields grey when backlog is off
     ui-mobile-landscape-filters.js ← landscape Filters rail/panel — lsFilters* functions
-    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state; backlog sample mode selects (lsSaveBacklogSampleMode), Maintenance Window band (lsToggleMaint, lsSaveMaintTime, lsToggleMaintDay, lsSyncMaintUi, lsBuildMaintHint), switchToMobileView()
+    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state; backlog sample mode selects (lsSaveBacklogSampleMode), Grace Period steppers (r-grace, s-grace), Maintenance Window band (lsToggleMaint, lsSaveMaintTime, lsToggleMaintDay, lsSyncMaintUi, lsBuildMaintHint), switchToMobileView()
     ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs; mToggleAuto and mToggleMaintWindow live here
     ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
     ui-mobile-portrait-settings.js ← portrait Settings tab
@@ -254,6 +254,22 @@ If your endpoint returns any part of the config (including individual instance f
 ### Changing sweep behaviour
 
 The sweep logic lives entirely in `sweep.py`. `_sweep_instance` is the shared per-instance worker — most sweep changes happen there. It accepts an `app` parameter (`"radarr"` or `"sonarr"`) and handles all per-app differences internally via conditional blocks. `run_sweep` is the orchestrator and handles pruning, exclusions, and summary building.
+
+**Backlog (missing) pipeline filters**
+
+The missing search pipeline applies filters in this order before handing items to `pick_items_with_cooldown`:
+
+1. Excluded titles filter — items matching `excluded_titles` are dropped
+2. Queue filter — items already actively downloading are skipped
+3. `minimumAvailability` filter — Radarr items not yet past their availability status are dropped
+4. Age filter — Radarr only; items added within `missing_added_days` days are dropped
+5. Grace period filter — items whose release date (see `_release_date()`) falls within the configured `missing_grace_hours` window are skipped with a debug log
+
+`_release_date(rec)` is a helper that returns the earliest known release date for a record, checking `releaseDate`, `physicalRelease`, `digitalRelease`, `inCinemas`, `airDateUtc`, `airDate` in that order. If no date is found it returns `None` (treated as past the grace window). If you add a new date field to the API response, add it to this helper's field list.
+
+**`pick_items_with_cooldown` and max_per_run**
+
+`pick_items_with_cooldown` in `stats.py` applies the cooldown filter, sorts by sample mode, and caps the result. `max_per_run=0` means all eligible items are returned — it does not disable the pipeline. The guard in `_sweep_instance` is `if backlog_enabled:` (not `if backlog_enabled and missing_max > 0:`) — backlog runs when max is 0 and relies on `pick_items_with_cooldown` to return the full eligible pool.
 
 ### Changing database schema
 

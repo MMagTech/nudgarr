@@ -35,7 +35,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 ## What it does
 
 - **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted Cutoff Unmet queue and triggers a search for a better quality version
-- **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering and per-app caps
+- **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering, grace period, and per-app caps
 - **Skip Queued** — items already downloading are silently skipped; queued items never consume a search slot
 - **Import tracking** — polls Radarr and Sonarr after each sweep to confirm which searches resulted in a successful download
 - **Multiple instances** — supports multiple Radarr and Sonarr instances independently, each with their own health status
@@ -90,7 +90,7 @@ Nudgarr works out of the box with sensible defaults. If you're running a more ad
 
 **Sample modes** — control how items are selected for each sweep. Random keeps indexers guessing; Alphabetical and Oldest/Newest Added let you work through your library systematically. Set globally or per-instance.
 
-**Backlog Nudges** — separate from cutoff unmet sweeps, backlog nudges target items that have never been grabbed. The Missing Added Days filter excludes newly added items so you're only nudging things that have been sitting for a while. Configured independently for Radarr and Sonarr.
+**Backlog Nudges** — separate from cutoff unmet sweeps, backlog nudges target items that have never been grabbed. The Missing Added Days filter excludes newly added items so you're only nudging things that have been sitting for a while. The Grace Period filter delays the first search until indexers have had time to populate after a release. Configured independently for Radarr and Sonarr.
 
 **Exclusions** — click the ⊘ icon on any History row to permanently exclude a title from future searches. Exclusions are global across all instances. Manage the full list in the Sweep tab.
 
@@ -112,7 +112,9 @@ The default global settings work great for typical setups with one Radarr and on
 | Max Cutoff Unmet | How many cutoff unmet items are searched per run |
 | Max Backlog | How many missing items are searched per run |
 | Max Missing Days | Age filter for backlog searches (Radarr only) |
-| Sample Mode | How items are picked for this instance |
+| Grace Period (Hours) | Hours to wait after availability date before first missing search |
+| Sample Mode | How cutoff unmet items are picked for this instance |
+| Backlog Sample Mode | How missing items are picked for this instance |
 | Backlog Enabled | Whether backlog searches run for this instance |
 | Notifications Enabled | Whether notifications fire for this instance |
 
@@ -184,7 +186,7 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.2.0** — Intel tab, sticky header, exclusion event tracking, and protected aggregate. No config changes required. Pull the new image and restart. Migration v10 runs automatically on first start — adds `exclusion_events` and `intel_aggregate` tables. Existing data is fully preserved. Intel data begins accumulating immediately from the first sweep after upgrade.
+**v4.2.0** — Intel tab, sticky header, exclusion event tracking, protected aggregate, backlog sample mode split, maintenance window, grace period, and missing max 0 = all eligible. No config changes required. Pull the new image and restart. Migration v10 runs automatically on first start — adds `exclusion_events` and `intel_aggregate` tables. Existing data is fully preserved. Intel data begins accumulating immediately from the first sweep after upgrade. Two new config keys (`radarr_missing_grace_hours`, `sonarr_missing_grace_hours`) default to 0 — no action needed.
 
 **v4.1.0** — Auto-exclusion, mobile auto-exclusion, import stats period toggle, logging improvements, and a full code quality refactor. No config changes required. Pull the new image and restart. Migration v9 runs automatically on first start — adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing exclusions are preserved and default to `source=manual`. From this version onwards, static assets include version query strings — browsers automatically receive fresh JS and CSS after a container upgrade without requiring a hard refresh.
 

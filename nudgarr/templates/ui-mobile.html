@@ -366,7 +366,7 @@
               <div class="ls-row">
                 <div class="ls-row-left">
                   <div class="ls-row-label">Max Missing</div>
-                  <div class="ls-row-sub">Missing searches per run</div>
+                  <div class="ls-row-sub">Missing searches per run · 0 = all eligible</div>
                 </div>
                 <div class="ls-stepper">
                   <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-missing',-1)" onmouseup="lsHoldEnd('r-missing',-1)" onmouseleave="lsHoldEnd('r-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-missing',-1)" ontouchend="lsHoldEnd('r-missing',-1)" ontouchcancel="lsHoldEnd('r-missing',-1)">−</button>
@@ -394,6 +394,18 @@
                   <option value="newest_added">Newest Added</option>
                 </select>
               </div>
+              <!-- Grace Period (Hours) — v4.2.0 -->
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Grace Period (Hours)</div>
+                  <div class="ls-row-sub">Wait after availability date · 0 = disabled</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-grace',-1)" onmouseup="lsHoldEnd('r-grace',-1)" onmouseleave="lsHoldEnd('r-grace',-1)" ontouchstart="event.preventDefault();lsHoldStart('r-grace',-1)" ontouchend="lsHoldEnd('r-grace',-1)" ontouchcancel="lsHoldEnd('r-grace',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-r-grace">0</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('r-grace',1)" onmouseup="lsHoldEnd('r-grace',1)" onmouseleave="lsHoldEnd('r-grace',1)" ontouchstart="event.preventDefault();lsHoldStart('r-grace',1)" ontouchend="lsHoldEnd('r-grace',1)" ontouchcancel="lsHoldEnd('r-grace',1)">+</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -412,7 +424,7 @@
               <div class="ls-row">
                 <div class="ls-row-left">
                   <div class="ls-row-label">Max Missing</div>
-                  <div class="ls-row-sub">Missing searches per run</div>
+                  <div class="ls-row-sub">Missing searches per run · 0 = all eligible</div>
                 </div>
                 <div class="ls-stepper">
                   <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-missing',-1)" onmouseup="lsHoldEnd('s-missing',-1)" onmouseleave="lsHoldEnd('s-missing',-1)" ontouchstart="event.preventDefault();lsHoldStart('s-missing',-1)" ontouchend="lsHoldEnd('s-missing',-1)" ontouchcancel="lsHoldEnd('s-missing',-1)">−</button>
@@ -428,6 +440,18 @@
                   <option value="oldest_added">Oldest Added</option>
                   <option value="newest_added">Newest Added</option>
                 </select>
+              </div>
+              <!-- Grace Period (Hours) — v4.2.0 -->
+              <div class="ls-row">
+                <div class="ls-row-left">
+                  <div class="ls-row-label">Grace Period (Hours)</div>
+                  <div class="ls-row-sub">Wait after availability date · 0 = disabled</div>
+                </div>
+                <div class="ls-stepper">
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-grace',-1)" onmouseup="lsHoldEnd('s-grace',-1)" onmouseleave="lsHoldEnd('s-grace',-1)" ontouchstart="event.preventDefault();lsHoldStart('s-grace',-1)" ontouchend="lsHoldEnd('s-grace',-1)" ontouchcancel="lsHoldEnd('s-grace',-1)">−</button>
+                  <div class="ls-stepper-val" id="ls-v-s-grace">0</div>
+                  <button class="ls-stepper-btn" onmousedown="lsHoldStart('s-grace',1)" onmouseup="lsHoldEnd('s-grace',1)" onmouseleave="lsHoldEnd('s-grace',1)" ontouchstart="event.preventDefault();lsHoldStart('s-grace',1)" ontouchend="lsHoldEnd('s-grace',1)" ontouchcancel="lsHoldEnd('s-grace',1)">+</button>
+                </div>
               </div>
             </div>
           </div>

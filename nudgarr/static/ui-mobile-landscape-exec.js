@@ -11,10 +11,12 @@
 const LS_VALS = {
   batch: 1, sleep: 5, jitter: 2,
   'r-missing': 1, 'r-days': 14, 's-missing': 1,
+  'r-grace': 0, 's-grace': 0,
 };
 const LS_MINS = {
   batch: 1, sleep: 0, jitter: 0,
-  'r-missing': 1, 'r-days': 0, 's-missing': 1,
+  'r-missing': 0, 'r-days': 0, 's-missing': 0,
+  'r-grace': 0, 's-grace': 0,
 };
 const LS_CFG_KEYS = {
   batch:       'batch_size',
@@ -23,6 +25,9 @@ const LS_CFG_KEYS = {
   'r-missing': 'radarr_missing_max',
   'r-days':    'radarr_missing_added_days',
   's-missing': 'sonarr_missing_max',
+  // Grace Period (Hours) — v4.2.0
+  'r-grace':   'radarr_missing_grace_hours',
+  's-grace':   'sonarr_missing_grace_hours',
 };
 let LS_SAVE_TIMER = null;
 let LS_HIDE_TIMER = null;
@@ -36,6 +41,9 @@ function lsPopulate() {
   LS_VALS['r-missing'] = CFG.radarr_missing_max          ?? 1;
   LS_VALS['r-days']   = CFG.radarr_missing_added_days   ?? 14;
   LS_VALS['s-missing'] = CFG.sonarr_missing_max          ?? 1;
+  // Grace Period (Hours) — v4.2.0
+  LS_VALS['r-grace']  = CFG.radarr_missing_grace_hours  ?? 0;
+  LS_VALS['s-grace']  = CFG.sonarr_missing_grace_hours  ?? 0;
 
   Object.keys(LS_VALS).forEach(k => {
     const el = document.getElementById('ls-v-' + k);
@@ -238,6 +246,7 @@ function lsValidateCron() {
 const LS_HOLD_INCREMENTS = {
   batch: 1, sleep: 1, jitter: 1,
   'r-missing': 1, 'r-days': 7, 's-missing': 1,
+  'r-grace': 6, 's-grace': 6,
 };
 let _lsHoldTimer = null;
 let _lsHoldInterval = null;

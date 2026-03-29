@@ -596,6 +596,29 @@ if 'resetIntelData' in content:
 else:
     fail("Reset Intel button missing from HTML (Danger Zone)")
 
+# ── Grace Period structural checks ────────────────────────────────────────────
+section("Grace Period")
+if 'radarr_missing_grace_hours' in content:
+    ok("radarr_missing_grace_hours field present in HTML")
+else:
+    fail("radarr_missing_grace_hours field missing from HTML")
+if 'sonarr_missing_grace_hours' in content:
+    ok("sonarr_missing_grace_hours field present in HTML")
+else:
+    fail("sonarr_missing_grace_hours field missing from HTML")
+if 'radarr_missing_grace_hours' in js_content:
+    ok("radarr_missing_grace_hours referenced in JS")
+else:
+    fail("radarr_missing_grace_hours missing from JS")
+if 'sonarr_missing_grace_hours' in js_content:
+    ok("sonarr_missing_grace_hours referenced in JS")
+else:
+    fail("sonarr_missing_grace_hours missing from JS")
+if '_release_date' in open('nudgarr/sweep.py').read():
+    ok("_release_date() helper present in sweep.py")
+else:
+    fail("_release_date() helper missing from sweep.py")
+
 # ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \

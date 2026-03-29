@@ -6,7 +6,33 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.2.0
 
-**Intel Tab, Backlog Sample Mode Split, Maintenance Window, and Sticky Header.**
+**Intel Tab, Backlog Sample Mode Split, Maintenance Window, Grace Period, and Sticky Header.**
+
+**Grace Period (Hours)**
+
+- New per-app Grace Period (Hours) setting delays Nudgarr's first missing search for an item until at least the configured number of hours have elapsed since its release or availability date. Useful when indexers need time to populate after a release. 0 disables the filter — existing behaviour is preserved by default.
+- Applies to both Radarr and Sonarr missing (backlog) pipelines independently. Does not affect Cutoff Unmet searches.
+- New config keys: `radarr_missing_grace_hours` and `sonarr_missing_grace_hours`. Both default to 0.
+- Advanced tab page 1 — Radarr backlog section gains a Grace Period (Hours) field in the second column of the Backlog Sample Mode row. Sonarr backlog section gains a Grace Period (Hours) field in a new row below Backlog Sample Mode.
+- Overrides tab — Grace Period (Hours) added to both Radarr and Sonarr backlog field groups. Radarr: fills the previously empty cell next to Max Missing Days. Sonarr: new row with Grace Period on the left.
+- Per-instance overrides supported — uses the same `_resolve()` path as all other override fields.
+- Landscape Backlog tab — Grace Period (Hours) stepper added at the bottom of both Radarr and Sonarr backlog fields columns.
+- Landscape Overrides panel — Grace Period (Hours) stepper added to the backlog fields grid for both apps.
+- Backend: `_release_date()` helper in `sweep.py` checks `releaseDate`, `physicalRelease`, `digitalRelease`, `inCinemas`, `airDateUtc`, `airDate` in preference order. Items within the grace window are skipped with a per-item debug log entry. `skipped_missing_grace` counter added to the Radarr and Sonarr info log lines.
+
+**Missing Max — 0 = All Eligible**
+
+- Setting Missing Max (Per Instance) to 0 now means all eligible items are searched each run — previously 0 was treated as disabled and returned an empty pool. Help text updated to append `(0 = All Eligible)` for both Radarr and Sonarr on the Advanced tab and landscape Backlog tab.
+- The backlog pipeline guard in `sweep.py` changed from `if backlog_enabled and missing_max > 0` to `if backlog_enabled` — backlog now runs when max is 0 and passes all eligible items.
+
+**Newest Added Warning Removed**
+
+- The conditional amber warning block on Advanced page 1 ("Newest Added is active and Radarr backlog nudges are enabled") has been removed along with its corresponding block in the Settings tab. The information it conveyed is covered by the Backlog Sample Mode tooltip.
+- `checkNewestAddedWarning()`, `_newestAddedWarningActive()`, and `fadeNewestAddedWarnings()` removed from `ui-settings.js` along with all call sites across `ui-advanced.js`, `ui-tab-advanced.html`, and `ui-tab-settings.html`.
+
+**Use With Caution Block Removed**
+
+- The amber "USE WITH CAUTION" block on Advanced page 1 has been removed. Its content has been folded into the Missing Added Days tooltip where it belongs.
 
 **Intel Tab**
 

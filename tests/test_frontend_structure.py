@@ -78,7 +78,7 @@ LINE_COUNT_CEILINGS = {
     'ui-mobile-core.js':               300,
     'ui-mobile-landscape.js':          460,
     'ui-mobile-landscape-filters.js':  340,
-    'ui-mobile-landscape-exec.js':     360,
+    'ui-mobile-landscape-exec.js':     370,
     'ui-mobile-portrait-home.js':      320,
     'ui-mobile-portrait-history.js':   310,
     'ui-mobile-portrait-settings.js':  300,
@@ -549,7 +549,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 326
+        EXPECTED_CHECK_COUNT = 331
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

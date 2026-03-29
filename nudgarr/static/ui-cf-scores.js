@@ -7,6 +7,7 @@
 // fillCfScores() is the main entry point called by _onTabShown('cf-scores').
 
 let CF_FILTER = 'all';
+let CF_FILTER_INSTANCE_ID = '';
 let CF_PAGE = 0;
 const CF_PAGE_SIZE = 25;
 let CF_TOTAL = 0;
@@ -15,16 +16,60 @@ let CF_TOTAL = 0;
 // ── fillCfScores ───────────────────────────────────────────────────────────────
 async function fillCfScores() {
   try {
+    const entriesUrl = CF_FILTER_INSTANCE_ID
+      ? '/api/cf-scores/entries?instance_id=' + encodeURIComponent(CF_FILTER_INSTANCE_ID)
+      : '/api/cf-scores/entries';
     const [status, entries] = await Promise.all([
       api('/api/cf-scores/status'),
-      api('/api/cf-scores/entries' + (CF_FILTER !== 'all' ? '?app=' + CF_FILTER : '')),
+      api(entriesUrl),
     ]);
     cfRenderStats(status);
     cfRenderCoverage(status);
+    cfRenderFilterButtons(status);
     cfRenderTable(entries);
     cfSyncConfigFields();
   } catch(e) {
     console.error('[CF Score] fillCfScores failed:', e.message);
+  }
+}
+
+
+// ── cfRenderFilterButtons ──────────────────────────────────────────────────────
+// Dynamically generate filter buttons from the actual instance list.
+function cfRenderFilterButtons(status) {
+  const wrap = el('cfFilterBtns');
+  if (!wrap) return;
+  const instances = status?.instances || [];
+  const btns = [{ label: 'All', instanceId: '' }]
+    .concat(instances.map(i => ({
+      label: i.instance_name || i.arr_instance_id,
+      instanceId: i.arr_instance_id,
+    })));
+  wrap.innerHTML = btns.map(b => {
+    const isActive = b.instanceId === CF_FILTER_INSTANCE_ID;
+    return `<button class="btn sm${isActive ? ' primary' : ''}"
+      onclick="cfFilterEntries(${JSON.stringify(b.instanceId)})">${_escHtml(b.label)}</button>`;
+  }).join('');
+}
+
+
+// ── cfFilterEntries ────────────────────────────────────────────────────────────
+async function cfFilterEntries(instanceId) {
+  CF_FILTER_INSTANCE_ID = instanceId || '';
+  CF_FILTER = instanceId ? 'instance' : 'all';
+  CF_PAGE = 0;
+  try {
+    const url = CF_FILTER_INSTANCE_ID
+      ? '/api/cf-scores/entries?instance_id=' + encodeURIComponent(CF_FILTER_INSTANCE_ID)
+      : '/api/cf-scores/entries';
+    const [status, data] = await Promise.all([
+      api('/api/cf-scores/status'),
+      api(url),
+    ]);
+    cfRenderFilterButtons(status);
+    cfRenderTable(data);
+  } catch(e) {
+    console.error('[CF Score] cfFilterEntries failed:', e.message);
   }
 }
 
@@ -102,6 +147,10 @@ function cfRenderCoverage(status) {
         : (prog.total > 0 ? 100 : 0);
       pctLabel = prog.in_progress ? pct + '%' : (prog.total > 0 ? '100%' : '—');
       if (prog.total > 0) pctStyle = '';
+    } else if (total > 0) {
+      // No active sync progress but instance has indexed items — show 100%
+      pctLabel = '100%';
+      pctStyle = '';
     }
 
     const isLast = idx === instances.length - 1;
@@ -109,7 +158,6 @@ function cfRenderCoverage(status) {
       <div>
         <div style="font-size:12.5px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           ${_escHtml(inst.instance_name || inst.arr_instance_id)}
-          <span class="cf-badge ${app}">${appLabel}</span>
           <span style="font-size:12px;font-weight:700;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent-lt);border-radius:6px;padding:1px 7px;${pctStyle}">${pctLabel}</span>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">${total.toLocaleString()} indexed · ${below.toLocaleString()} below cutoff</div>
@@ -275,20 +323,6 @@ async function saveCfScores() {
   } catch(e) {
     el('cfMsg').textContent = 'Save failed: ' + e.message;
     el('cfMsg').className = 'msg err';
-  }
-}
-
-
-// ── cfFilterEntries ────────────────────────────────────────────────────────────
-async function cfFilterEntries(app) {
-  CF_FILTER = app;
-  CF_PAGE = 0;
-  try {
-    const url = '/api/cf-scores/entries' + (app !== 'all' ? '?app=' + app : '');
-    const data = await api(url);
-    cfRenderTable(data);
-  } catch(e) {
-    console.error('[CF Score] cfFilterEntries failed:', e.message);
   }
 }
 

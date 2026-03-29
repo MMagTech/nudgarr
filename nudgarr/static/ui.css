@@ -297,7 +297,9 @@
     /* ── Cards & Grid ── */
     .grid { display: grid; gap: 12px; }
     .cols2 { grid-template-columns: 1fr 1fr; }
+    .cols3 { grid-template-columns: 1fr 1fr 1fr; }
     @media(max-width: 720px) { .cols2 { grid-template-columns: 1fr; } }
+    @media(max-width: 720px) { .cols3 { grid-template-columns: 1fr; } }
     .card {
       border: 1px solid var(--border); background: var(--card);
       border-radius: 16px; padding: 18px;

@@ -553,7 +553,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 359  # updated for Phase 2 CF Score UI (v4.2.0)
+        EXPECTED_CHECK_COUNT = 358  # updated for dynamic CF filter buttons (v4.2.0)
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

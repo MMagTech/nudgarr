@@ -108,24 +108,26 @@ def api_cf_scores_entries():
     try:
         cfg = load_or_init_config()
         app_filter = request.args.get("app", "").lower().strip()
+        instance_id_filter = request.args.get("instance_id", "").strip()
         try:
             limit = min(int(request.args.get("limit", 200)), 200)
             offset = max(int(request.args.get("offset", 0)), 0)
         except (ValueError, TypeError):
             limit, offset = 200, 0
 
-        # Resolve item_type from app filter for the DB query
-        item_type = None
-        if app_filter == "radarr":
-            item_type = "movie"
-        elif app_filter == "sonarr":
-            item_type = "episode"
-
-        # Optionally filter to a specific instance when app filter is set.
-        # For now return all instances of that app type -- per-instance
-        # filtering can be added if requested by users.
+        # instance_id filter takes priority over app filter
+        if instance_id_filter:
+            arr_instance_id = instance_id_filter
+            item_type = None
+        else:
+            arr_instance_id = None
+            item_type = None
+            if app_filter == "radarr":
+                item_type = "movie"
+            elif app_filter == "sonarr":
+                item_type = "episode"
         entries = db.get_cf_score_entries(
-            arr_instance_id=None,
+            arr_instance_id=arr_instance_id,
             item_type=item_type,
             limit=limit,
             offset=offset,

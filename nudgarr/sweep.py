@@ -381,13 +381,17 @@ def _sweep_instance(
     # Third and final pass in the sweep pipeline.  Runs after Cutoff Unmet
     # and Backlog so those pipelines always have priority on indexer slots.
     #
-    # Filter chain mirrors the other pipelines:
+    # CF Score Scan is independent of the quality tier pipeline -- it finds
+    # any monitored item with a file where the current CF score is below the
+    # profile's cutoff CF score, regardless of qualityCutoffNotMet status.
+    # This means it can overlap with Cutoff Unmet on the same item but cooldown
+    # naturally prevents double-searching within the same cooldown window.
+    #
+    # Filter chain:
     #   1. Exclusions  -- titles in the exclusions table are never searched
     #   2. Queue skip  -- items already in the download queue are skipped
     #   3. Cooldown    -- items searched too recently are skipped (same
     #                     cooldown_hours as Cutoff Unmet and Backlog)
-    #   Availability (Radarr) is enforced at sync time in cf_radarr_get_all_movies
-    #   so unavailable movies never enter cf_score_entries.
     #   Tag and profile filters are enforced at sync time in the syncer.
     #
     # Ordering is worst-gap-first and is preserved through the filter chain

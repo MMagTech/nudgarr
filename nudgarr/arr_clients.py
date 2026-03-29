@@ -444,15 +444,14 @@ def cf_radarr_get_all_movies(
     url: str,
     key: str,
 ) -> List[Dict[str, Any]]:
-    """Fetch all Radarr movies and return those eligible for CF score syncing.
+    """Fetch all Radarr movies eligible for CF score syncing.
 
-    Filters to monitored movies that have a file and where qualityCutoffNotMet
-    is False -- meaning the quality tier is already satisfied and the movie is
-    therefore invisible to the standard Cutoff Unmet pipeline.  These are the
-    only movies where CF score scanning adds value.
-
-    Returns a list of minimal dicts containing just the fields the syncer needs:
-      id, title, movieFileId, qualityProfileId, monitored, qualityCutoffNotMet
+    Filters to monitored movies that have a file. The CF score comparison
+    (customFormatScore < cutoffFormatScore) is the sole qualification criteria
+    applied by the syncer after fetching file scores -- this function does not
+    filter on qualityCutoffNotMet since CF Score Scan is independent of the
+    quality tier pipeline and should find any monitored file whose CF score
+    is below the profile cutoff regardless of quality tier status.
 
     Returns empty list on any API error.
 
@@ -476,11 +475,9 @@ def cf_radarr_get_all_movies(
                 continue
             if not rec.get("hasFile", False):
                 continue
-            if rec.get("qualityCutoffNotMet", True):
-                # Quality tier is not met -- owned by Cutoff Unmet pipeline
-                continue
             if not rec.get("isAvailable", True):
-                # Not yet available -- consistent with Cutoff Unmet availability filter
+                # Not yet available -- no point searching for a better CF score
+                # on a movie that hasn't met its minimum availability threshold
                 continue
             movie_file = rec.get("movieFile") or {}
             file_id = movie_file.get("id", 0)
@@ -681,9 +678,6 @@ def cf_sonarr_get_episodes_for_series(
             if not rec.get("monitored", False):
                 continue
             if not rec.get("hasFile", False):
-                continue
-            if rec.get("qualityCutoffNotMet", True):
-                # Quality tier not met -- owned by Cutoff Unmet pipeline
                 continue
             result.append({
                 "id": rec["id"],

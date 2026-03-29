@@ -332,9 +332,9 @@ def get_cf_scores_for_sweep(
     configured per-run limit, consistent with how the Cutoff Unmet and Backlog
     pipelines handle their respective filter chains.
 
-    Called by the sweep pipeline for each instance after the Cutoff Unmet and
-    Backlog passes have already run.  Pool entry conditions are mutually
-    exclusive so there is no overlap with the other pipelines.
+    CF Score Scan is independent of the quality tier pipeline -- items appear
+    here based solely on their CF score vs the profile cutoff score, regardless
+    of qualityCutoffNotMet status.
 
     Args:
         arr_instance_id:  Composite instance key, e.g. 'radarr|http://host:7878'

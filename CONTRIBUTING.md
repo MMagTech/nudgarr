@@ -35,10 +35,22 @@ nudgarr/                    ← Python package
   notifications.py          ← Apprise wrappers (sweep complete, import, error)
   log_setup.py              ← logging initialisation and runtime level control
   arr_clients.py            ← Radarr and Sonarr API calls; pagination handled internally, callers receive a flat list
+                              CF Score API functions (cf_get_quality_profiles, cf_radarr_*, cf_sonarr_*) appended
+                              at the bottom under the CF Score Scan section heading.
+                              cf_radarr_get_all_movies applies isAvailable filter (unavailable movies never enter
+                              the index) and returns tag_ids. cf_sonarr_get_all_series also returns tag_ids.
+                              Both tag_ids fields are used by the syncer to apply sweep filters at write time.
+  cf_score_syncer.py        ← CustomFormatScoreSyncer class; full library sync logic for Radarr and Sonarr;
+                              applies tag/profile sweep filters at write time (syncer-as-gatekeeper);
+                              writes live sync progress to nudgarr_state per instance for ring chart animation;
+                              _make_instance_id() helper used by both syncer and sweep to ensure consistent keys
   stats.py                  ← import tracking, cooldown logic, stat recording
   globals.py                ← Flask app instance, STATUS dict, RUN_LOCK, security headers, persistent secret key
-  sweep.py                  ← run_sweep orchestrator + per-instance helpers
-  scheduler.py              ← scheduler loop, import check loop, banner, WSGI server starter (Waitress)
+  sweep.py                  ← run_sweep orchestrator + per-instance helpers; CF Score third pipeline pass at
+                              the end of _sweep_instance, after Cutoff Unmet and Backlog passes; CF Score pass
+                              applies the full filter chain (exclusions, queue skip, cooldown) via
+                              pick_items_with_cooldown before capping at cf_max
+  scheduler.py              ← scheduler loop, import check loop, cf_score_sync_loop, banner, WSGI server starter
   routes/                   ← Flask blueprints (one file per domain)
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup;
@@ -52,6 +64,8 @@ nudgarr/                    ← Python package
     state.py                ← /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*, /api/arr-link
     stats.py                ← /api/stats, /api/stats/clear, check-imports
     intel.py                ← /api/intel (full Intel payload), /api/intel/reset (Danger Zone)
+    cf_scores.py            ← /api/cf-scores/status, /api/cf-scores/entries,
+                              /api/cf-scores/scan (manual sync), /api/cf-scores/reset (Reset CF Index)
     notifications.py        ← /api/notifications/test
     diagnostics.py          ← /api/diagnostic, /api/log/clear
   static/                   ← JS and CSS served as static assets
@@ -61,9 +75,12 @@ nudgarr/                    ← Python package
     ui-history.js           ← history tab, exclusions, shared sort/pagination helpers
     ui-imports.js           ← imports/stats tab
     ui-intel.js             ← Intel tab — fillIntel, renderIntel, resetIntel and all render helpers
+    ui-cf-scores.js         ← CF Score tab — fillCfScores, cfRenderStats, cfRenderCoverage, cfRenderTable,
+                              saveCfScores, cfFilterEntries, cfScanLibrary, cfResetIndex
     ui-settings.js          ← settings tab, tab switching, onboarding, What's New modal
     ui-notifications.js     ← notifications tab
-    ui-advanced.js          ← advanced tab, danger zone, diagnostics
+    ui-advanced.js          ← advanced tab, danger zone, diagnostics; toggleCfScoreFeature and
+                              syncCfScoreToggleLabel added for CF Score Scan feature gate
     ui-overrides.js         ← per-instance overrides tab and modal
     ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
     ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
@@ -112,7 +129,7 @@ The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FIL
 
 `intel_aggregate` is a protected accumulator — it must never be cleared by any normal operation (Clear History, Clear Stats, pruning). It is only reset by the explicit Reset Intel action in the Danger Zone. The aggregate is updated at three write points:
 
-- `confirm_stat_entry()` in `db/entries.py` — snapshots turnaround, searches per import, cutoff vs backlog split, quality upgrades, iteration counts, per-instance imports and turnaround, and library age bucket imported counts at the moment each import is confirmed.
+- `confirm_stat_entry()` in `db/entries.py` — snapshots turnaround, searches per import, pipeline import split (Cutoff Unmet via `entry_type="Upgraded"`, CF Score via `entry_type="CF Score"`, Backlog via all other types), quality upgrades, iteration counts, per-instance imports and turnaround, and library age bucket imported counts at the moment each import is confirmed.
 - `batch_upsert_search_history()` in `db/history.py` — increments `success_total_worked` and library age bucket totals on first insert of each new item (when `search_count == 1` after the upsert).
 - `reset_intel()` in `db/intel.py` — the only operation that clears both `intel_aggregate` and `exclusion_events`.
 

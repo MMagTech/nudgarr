@@ -123,6 +123,10 @@ async function loadAll() {
   const ovTab = el('tab-btn-overrides');
   if (ovTab && CFG.per_instance_overrides_enabled) ovTab.classList.add('ov-tab-visible');
   else if (ovTab) ovTab.classList.remove('ov-tab-visible');
+  // Restore CF Score tab visibility -- shown only when cf_score_enabled is True
+  const cfTab = el('tab-btn-cf-scores');
+  if (cfTab && CFG.cf_score_enabled) cfTab.classList.add('cf-tab-visible');
+  else if (cfTab) cfTab.classList.remove('cf-tab-visible');
   // Sync mobile overrides state (portrait sub-labels + landscape nav)
   if (typeof mOvUpdateSubLabels === 'function') mOvUpdateSubLabels();
   if (typeof mInitRunBtn === 'function') mInitRunBtn();

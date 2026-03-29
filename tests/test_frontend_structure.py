@@ -46,6 +46,8 @@ JS_LOAD_ORDER = [
     'ui-sweep.js',
     'ui-history.js',
     'ui-imports.js',
+    'ui-intel.js',
+    'ui-cf-scores.js',
     'ui-settings.js',
     'ui-notifications.js',
     'ui-advanced.js',
@@ -71,9 +73,11 @@ LINE_COUNT_CEILINGS = {
     'ui-sweep.js':                     200,
     'ui-history.js':                   380,
     'ui-imports.js':                   250,
+    'ui-intel.js':                     550,
+    'ui-cf-scores.js':                 400,  # CF Score tab (v4.2.0)
     'ui-settings.js':                  660,  # raised v4.2.0: +syncMaintUi/validateMaintTime/toggleMaintDay + load/save
     'ui-notifications.js':             120,
-    'ui-advanced.js':                  280,
+    'ui-advanced.js':                  300,  # raised v4.2.0: +CF Score toggle functions
     'ui-filters.js':                   450,
     'ui-mobile-core.js':               300,
     'ui-mobile-landscape.js':          460,
@@ -453,7 +457,7 @@ class TestSplitIntegrity:
             'testNotification', 'saveNotifications',
         },
         'ui-advanced.js': {
-            'fillAdvanced', 'advSetPage', 'syncAutoExclUi', 'syncAuthUi',
+            'fillAdvanced', 'syncAutoExclUi', 'syncAuthUi',
             'markUnsaved', 'syncBacklogUi', 'saveAdvanced',
             'onAutoExclDisabledKeep', 'onAutoExclDisabledClear',
             'logout', 'resetConfig', 'clearLog', 'resetAutoExclusions',
@@ -549,7 +553,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 331
+        EXPECTED_CHECK_COUNT = 359  # updated for Phase 2 CF Score UI (v4.2.0)
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

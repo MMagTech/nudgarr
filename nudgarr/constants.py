@@ -99,6 +99,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "auto_unexclude_movies_days": 0,      # days before a movie auto-exclusion expires
     "auto_unexclude_shows_days": 0,       # days before a show auto-exclusion expires
 
+    # CF Score Scan (v4.2.0)
+    # Library-wide audit that finds movies/episodes where customFormatScore is
+    # below the quality profile's cutoffFormatScore even when Radarr/Sonarr does
+    # not flag them via wanted/cutoff. The syncer builds a persistent index on its
+    # own schedule; the sweep OR-conditions against it. Feature is fully dormant
+    # until cf_score_enabled is set to True — no background work runs otherwise.
+    "cf_score_enabled": False,        # master toggle — disables all CF score activity when False
+    "cf_score_sync_hours": 24,        # hours between automatic index re-syncs
+    "radarr_cf_max_per_run": 1,       # max CF-score-only Radarr items searched per sweep
+    "sonarr_cf_max_per_run": 1,       # max CF-score-only Sonarr items searched per sweep
+
     # Maintenance Window (v4.2.0)
     # Suppresses scheduled (cron-triggered) sweeps during a defined time window.
     # Manual runs via Run Now are never affected — suppression applies only to the

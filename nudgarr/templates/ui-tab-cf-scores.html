@@ -1,0 +1,107 @@
+<!-- ══════════════════════════════ CF SCORE ══════════════════════════════ -->
+  <div class="section" id="tab-cf-scores">
+
+    <!-- ── Stat cards ── -->
+    <div class="grid cols3" style="margin-bottom:12px;">
+      <div class="card" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);">Items Indexed</div>
+        <div id="cfStatIndexed" style="font-size:28px;font-weight:800;line-height:1;color:var(--accent-lt);">—</div>
+        <div id="cfStatIndexedSub" class="help" style="margin:0;"></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);">Below CF Cutoff</div>
+        <div id="cfStatBelow" style="font-size:28px;font-weight:800;line-height:1;color:var(--bad);">—</div>
+        <div class="help" style="margin:0;">Score below cutoff, eligible for sweep</div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);">Passing</div>
+        <div id="cfStatPassing" style="font-size:28px;font-weight:800;line-height:1;color:var(--ok);">—</div>
+        <div id="cfStatPassingPct" class="help" style="margin:0;"></div>
+      </div>
+    </div>
+
+    <!-- ── Config + Coverage ── -->
+    <div class="grid cols2">
+
+      <!-- Left: Configuration -->
+      <div class="card">
+        <div class="card-title">CF Score Scan</div>
+        <div class="card-sub">Sync schedule and per-run limits</div>
+
+        <!-- Profile compliance callout -->
+        <div style="background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:8px;padding:9px 14px;font-size:12px;color:var(--accent-lt);display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <span style="width:5px;height:5px;border-radius:50%;background:var(--accent-lt);flex-shrink:0;display:inline-block;"></span>
+          <span>Minimum score increment and cutoff are read directly from each quality profile. No manual configuration required.</span>
+        </div>
+
+        <div class="section-lbl">Sync Schedule</div>
+        <div class="field">
+          <label>Sync Interval (Hours)</label>
+          <input id="cfSyncHours" type="number" min="1" oninput="markUnsaved('cfMsg')"/>
+          <div class="help">How often the library index is rebuilt (minimum 1)</div>
+        </div>
+
+        <div class="section-lbl">Per-Run Limits</div>
+        <div class="field">
+          <label>Radarr Max Searches (Per Run)</label>
+          <input id="cfRadarrMax" type="number" min="1" oninput="markUnsaved('cfMsg')"/>
+          <div class="help">Max CF score items searched per Radarr instance per sweep</div>
+        </div>
+        <div class="field">
+          <label>Sonarr Max Searches (Per Run)</label>
+          <input id="cfSonarrMax" type="number" min="1" oninput="markUnsaved('cfMsg')"/>
+          <div class="help">Max CF score items searched per Sonarr instance per sweep</div>
+        </div>
+
+        <!-- Save bar -->
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <button class="btn primary" onclick="saveCfScores()">Save Changes</button>
+          <span class="msg" id="cfMsg"></span>
+        </div>
+
+        <!-- Last synced + Scan Library -->
+        <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;">
+          <div id="cfLastSynced" style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+            <span id="cfLastSyncedDot" style="width:5px;height:5px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0;"></span>
+            <span id="cfLastSyncedText">Never synced</span>
+          </div>
+          <button class="btn run-now" id="cfScanBtn" onclick="cfScanLibrary()">Scan Library</button>
+        </div>
+
+        <!-- Reset CF Index -->
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div class="help" style="margin:0;">Clear the CF score index and reset sync state</div>
+          <button class="btn sm danger" onclick="cfResetIndex()">Reset CF Index</button>
+        </div>
+      </div>
+
+      <!-- Right: Sync Coverage -->
+      <div class="card">
+        <div class="card-title">Sync Coverage</div>
+        <div class="card-sub">Index build status per instance</div>
+        <div id="cfCoverageList">
+          <p class="help">Loading…</p>
+        </div>
+      </div>
+
+    </div><!-- end cols2 -->
+
+    <!-- ── Items table ── -->
+    <div class="card" style="margin-top:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div class="card-title" style="margin-bottom:2px;">Items Below CF Cutoff</div>
+          <div class="help">Sorted worst gap first. Sweep targets these each run up to per-app limits.</div>
+        </div>
+        <div style="display:flex;gap:6px;" id="cfFilterBtns">
+          <button class="btn sm primary" onclick="cfFilterEntries('all')">All</button>
+          <button class="btn sm" onclick="cfFilterEntries('radarr')">Radarr</button>
+          <button class="btn sm" onclick="cfFilterEntries('sonarr')">Sonarr</button>
+        </div>
+      </div>
+      <div id="cfEntriesWrap">
+        <p class="help">Loading…</p>
+      </div>
+    </div>
+
+  </div><!-- end tab-cf-scores -->

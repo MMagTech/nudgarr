@@ -203,6 +203,27 @@
       border-bottom-color: rgba(91,114,245,.08);
     }
 
+    /* ── CF Score tab — hidden until cf_score_enabled is True ── */
+    .tab-cf-scores {
+      color: var(--accent-lt); font-size: 12px;
+      opacity: 0; max-width: 0;
+      padding-left: 0; padding-right: 0; overflow: hidden;
+      pointer-events: none;
+      transition: opacity .25s ease, max-width .25s ease, padding .25s ease;
+    }
+    .tab-cf-scores.cf-tab-visible {
+      opacity: 1; max-width: 120px;
+      padding-left: 14px; padding-right: 14px;
+      pointer-events: auto;
+    }
+    .tab-cf-scores.cf-tab-visible:hover { color: var(--accent); }
+    .tab-cf-scores.cf-tab-visible.active {
+      color: var(--accent-lt);
+      background: rgba(91,114,245,.08);
+      border-color: var(--accent-border);
+      border-bottom-color: rgba(91,114,245,.08);
+    }
+
     .ov-divider {
       grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;
       margin: 6px 0 2px;
@@ -672,6 +693,16 @@
     .filter-box-fixed { height: 520px; display: flex; flex-direction: column; }
     .tab-filters.tab-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
     .filter-box-pending { border-color: rgba(251,191,36,.4) !important; }
+
+    /* ── CF Score tab ── */
+    .cf-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .cf-table th { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border-md); white-space: nowrap; }
+    .cf-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .cf-table tr:last-child td { border-bottom: none; }
+    .cf-table tr:hover td { background: rgba(255,255,255,.02); }
+    .cf-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .cf-badge.radarr { background: rgba(90,157,240,.12); border: 1px solid rgba(90,157,240,.25); color: #7ab5f5; }
+    .cf-badge.sonarr { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.25); color: #6ee7b7; }
 
     /* ── Intel tab ── */
     .intel-row { margin-bottom: 12px; }

@@ -122,9 +122,11 @@ def mask_url(url: str) -> str:
 
 
 def req(session: requests.Session, method: str, url: str, key: str,
-        json_body: Optional[dict] = None, timeout: int = 30):
+        json_body: Optional[dict] = None, timeout: int = 30,
+        params: Optional[dict] = None):
     headers = {"X-Api-Key": key}
-    r = session.request(method, url, headers=headers, json=json_body, timeout=timeout)
+    r = session.request(method, url, headers=headers, json=json_body,
+                        params=params, timeout=timeout)
     r.raise_for_status()
     if r.text:
         try:

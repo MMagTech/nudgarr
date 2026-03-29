@@ -96,6 +96,7 @@ def _zero_aggregate() -> Dict[str, Any]:
         "searches_per_import_count": 0,
         "cutoff_import_count": 0,
         "backlog_import_count": 0,
+        "cf_score_import_count": 0,
         "quality_upgrades_count": 0,
         "imported_once_count": 0,
         "upgraded_count": 0,

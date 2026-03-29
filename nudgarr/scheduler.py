@@ -21,6 +21,7 @@ import requests
 from croniter import croniter
 
 from nudgarr import db
+from nudgarr.cf_score_syncer import CustomFormatScoreSyncer
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import RUN_LOCK, STATUS, app
@@ -376,6 +377,68 @@ def _in_maintenance_window(cfg: Dict[str, Any]) -> bool:
         if start_today <= now < end_today:
             return today.weekday() in selected_days
         return False
+
+
+def cf_score_sync_loop(shutdown: threading.Event) -> None:
+    """Background CF score sync loop running in its own daemon thread.
+
+    Wakes every 60 seconds to check whether cf_score_sync_hours hours have
+    elapsed since the last sync.  Skips the run entirely if:
+      - cf_score_enabled is False
+      - A sweep is currently in progress (defers to avoid simultaneous load)
+
+    The syncer is the sole writer of cf_score_entries.  This loop owns the
+    scheduled runs; the manual Scan Library button triggers runs via the
+    /api/cf-scores/scan route independently.
+
+    Intentionally runs even when the main scheduler is disabled so users in
+    manual-only mode still get CF score index updates on schedule.
+    """
+    session = requests.Session()
+    syncer = CustomFormatScoreSyncer()
+    last_sync_ts = None  # None means never synced -- run immediately on first wake
+
+    try:
+        while not shutdown.is_set():
+            time.sleep(60)
+            if shutdown.is_set():
+                break
+
+            cfg = load_or_init_config()
+
+            if not cfg.get("cf_score_enabled", False):
+                # Feature is off -- reset last_sync_ts so a sync runs
+                # immediately if the feature is later re-enabled
+                last_sync_ts = None
+                continue
+
+            sync_hours = int(cfg.get("cf_score_sync_hours", 24))
+            if sync_hours < 1:
+                sync_hours = 1
+
+            now = utcnow()
+            should_sync = False
+
+            if last_sync_ts is None:
+                # First run since startup (or after re-enable) -- sync now
+                should_sync = True
+            else:
+                elapsed_hours = (now - last_sync_ts).total_seconds() / 3600
+                if elapsed_hours >= sync_hours:
+                    should_sync = True
+
+            if not should_sync:
+                continue
+
+            try:
+                logger.info("[CF Sync] Scheduled sync starting")
+                syncer.run(cfg, session)
+                last_sync_ts = utcnow()
+                logger.info("[CF Sync] Scheduled sync complete")
+            except Exception:
+                logger.exception("[CF Sync] Scheduled sync failed")
+    finally:
+        db.close_connection()
 
 
 def scheduler_loop(shutdown: threading.Event) -> None:

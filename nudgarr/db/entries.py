@@ -263,11 +263,18 @@ def _update_intel_on_confirm(
     updates["searches_per_import_sum"] = agg["searches_per_import_sum"] + search_count
     updates["searches_per_import_count"] = agg["searches_per_import_count"] + 1
 
-    # Cutoff vs backlog split — only on first import (iteration = 1).
+    # Pipeline import split — only on first import (iteration = 1).
+    # entry_type reflects the stat_entries.type value set by batch_record_stat_entries:
+    #   "Upgraded"  — Cutoff Unmet pipeline
+    #   "Acquired"  — Backlog pipeline
+    #   "CF Score"  — CF Score Scan pipeline
     if final_iteration == 1:
-        if entry_type == "cutoff_unmet":
+        if entry_type == "Upgraded":
             updates["cutoff_import_count"] = agg["cutoff_import_count"] + 1
+        elif entry_type == "CF Score":
+            updates["cf_score_import_count"] = agg["cf_score_import_count"] + 1
         else:
+            # "Acquired" (Backlog) and any legacy or unknown types
             updates["backlog_import_count"] = agg["backlog_import_count"] + 1
         updates["success_total_imported"] = agg["success_total_imported"] + 1
 

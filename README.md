@@ -36,6 +36,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 
 - **Cutoff Unmet sweeps** — finds items in Radarr and Sonarr's Wanted Cutoff Unmet queue and triggers a search for a better quality version
 - **Backlog Nudges** — searches missing movies and episodes that have never been grabbed, with age filtering, grace period, and per-app caps
+- **CF Score Scan** — finds monitored items where the custom format score is below the quality profile cutoff even when Radarr and Sonarr don't flag them via wanted/cutoff. Enable in Advanced to unlock the CF Score tab
 - **Skip Queued** — items already downloading are silently skipped; queued items never consume a search slot
 - **Import tracking** — polls Radarr and Sonarr after each sweep to confirm which searches resulted in a successful download
 - **Multiple instances** — supports multiple Radarr and Sonarr instances independently, each with their own health status

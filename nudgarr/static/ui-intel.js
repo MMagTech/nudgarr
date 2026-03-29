@@ -206,13 +206,16 @@ function _renderSearchHealth(sh) {
       'intel-stat-val ' + (stuck > 0 ? 'warn' : 'ok');
   }
 
-  const cutoff  = sh.cutoff_import_count || 0;
-  const backlog = sh.backlog_import_count || 0;
-  const total   = cutoff + backlog;
-  _setText('intelCutoffCount', cutoff);
+  const cutoff   = sh.cutoff_import_count   || 0;
+  const backlog  = sh.backlog_import_count  || 0;
+  const cfScore  = sh.cf_score_import_count || 0;
+  const total    = cutoff + backlog + cfScore;
+  _setText('intelCutoffCount',  cutoff);
   _setText('intelBacklogCount', backlog);
-  _setText('intelCutoffPct',  total > 0 ? Math.round(cutoff  / total * 100) + '% of imports' : '');
-  _setText('intelBacklogPct', total > 0 ? Math.round(backlog / total * 100) + '% of imports' : '');
+  _setText('intelCfScoreCount', cfScore);
+  _setText('intelCutoffPct',   total > 0 ? Math.round(cutoff  / total * 100) + '% of imports' : '');
+  _setText('intelBacklogPct',  total > 0 ? Math.round(backlog / total * 100) + '% of imports' : '');
+  _setText('intelCfScorePct',  total > 0 ? Math.round(cfScore / total * 100) + '% of imports' : '');
 
   const upg = sh.quality_upgrades_count || 0;
   _setText('intelUpgradesCount', upg + ' Upgrade' + (upg !== 1 ? 's' : ''));

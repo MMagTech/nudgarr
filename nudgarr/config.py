@@ -72,6 +72,9 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "auto_exclude_shows_threshold",
         "auto_unexclude_movies_days",
         "auto_unexclude_shows_days",
+        "cf_score_sync_hours",
+        "radarr_cf_max_per_run",
+        "sonarr_cf_max_per_run",
     ):
         v = cfg.get(k)
         if not isinstance(v, int) or v < 0:
@@ -125,7 +128,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "per_instance_overrides_seen_mobile", "radarr_backlog_enabled",
         "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
         "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
-        "notify_on_queue_threshold", "dry_run",
+        "notify_on_queue_threshold", "dry_run", "cf_score_enabled",
     ):
         v = cfg.get(bool_key)
         if v is not None and not isinstance(v, bool):

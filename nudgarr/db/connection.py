@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS intel_aggregate (
     searches_per_import_count   INTEGER NOT NULL DEFAULT 0,
     cutoff_import_count         INTEGER NOT NULL DEFAULT 0,
     backlog_import_count        INTEGER NOT NULL DEFAULT 0,
+    cf_score_import_count       INTEGER NOT NULL DEFAULT 0,
     quality_upgrades_count      INTEGER NOT NULL DEFAULT 0,
     imported_once_count         INTEGER NOT NULL DEFAULT 0,
     upgraded_count              INTEGER NOT NULL DEFAULT 0,
@@ -179,6 +180,30 @@ CREATE TABLE IF NOT EXISTS intel_aggregate (
     calibration_later_imported  INTEGER NOT NULL DEFAULT 0
 );
 INSERT OR IGNORE INTO intel_aggregate (id) VALUES (1);
+
+CREATE TABLE IF NOT EXISTS cf_score_entries (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    arr_instance_id     TEXT    NOT NULL,
+    item_type           TEXT    NOT NULL,
+    external_item_id    INTEGER NOT NULL,
+    series_id           INTEGER NOT NULL DEFAULT 0,
+    file_id             INTEGER NOT NULL DEFAULT 0,
+    title               TEXT    NOT NULL DEFAULT '',
+    current_score       INTEGER NOT NULL DEFAULT 0,
+    cutoff_score        INTEGER NOT NULL DEFAULT 0,
+    quality_profile_id  INTEGER NOT NULL DEFAULT 0,
+    quality_profile_name TEXT   NOT NULL DEFAULT '',
+    added_date          TEXT    NOT NULL DEFAULT '',
+    tag_ids             TEXT    NOT NULL DEFAULT '[]',
+    is_monitored        INTEGER NOT NULL DEFAULT 1,
+    last_synced_at      TEXT    NOT NULL DEFAULT '',
+    UNIQUE (arr_instance_id, item_type, external_item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cf_instance_type
+    ON cf_score_entries (arr_instance_id, item_type);
+CREATE INDEX IF NOT EXISTS idx_cf_below_cutoff
+    ON cf_score_entries (arr_instance_id, current_score, cutoff_score)
+    WHERE current_score < cutoff_score;
 """
 
 
@@ -201,6 +226,8 @@ def init_db() -> None:
     _run_migration_v8(conn)
     _run_migration_v9(conn)
     _run_migration_v10(conn)
+    _run_migration_v11(conn)
+    _run_migration_v12(conn)
 
 
 def _run_migration_v7(conn: sqlite3.Connection) -> None:
@@ -377,6 +404,7 @@ def _run_migration_v10(conn: sqlite3.Connection) -> None:
                 searches_per_import_count   INTEGER NOT NULL DEFAULT 0,
                 cutoff_import_count         INTEGER NOT NULL DEFAULT 0,
                 backlog_import_count        INTEGER NOT NULL DEFAULT 0,
+                cf_score_import_count       INTEGER NOT NULL DEFAULT 0,
                 quality_upgrades_count      INTEGER NOT NULL DEFAULT 0,
                 imported_once_count         INTEGER NOT NULL DEFAULT 0,
                 upgraded_count              INTEGER NOT NULL DEFAULT 0,
@@ -396,3 +424,93 @@ def _run_migration_v10(conn: sqlite3.Connection) -> None:
         logger.info("[Migration v10] Created exclusion_events and intel_aggregate tables")
     except Exception:
         logger.exception("[Migration v10] FAILED")
+
+
+def _run_migration_v11(conn: sqlite3.Connection) -> None:
+    """Create the cf_score_entries table for existing installs upgrading to v4.2.0.
+
+    cf_score_entries is the persistent index written by CustomFormatScoreSyncer
+    and read by the sweep's CF Score pass.  One row per monitored item where
+    customFormatScore is below the quality profile's cutoffFormatScore and the
+    gap meets the profile's minUpgradeFormatScore threshold.
+
+    The table is also defined in _SCHEMA_SQL for fresh installs — both paths
+    are required and the duplication is intentional.  Installs on v4.1.x and
+    earlier will not have the table until this migration runs.
+
+    Indexes:
+      idx_cf_instance_type  -- fast lookup by instance and item type (sweep)
+      idx_cf_below_cutoff   -- partial index on below-cutoff rows (UI query)
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 11"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS cf_score_entries (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                arr_instance_id      TEXT    NOT NULL,
+                item_type            TEXT    NOT NULL,
+                external_item_id     INTEGER NOT NULL,
+                series_id            INTEGER NOT NULL DEFAULT 0,
+                file_id              INTEGER NOT NULL DEFAULT 0,
+                title                TEXT    NOT NULL DEFAULT '',
+                current_score        INTEGER NOT NULL DEFAULT 0,
+                cutoff_score         INTEGER NOT NULL DEFAULT 0,
+                quality_profile_id   INTEGER NOT NULL DEFAULT 0,
+                quality_profile_name TEXT    NOT NULL DEFAULT '',
+                added_date           TEXT    NOT NULL DEFAULT '',
+                tag_ids              TEXT    NOT NULL DEFAULT '[]',
+                is_monitored         INTEGER NOT NULL DEFAULT 1,
+                last_synced_at       TEXT    NOT NULL DEFAULT '',
+                UNIQUE (arr_instance_id, item_type, external_item_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_cf_instance_type
+                ON cf_score_entries (arr_instance_id, item_type);
+            CREATE INDEX IF NOT EXISTS idx_cf_below_cutoff
+                ON cf_score_entries (arr_instance_id, current_score, cutoff_score)
+                WHERE current_score < cutoff_score;
+            """
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (11, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        logger.info("[Migration v11] Created cf_score_entries table and indexes")
+    except Exception:
+        logger.exception("[Migration v11] FAILED")
+
+
+def _run_migration_v12(conn: sqlite3.Connection) -> None:
+    """Add cf_score_import_count to intel_aggregate for existing v4.2.0 installs.
+
+    This column was added to track confirmed imports that originated from the
+    CF Score Scan pipeline, completing the three-way import split in the Intel
+    tab (Cutoff Unmet, Backlog, CF Score).
+
+    Fresh installs get the column via _SCHEMA_SQL.  Installs that already ran
+    migration v10 or v11 will not have it until this migration runs.
+    """
+    existing = conn.execute(
+        "SELECT version FROM schema_migrations WHERE version = 12"
+    ).fetchone()
+    if existing:
+        return
+    try:
+        # ADD COLUMN is safe on existing tables -- SQLite supports it natively.
+        # The column gets DEFAULT 0 so all existing rows are valid immediately.
+        conn.execute(
+            "ALTER TABLE intel_aggregate ADD COLUMN cf_score_import_count INTEGER NOT NULL DEFAULT 0"
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (12, ?)",
+            (iso_z(utcnow()),)
+        )
+        conn.commit()
+        logger.info("[Migration v12] Added cf_score_import_count to intel_aggregate")
+    except Exception:
+        logger.exception("[Migration v12] FAILED")

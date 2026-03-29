@@ -37,6 +37,7 @@ from nudgarr.arr_clients import (
     sonarr_search_episodes,
     _sonarr_get_series_meta,
 )
+from nudgarr.cf_score_syncer import _make_instance_id
 from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
 from nudgarr.globals import STATUS
 from nudgarr.state import load_exclusions, prune_state_by_retention, state_key
@@ -376,6 +377,112 @@ def _sweep_instance(
             if i + batch_size < len(chosen_missing):
                 jitter_sleep(sleep_seconds, jitter_seconds)
 
+    # ── CF Score pipeline ──────────────────────────────────────────────
+    # Third and final pass in the sweep pipeline.  Runs after Cutoff Unmet
+    # and Backlog so those pipelines always have priority on indexer slots.
+    #
+    # Filter chain mirrors the other pipelines:
+    #   1. Exclusions  -- titles in the exclusions table are never searched
+    #   2. Queue skip  -- items already in the download queue are skipped
+    #   3. Cooldown    -- items searched too recently are skipped (same
+    #                     cooldown_hours as Cutoff Unmet and Backlog)
+    #   Availability (Radarr) is enforced at sync time in cf_radarr_get_all_movies
+    #   so unavailable movies never enter cf_score_entries.
+    #   Tag and profile filters are enforced at sync time in the syncer.
+    #
+    # Ordering is worst-gap-first and is preserved through the filter chain
+    # since pick_items_with_cooldown leaves the list unsorted for unrecognised
+    # sample_mode strings.
+    #
+    # Searches are recorded in search_history (sweep_type='CF Score') and
+    # stat_entries (entry_type='Upgraded') so History, Imports, import
+    # confirmation, Intel, and auto-exclusion all see CF Score activity.
+
+    searched_cf = 0
+    cf_max = int(cfg.get(
+        "radarr_cf_max_per_run" if app == "radarr" else "sonarr_cf_max_per_run", 1
+    ))
+
+    if cfg.get("cf_score_enabled", False) and cf_max > 0:
+        cf_instance_id = _make_instance_id(app, inst_url)
+        cf_item_type = item_type  # 'movie' for Radarr, 'episode' for Sonarr
+
+        # Fetch all eligible candidates -- no DB-level limit so Python can
+        # apply the full filter chain before capping at cf_max
+        cf_candidates = db.get_cf_scores_for_sweep(cf_instance_id, cf_item_type)
+
+        # Exclusion filter -- same excluded_titles set used by other pipelines
+        cf_candidates = [
+            c for c in cf_candidates
+            if (c.get("title") or "").lower() not in excluded_titles
+        ]
+
+        # Queue skip -- same queue_ids fetched for the Cutoff Unmet pass
+        cf_candidates = [
+            c for c in cf_candidates
+            if c["external_item_id"] not in queue_ids
+        ]
+
+        # Reshape to sweep item format with id = external_item_id so
+        # pick_items_with_cooldown can look up search_history correctly.
+        # Extra score/gap fields pass through for debug logging.
+        cf_sweep_items = [
+            {
+                "id": c["external_item_id"],
+                "title": c.get("title", ""),
+                "series_id": c.get("series_id", 0) or "",
+                "quality_from": "",
+                "added": "",
+                "current_score": c.get("current_score", 0),
+                "cutoff_score": c.get("cutoff_score", 0),
+                "gap": c.get("gap", 0),
+            }
+            for c in cf_candidates
+        ]
+
+        # Cooldown filter + cap at cf_max.
+        # "worst_gap" is not a recognised sample_mode so the worst-gap-first
+        # ordering from the DB query is preserved through the filter.
+        chosen_cf, eligible_cf, skipped_cf = pick_items_with_cooldown(
+            cf_sweep_items, app, name, inst_url, cf_item_type,
+            cooldown_hours, cf_max, "worst_gap"
+        )
+
+        if chosen_cf:
+            logger.info(
+                "[%s:%s] cf_score_eligible=%d skipped_cf_cooldown=%d "
+                "will_search_cf=%d limit_cf=%d",
+                APP, name, eligible_cf, skipped_cf, len(chosen_cf), cf_max,
+            )
+            for item in chosen_cf:
+                logger.debug(
+                    "[%s:%s] cf_score item: %s (id=%s current=%d cutoff=%d gap=%s)",
+                    APP, name, item.get("title", "?"), item["id"],
+                    item.get("current_score", 0),
+                    item.get("cutoff_score", 0),
+                    item.get("gap", "?"),
+                )
+                if app == "radarr":
+                    radarr_search_movies(session, url, key, [item["id"]], instance_name=name)
+                else:
+                    sonarr_search_episodes(session, url, key, [item["id"]], instance_name=name)
+                searched_cf += 1
+                if searched_cf < len(chosen_cf):
+                    jitter_sleep(sleep_seconds, jitter_seconds)
+
+            # Record all searched CF Score items in one batch after the loop
+            mark_items_searched(
+                app, name, inst_url, cf_item_type, chosen_cf, "CF Score"
+            )
+            batch_record_stat_entries(
+                app, name, inst_url, chosen_cf, "Upgraded", iso_z(utcnow())
+            )
+        else:
+            logger.debug(
+                "[%s:%s] cf_score_eligible=0 (empty pool or all filtered/on cooldown)",
+                APP, name,
+            )
+
     result: Dict[str, Any] = {
         "name": name,
         "url": mask_url(url),
@@ -391,6 +498,8 @@ def _sweep_instance(
         "will_search_missing": len(chosen_missing),
         "searched_missing": searched_missing,
         "limit_missing": missing_max,
+        "searched_cf": searched_cf,
+        "limit_cf": cf_max,
         "notifications_enabled": notifications_enabled,
     }
     if app == "radarr":

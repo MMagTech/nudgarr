@@ -6,7 +6,38 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.2.0
 
-**Intel Tab, Backlog Sample Mode Split, Maintenance Window, Grace Period, and Sticky Header.**
+**CF Score Scan, Intel Tab, Backlog Sample Mode Split, Maintenance Window, Grace Period, Sticky Header, and Advanced Tab Restructure.**
+
+**CF Score Scan**
+
+- New third search pipeline that finds monitored items where `customFormatScore` is below the quality profile's `cutoffFormatScore` — even when Radarr and Sonarr do not flag them via `wanted/cutoff`. Fills the blind spot left by the standard Cutoff Unmet pipeline, which only surfaces items where the quality tier itself is not met.
+- Enable in Advanced > For the Arr-tists to unlock the CF Score tab. Feature is fully dormant when disabled — no background work runs.
+- `CustomFormatScoreSyncer` runs as a dedicated background thread on a configurable schedule (default 24 hours). Performs a full library pass: fetches quality profiles once, fetches all monitored files with `hasFile=true`, `qualityCutoffNotMet=false`, and `isAvailable=true` (Radarr), batch-fetches `customFormatScore` per file (100 IDs per Radarr API request), and applies the profile's `minUpgradeFormatScore` filter at write time. Items below the minimum gap are never written to the index — the sweep trusts the table unconditionally.
+- Syncer applies per-instance tag and profile sweep filters at write time (syncer-as-gatekeeper). Items with excluded tags or profiles never enter `cf_score_entries` and are therefore never searched. Consistent with the filter behaviour of the Cutoff Unmet and Backlog pipelines.
+- Syncer writes live sync progress to `nudgarr_state` per instance (`cf_sync_progress|{app}|{url}`) as it processes batches. Ring charts in the CF Score tab read this state and animate from 0 to 100% in real time during a Scan Library run. For Radarr, progress tracks file batches (100 IDs each). For Sonarr, progress tracks series iterations.
+- `cf_score_entries` table stores the index. Stale entries (deleted, unmonitored, or score now met) are pruned at the end of each sync run per instance.
+- Sweep pipeline adds a third CF Score pass after Cutoff Unmet and Backlog. Applies the same filter chain as the other pipelines before searching: exclusions (titles in the `exclusions` table), queue skip (items currently downloading), and cooldown (`cooldown_hours` config value and per-instance override). Availability filter is enforced at sync time for Radarr. Pool is mutually exclusive with the other two pipelines by entry condition — no deduplication needed.
+- CF Score pass uses `pick_items_with_cooldown` with a `"worst_gap"` sample mode (unrecognised, so ordering is preserved) to apply cooldown and cap at `cf_max` while maintaining worst-gap-first ordering. The DB query returns all eligible items without a limit — the limit is applied in Python after the full filter chain so cooldown hits never silently reduce the search count below `cf_max`.
+- Searches recorded in `search_history` with `sweep_type='CF Score'` and in `stat_entries` with `entry_type='Upgraded'`. History tab, Imports tab, import confirmation loop, Intel, and auto-exclusion all see CF Score activity.
+- Syncer defers if a sweep is in progress to avoid simultaneous API load on underpowered hardware. Random 100-500ms delay between Radarr file batches and Sonarr series iterations.
+- CF Score tab: three stat cards (indexed, below cutoff, passing), per-instance sync coverage rings with live progress, config fields (sync interval, max searches per run), Scan Library button for immediate manual sync with real-time ring animation, Reset CF Index button.
+- Items table shows all entries below cutoff ordered worst-gap-first with inline gap bars. Filter by All, Radarr, or Sonarr. Scrollable up to 200 rows.
+- New config keys: `cf_score_enabled` (bool, default False), `cf_score_sync_hours` (int, default 24), `radarr_cf_max_per_run` (int, default 1), `sonarr_cf_max_per_run` (int, default 1).
+- New DB table: `cf_score_entries`. Migration v11 creates it for existing installs. Fresh installs get it via `_SCHEMA_SQL`.
+- New files: `nudgarr/db/cf_scores.py`, `nudgarr/cf_score_syncer.py`, `nudgarr/routes/cf_scores.py`, `nudgarr/templates/ui-tab-cf-scores.html`, `nudgarr/static/ui-cf-scores.js`.
+
+**Intel Import Split Fix**
+
+- Pre-existing bug fixed: `cutoff_import_count` in `intel_aggregate` was always 0 because `_update_intel_on_confirm` checked `entry_type == "cutoff_unmet"` but the actual stored value is `"Upgraded"`. All confirmed imports were incorrectly counted as backlog imports regardless of which pipeline triggered them.
+- Fixed by correcting the check to `entry_type == "Upgraded"` (Cutoff Unmet), `entry_type == "CF Score"` (CF Score Scan), and `else` for `"Acquired"` (Backlog) and any legacy types.
+- `cf_score_import_count` added to `intel_aggregate` to track CF Score confirmed imports independently. Migration v12 adds the column for existing installs via `ALTER TABLE`. Import Breakdown in the Intel Search Health card updated from a two-way to a three-way split: Cutoff Unmet, Backlog, CF Score.
+
+**Advanced Tab Restructure**
+
+- Advanced tab pager removed. Page 1 (Backlog Nudges + For the Arr-tists) and Page 2 (Auto-Exclusion) are now visible simultaneously in the two-card layout without pagination.
+- Auto-Exclusion moved from the left card Page 2 to the top of the right card. Right card now contains Auto-Exclusion, Data Retention, Stats, Security, and UI Preferences.
+- Left card contains only Backlog Nudges and For the Arr-tists — a cleaner, shorter card that no longer requires scrolling past Backlog config to reach the feature toggles.
+- `advSetPage()` function and all associated pager elements (`advPage1`, `advPage2`, `advPageNum`, `advPagerPrev`, `advPagerNext`) removed.
 
 **Grace Period (Hours)**
 

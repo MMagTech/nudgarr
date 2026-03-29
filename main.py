@@ -22,7 +22,7 @@ from nudgarr.config import load_or_init_config
 from nudgarr.globals import STATUS
 from nudgarr.log_setup import setup_logging
 from nudgarr.routes import register_blueprints
-from nudgarr.scheduler import import_check_loop, print_banner, scheduler_loop, start_ui_server
+from nudgarr.scheduler import cf_score_sync_loop, import_check_loop, print_banner, scheduler_loop, start_ui_server
 from nudgarr.utils import req
 
 logger = logging.getLogger(__name__)
@@ -108,15 +108,27 @@ def main() -> None:
     )
     import_check_thread.start()
 
+    # Start CF score sync loop in a daemon thread — independent of sweep schedule.
+    # Wakes every 60s, runs a full library sync when cf_score_sync_hours have
+    # elapsed and cf_score_enabled is True.  Dormant when feature is disabled.
+    cf_sync_thread = threading.Thread(
+        target=cf_score_sync_loop, args=(_shutdown,), daemon=True, name="cf-score-sync"
+    )
+    cf_sync_thread.start()
+
     # Run scheduler loop in main thread — blocks until _shutdown is set
     scheduler_loop(_shutdown)
 
-    # Wait for the import check loop to exit cleanly before process teardown.
-    # 10 seconds is generous — the loop wakes every 60s so it will see
-    # _shutdown.is_set() on its next tick without delay after being interrupted.
+    # Wait for background threads to exit cleanly before process teardown.
+    # 10 seconds is generous — both loops wake every 60s so they will see
+    # _shutdown.is_set() on their next tick without delay after being interrupted.
     import_check_thread.join(timeout=10)
     if import_check_thread.is_alive():
         logger.warning("Import check thread did not exit within 10s — proceeding with shutdown")
+
+    cf_sync_thread.join(timeout=10)
+    if cf_sync_thread.is_alive():
+        logger.warning("CF score sync thread did not exit within 10s — proceeding with shutdown")
 
     logger.info("Nudgarr exiting.")
 

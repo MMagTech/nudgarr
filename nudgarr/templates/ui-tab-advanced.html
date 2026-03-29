@@ -2,18 +2,13 @@
   <div class="section" id="tab-advanced">
     <div class="grid">
       <div class="grid cols2">
-        <div class="card">
-          <!-- Page navigation header -->
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-            <button class="btn sm adv-pager-btn" id="advPagerPrev" onclick="advSetPage(1)" disabled style="width:28px;padding:0;display:flex;align-items:center;justify-content:center">&#8249;</button>
-            <span style="font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.04em"><span id="advPageNum">1</span> / 2</span>
-            <button class="btn sm adv-pager-btn" id="advPagerNext" onclick="advSetPage(2)" style="width:28px;padding:0;display:flex;align-items:center;justify-content:center">&#8250;</button>
-          </div>
 
-          <!-- Page 1: Backlog Nudges + For the Arr-tists (existing content unchanged) -->
-          <div id="advPage1">
+        <!-- ── Left card: Backlog Nudges + For the Arr-tists ── -->
+        <div class="card">
+
           <p class="section-label">Backlog Nudges</p>
           <div class="help" style="margin-bottom:12px">Finds and searches items missing from your library on top of your regular cutoff sweeps.</div>
+
           <p class="section-label" style="margin:0 0 8px">Radarr</p>
           <div class="field" style="margin-bottom:10px">
             <div class="toggle-wrap">
@@ -69,6 +64,7 @@
             </div>
           </div>
           </div>
+
           <div style="margin-top:14px">
           <p class="section-label" style="margin:0 0 8px">Sonarr</p>
           <div class="field" style="margin-bottom:10px">
@@ -120,7 +116,9 @@
           </div>
           <!-- TODO(v4.2.0-mobile): add radarr_backlog_sample_mode, sonarr_backlog_sample_mode, and grace period fields to mobile portrait settings -->
           </div>
+
           <div class="hr"></div>
+
           <p class="section-label">For the Arr-tists</p>
           <div class="field">
             <div class="tooltip-wrap">
@@ -136,16 +134,30 @@
               <span class="help" id="overrides_enabled_label">Disabled</span>
             </div>
           </div>
-          </div><!-- end advPage1 -->
+          <div class="field" style="margin-top:2px">
+            <div class="tooltip-wrap">
+              <label>CF Score Scan</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Scans your library for monitored items where the custom format score is below the quality profile cutoff score. Radarr and Sonarr never surface these via wanted/cutoff — this pipeline finds them independently. Enables the CF Score tab.</div></span>
+            </div>
+            <div class="toggle-wrap" style="margin-top:4px">
+              <label class="toggle">
+                <input type="checkbox" id="cf_score_enabled" onchange="toggleCfScoreFeature(this.checked)"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="cf_score_label">Disabled</span>
+            </div>
+          </div>
 
-          <!-- Page 2: Auto-Exclusion -->
-          <div id="advPage2" style="display:none">
+        </div><!-- end left card -->
+
+        <!-- ── Right card: Auto-Exclusion + Data Retention + Stats + Security + UI Prefs ── -->
+        <div class="card">
+
           <p class="section-label">Auto-Exclusion</p>
           <div class="help" style="margin-bottom:14px">Automatically exclude titles searched repeatedly with no confirmed import. (0 Disables)</div>
-
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
-            <!-- Radarr column -->
             <div>
               <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Radarr</p>
               <div class="field" style="margin-bottom:10px">
@@ -166,7 +178,6 @@
               </div>
             </div>
 
-            <!-- Sonarr column -->
             <div>
               <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Sonarr</p>
               <div class="field" style="margin-bottom:10px">
@@ -188,10 +199,9 @@
             </div>
 
           </div>
-          </div><!-- end advPage2 -->
-        </div>
 
-        <div class="card">
+          <div class="hr"></div>
+
           <p class="section-label">Data Retention</p>
           <div class="field">
             <div class="tooltip-wrap">
@@ -201,7 +211,9 @@
             <input id="state_retention_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
             <div class="help">Prunes history and confirmed imports. Unconfirmed imports are never removed (0 Disables)</div>
           </div>
+
           <div class="hr"></div>
+
           <p class="section-label">Stats</p>
           <div class="field">
             <div class="tooltip-wrap">
@@ -211,7 +223,9 @@
             <input id="import_check_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">How often Nudgarr checks for confirmed imports</div>
           </div>
+
           <div class="hr"></div>
+
           <p class="section-label">Security</p>
           <div class="field">
             <label>Require Login</label>
@@ -229,7 +243,9 @@
             <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
             <div class="help">Minutes of inactivity before requiring re-login</div>
           </div>
+
           <div class="hr"></div>
+
           <p class="section-label">UI Preferences</p>
           <div class="field">
             <label>Onboarding</label>
@@ -247,7 +263,9 @@
               <span class="help" id="support_link_label">Shown</span>
             </div>
           </div>
-        </div>
+
+        </div><!-- end right card -->
+
       </div>
 
       <div class="save-bar">

@@ -25,6 +25,11 @@ function fillAdvanced() {
     el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
     syncOverridesToggleLabel();
   }
+  // CF Score Scan toggle (v4.2.0)
+  if (el('cf_score_enabled')) {
+    el('cf_score_enabled').checked = !!CFG.cf_score_enabled;
+    syncCfScoreToggleLabel();
+  }
   // Auto-exclusion fields (page 2)
   if (el('auto_exclude_movies_threshold')) el('auto_exclude_movies_threshold').value = CFG.auto_exclude_movies_threshold ?? 0;
   if (el('auto_exclude_shows_threshold')) el('auto_exclude_shows_threshold').value = CFG.auto_exclude_shows_threshold ?? 0;
@@ -35,16 +40,6 @@ function fillAdvanced() {
   syncSupportLinkUi();
   syncAutoExclUi();
   el('advMsg').textContent = ''; el('advMsg').className = 'msg';
-}
-
-// advSetPage — switches the Advanced left card between page 1 (Backlog Nudges /
-// For the Arr-tists) and page 2 (Auto-Exclusion). Updates arrow button states.
-function advSetPage(n) {
-  el('advPage1').style.display = n === 1 ? '' : 'none';
-  el('advPage2').style.display = n === 2 ? '' : 'none';
-  el('advPageNum').textContent = n;
-  el('advPagerPrev').disabled = n === 1;
-  el('advPagerNext').disabled = n === 2;
 }
 
 // syncAutoExclUi — greys out the unexclude day fields when the corresponding
@@ -232,4 +227,43 @@ function downloadDiagnostic() {
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     })
     .catch(e => showAlert('Diagnostic failed: ' + e.message));
+}
+
+// ── CF Score Scan feature toggle (v4.2.0) ─────────────────────────────────────
+// Mirrors the pattern used by toggleOverridesFeature in ui-overrides.js.
+// The toggle HTML element lives in ui-tab-advanced.html (added in Phase 3).
+// These functions are defined here in Phase 2 so _onTabShown and loadAll()
+// can reference them safely before the Phase 3 HTML is in place.
+
+function syncCfScoreToggleLabel() {
+  const enabled = el('cf_score_enabled') && el('cf_score_enabled').checked;
+  const lbl = el('cf_score_label');
+  if (lbl) lbl.textContent = enabled ? 'Enabled' : 'Disabled';
+}
+
+async function toggleCfScoreFeature(enabled) {
+  syncCfScoreToggleLabel();
+  try {
+    CFG.cf_score_enabled = enabled;
+    await api('/api/config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(CFG),
+    });
+    const tab = el('tab-btn-cf-scores');
+    if (enabled) {
+      if (tab) tab.classList.add('cf-tab-visible');
+    } else {
+      if (tab) tab.classList.remove('cf-tab-visible');
+      // Navigate away if currently on the CF Score tab
+      if (ACTIVE_TAB === 'cf-scores') _doShowTab('advanced');
+    }
+  } catch(e) {
+    showAlert('Failed to save CF Score Scan setting: ' + e.message);
+    // Revert toggle visually
+    if (el('cf_score_enabled')) {
+      el('cf_score_enabled').checked = !enabled;
+      syncCfScoreToggleLabel();
+    }
+  }
 }

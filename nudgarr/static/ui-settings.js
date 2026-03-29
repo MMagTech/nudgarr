@@ -276,6 +276,7 @@ function _onTabShown(name) {
   if (name === 'overrides') renderOverridesCards();
   if (name === 'filters') fillFilters();
   if (name === 'intel') fillIntel();
+  if (name === 'cf-scores') fillCfScores();
 }
 // ── Settings tab ──
 function updateContainerTime(timeStr) {

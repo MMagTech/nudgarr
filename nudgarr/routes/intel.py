@@ -113,6 +113,7 @@ def _build_intel_payload():
         "stuck_items_disabled": stuck_disabled,
         "cutoff_import_count": agg["cutoff_import_count"],
         "backlog_import_count": agg["backlog_import_count"],
+        "cf_score_import_count": agg["cf_score_import_count"],
         "quality_upgrades_count": agg["quality_upgrades_count"],
     }
 

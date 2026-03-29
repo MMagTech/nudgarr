@@ -78,6 +78,20 @@ from nudgarr.db.intel import (
     reset_intel,
 )
 
+from nudgarr.db.cf_scores import (
+    upsert_cf_score_entry,
+    touch_cf_score_entry,
+    delete_cf_score_entry,
+    delete_cf_scores_for_instance,
+    prune_stale_cf_scores,
+    get_cf_score_entries,
+    get_cf_score_stats,
+    get_cf_score_instance_stats,
+    get_cf_scores_for_sweep,
+    batch_upsert_cf_scores,
+    clear_cf_score_index,
+)
+
 __all__ = [
     # connection
     "get_connection",
@@ -127,4 +141,16 @@ __all__ = [
     "get_intel_aggregate",
     "update_intel_aggregate",
     "reset_intel",
+    # cf_scores (v4.2.0)
+    "upsert_cf_score_entry",
+    "touch_cf_score_entry",
+    "delete_cf_score_entry",
+    "delete_cf_scores_for_instance",
+    "prune_stale_cf_scores",
+    "get_cf_score_entries",
+    "get_cf_score_stats",
+    "get_cf_score_instance_stats",
+    "get_cf_scores_for_sweep",
+    "batch_upsert_cf_scores",
+    "clear_cf_score_index",
 ]

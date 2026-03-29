@@ -21,6 +21,7 @@ JS_FILES = [
     'ui-history.js',
     'ui-imports.js',
     'ui-intel.js',
+    'ui-cf-scores.js',
     'ui-settings.js',
     'ui-notifications.js',
     'ui-advanced.js',

@@ -701,8 +701,8 @@
     .cf-table tr:last-child td { border-bottom: none; }
     .cf-table tr:hover td { background: rgba(255,255,255,.02); }
     .cf-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-    .cf-badge.radarr { background: rgba(90,157,240,.12); border: 1px solid rgba(90,157,240,.25); color: #7ab5f5; }
-    .cf-badge.sonarr { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.25); color: #6ee7b7; }
+    .cf-badge.radarr { background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent-lt); }
+    .cf-badge.sonarr { background: var(--ok-dim); border: 1px solid rgba(34,197,94,.22); color: var(--ok); }
 
     /* ── Intel tab ── */
     .intel-row { margin-bottom: 12px; }

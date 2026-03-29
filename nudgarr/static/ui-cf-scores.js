@@ -1,23 +1,18 @@
 // ── CF Score tab ───────────────────────────────────────────────────────────────
 // Owns: CF Score tab rendering (fillCfScores, cfRenderCoverage, cfRenderTable),
 // config fields (saveCfScores), manual scan (cfScanLibrary), index reset
-// (cfResetIndex), and app filter buttons (cfFilterEntries).
+// (cfResetIndex), app filter buttons (cfFilterEntries), and pagination
+// (cfPrevPage, cfNextPage).
 //
 // fillCfScores() is the main entry point called by _onTabShown('cf-scores').
-// It fetches /api/cf-scores/status for stat cards and coverage rings, then
-// fetches /api/cf-scores/entries for the items table.
-//
-// The tab is only reachable when cf_score_enabled is True -- the tab button is
-// hidden otherwise (controlled by ui-core.js loadAll() and toggleCfScoreFeature
-// in ui-advanced.js). All functions guard against missing elements gracefully.
 
-// Active filter state -- 'all', 'radarr', or 'sonarr'
 let CF_FILTER = 'all';
+let CF_PAGE = 0;
+const CF_PAGE_SIZE = 25;
+let CF_TOTAL = 0;
 
 
-// ── fillCfScores -- main entry point ──────────────────────────────────────────
-// Called by _onTabShown('cf-scores') every time the tab becomes active.
-// Fetches status (stat cards + coverage) and entries (items table) in parallel.
+// ── fillCfScores ───────────────────────────────────────────────────────────────
 async function fillCfScores() {
   try {
     const [status, entries] = await Promise.all([
@@ -34,13 +29,13 @@ async function fillCfScores() {
 }
 
 
-// ── cfRenderStats ─────────────────────────────────────────────────────────────
-// Renders the three stat cards from the status API response.
+// ── cfRenderStats ──────────────────────────────────────────────────────────────
 function cfRenderStats(status) {
   const stats = status?.stats || {};
   const indexed = stats.total_indexed ?? 0;
   const below = stats.below_cutoff ?? 0;
   const passing = stats.passing ?? 0;
+  const instances = status?.instances || [];
 
   const indexedEl = el('cfStatIndexed');
   const belowEl = el('cfStatBelow');
@@ -51,9 +46,6 @@ function cfRenderStats(status) {
   if (indexedEl) indexedEl.textContent = indexed.toLocaleString();
   if (belowEl) belowEl.textContent = below.toLocaleString();
   if (passingEl) passingEl.textContent = passing.toLocaleString();
-
-  // Sub-labels: instance count and passing percentage
-  const instances = status?.instances || [];
   if (indexedSub) {
     const n = instances.length;
     indexedSub.textContent = n > 0 ? `across ${n} instance${n !== 1 ? 's' : ''}` : '';
@@ -63,18 +55,13 @@ function cfRenderStats(status) {
       ? `${Math.round((passing / indexed) * 100)}% of indexed library`
       : '';
   }
-
-  // Colour the below-cutoff stat card: red when non-zero, muted when zero
-  if (belowEl) {
-    belowEl.style.color = below > 0 ? 'var(--bad)' : 'var(--muted)';
-  }
+  if (belowEl) belowEl.style.color = below > 0 ? 'var(--bad)' : 'var(--muted)';
 }
 
 
-// ── cfRenderCoverage ──────────────────────────────────────────────────────────
-// Renders the per-instance sync coverage rings in the right card.
-// Ring percentage reflects actual sync progress: 0->100% during a live scan,
-// 100% once a sync has completed, 0% before first sync.
+// ── cfRenderCoverage ───────────────────────────────────────────────────────────
+// Flat list: instance name, app badge, inline percentage pill, file counts.
+// Scrollable via CSS on the container. Sync progress from sync_progress field.
 function cfRenderCoverage(status) {
   const wrap = el('cfCoverageList');
   if (!wrap) return;
@@ -90,7 +77,6 @@ function cfRenderCoverage(status) {
     return;
   }
 
-  // Find most recent last_synced_at across all instances for the status line
   const timestamps = instances.map(i => i.last_synced_at).filter(Boolean).sort();
   const latestSync = timestamps.length ? timestamps[timestamps.length - 1] : null;
   if (lastSyncedDot) lastSyncedDot.style.background = latestSync ? 'var(--ok)' : 'var(--muted)';
@@ -100,138 +86,161 @@ function cfRenderCoverage(status) {
       : 'Never synced';
   }
 
-  wrap.innerHTML = instances.map(inst => {
-    const total = inst.total_indexed || 0;
-    const below = inst.below_cutoff || 0;
+  wrap.innerHTML = instances.map((inst, idx) => {
     const app = (inst.app || 'radarr').toLowerCase();
     const isRadarr = app === 'radarr';
-    const ringColor = isRadarr ? '#5b72f5' : '#34d399';
     const appLabel = isRadarr ? 'Radarr' : 'Sonarr';
-    const appClass = isRadarr ? 'radarr' : 'sonarr';
+    const total = inst.total_indexed || 0;
+    const below = inst.below_cutoff || 0;
 
-    // Calculate ring percentage from sync_progress if available.
-    // During an active scan: processed/total * 100 (animates in real time).
-    // After scan completes: 100% if total > 0, else 0%.
-    // Before first scan: 0%.
     const prog = inst.sync_progress;
-    let pct = 0;
-    let pctLabel = '0%';
+    let pctLabel = '—';
+    let pctStyle = 'color:var(--muted);background:transparent;border-color:var(--border);';
     if (prog) {
-      if (prog.in_progress) {
-        pct = prog.total > 0 ? Math.min(99, Math.round((prog.processed / prog.total) * 100)) : 0;
-        pctLabel = pct + '%';
-      } else {
-        pct = prog.total > 0 ? 100 : 0;
-        pctLabel = pct + '%';
-      }
+      const pct = prog.in_progress
+        ? Math.min(99, prog.total > 0 ? Math.round((prog.processed / prog.total) * 100) : 0)
+        : (prog.total > 0 ? 100 : 0);
+      pctLabel = prog.in_progress ? pct + '%' : (prog.total > 0 ? '100%' : '—');
+      if (prog.total > 0) pctStyle = '';
     }
 
-    // SVG ring: circumference of r=22 circle = 2*pi*22 = 138.2
-    const circ = 138.2;
-    const offset = circ * (1 - pct / 100);
-
-    const subLabel = prog?.in_progress
-      ? `Syncing… ${prog.processed || 0} / ${prog.total || 0}`
-      : `${total.toLocaleString()} files indexed`;
-
-    return `<div style="display:flex;align-items:center;gap:14px;padding:12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;">
-      <div style="position:relative;width:56px;height:56px;flex-shrink:0;">
-        <svg width="56" height="56" viewBox="0 0 56 56" style="transform:rotate(-90deg);">
-          <circle fill="none" stroke="rgba(255,255,255,.06)" stroke-width="6" cx="28" cy="28" r="22"/>
-          <circle fill="none" stroke="${ringColor}" stroke-width="6" stroke-linecap="round"
-            cx="28" cy="28" r="22"
-            stroke-dasharray="${circ}"
-            stroke-dashoffset="${offset}"/>
-        </svg>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-          <span style="font-size:12px;font-weight:800;color:var(--text);">${pctLabel}</span>
+    const isLast = idx === instances.length - 1;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;${isLast ? '' : 'border-bottom:1px solid var(--border);'}">
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${_escHtml(inst.instance_name || inst.arr_instance_id)}
+          <span class="cf-badge ${app}">${appLabel}</span>
+          <span style="font-size:12px;font-weight:700;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent-lt);border-radius:6px;padding:1px 7px;${pctStyle}">${pctLabel}</span>
         </div>
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
-          <span style="font-size:13px;font-weight:600;color:var(--text);">${inst.instance_name || inst.arr_instance_id}</span>
-          <span class="cf-badge ${appClass}">${appLabel}</span>
-        </div>
-        <div style="font-size:11px;color:var(--text-dim);">${subLabel}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${below.toLocaleString()} below cutoff</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${total.toLocaleString()} indexed · ${below.toLocaleString()} below cutoff</div>
       </div>
     </div>`;
   }).join('');
 }
 
 
-// ── cfRenderTable ─────────────────────────────────────────────────────────────
-// Renders the items-below-cutoff table and updates filter button active state.
+// ── cfRenderTable ──────────────────────────────────────────────────────────────
+// Sortable columns matching History tab pattern. App column removed.
+// Pagination via cfPrevPage/cfNextPage.
+let CF_SORT = { col: 'gap', dir: 'desc' };
+let CF_ALL_ENTRIES = [];
+
 function cfRenderTable(data) {
   const wrap = el('cfEntriesWrap');
+  const pagination = el('cfPagination');
   if (!wrap) return;
 
-  // Sync filter button active states
-  ['all', 'radarr', 'sonarr'].forEach(f => {
-    const btns = document.querySelectorAll('#cfFilterBtns button');
-    btns.forEach(b => {
-      const matches = b.textContent.trim().toLowerCase() === f ||
-        (f === 'all' && b.textContent.trim() === 'All');
-      b.className = 'btn sm' + (f === CF_FILTER && matches ? ' primary' : '');
-    });
+  // Sync filter button states
+  document.querySelectorAll('#cfFilterBtns button').forEach(b => {
+    const label = b.textContent.trim().toLowerCase();
+    const isActive = (CF_FILTER === 'all' && label === 'all') ||
+                     (CF_FILTER === 'radarr' && label === 'radarr') ||
+                     (CF_FILTER === 'sonarr' && label === 'sonarr');
+    b.className = 'btn sm' + (isActive ? ' primary' : '');
   });
 
-  const entries = data?.entries || [];
-  if (!entries.length) {
+  CF_ALL_ENTRIES = data?.entries || [];
+  CF_TOTAL = CF_ALL_ENTRIES.length;
+
+  if (!CF_ALL_ENTRIES.length) {
     wrap.innerHTML = '<p class="help" style="padding:12px 0;">No items below CF cutoff' +
       (CF_FILTER !== 'all' ? ' for the selected filter' : '') + '.</p>';
+    if (pagination) pagination.style.display = 'none';
     return;
   }
 
-  const rows = entries.map(e => {
-    const isRadarr = e.item_type === 'movie';
-    const appLabel = isRadarr ? 'Radarr' : 'Sonarr';
-    const appClass = isRadarr ? 'radarr' : 'sonarr';
-    const gap = e.gap ?? (e.cutoff_score - e.current_score);
-    // Gap bar width: percentage of max gap (cap at 100% for display)
-    const maxGap = Math.max(e.cutoff_score, 1);
-    const barPct = Math.min(100, Math.round((Math.abs(gap) / maxGap) * 100));
+  if (pagination) pagination.style.display = '';
+  _cfRenderPage();
+}
 
+function _cfRenderPage() {
+  const wrap = el('cfEntriesWrap');
+  const pageInfo = el('cfPageInfo');
+  if (!wrap) return;
+
+  const sorted = [...CF_ALL_ENTRIES].sort((a, b) => {
+    const col = CF_SORT.col;
+    const av = col === 'gap' ? (a.gap ?? a.cutoff_score - a.current_score)
+             : col === 'current_score' ? a.current_score
+             : col === 'cutoff_score' ? a.cutoff_score
+             : (a[col] || '');
+    const bv = col === 'gap' ? (b.gap ?? b.cutoff_score - b.current_score)
+             : col === 'current_score' ? b.current_score
+             : col === 'cutoff_score' ? b.cutoff_score
+             : (b[col] || '');
+    if (typeof av === 'string') return CF_SORT.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return CF_SORT.dir === 'asc' ? av - bv : bv - av;
+  });
+
+  const start = CF_PAGE * CF_PAGE_SIZE;
+  const slice = sorted.slice(start, start + CF_PAGE_SIZE);
+  const maxGap = Math.max(...CF_ALL_ENTRIES.map(e => e.gap ?? e.cutoff_score - e.current_score), 1);
+
+  const sortTh = (col, label) => {
+    const active = CF_SORT.col === col;
+    const cls = active ? (CF_SORT.dir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+    return `<th class="sortable ${cls}" onclick="cfSortTable('${col}')">${label}</th>`;
+  };
+
+  const rows = slice.map(e => {
+    const gap = e.gap ?? (e.cutoff_score - e.current_score);
+    const barPct = Math.min(100, Math.round((Math.abs(gap) / maxGap) * 100));
     return `<tr>
       <td style="color:var(--text);font-weight:500;font-size:12.5px;">${_escHtml(e.title || '—')}</td>
-      <td><span class="cf-badge ${appClass}">${appLabel}</span></td>
       <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.instance_name || '—')}</td>
       <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.quality_profile_name || '—')}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--bad);font-weight:600;">${e.current_score}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--text-dim);">${e.cutoff_score}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--warn);font-weight:600;">
         ${gap}
-        <span style="display:inline-block;width:60px;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;vertical-align:middle;margin-left:6px;">
+        <span style="display:inline-block;width:50px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;vertical-align:middle;margin-left:5px;">
           <span style="display:block;height:100%;border-radius:2px;background:var(--warn);width:${barPct}%;"></span>
         </span>
       </td>
     </tr>`;
   }).join('');
 
-  wrap.innerHTML = `
-    <div style="overflow-x:auto;">
-      <table class="cf-table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>App</th>
-            <th>Instance</th>
-            <th>Profile</th>
-            <th>Current Score</th>
-            <th>Cutoff Score</th>
-            <th>Gap</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    ${entries.length >= 200 ? '<p class="help" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">Showing first 200 items.</p>' : ''}`;
+  wrap.innerHTML = `<div style="overflow-x:auto;">
+    <table class="cf-table">
+      <thead><tr>
+        ${sortTh('title','Title')}
+        ${sortTh('instance_name','Instance')}
+        ${sortTh('quality_profile_name','Profile')}
+        ${sortTh('current_score','Current Score')}
+        ${sortTh('cutoff_score','Cutoff Score')}
+        ${sortTh('gap','Gap')}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+
+  const total = CF_TOTAL;
+  const end = Math.min(start + CF_PAGE_SIZE, total);
+  const totalPages = Math.max(1, Math.ceil(total / CF_PAGE_SIZE));
+  if (pageInfo) pageInfo.textContent = `Page ${CF_PAGE + 1} of ${totalPages} · ${total} item${total !== 1 ? 's' : ''}`;
+
+  const btnPrev = el('cfPagination')?.querySelector('button:first-child');
+  const btnNext = el('cfPagination')?.querySelector('button:last-of-type');
+  if (btnPrev) btnPrev.disabled = CF_PAGE === 0;
+  if (btnNext) btnNext.disabled = end >= total;
 }
 
+function cfSortTable(col) {
+  if (CF_SORT.col === col) {
+    CF_SORT.dir = CF_SORT.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    CF_SORT.col = col;
+    CF_SORT.dir = col === 'gap' || col === 'current_score' || col === 'cutoff_score' ? 'desc' : 'asc';
+  }
+  CF_PAGE = 0;
+  _cfRenderPage();
+}
 
-// ── cfSyncConfigFields ────────────────────────────────────────────────────────
-// Populates the config input fields from the current CFG object.
-// Called after fillCfScores() and after saveAdvanced() reloads config.
+function cfPrevPage() { if (CF_PAGE > 0) { CF_PAGE--; _cfRenderPage(); } }
+function cfNextPage() { if ((CF_PAGE + 1) * CF_PAGE_SIZE < CF_TOTAL) { CF_PAGE++; _cfRenderPage(); } }
+
+
+// ── cfSyncConfigFields ─────────────────────────────────────────────────────────
 function cfSyncConfigFields() {
   if (!CFG) return;
   const hours = el('cfSyncHours');
@@ -245,8 +254,7 @@ function cfSyncConfigFields() {
 }
 
 
-// ── saveCfScores ──────────────────────────────────────────────────────────────
-// Saves the CF Score config fields (sync interval, max per run) to the server.
+// ── saveCfScores ───────────────────────────────────────────────────────────────
 async function saveCfScores() {
   if (!CFG) return;
   try {
@@ -271,10 +279,10 @@ async function saveCfScores() {
 }
 
 
-// ── cfFilterEntries ───────────────────────────────────────────────────────────
-// Switches the active app filter and refreshes the items table.
+// ── cfFilterEntries ────────────────────────────────────────────────────────────
 async function cfFilterEntries(app) {
   CF_FILTER = app;
+  CF_PAGE = 0;
   try {
     const url = '/api/cf-scores/entries' + (app !== 'all' ? '?app=' + app : '');
     const data = await api(url);
@@ -285,16 +293,13 @@ async function cfFilterEntries(app) {
 }
 
 
-// ── cfScanLibrary ─────────────────────────────────────────────────────────────
-// Triggers an immediate out-of-schedule library sync via the scan route.
-// Disables the button while the scan is in progress and re-enables it when done.
+// ── cfScanLibrary ──────────────────────────────────────────────────────────────
 async function cfScanLibrary() {
   const btn = el('cfScanBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
   try {
     const result = await api('/api/cf-scores/scan', {method: 'POST'});
     if (result?.ok) {
-      // Poll for scan completion before refreshing
       await _cfWaitForScan();
       await fillCfScores();
     } else {
@@ -308,29 +313,23 @@ async function cfScanLibrary() {
 }
 
 
-// ── _cfWaitForScan ────────────────────────────────────────────────────────────
-// Polls /api/cf-scores/status until scan_in_progress is false.
-// Refreshes the coverage rings on each tick so the ring percentage animates
-// live as the syncer processes batches.
-// Times out after 5 minutes to avoid an infinite wait on error.
+// ── _cfWaitForScan ─────────────────────────────────────────────────────────────
 async function _cfWaitForScan() {
-  const maxAttempts = 150; // 5 minutes at 2s intervals
+  const maxAttempts = 150;
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 2000));
     try {
       const status = await api('/api/cf-scores/status');
-      // Refresh rings live so percentage animates during the scan
       cfRenderCoverage(status);
       if (!status?.scan_in_progress) return;
     } catch(e) {
-      return; // If status fails, stop waiting and refresh anyway
+      return;
     }
   }
 }
 
 
-// ── cfResetIndex ──────────────────────────────────────────────────────────────
-// Clears the entire CF score index after user confirmation.
+// ── cfResetIndex ───────────────────────────────────────────────────────────────
 async function cfResetIndex() {
   if (!await showConfirm(
     'Reset CF Score Index',
@@ -347,8 +346,7 @@ async function cfResetIndex() {
 }
 
 
-// ── _escHtml ──────────────────────────────────────────────────────────────────
-// Minimal HTML escaping for user-supplied strings rendered into innerHTML.
+// ── _escHtml ───────────────────────────────────────────────────────────────────
 function _escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')

@@ -6,32 +6,40 @@ CustomFormatScoreSyncer -- builds and maintains the CF score index.
 The syncer runs on its own schedule independent of the sweep pipeline.
 It performs a full library pass across all configured Radarr and Sonarr
 instances, writing entries to cf_score_entries for any monitored item where:
-  - qualityCutoffNotMet is False (quality tier already satisfied)
+  - hasFile is True and isAvailable is True (Radarr)
+  - customFormatScore >= minFormatScore (not penalised below the floor)
   - customFormatScore < cutoffFormatScore from the quality profile
-  - gap >= minUpgradeFormatScore from the quality profile
 
-The minUpgradeFormatScore filter is applied ephemerally during the sync pass
-and never stored -- the table always reflects what Radarr/Sonarr would
-actually consider worth grabbing.
+The minFormatScore floor is the only score-based filter applied at sync time.
+It excludes files penalised below the minimum custom format score threshold --
+Radarr and Sonarr will not grab any release that scores below this floor, so
+searching such items serves no purpose.
+
+minUpgradeFormatScore is intentionally NOT applied at sync time. Whether a
+found release clears the minimum increment is Radarr/Sonarr's decision at
+grab time -- not Nudgarr's. This keeps CF Score Scan consistent with the
+Cutoff Unmet and Backlog pipelines which also delegate grab decisions to the
+arr apps. Cooldown handles the case where no qualifying release is found.
 
 The sweep pipeline reads from cf_score_entries (worst gap first) and never
 needs to understand any of this logic.  The syncer is the sole writer;
 the sweep is a read-only consumer.
 
-API batch sizes:
-  Radarr movie files: 100 IDs per request (URL length constraint)
-  DB upserts:         200 rows per transaction (throughput vs overhead balance)
-
-Delay between batches: random 100-500ms to avoid burdening the arr instance,
-especially important on underpowered hardware.
-
-The syncer defers its run if a sweep is currently in progress so the two
-jobs never hammer the arr instances simultaneously.
-
-Public:
-  CustomFormatScoreSyncer       -- class; call .run(cfg, session) to sync
-  CF_SCORE_API_BATCH_SIZE       -- 100 (Radarr moviefile endpoint limit)
 """
+
+# API batch sizes:
+#   Radarr movie files: 100 IDs per request (URL length constraint)
+#   DB upserts:         200 rows per transaction (throughput vs overhead balance)
+#
+# Delay between batches: random 100-500ms to avoid burdening the arr instance,
+# especially important on underpowered hardware.
+#
+# The syncer defers its run if a sweep is currently in progress so the two
+# jobs never hammer the arr instances simultaneously.
+#
+# Public:
+#   CustomFormatScoreSyncer       -- class; call .run(cfg, session) to sync
+#   CF_SCORE_API_BATCH_SIZE       -- 100 (Radarr moviefile endpoint limit)
 
 import json
 import logging
@@ -133,12 +141,15 @@ class CustomFormatScoreSyncer:
 
         Steps per instance:
           1. Fetch quality profiles once -- builds profile_id -> profile dict
-          2. Fetch eligible library items (monitored, hasFile, cutoff met)
-          3. Fetch CF scores for those files in batches of 100 (Radarr) or
+          2. Fetch eligible library items (monitored, hasFile, isAvailable)
+          3. Apply sweep filters (tags, profiles) at write time
+          4. Fetch CF scores for those files in batches of 100 (Radarr) or
              read scores directly from episode file objects (Sonarr)
-          4. Apply gap filter using minUpgradeFormatScore from the profile
-          5. Batch-upsert qualifying entries (200 per DB transaction)
-          6. Prune stale entries (not visited in this run)
+          5. Skip items where current_score < minFormatScore (penalised floor)
+          6. Skip items where current_score >= cutoffFormatScore (already done)
+          7. Batch-upsert qualifying entries (200 per DB transaction)
+          8. Prune stale entries (not visited in this run)
+          9. Write sync progress to nudgarr_state for ring chart animation
 
         Defers the entire run if a sweep is currently in progress to avoid
         simultaneous API load on underpowered hardware.
@@ -193,9 +204,13 @@ class CustomFormatScoreSyncer:
     ) -> Dict[str, Any]:
         """Sync one Radarr instance.
 
-        Fetches quality profiles, then all eligible movies, then CF scores
-        for each movie's file in batches of CF_SCORE_API_BATCH_SIZE (100).
-        Applies the minUpgradeFormatScore filter at write time.
+        Fetches quality profiles, then all eligible movies (monitored, hasFile,
+        isAvailable), applies sweep filters (tags, profiles), then batch-fetches
+        CF scores. Skips files where current_score < minFormatScore (penalised
+        below the floor Radarr will never grab from) or where current_score
+        >= cutoffFormatScore (already at or above target).
+        minUpgradeFormatScore is not applied -- that decision belongs to Radarr
+        at grab time, consistent with Cutoff Unmet and Backlog pipeline behaviour.
 
         On any API error during profile or movie fetch the instance is skipped
         entirely and existing entries are left untouched (stale-safe).
@@ -295,24 +310,22 @@ class CustomFormatScoreSyncer:
                 continue
 
             cutoff_score = profile.get("cutoffFormatScore", 0)
-            min_upgrade = profile.get("minUpgradeFormatScore", 0)
+            min_format_score = profile.get("minFormatScore", 0)
             current_score = file_scores.get(file_id, 0)
             gap = cutoff_score - current_score
 
-            # Only write items where the gap exists and meets the minimum.
-            # Items where current_score >= cutoff_score need no searching.
-            # Items where gap < min_upgrade would not be grabbed by Radarr
-            # even if a better release were found -- searching them wastes
-            # indexer API quota.
-            if gap <= 0:
-                skipped += 1
-                continue
-            if min_upgrade > 0 and gap < min_upgrade:
+            # Only write items where the gap exists and the current score
+            # is at or above the minimum format score floor.
+            if current_score < min_format_score:
                 skipped += 1
                 logger.debug(
-                    "[CF Sync] Radarr:%s skipped %s -- gap=%d < min_upgrade=%d",
-                    name, movie.get("title", "?"), gap, min_upgrade,
+                    "[CF Sync] Radarr:%s skipped %s -- current_score=%d below minFormatScore=%d",
+                    name, movie.get("title", "?"), current_score, min_format_score,
                 )
+                continue
+
+            if gap <= 0:
+                skipped += 1
                 continue
 
             entries_to_write.append({
@@ -444,9 +457,9 @@ class CustomFormatScoreSyncer:
                 continue
 
             cutoff_score = profile.get("cutoffFormatScore", 0)
-            min_upgrade = profile.get("minUpgradeFormatScore", 0)
+            min_format_score = profile.get("minFormatScore", 0)
 
-            # Fetch episodes (for eligibility: monitored, hasFile, cutoff met)
+            # Fetch episodes (for eligibility: monitored, hasFile)
             episodes = cf_sonarr_get_episodes_for_series(session, url, key, series_id)
             if not episodes:
                 # Delay even on empty to respect the API
@@ -470,15 +483,14 @@ class CustomFormatScoreSyncer:
                 current_score = file_score_map.get(file_id, 0)
                 gap = cutoff_score - current_score
 
-                if gap <= 0:
+                # Skip episodes where current score is below the minimum format
+                # score floor -- Radarr/Sonarr won't grab anything below that floor
+                if current_score < min_format_score:
                     total_skipped += 1
                     continue
-                if min_upgrade > 0 and gap < min_upgrade:
+
+                if gap <= 0:
                     total_skipped += 1
-                    logger.debug(
-                        "[CF Sync] Sonarr:%s skipped %s ep %d -- gap=%d < min_upgrade=%d",
-                        name, series.get("title", "?"), ep["id"], gap, min_upgrade,
-                    )
                     continue
 
                 entries_to_write.append({

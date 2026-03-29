@@ -425,7 +425,7 @@ def cf_get_quality_profiles(
 
     Returns:
         Dict mapping profile ID (int) to the full profile dict.
-        Relevant keys: cutoffFormatScore, minUpgradeFormatScore, name, id
+        Relevant keys: cutoffFormatScore, minUpgradeFormatScore, minFormatScore, name, id
     """
     endpoint = f"{url.rstrip('/')}/api/v3/qualityprofile"
     try:

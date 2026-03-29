@@ -120,7 +120,7 @@
           <div class="hr"></div>
 
           <p class="section-label">For the Arr-tists</p>
-          <div class="field">
+          <div class="field" style="margin-top:2px">
             <div class="tooltip-wrap">
               <label>Per-Instance Overrides</label>
               <span class="tooltip-icon">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or backlog behaviour. Enable and disable without losing your saved overrides.</div></span>
@@ -134,10 +134,14 @@
               <span class="help" id="overrides_enabled_label">Disabled</span>
             </div>
           </div>
+
+          <div class="hr"></div>
+
+          <p class="section-label">Pipelines</p>
           <div class="field" style="margin-top:2px">
             <div class="tooltip-wrap">
               <label>CF Score Scan</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Scans your library for monitored items where the custom format score is below the quality profile cutoff score. Radarr and Sonarr never surface these via wanted/cutoff — this pipeline finds them independently. Enables the CF Score tab.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff score. Fires searches so Radarr and Sonarr can find better-scored releases. Enables the CF Score tab.</div></span>
             </div>
             <div class="toggle-wrap" style="margin-top:4px">
               <label class="toggle">

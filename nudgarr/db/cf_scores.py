@@ -234,8 +234,8 @@ def get_cf_score_entries(
     Args:
         arr_instance_id: Filter to a specific instance (None = all instances)
         item_type:       Filter to 'movie' or 'episode' (None = both)
-        limit:           Maximum rows to return; 200 is the UI soft cap
-        offset:          Row offset for scrollable overflow
+        limit:           Maximum rows to return; 0 or None means no limit
+        offset:          Row offset for pagination
 
     Returns:
         List of row dicts ordered by gap descending (worst gap first)
@@ -252,7 +252,13 @@ def get_cf_score_entries(
         params.append(item_type)
 
     where = " AND ".join(clauses)
-    params.extend([limit, offset])
+
+    if limit and limit > 0:
+        params.extend([limit, offset])
+        limit_clause = "LIMIT ? OFFSET ?"
+    else:
+        params.append(offset)
+        limit_clause = "LIMIT -1 OFFSET ?"
 
     rows = conn.execute(
         f"""
@@ -261,7 +267,7 @@ def get_cf_score_entries(
         FROM cf_score_entries
         WHERE {where}
         ORDER BY gap DESC, title ASC
-        LIMIT ? OFFSET ?
+        {limit_clause}
         """,
         params,
     ).fetchall()

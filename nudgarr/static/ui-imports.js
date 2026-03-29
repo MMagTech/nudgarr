@@ -166,6 +166,12 @@ function nextStatsPage() {
   const limit = parseInt(el('importsLimit')?.value || '25', 10);
   if ((IMPORTS_PAGE + 1) * limit < IMPORTS_TOTAL) { IMPORTS_PAGE++; refreshImports(); }
 }
+function jumpImportsPage() {
+  const limit = parseInt(el('importsLimit')?.value || '25', 10);
+  const val = parseInt(el('importsPageJump')?.value || '1', 10);
+  const maxPage = Math.max(0, Math.ceil(IMPORTS_TOTAL / limit) - 1);
+  if (!isNaN(val) && val >= 1) { IMPORTS_PAGE = Math.min(val - 1, maxPage); refreshImports(); }
+}
 
 // onImportsPeriodChange — fired when the user changes the period select on the
 // Imports tab stats card. Persists the selection to localStorage so it survives

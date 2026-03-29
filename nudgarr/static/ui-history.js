@@ -261,6 +261,12 @@ function nextPage() {
   const limit = parseInt(el('historyLimit').value || '25', 10);
   if ((PAGE + 1) * limit < HISTORY_TOTAL) { PAGE++; refreshHistory(); }
 }
+function jumpHistoryPage() {
+  const limit = parseInt(el('historyLimit').value || '25', 10);
+  const val = parseInt(el('historyPageJump')?.value || '1', 10);
+  const maxPage = Math.max(0, Math.ceil(HISTORY_TOTAL / limit) - 1);
+  if (!isNaN(val) && val >= 1) { PAGE = Math.min(val - 1, maxPage); refreshHistory(); }
+}
 // ── History search ──
 function filterHistorySearch() {
   const q = el('historySearch').value.trim().toLowerCase();

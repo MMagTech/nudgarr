@@ -25,7 +25,7 @@ async function fillCfScores() {
     ]);
     cfRenderStats(status);
     cfRenderCoverage(status);
-    cfRenderFilterButtons(status);
+    cfPopulateInstanceDropdown(status);
     cfRenderTable(entries);
     cfSyncConfigFields();
   } catch(e) {
@@ -34,22 +34,48 @@ async function fillCfScores() {
 }
 
 
-// ── cfRenderFilterButtons ──────────────────────────────────────────────────────
-// Dynamically generate filter buttons from the actual instance list.
-function cfRenderFilterButtons(status) {
-  const wrap = el('cfFilterBtns');
-  if (!wrap) return;
+// ── cfPopulateInstanceDropdown ─────────────────────────────────────────────────
+// Populate the instance filter dropdown from status data.
+function cfPopulateInstanceDropdown(status) {
+  const sel = el('cfInstanceFilter');
+  if (!sel) return;
   const instances = status?.instances || [];
-  const btns = [{ label: 'All', instanceId: '' }]
-    .concat(instances.map(i => ({
-      label: i.instance_name || i.arr_instance_id,
-      instanceId: i.arr_instance_id,
-    })));
-  wrap.innerHTML = btns.map(b => {
-    const isActive = b.instanceId === CF_FILTER_INSTANCE_ID;
-    return `<button class="btn sm${isActive ? ' primary' : ''}"
-      onclick="cfFilterEntries(${JSON.stringify(b.instanceId)})">${_escHtml(b.label)}</button>`;
-  }).join('');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Instances</option>' +
+    instances.map(i =>
+      `<option value="${_escHtml(i.arr_instance_id)}"${i.arr_instance_id === current ? ' selected' : ''}>${_escHtml(i.instance_name || i.arr_instance_id)}</option>`
+    ).join('');
+}
+
+
+// ── cfFilterSearch ─────────────────────────────────────────────────────────────
+let CF_SEARCH_TERM = '';
+
+function cfFilterSearch() {
+  const inp = el('cfSearch');
+  const clearBtn = el('cfSearchClear');
+  CF_SEARCH_TERM = (inp?.value || '').toLowerCase();
+  if (clearBtn) clearBtn.style.display = CF_SEARCH_TERM ? '' : 'none';
+  CF_PAGE = 0;
+  _cfRenderPage();
+}
+
+function cfClearSearch() {
+  const inp = el('cfSearch');
+  if (inp) inp.value = '';
+  const clearBtn = el('cfSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  CF_SEARCH_TERM = '';
+  CF_PAGE = 0;
+  _cfRenderPage();
+}
+
+
+// ── jumpCfPage ─────────────────────────────────────────────────────────────────
+function jumpCfPage() {
+  const val = parseInt(el('cfPageJump')?.value || '1', 10);
+  const totalPages = Math.max(1, Math.ceil(CF_TOTAL / CF_PAGE_SIZE));
+  if (!isNaN(val) && val >= 1) { CF_PAGE = Math.min(val - 1, totalPages - 1); _cfRenderPage(); }
 }
 
 
@@ -62,11 +88,7 @@ async function cfFilterEntries(instanceId) {
     const url = CF_FILTER_INSTANCE_ID
       ? '/api/cf-scores/entries?instance_id=' + encodeURIComponent(CF_FILTER_INSTANCE_ID)
       : '/api/cf-scores/entries';
-    const [status, data] = await Promise.all([
-      api('/api/cf-scores/status'),
-      api(url),
-    ]);
-    cfRenderFilterButtons(status);
+    const data = await api(url);
     cfRenderTable(data);
   } catch(e) {
     console.error('[CF Score] cfFilterEntries failed:', e.message);
@@ -206,7 +228,12 @@ function _cfRenderPage() {
   const pageInfo = el('cfPageInfo');
   if (!wrap) return;
 
-  const sorted = [...CF_ALL_ENTRIES].sort((a, b) => {
+  // Apply client-side search filter
+  const searchFiltered = CF_SEARCH_TERM
+    ? CF_ALL_ENTRIES.filter(e => (e.title || '').toLowerCase().includes(CF_SEARCH_TERM))
+    : CF_ALL_ENTRIES;
+
+  const sorted = [...searchFiltered].sort((a, b) => {
     const col = CF_SORT.col;
     const av = col === 'gap' ? (a.gap ?? a.cutoff_score - a.current_score)
              : col === 'current_score' ? a.current_score
@@ -220,9 +247,10 @@ function _cfRenderPage() {
     return CF_SORT.dir === 'asc' ? av - bv : bv - av;
   });
 
+  const total = sorted.length;
   const start = CF_PAGE * CF_PAGE_SIZE;
   const slice = sorted.slice(start, start + CF_PAGE_SIZE);
-  const maxGap = Math.max(...CF_ALL_ENTRIES.map(e => e.gap ?? e.cutoff_score - e.current_score), 1);
+  const maxGap = Math.max(...searchFiltered.map(e => e.gap ?? e.cutoff_score - e.current_score), 1);
 
   const sortTh = (col, label) => {
     const active = CF_SORT.col === col;
@@ -230,11 +258,24 @@ function _cfRenderPage() {
     return `<th class="sortable ${cls}" onclick="cfSortTable('${col}')">${label}</th>`;
   };
 
+  if (!slice.length) {
+    wrap.innerHTML = '<p class="help" style="padding:12px 0;">No items match your search.</p>';
+    if (pageInfo) pageInfo.textContent = '';
+    const btnPrev = el('cfPagination')?.querySelector('button:first-child');
+    const btnNext = el('cfPagination')?.querySelector('button:nth-child(2)');
+    if (btnPrev) btnPrev.disabled = true;
+    if (btnNext) btnNext.disabled = true;
+    return;
+  }
+
   const rows = slice.map(e => {
     const gap = e.gap ?? (e.cutoff_score - e.current_score);
     const barPct = Math.min(100, Math.round((Math.abs(gap) / maxGap) * 100));
+    const app = e.arr_instance_id ? e.arr_instance_id.split('|')[0] : 'radarr';
+    const itemId = e.external_item_id || '';
+    const seriesId = e.series_id || '';
     return `<tr>
-      <td style="color:var(--text);font-weight:500;font-size:12.5px;">${_escHtml(e.title || '—')}</td>
+      <td class="arr-link" style="font-size:12.5px;" onclick="openArrLink('${_escHtml(app)}','${_escHtml(e.instance_name || '')}','${itemId}','${seriesId}')">${_escHtml(e.title || '—')}</td>
       <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.instance_name || '—')}</td>
       <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.quality_profile_name || '—')}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--bad);font-weight:600;">${e.current_score}</td>
@@ -262,15 +303,17 @@ function _cfRenderPage() {
     </table>
   </div>`;
 
-  const total = CF_TOTAL;
   const end = Math.min(start + CF_PAGE_SIZE, total);
   const totalPages = Math.max(1, Math.ceil(total / CF_PAGE_SIZE));
   if (pageInfo) pageInfo.textContent = `Page ${CF_PAGE + 1} of ${totalPages} · ${total} item${total !== 1 ? 's' : ''}`;
 
   const btnPrev = el('cfPagination')?.querySelector('button:first-child');
-  const btnNext = el('cfPagination')?.querySelector('button:last-of-type');
+  const btnNext = el('cfPagination')?.querySelector('button:nth-child(2)');
   if (btnPrev) btnPrev.disabled = CF_PAGE === 0;
   if (btnNext) btnNext.disabled = end >= total;
+
+  const jumpInput = el('cfPageJump');
+  if (jumpInput) jumpInput.max = totalPages;
 }
 
 function cfSortTable(col) {

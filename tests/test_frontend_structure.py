@@ -74,7 +74,7 @@ LINE_COUNT_CEILINGS = {
     'ui-history.js':                   380,
     'ui-imports.js':                   250,
     'ui-intel.js':                     550,
-    'ui-cf-scores.js':                 400,  # CF Score tab (v4.2.0)
+    'ui-cf-scores.js':                 450,  # CF Score tab (v4.2.0)
     'ui-settings.js':                  660,  # raised v4.2.0: +syncMaintUi/validateMaintTime/toggleMaintDay + load/save
     'ui-notifications.js':             120,
     'ui-advanced.js':                  300,  # raised v4.2.0: +CF Score toggle functions

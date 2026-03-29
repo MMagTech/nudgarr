@@ -99,9 +99,10 @@ def api_cf_scores_entries():
     """Return items below CF cutoff for the UI table.
 
     Query params:
-      app     -- filter by 'radarr' or 'sonarr' (optional; omit for all)
-      limit   -- max rows to return (default 200, max 200)
-      offset  -- row offset for scrollable overflow (default 0)
+      instance_id -- filter to a specific arr_instance_id (optional; takes priority over app)
+      app         -- filter by 'radarr' or 'sonarr' (optional; omit for all)
+      limit       -- max rows to return (optional; 0 or omit for all rows)
+      offset      -- row offset for pagination (default 0)
 
     Results are ordered worst gap first (largest gap = furthest below cutoff).
     """
@@ -110,10 +111,10 @@ def api_cf_scores_entries():
         app_filter = request.args.get("app", "").lower().strip()
         instance_id_filter = request.args.get("instance_id", "").strip()
         try:
-            limit = min(int(request.args.get("limit", 200)), 200)
+            limit = int(request.args.get("limit", 0))
             offset = max(int(request.args.get("offset", 0)), 0)
         except (ValueError, TypeError):
-            limit, offset = 200, 0
+            limit, offset = 0, 0
 
         # instance_id filter takes priority over app filter
         if instance_id_filter:

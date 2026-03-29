@@ -58,10 +58,10 @@ def main() -> None:
     # Log config load summary
     radarr_count = len(cfg.get("instances", {}).get("radarr", []))
     sonarr_count = len(cfg.get("instances", {}).get("sonarr", []))
-    logger.info("Config loaded — %d Radarr, %d Sonarr instance%s",
+    logger.info("Config loaded — %d instance(s): %d Radarr, %d Sonarr",
                 radarr_count + sonarr_count,
                 radarr_count,
-                "s" if radarr_count != 1 else "")
+                sonarr_count)
 
     # Background health ping — parallel, non-blocking, populates dots within ~1s
     def _startup_health_ping():

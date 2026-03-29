@@ -20,7 +20,7 @@ function mSwitchTab(name) {
   if (nav) nav.classList.add('m-active');
   M_TAB = name;
   if (name === 'sweep') mRenderSweep();
-  if (name === 'instances') mRenderInstances();
+  if (name === 'instances') mRenderInstanceRows();
   if (name === 'history') {
     mLoadExclHistory();
     // Refresh exclusions count badge so m-excl-count is accurate immediately.
@@ -123,7 +123,7 @@ if (MOBILE) {
     STATUS_CACHE = st.instance_health || {};
     mUpdateHome(CFG, st);
     if (typeof lsUpdateContainerTime === 'function') lsUpdateContainerTime(st.container_time);
-    mRenderInstances();
+    mRenderInstanceRows();
     mPopulateSettings();
     mOvUpdateSubLabels();
     await refreshSweep();

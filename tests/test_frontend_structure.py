@@ -549,7 +549,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 327
+        EXPECTED_CHECK_COUNT = 326
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

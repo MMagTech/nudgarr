@@ -339,7 +339,7 @@ for nav in nav_ids:
 # ── JavaScript Sanity ─────────────────────────────────────────────────────────
 section("JavaScript Sanity")
 
-for fn in ['mUpdateHome','mRenderSweep','mRenderInstances',
+for fn in ['mUpdateHome','mRenderSweep',
            'mRunNow','mToggleAuto','mToggleNotifySettings','mToggleRadarrBacklog',
            'mToggleSonarrBacklog','mToggleInstance',
            'mAccordion','mSwitchTab','mPollCycle',

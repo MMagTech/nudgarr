@@ -14,6 +14,7 @@ Imports from within the package: constants, utils only.
 
 import json
 import logging
+import re
 from typing import Any, Dict, List, Tuple
 
 from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
@@ -63,8 +64,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "state_retention_days",
         "radarr_missing_max",
         "radarr_missing_added_days",
+        "radarr_missing_grace_hours",
         "sonarr_missing_max",
         "sonarr_missing_added_days",
+        "sonarr_missing_grace_hours",
         "auto_exclude_movies_threshold",
         "auto_exclude_shows_threshold",
         "auto_unexclude_movies_days",
@@ -139,8 +142,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     for time_key in ("maintenance_window_start", "maintenance_window_end"):
         t = cfg.get(time_key)
         if t is not None:
-            import re as _re
-            if not isinstance(t, str) or not _re.match(r"^\d{2}:\d{2}$", t):
+            if not isinstance(t, str) or not re.match(r"^\d{2}:\d{2}$", t):
                 errs.append(f"{time_key} must be a string in HH:MM format")
     mw_days = cfg.get("maintenance_window_days")
     if mw_days is not None:

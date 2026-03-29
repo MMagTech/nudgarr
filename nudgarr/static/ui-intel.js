@@ -11,9 +11,6 @@
 
 'use strict';
 
-// ── State ─────────────────────────────────────────────────────────────────
-let _intelLoaded = false;
-
 // ── Public: fillIntel ─────────────────────────────────────────────────────
 
 function fillIntel() {
@@ -26,7 +23,6 @@ function fillIntel() {
 
 function renderIntel(d) {
   if (!d) return _intelError('Failed to load Intel data.');
-  _intelLoaded = true;
 
   const coldEl    = document.getElementById('intelColdStart');
   const contentEl = document.getElementById('intelContent');
@@ -111,7 +107,6 @@ function _renderColdStart(d) {
 function resetIntel() {
   api('/api/intel/reset', { method: 'POST' })
     .then(() => {
-      _intelLoaded = false;
       fillIntel();
     })
     .catch(() => alert('Reset Intel failed. Please try again.'));
@@ -251,7 +246,7 @@ function _renderInstanceTable(rows) {
       : 'background:var(--accent);box-shadow:0 0 5px rgba(91,114,245,.5)';
     const dot       = `<div class="run-dot" style="${dotStyle}"></div>`;
     const tag       = `<span class="intel-app-tag ${app}">${app.charAt(0).toUpperCase() + app.slice(1)}</span>`;
-    const nameCell  = `<div class="intel-inst-cell">${dot}<div><div style="color:var(--text);font-weight:500;font-size:13px;">${_esc(r.instance_name)}</div>${tag}</div></div>`;
+    const nameCell  = `<div class="intel-inst-cell">${dot}<div><div style="color:var(--text);font-weight:500;font-size:13px;">${escapeHtml(r.instance_name)}</div>${tag}</div></div>`;
     const sucPct    = Math.round((r.success_rate || 0) * 100);
     const sucColor  = sucPct >= 60 ? 'var(--ok)' : 'var(--warn)';
     const ratio     = r.eligible_used_ratio || 0;
@@ -308,10 +303,10 @@ function _renderStuckItems(items, sh) {
     const addedText    = item.library_added  ? ' \u00b7 Added ' + addedDate  : '';
     return `<div class="intel-stuck-item">
       <div class="intel-stuck-top">
-        <span class="intel-stuck-title">${_esc(item.title)}</span>
+        <span class="intel-stuck-title">${escapeHtml(item.title)}</span>
         <span class="intel-stuck-count">${item.search_count}&times;</span>
       </div>
-      <div class="intel-stuck-meta">${_esc(item.instance_name)} \u00b7 First searched ${firstDate}${addedText}</div>
+      <div class="intel-stuck-meta">${escapeHtml(item.instance_name)} \u00b7 First searched ${firstDate}${addedText}</div>
     </div>`;
   }).join('');
 }
@@ -372,7 +367,7 @@ function _renderLibraryAge(la) {
     const pct   = b.total > 0 ? Math.round((b.imported / b.total) * 100) : 0;
     const color = pct >= 70 ? 'var(--ok)' : pct >= 50 ? 'var(--accent)' : 'var(--warn)';
     return `<div class="intel-age-row">
-      <span class="intel-age-label">${_esc(b.label)}</span>
+      <span class="intel-age-label">${escapeHtml(b.label)}</span>
       <div class="intel-age-track"><div class="intel-age-fill" style="width:${pct}%;background:${color};"></div></div>
       <span class="intel-age-pct" style="color:${color};">${pct}%</span>
     </div>`;
@@ -418,9 +413,9 @@ function _renderQualityIteration(qi) {
 function _upgradePathRow(app, path) {
   return `<div class="intel-upgrade-path">
     <span class="intel-app-tag ${app}">${app.charAt(0).toUpperCase() + app.slice(1)}</span>
-    <span class="intel-up-from">${_esc(path.from)}</span>
+    <span class="intel-up-from">${escapeHtml(path.from)}</span>
     <span class="intel-up-arrow">&#8594;</span>
-    <span class="intel-up-to">${_esc(path.to)}</span>
+    <span class="intel-up-to">${escapeHtml(path.to)}</span>
     <span class="intel-up-count">${path.count} time${path.count !== 1 ? 's' : ''}</span>
   </div>`;
 }
@@ -448,7 +443,7 @@ function _renderSweepEfficiency(rows) {
     return `<div class="intel-eff-row">
       <div class="intel-eff-name">
         <div class="${dotClass}" style="${dotStyle}"></div>
-        ${_esc(r.instance_name)}
+        ${escapeHtml(r.instance_name)}
       </div>
       <div class="intel-eff-bar-wrap">
         <div class="intel-eff-track"><div class="intel-eff-fill" style="width:${pct}%;background:${barColor};"></div></div>
@@ -468,7 +463,7 @@ function _intelError(msg) {
   ];
   ids.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = `<p class="help">${_esc(msg)}</p>`;
+    if (el) el.innerHTML = `<p class="help">${escapeHtml(msg)}</p>`;
   });
 }
 
@@ -477,15 +472,6 @@ function _intelError(msg) {
 function _setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
-}
-
-function _esc(s) {
-  if (s === null || s === undefined) return '';
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function _num(n) {

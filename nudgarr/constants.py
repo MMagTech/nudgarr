@@ -39,11 +39,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "radarr_backlog_enabled": False,
     "radarr_missing_max": 1,
     "radarr_missing_added_days": 14,
+    "radarr_missing_grace_hours": 0,
 
     # Optional Sonarr backlog missing nudges (OFF by default)
     "sonarr_backlog_enabled": False,
     "sonarr_missing_max": 1,
     "sonarr_missing_added_days": 14,
+    "sonarr_missing_grace_hours": 0,
 
     "batch_size": 1,
     "sleep_seconds": 5,

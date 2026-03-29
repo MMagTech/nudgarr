@@ -252,7 +252,7 @@ def pick_items_with_cooldown(
     elif sample_mode == "newest_added":
         eligible.sort(key=lambda x: (x.get("added") or ""), reverse=True)
 
-    chosen = eligible[:max_per_run] if max_per_run > 0 else []
+    chosen = eligible[:max_per_run] if max_per_run > 0 else eligible
     return chosen, len(eligible), skipped
 
 

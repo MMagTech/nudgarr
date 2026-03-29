@@ -50,6 +50,20 @@ from nudgarr.utils import iso_z, jitter_sleep, mask_url, parse_iso, utcnow
 logger = logging.getLogger(__name__)
 
 
+def _release_date(rec: Dict[str, Any]):
+    """Return the earliest known release date for a missing record, or None.
+    Checks Radarr fields (releaseDate, physicalRelease, inCinemas) and
+    Sonarr fields (airDateUtc, airDate) in preference order."""
+    for field in ("releaseDate", "physicalRelease", "digitalRelease", "inCinemas",
+                  "airDateUtc", "airDate"):
+        val = rec.get(field)
+        if val:
+            dt = parse_iso(val)
+            if dt is not None:
+                return dt
+    return None
+
+
 # ── Private per-instance helper ───────────────────────────────────────
 
 def _sweep_instance(
@@ -68,6 +82,7 @@ def _sweep_instance(
     notifications_enabled: bool,
     app: str,
     missing_added_days: int = 0,
+    missing_grace_hours: int = 0,
     backlog_sample_mode: str = "random",
 ) -> Dict[str, Any]:
     """Run one Radarr or Sonarr instance through a full sweep cycle.
@@ -236,7 +251,7 @@ def _sweep_instance(
     searched_missing = 0
     chosen_missing: List[Dict[str, Any]] = []
 
-    if backlog_enabled and missing_max > 0:
+    if backlog_enabled:
         if app == "radarr":
             missing_records = fn_get_missing(session, url, key)
         else:
@@ -296,6 +311,15 @@ def _sweep_instance(
                 if ok_old:
                     missing_filtered.append(rec)
             missing_records = missing_filtered
+
+        # Grace period filter — skip items whose availability date is within
+        # the configured grace window to allow indexers time to populate.
+        if missing_grace_hours > 0:
+            grace_cutoff = utcnow() - timedelta(hours=missing_grace_hours)
+            missing_records = [
+                rec for rec in missing_records
+                if _release_date(rec) is None or _release_date(rec) <= grace_cutoff
+            ]
 
         chosen_missing, eligible_missing, skipped_missing = pick_items_with_cooldown(
             missing_records, app, name, inst_url, missing_type,
@@ -501,6 +525,8 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             if app == "radarr":
                 inst_missing_days = _resolve(inst, cfg, overrides_enabled, "max_missing_days",
                                              int(cfg.get("radarr_missing_added_days", 14)))
+            # Grace period — applies to both Radarr and Sonarr missing searches
+            inst_missing_grace = int(cfg.get(f"{app}_missing_grace_hours", 0))
             # Backlog sample mode override — falls back to global backlog mode if not set
             inst_backlog_mode = _resolve(inst, cfg, overrides_enabled, "backlog_sample_mode", global_backlog_mode)
             if inst_backlog_mode not in VALID_BACKLOG_SAMPLE_MODES:
@@ -517,6 +543,7 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
                     inst_notifications_enabled,
                     app=app,
                     missing_added_days=inst_missing_days,
+                    missing_grace_hours=inst_missing_grace,
                     backlog_sample_mode=inst_backlog_mode,
                 )
                 summary[app].append(inst_summary)

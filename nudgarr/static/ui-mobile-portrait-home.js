@@ -1,7 +1,7 @@
 // ── Portrait Home, Instances, Sweep tabs ──────────────────────────────────
 // mUpdateHome, mRenderInstanceRows, mRunNow, mInitRunBtn,
 // mToggleAuto, mToggleMaintWindow, mToggleRadarrBacklog, mToggleSonarrBacklog,
-// mRenderInstances, mToggleInstance, mRenderSweep, mAccordion,
+// mToggleInstance, mRenderSweep, mAccordion,
 // mAddArrLinkHandler
 
 // ── Home ───────────────────────────────────────────────────────────────────
@@ -103,8 +103,6 @@ function mRenderInstanceRows() {
 
 // ── Run Now ────────────────────────────────────────────────────────────────
 
-let M_RUN_DONE_TIMER = null;
-
 async function mRunNow() {
   mHaptic(40);
   const btn = document.getElementById('m-run-btn');
@@ -157,10 +155,6 @@ function mToggleSonarrBacklog() {
 }
 
 // ── Instances ─────────────────────────────────────────────────────────────
-
-function mRenderInstances() {
-  mRenderInstanceRows();
-}
 
 async function mToggleInstance(kind, idx) {
   mHaptic(40);

@@ -18,7 +18,7 @@
           <div class="field" style="margin-bottom:10px">
             <div class="toggle-wrap">
               <label class="toggle">
-                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); checkNewestAddedWarning(); markUnsaved('advMsg')"/>
+                <input type="checkbox" id="radarr_backlog_enabled" onchange="syncBacklogUi(); markUnsaved('advMsg')"/>
                 <span class="toggle-track"></span>
                 <span class="toggle-thumb"></span>
               </label>
@@ -32,19 +32,19 @@
                 <label>Missing Max (Per Instance)</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
               </div>
-              <input id="radarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
-              <div class="help">Maximum missing movies searched per instance per run</div>
+              <input id="radarr_missing_max" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Maximum missing movies searched per instance per run (0 = All Eligible)</div>
             </div>
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Missing Added Days</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">Only search for missing items that were added to your library at least this many days ago. This prevents Nudgarr from immediately searching for something you just added and are still expecting to arrive naturally through your RSS feed. Set to 0 to remove the age filter and search all missing items regardless of when they were added.</div></span>
               </div>
-              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg'); checkNewestAddedWarning()"/>
+              <input id="radarr_missing_added_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
               <div class="help">Only search missing items older than this many days (0 = No Age Filter)</div>
             </div>
           </div>
-          <!-- Backlog Sample Mode — independent of cutoff sample mode (Settings tab) (v4.2.0) -->
+          <!-- Backlog Sample Mode and Grace Period (v4.2.0) -->
           <div class="grid cols2" style="gap:12px;margin-top:12px">
             <div class="field">
               <div class="tooltip-wrap">
@@ -59,7 +59,14 @@
               </select>
               <div class="help">How Nudgarr picks which missing Radarr items to search each run</div>
             </div>
-            <div></div>
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Grace Period (Hours)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Wait this many hours after a missing item's availability date before Nudgarr's first search. Useful when indexers need time to populate after a release. Set to 0 to disable and search immediately once the item becomes available.</div></span>
+              </div>
+              <input id="radarr_missing_grace_hours" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Wait this many hours after availability date before first search (0 = Disabled)</div>
+            </div>
           </div>
           </div>
           <div style="margin-top:14px">
@@ -81,10 +88,10 @@
                 <label>Missing Max (Per Instance)</label>
                 <span class="tooltip-icon">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
               </div>
-              <input id="sonarr_missing_max" type="number" min="1" oninput="markUnsaved('advMsg')"/>
-              <div class="help">Maximum missing episodes searched per instance per run</div>
+              <input id="sonarr_missing_max" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Maximum missing episodes searched per instance per run (0 = All Eligible)</div>
             </div>
-            <!-- Backlog Sample Mode — independent of cutoff sample mode (Settings tab) (v4.2.0) -->
+            <!-- Backlog Sample Mode and Grace Period (v4.2.0) -->
             <div class="field">
               <div class="tooltip-wrap">
                 <label>Backlog Sample Mode</label>
@@ -99,8 +106,19 @@
               <div class="help">How Nudgarr picks which missing Sonarr items to search each run</div>
             </div>
           </div>
+          <div class="grid cols2" style="gap:12px;margin-top:12px">
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>Grace Period (Hours)</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Wait this many hours after a missing item's availability date before Nudgarr's first search. Useful when indexers need time to populate after a release. Set to 0 to disable and search immediately once the item becomes available.</div></span>
+              </div>
+              <input id="sonarr_missing_grace_hours" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+              <div class="help">Wait this many hours after availability date before first search (0 = Disabled)</div>
+            </div>
+            <div></div>
           </div>
-          <!-- TODO(v4.2.0-mobile): add radarr_backlog_sample_mode and sonarr_backlog_sample_mode fields to mobile portrait settings — see desktop ui-tab-advanced.html -->
+          </div>
+          <!-- TODO(v4.2.0-mobile): add radarr_backlog_sample_mode, sonarr_backlog_sample_mode, and grace period fields to mobile portrait settings -->
           </div>
           <div class="hr"></div>
           <p class="section-label">For the Arr-tists</p>
@@ -117,13 +135,6 @@
               </label>
               <span class="help" id="overrides_enabled_label">Disabled</span>
             </div>
-          </div>
-          <div class="amber-warn" style="margin-top:16px">
-            <p class="amber-warn-title">USE WITH CAUTION</p>
-            <p class="help amber-warn-body">Setting Missing Added Days to 0 disables the age filter — all missing items become eligible immediately. Combined with a high Missing Max and frequent cron schedule this can generate a very large number of searches in a short time, risking indexer rate limiting or bans. Nudgarr is not responsible for bans resulting from user-configured search behaviour.</p>
-          </div>
-          <div id="newestAddedWarnAdvanced" class="amber-warn amber-warn-collapsible">
-            <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
           </div>
           </div><!-- end advPage1 -->
 

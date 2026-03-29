@@ -13,8 +13,6 @@
 
 let LS_FILTERS_SEL = null; // currently selected instance key "kind|idx"
 
-function _lsFiltersKey(kind, idx) { return kind + '|' + idx; }
-
 // lsFiltersRenderRail — rebuilds the rail listing all instances with a
 // filter count chip showing how many tags + profiles are excluded.
 function lsFiltersRenderRail() {
@@ -36,13 +34,13 @@ function lsFiltersRenderRail() {
   }
 
   // Default selection to first enabled instance if none set
-  if (!LS_FILTERS_SEL || !allInsts.find(i => _lsFiltersKey(i.kind, i.idx) === LS_FILTERS_SEL)) {
+  if (!LS_FILTERS_SEL || !allInsts.find(i => _lsOvKey(i.kind, i.idx) === LS_FILTERS_SEL)) {
     const first = allInsts.find(i => i.enabled) || allInsts[0];
-    LS_FILTERS_SEL = _lsFiltersKey(first.kind, first.idx);
+    LS_FILTERS_SEL = _lsOvKey(first.kind, first.idx);
   }
 
   rail.innerHTML = allInsts.map(inst => {
-    const key = _lsFiltersKey(inst.kind, inst.idx);
+    const key = _lsOvKey(inst.kind, inst.idx);
     const isActive = key === LS_FILTERS_SEL;
     const isDisabled = !inst.enabled;
     const dotColor     = isDisabled ? 'var(--muted)' : (inst.kind === 'radarr' ? 'var(--accent)' : 'var(--ok)');
@@ -72,7 +70,7 @@ function lsFiltersRenderRail() {
 }
 
 function lsFiltersSelectInst(kind, idx) {
-  LS_FILTERS_SEL = _lsFiltersKey(kind, idx);
+  LS_FILTERS_SEL = _lsOvKey(kind, idx);
   lsFiltersRenderRail();
 }
 

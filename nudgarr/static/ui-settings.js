@@ -479,7 +479,6 @@ async function saveSettings() {
     await loadAll();
     await new Promise(r => setTimeout(r, 400));
     el('setMsg').textContent = 'Saved'; el('setMsg').className = 'msg ok'; fadeMsg('setMsg');
-    fadeNewestAddedWarnings();
     flashCooldownDisabledNote();
   } catch(e) {
     el('setMsg').textContent = 'Save failed: ' + e.message; el('setMsg').className = 'msg err';
@@ -499,42 +498,6 @@ function checkCooldownWarning() {
 
 function flashCooldownDisabledNote() {
   checkCooldownWarning();
-}
-
-// ── Newest Added warning ──
-function _newestAddedWarningActive() {
-  const mode = el('radarr_sample_mode') ? el('radarr_sample_mode').value : (CFG ? CFG.radarr_sample_mode || CFG.sample_mode : 'random');
-  const backlog = el('radarr_backlog_enabled') ? el('radarr_backlog_enabled').checked : (CFG ? !!CFG.radarr_backlog_enabled : false);
-  const days = el('radarr_missing_added_days') ? parseInt(el('radarr_missing_added_days').value || '0', 10) : (CFG ? (CFG.radarr_missing_added_days ?? 0) : 0);
-  return mode === 'newest_added' && backlog && days > 0;
-}
-
-function checkNewestAddedWarning() {
-  const showWarn = _newestAddedWarningActive();
-  const warnSettings = el('newestAddedWarnSettings');
-  const warnAdv = el('newestAddedWarnAdvanced');
-  [warnSettings, warnAdv].forEach(w => {
-    if (!w) return;
-    clearTimeout(w._warnFade);
-    w.style.opacity = '';
-    w.style.transition = '';
-    if (showWarn) { w.classList.add('visible'); }
-    else          { w.classList.remove('visible'); }
-  });
-}
-
-function fadeNewestAddedWarnings() {
-  [el('newestAddedWarnSettings'), el('newestAddedWarnAdvanced')].forEach(w => {
-    if (!w || !w.classList.contains('visible')) return;
-    clearTimeout(w._warnFade);
-    w.style.transition = 'opacity 0.5s ease';
-    w.style.opacity = '0';
-    w._warnFade = setTimeout(() => {
-      w.style.opacity = '';
-      w.style.transition = '';
-      w.classList.remove('visible');
-    }, 500);
-  });
 }
 
 // ── What's New modal ──

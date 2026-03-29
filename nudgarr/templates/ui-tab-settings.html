@@ -119,16 +119,13 @@
               <label>Radarr Sample Mode</label>
               <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end. Missing Added Days sets the eligible pool — set to 0 to search all missing items newest-first with no age filter.</div></span>
             </div>
-            <select id="radarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+            <select id="radarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
             <div class="help">How Nudgarr picks which Radarr items to search each run</div>
-            <div id="newestAddedWarnSettings" class="amber-warn amber-warn-collapsible">
-              <p class="help amber-warn-body">⚠️ <strong>Newest Added</strong> is active and Radarr backlog nudges are enabled. Items closest to your Missing Added Days cutoff will be searched first.</p>
-            </div>
           </div>
         </div>
         <div class="grid cols2" style="gap:12px;margin-top:12px">
@@ -145,7 +142,7 @@
               <label>Sonarr Sample Mode</label>
               <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
             </div>
-            <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg'); checkNewestAddedWarning()">
+            <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>

@@ -9,7 +9,7 @@
 let CF_FILTER = 'all';
 let CF_FILTER_INSTANCE_ID = '';
 let CF_PAGE = 0;
-const CF_PAGE_SIZE = 25;
+let CF_PAGE_SIZE = 25;
 let CF_TOTAL = 0;
 
 
@@ -73,9 +73,16 @@ function cfClearSearch() {
 
 // ── jumpCfPage ─────────────────────────────────────────────────────────────────
 function jumpCfPage() {
+  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '25', 10);
   const val = parseInt(el('cfPageJump')?.value || '1', 10);
   const totalPages = Math.max(1, Math.ceil(CF_TOTAL / CF_PAGE_SIZE));
   if (!isNaN(val) && val >= 1) { CF_PAGE = Math.min(val - 1, totalPages - 1); _cfRenderPage(); }
+}
+
+function cfChangePageSize() {
+  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '25', 10);
+  CF_PAGE = 0;
+  _cfRenderPage();
 }
 
 
@@ -228,6 +235,8 @@ function _cfRenderPage() {
   const pageInfo = el('cfPageInfo');
   if (!wrap) return;
 
+  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '25', 10);
+
   // Apply client-side search filter
   const searchFiltered = CF_SEARCH_TERM
     ? CF_ALL_ENTRIES.filter(e => (e.title || '').toLowerCase().includes(CF_SEARCH_TERM))
@@ -275,7 +284,7 @@ function _cfRenderPage() {
     const itemId = e.external_item_id || '';
     const seriesId = e.series_id || '';
     return `<tr>
-      <td class="arr-link" style="font-size:12.5px;" onclick="openArrLink('${_escHtml(app)}','${_escHtml(e.instance_name || '')}','${itemId}','${seriesId}')">${_escHtml(e.title || '—')}</td>
+      <td class="arr-link" style="font-size:12.5px;" title="Open in ${app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${_escHtml(app)}','${_escHtml(e.instance_name || '')}','${itemId}','${seriesId}')">${_escHtml(e.title || '—')}</td>
       <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.instance_name || '—')}</td>
       <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.quality_profile_name || '—')}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--bad);font-weight:600;">${e.current_score}</td>

@@ -58,7 +58,7 @@
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">CF Score Scan</div>
-           <div class="help">A third search pipeline that finds monitored items where the custom format score is below the quality profile cutoff — even when Radarr and Sonarr don't flag them as needing an upgrade. Enable in Advanced and configure in the new CF Score tab. Respects your profile's minimum score increment automatically.</div>
+           <div class="help">A third independent search pipeline that finds any monitored file where the custom format score is below the quality profile cutoff — regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab. Cutoff score and minimum increment are read directly from each quality profile.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab</div>

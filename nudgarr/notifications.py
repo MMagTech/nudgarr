@@ -72,14 +72,22 @@ def notify_sweep_complete(summary: Dict[str, Any], cfg: Dict[str, Any]) -> None:
             if not inst.get("notifications_enabled", True):
                 logger.debug("Sweep notification skipped for %s (notifications_enabled=False)", inst.get("name", "?"))
                 continue
-            searched = inst.get("searched", 0) + inst.get("searched_missing", 0)
+            searched = inst.get("searched", 0) + inst.get("searched_missing", 0) + inst.get("searched_cf", 0)
             # Skip instances that searched nothing — no point notifying about them
             if searched == 0:
                 logger.debug("Sweep notification skipped for %s (nothing searched)", inst.get("name", "?"))
                 continue
             cutoff = inst.get("searched", 0)
             backlog = inst.get("searched_missing", 0)
-            detail = f"{cutoff} Cutoff, {backlog} Backlog" if backlog > 0 else "Cutoff"
+            cf = inst.get("searched_cf", 0)
+            parts = []
+            if cutoff > 0:
+                parts.append(f"{cutoff} Cutoff")
+            if backlog > 0:
+                parts.append(f"{backlog} Backlog")
+            if cf > 0:
+                parts.append(f"{cf} CF Score")
+            detail = ", ".join(parts) if parts else "Cutoff"
             lines.append(f"{inst.get('name', '?')} — {searched} Searched ({detail})")
     # If every instance was suppressed or searched nothing, fire nothing
     if not lines:

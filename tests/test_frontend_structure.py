@@ -69,7 +69,7 @@ JS_LOAD_ORDER = [
 LINE_COUNT_CEILINGS = {
     'ui-core.js':                      400,
     'ui-instances.js':                 450,
-    'ui-overrides.js':                 440,  # raised v4.2.0: +backlog_sample_mode field, new card layout
+    'ui-overrides.js':                 470,  # raised v4.2.0: +cf_max override field and CF Score group
     'ui-sweep.js':                     200,
     'ui-history.js':                   380,
     'ui-imports.js':                   250,

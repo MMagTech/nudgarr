@@ -99,13 +99,18 @@
         </div>
       </div>
       <div class="row" style="margin-bottom:12px;">
-        <div class="field" style="min-width:200px;">
-          <select id="cfInstanceFilter" onchange="cfFilterEntries(this.value)">
-            <option value="">All Instances</option>
-          </select>
-        </div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          <div class="field" style="min-width:180px;position:relative;">
+          <div class="field" style="min-width:200px;margin:0;">
+            <select id="cfInstanceFilter" onchange="cfFilterEntries(this.value)">
+              <option value="">All Instances</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:100px;margin:0;">
+            <select id="cfPageSize" onchange="cfChangePageSize()">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:180px;position:relative;margin:0;">
             <input type="text" id="cfSearch" placeholder="Search title…" oninput="cfFilterSearch()" style="padding-right:28px;"/>
             <button id="cfSearchClear" onclick="cfClearSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:0;line-height:1;">✕</button>
           </div>

@@ -68,6 +68,8 @@ function _getGlobal(kind, field) {
     backlog_sample_mode:   kind === 'radarr' ? (CFG.radarr_backlog_sample_mode || 'random') : (CFG.sonarr_backlog_sample_mode || 'random'),
     // Grace period — applied after availability date before first missing search (v4.2.0)
     missing_grace_hours:   kind === 'radarr' ? (CFG.radarr_missing_grace_hours ?? 0) : (CFG.sonarr_missing_grace_hours ?? 0),
+    // CF Score max per run — only relevant when cf_score_enabled is True (v4.2.0)
+    cf_max:                kind === 'radarr' ? (CFG.radarr_cf_max_per_run ?? 1) : (CFG.sonarr_cf_max_per_run ?? 1),
   };
   return field in map ? map[field] : '';
 }
@@ -160,6 +162,8 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const gBacklog  = _getGlobal(kind, 'max_backlog');
   const gMissing  = _getGlobal(kind, 'max_missing_days');
   const gGrace    = _getGlobal(kind, 'missing_grace_hours');
+  const gCfMax    = _getGlobal(kind, 'cf_max');
+  const cfScoreEnabled = CFG ? !!CFG.cf_score_enabled : false;
 
   // Backlog fields: Max Backlog / Backlog Sample Mode (both apps)
   // Radarr row 2: Max Missing Days / Grace Period (Hours)
@@ -196,6 +200,18 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const innerDivider = `<div style="height:1px;background:var(--border);margin:10px 0"></div>`;
   const grpHead = (text) => `<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">${text}</div>`;
 
+  // CF Score group — only shown when cf_score_enabled is True globally.
+  // Hides entirely when disabled so users aren't confused by a field
+  // that has no effect.
+  const cfScoreSectionHtml = cfScoreEnabled
+    ? `${innerDivider}
+       ${grpHead('CF Score')}
+       <div class="ov-fields" style="margin-bottom:10px">
+         <div style="grid-column:1/2">${numField('cf_max', 'Max (Per Run)', gCfMax)}</div>
+         <div></div>
+       </div>`
+    : '';
+
   return `<div class="${'ov-card' + (solo ? ' ov-solo' : '')}" id="${cardId}" data-kind="${kind}" data-idx="${idx}" data-name="${escapeHtml(inst.name)}" style="${disabledBorder}">
     <div class="ov-card-hdr">
       <div style="display:flex;align-items:center;gap:7px">
@@ -230,6 +246,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
         </label>
       </div>
       ${backlogFieldsHtml}
+      ${cfScoreSectionHtml}
       <!-- Notifications footer -->
       <div class="${notifyRowClass}" id="${cardId}-notify-row">
         <span class="help" style="font-size:11.5px" id="${cardId}-notify-label">${notifyLabel}</span>
@@ -334,6 +351,7 @@ async function applyOverrides(kind, idx) {
   const numFields = ['cooldown_hours', 'max_cutoff_unmet', 'max_backlog'];
   if (kind === 'radarr') numFields.push('max_missing_days');
   numFields.push('missing_grace_hours');
+  if (CFG && CFG.cf_score_enabled) numFields.push('cf_max');
 
   numFields.forEach(field => {
     const input = el(cardId + '-' + field);

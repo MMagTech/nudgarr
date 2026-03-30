@@ -37,9 +37,11 @@ nudgarr/                    ← Python package
   arr_clients.py            ← Radarr and Sonarr API calls; pagination handled internally, callers receive a flat list
                               CF Score API functions (cf_get_quality_profiles, cf_radarr_*, cf_sonarr_*) appended
                               at the bottom under the CF Score Scan section heading.
-                              cf_radarr_get_all_movies applies isAvailable filter (unavailable movies never enter
-                              the index) and returns tag_ids. cf_sonarr_get_all_series also returns tag_ids.
-                              Both tag_ids fields are used by the syncer to apply sweep filters at write time.
+                              cf_radarr_get_all_movies fetches all monitored movies with hasFile=true and
+                              isAvailable=true. Does NOT filter on qualityCutoffNotMet — CF Score scans all
+                              monitored files regardless of quality tier. Returns tag_ids and added_date per movie.
+                              cf_sonarr_get_all_series returns tag_ids. Both tag_ids fields used by the syncer
+                              to apply sweep filters at write time.
   cf_score_syncer.py        ← CustomFormatScoreSyncer class; full library sync logic for Radarr and Sonarr;
                               applies tag/profile sweep filters at write time (syncer-as-gatekeeper);
                               writes live sync progress to nudgarr_state per instance for ring chart animation;
@@ -64,19 +66,26 @@ nudgarr/                    ← Python package
     state.py                ← /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*, /api/arr-link
     stats.py                ← /api/stats, /api/stats/clear, check-imports
     intel.py                ← /api/intel (full Intel payload), /api/intel/reset (Danger Zone)
-    cf_scores.py            ← /api/cf-scores/status, /api/cf-scores/entries,
+    cf_scores.py            ← /api/cf-scores/status, /api/cf-scores/entries (supports ?instance_id= and
+                              ?app= filters; no row cap — returns all matching entries),
                               /api/cf-scores/scan (manual sync), /api/cf-scores/reset (Reset CF Index)
     notifications.py        ← /api/notifications/test
     diagnostics.py          ← /api/diagnostic, /api/log/clear
   static/                   ← JS and CSS served as static assets
     ui-core.js              ← bootstrap, shared state, cron helper, status polling, tab switching, shared sort helpers, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
-    ui-sweep.js             ← sweep tab rendering, Run Now
-    ui-history.js           ← history tab, exclusions, shared sort/pagination helpers
-    ui-imports.js           ← imports/stats tab
+    ui-sweep.js             ← sweep tab rendering, Run Now; refreshSweep() builds per-instance sweep cards
+                              showing Library State (Cutoff Unmet, Backlog, CF Score when enabled) and
+                              This Run stats (Eligible, Searched, Cooldown, Capped) rolled up across all
+                              three pipelines; SWEEP_DATA_CACHE retains last known stats for disabled instances
+    ui-history.js           ← history tab, exclusions, shared sort/pagination helpers; jumpHistoryPage() for direct page navigation
+    ui-imports.js           ← imports/stats tab; jumpImportsPage() for direct page navigation
     ui-intel.js             ← Intel tab — fillIntel, renderIntel, resetIntel and all render helpers
-    ui-cf-scores.js         ← CF Score tab — fillCfScores, cfRenderStats, cfRenderCoverage, cfRenderTable,
-                              saveCfScores, cfFilterEntries, cfScanLibrary, cfResetIndex
+    ui-cf-scores.js         ← CF Score tab — fillCfScores, cfRenderStats, cfRenderCoverage (flat list with
+                              percentage pills), cfRenderTable, cfPopulateInstanceDropdown, cfFilterEntries,
+                              cfFilterSearch, cfClearSearch, cfSortTable, cfPrevPage, cfNextPage, jumpCfPage,
+                              cfScanLibrary (_cfWaitForScan polls and updates coverage live), cfResetIndex.
+                              Titles use .arr-link with openArrLink(). No row cap — all entries returned.
     ui-settings.js          ← settings tab, tab switching, onboarding, What's New modal
     ui-notifications.js     ← notifications tab
     ui-advanced.js          ← advanced tab, danger zone, diagnostics; toggleCfScoreFeature and

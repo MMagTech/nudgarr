@@ -141,7 +141,7 @@
           <div class="field" style="margin-top:2px">
             <div class="tooltip-wrap">
               <label>CF Score Scan</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff score. Fires searches so Radarr and Sonarr can find better-scored releases. Enables the CF Score tab.</div></span>
+              <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff. Searches all monitored files regardless of quality tier — Radarr and Sonarr never surface these through their normal wanted system. Cutoff score and minimum increment are read directly from each quality profile. Enables the CF Score tab.</div></span>
             </div>
             <div class="toggle-wrap" style="margin-top:4px">
               <label class="toggle">

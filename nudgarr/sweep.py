@@ -404,9 +404,16 @@ def _sweep_instance(
     # attributed correctly and independently from Cutoff Unmet.
 
     searched_cf = 0
-    cf_max = int(cfg.get(
+    eligible_cf = 0
+    cf_pool_total = 0
+    skipped_cf = 0
+    skipped_cf_excluded = 0
+    skipped_cf_queued = 0
+    global_cf_max = int(cfg.get(
         "radarr_cf_max_per_run" if app == "radarr" else "sonarr_cf_max_per_run", 1
     ))
+    _ov_enabled = bool(cfg.get("per_instance_overrides_enabled", False))
+    cf_max = int(_resolve(inst, cfg, _ov_enabled, "cf_max", global_cf_max))
 
     if cfg.get("cf_score_enabled", False) and cf_max > 0:
         cf_instance_id = _make_instance_id(app, inst_url)
@@ -415,18 +422,23 @@ def _sweep_instance(
         # Fetch all eligible candidates -- no DB-level limit so Python can
         # apply the full filter chain before capping at cf_max
         cf_candidates = db.get_cf_scores_for_sweep(cf_instance_id, cf_item_type)
+        cf_pool_total = len(cf_candidates)
 
         # Exclusion filter -- same excluded_titles set used by other pipelines
+        cf_before_excl = len(cf_candidates)
         cf_candidates = [
             c for c in cf_candidates
             if (c.get("title") or "").lower() not in excluded_titles
         ]
+        skipped_cf_excluded = cf_before_excl - len(cf_candidates)
 
         # Queue skip -- same queue_ids fetched for the Cutoff Unmet pass
+        cf_before_queued = len(cf_candidates)
         cf_candidates = [
             c for c in cf_candidates
             if c["external_item_id"] not in queue_ids
         ]
+        skipped_cf_queued = cf_before_queued - len(cf_candidates)
 
         # Reshape to sweep item format with id = external_item_id so
         # pick_items_with_cooldown can look up search_history correctly.
@@ -456,9 +468,10 @@ def _sweep_instance(
 
         if chosen_cf:
             logger.info(
-                "[%s:%s] cf_score_eligible=%d skipped_cf_cooldown=%d "
-                "will_search_cf=%d limit_cf=%d",
-                APP, name, eligible_cf, skipped_cf, len(chosen_cf), cf_max,
+                "[%s:%s] cf_score_total=%d skipped_cf_excluded=%d skipped_cf_queued=%d "
+                "skipped_cf_cooldown=%d will_search_cf=%d limit_cf=%d",
+                APP, name, cf_pool_total, skipped_cf_excluded, skipped_cf_queued,
+                skipped_cf, len(chosen_cf), cf_max,
             )
             for item in chosen_cf:
                 logger.debug(
@@ -485,8 +498,9 @@ def _sweep_instance(
             )
         else:
             logger.debug(
-                "[%s:%s] cf_score_eligible=0 (empty pool or all filtered/on cooldown)",
-                APP, name,
+                "[%s:%s] cf_score_total=%d skipped_cf_excluded=%d skipped_cf_queued=%d "
+                "skipped_cf_cooldown=%d (nothing to search)",
+                APP, name, cf_pool_total, skipped_cf_excluded, skipped_cf_queued, skipped_cf,
             )
 
     result: Dict[str, Any] = {
@@ -505,7 +519,12 @@ def _sweep_instance(
         "searched_missing": searched_missing,
         "limit_missing": missing_max,
         "searched_cf": searched_cf,
+        "eligible_cf": eligible_cf if cfg.get("cf_score_enabled", False) else 0,
+        "cf_score_indexed": cf_pool_total if cfg.get("cf_score_enabled", False) else 0,
+        "skipped_cf_cooldown": skipped_cf,
         "limit_cf": cf_max,
+        "skipped_cf_excluded": skipped_cf_excluded,
+        "skipped_cf_queued": skipped_cf_queued,
         "notifications_enabled": notifications_enabled,
     }
     if app == "radarr":
@@ -680,9 +699,9 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
                 db.upsert_sweep_lifetime(
                     lk,
                     runs_delta=1,
-                    eligible_delta=inst_summary.get("eligible", 0) + inst_summary.get("eligible_missing", 0),
-                    skipped_delta=inst_summary.get("skipped_cooldown", 0) + inst_summary.get("skipped_missing_cooldown", 0),
-                    searched_delta=inst_summary.get("searched", 0) + inst_summary.get("searched_missing", 0),
+                    eligible_delta=inst_summary.get("eligible", 0) + inst_summary.get("eligible_missing", 0) + inst_summary.get("eligible_cf", 0),
+                    skipped_delta=inst_summary.get("skipped_cooldown", 0) + inst_summary.get("skipped_missing_cooldown", 0) + inst_summary.get("skipped_cf_cooldown", 0),
+                    searched_delta=inst_summary.get("searched", 0) + inst_summary.get("searched_missing", 0) + inst_summary.get("searched_cf", 0),
                     last_run_utc=iso_z(utcnow()),
                 )
             except Exception:

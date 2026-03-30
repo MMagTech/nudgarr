@@ -461,8 +461,10 @@
     .section-band { margin-bottom: 8px; }
     .section-lbl { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; padding-left: 1px; }
     .stats-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .stats-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
     .stats-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
     .stats-grid-2 .stat-cell,
+    .stats-grid-3 .stat-cell,
     .stats-grid-4 .stat-cell { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); border-right: 1px solid var(--border); }
     .stat-lbl { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .stat-val { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.1; }

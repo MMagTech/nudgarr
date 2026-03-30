@@ -136,7 +136,7 @@ The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FIL
 
 **Intel aggregate write points**
 
-`intel_aggregate` is a protected accumulator — it must never be cleared by any normal operation (Clear History, Clear Stats, pruning). It is only reset by the explicit Reset Intel action in the Danger Zone. The aggregate is updated at three write points:
+`intel_aggregate` is a protected accumulator — it must never be cleared by any normal operation (Clear History, Clear Imports, pruning). It is only reset by the explicit Reset Intel action at the bottom of the Intel tab. The aggregate is updated at three write points:
 
 - `confirm_stat_entry()` in `db/entries.py` — snapshots turnaround, searches per import, pipeline import split (Cutoff Unmet via `entry_type="Upgraded"`, CF Score via `entry_type="CF Score"`, Backlog via all other types), quality upgrades, iteration counts, per-instance imports and turnaround, and library age bucket imported counts at the moment each import is confirmed.
 - `batch_upsert_search_history()` in `db/history.py` — increments `success_total_worked` and library age bucket totals on first insert of each new item (when `search_count == 1` after the upsert).
@@ -155,7 +155,7 @@ All aggregate writes happen inside the same transaction as the operation that tr
 | `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
 | `exclusions` | Titles excluded from sweeps — includes source (manual/auto), search count, and acknowledged flag |
 | `exclusion_events` | Append-only audit log of every exclude and unexclude action — powers Intel calibration signal |
-| `intel_aggregate` | Single protected row accumulating lifetime Intel metrics — never cleared by Clear History, Clear Stats, or pruning |
+| `intel_aggregate` | Single protected row accumulating lifetime Intel metrics — never cleared by Clear History, Clear Imports, or pruning |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |
 | `nudgarr_state` | General key/value persistent state (e.g. last run time) |

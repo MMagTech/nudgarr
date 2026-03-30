@@ -179,14 +179,6 @@ async function clearLog() {
   await api('/api/log/clear', {method:'POST'});
 }
 
-// resetAutoExclusions — removes all auto-excluded entries from the exclusions
-// table. Manual exclusions are not affected. Refreshes the exclusions state
-// and badge after completion.
-async function resetAutoExclusions() {
-  if (!await showConfirm('Reset Auto-Exclusions', 'This will remove all auto-excluded titles. They will become eligible for search again on the next sweep. Manual exclusions are not affected.', 'Reset', true)) return;
-  await api('/api/exclusions/clear-auto', {method:'POST'});
-  await loadExclusions();
-}
 
 // resetIntelData -- permanently resets the Intel dashboard to a clean slate.
 // Clears intel_aggregate back to zero defaults and deletes all exclusion_events

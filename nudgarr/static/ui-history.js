@@ -306,3 +306,69 @@ async function clearState() {
   await api('/api/state/clear', {method:'POST'});
   PAGE = 0; refreshHistory();
 }
+
+// ── Clear Exclusions modal ──────────────────────────────────────────────────
+// openClearExclusionsModal  -- shows the modal and resets selection state
+// closeClearExclusionsModal -- hides the modal
+// selectClearExclOption     -- highlights chosen option and enables Confirm
+// confirmClearExclusions    -- calls the appropriate API endpoint and refreshes
+
+let _clearExclSelected = null;
+
+function openClearExclusionsModal() {
+  _clearExclSelected = null;
+  ['auto', 'manual', 'all'].forEach(k => {
+    const opt = el('clearExclOpt' + k.charAt(0).toUpperCase() + k.slice(1));
+    const radio = el('clearExclRadio' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (opt) {
+      opt.style.borderColor = '';
+      opt.style.background = 'rgba(255,255,255,.02)';
+    }
+    if (radio) {
+      radio.style.borderColor = '';
+      radio.style.background = '';
+    }
+  });
+  const confirmBtn = el('clearExclConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = true;
+  const modal = el('clearExclusionsModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeClearExclusionsModal() {
+  const modal = el('clearExclusionsModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function selectClearExclOption(key) {
+  _clearExclSelected = key;
+  ['auto', 'manual', 'all'].forEach(k => {
+    const cap = k.charAt(0).toUpperCase() + k.slice(1);
+    const opt = el('clearExclOpt' + cap);
+    const radio = el('clearExclRadio' + cap);
+    const active = k === key;
+    if (opt) {
+      opt.style.borderColor = active ? 'rgba(239,68,68,.38)' : '';
+      opt.style.background  = active ? 'rgba(239,68,68,.08)' : 'rgba(255,255,255,.02)';
+    }
+    if (radio) {
+      radio.style.borderColor = active ? 'var(--bad)' : '';
+      radio.style.background  = active ? 'var(--bad)' : '';
+    }
+  });
+  const confirmBtn = el('clearExclConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = false;
+}
+
+async function confirmClearExclusions() {
+  if (!_clearExclSelected) return;
+  const endpoints = {
+    auto:   '/api/exclusions/clear-auto',
+    manual: '/api/exclusions/clear-manual',
+    all:    '/api/exclusions/clear-all',
+  };
+  closeClearExclusionsModal();
+  await api(endpoints[_clearExclSelected], {method: 'POST'});
+  await loadExclusions();
+  refreshAutoExclBadge();
+}

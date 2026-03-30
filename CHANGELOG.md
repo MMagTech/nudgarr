@@ -40,6 +40,20 @@ All notable changes to Nudgarr are documented here.
 
 - CF Score INFO log line now matches Cutoff Unmet granularity. Added `cf_score_total`, `skipped_cf_excluded`, and `skipped_cf_queued` counters alongside the existing `skipped_cf_cooldown`. Zero-eligible DEBUG log also includes all skip counters for easier diagnosis of why specific titles are not being searched.
 
+**Danger Zone Cleanup and Reset Button Relocation**
+
+- Reset Intel moved from Advanced Danger Zone to the bottom of the Intel tab as a right-aligned button. Matches the Reset CF Index pattern on the CF Score tab — destructive action lives next to the data it affects.
+- Reset Auto-Exclusions removed from Advanced Danger Zone entirely. Replaced by Clear Exclusions on the History tab (see below).
+- Clear Stats renamed to Clear Imports throughout — button label, JS function (`clearStats` → `clearImports`), and confirmation popup title and body. The popup body now correctly references the Imports tab instead of the Stats tab.
+- Danger Zone now contains four focused global actions: Clear History, Clear Imports, Clear Log, Reset Config. A help note below the buttons clarifies that Clear Imports removes import records only and Intel lifetime data is unaffected.
+
+**Clear Exclusions — History Tab**
+
+- New "Clear Exclusions" button added to the right of the History tab pagination row. Opens a modal with three radio options: Clear Auto-Exclusions (removes auto-excluded titles only), Clear Manual Exclusions (removes manually excluded titles only), Clear All Exclusions (removes all). Confirm button is disabled until an option is selected.
+- Three new API endpoints added: `POST /api/exclusions/clear-manual`, `POST /api/exclusions/clear-all`. Existing `POST /api/exclusions/clear-auto` unchanged.
+- Two new DB functions added: `clear_manual_exclusions()` and `clear_all_exclusions()`. Both follow the same pattern as `clear_auto_exclusions()`. `clear_all_exclusions()` logs unexcluded events for auto-exclusions so Intel calibration data is preserved.
+- `openClearExclusionsModal`, `closeClearExclusionsModal`, `selectClearExclOption`, `confirmClearExclusions` added to `ui-history.js`. Dead `resetAutoExclusions` function removed from `ui-advanced.js`.
+
 **Sweep Tab — CF Score Integration**
 
 - Library State section renamed Backfill to Backlog and now shows three cells: Cutoff Unmet, Backlog, CF Score. CF Score cell shows the indexed item count from `cf_score_entries`. Backlog shows a dash when disabled globally. CF Score shows a dash when disabled globally. Both cells always render so the grid stays stable at 3 columns.

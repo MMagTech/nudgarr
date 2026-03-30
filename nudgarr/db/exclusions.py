@@ -160,6 +160,44 @@ def clear_auto_exclusions() -> int:
     return cursor.rowcount
 
 
+def clear_manual_exclusions() -> int:
+    """Delete all rows where source='manual'. Returns the number of rows removed.
+
+    Auto-exclusions are never touched by this operation. Used by the Clear
+    Exclusions action in the History tab when the user selects Manual only.
+    """
+    conn = get_connection()
+    cursor = conn.execute("DELETE FROM exclusions WHERE source = 'manual'")
+    conn.commit()
+    return cursor.rowcount
+
+
+def clear_all_exclusions() -> int:
+    """Delete all rows from the exclusions table. Returns the number of rows removed.
+
+    Logs unexcluded events for all auto-exclusions removed so Intel calibration
+    data is preserved. Used by the Clear Exclusions action in the History tab
+    when the user selects All.
+    """
+    conn = get_connection()
+    now = iso_z(utcnow())
+    rows = conn.execute(
+        "SELECT title, search_count FROM exclusions WHERE source = 'auto'"
+    ).fetchall()
+    for r in rows:
+        conn.execute(
+            """
+            INSERT INTO exclusion_events
+                (title, event_type, source, search_count_at_event, event_ts)
+            VALUES (?, 'unexcluded', 'auto', ?, ?)
+            """,
+            (r["title"], r["search_count"], now)
+        )
+    cursor = conn.execute("DELETE FROM exclusions")
+    conn.commit()
+    return cursor.rowcount
+
+
 def get_unacknowledged_count() -> int:
     """Return the count of auto-exclusions not yet seen by the user.
 

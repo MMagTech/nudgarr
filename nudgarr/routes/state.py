@@ -211,6 +211,29 @@ def api_clear_auto_exclusions():
     removed = db.clear_auto_exclusions()
     return jsonify({"ok": True, "removed": removed})
 
+
+@bp.post("/api/exclusions/clear-manual")
+@requires_auth
+def api_clear_manual_exclusions():
+    """Delete all manually excluded entries. Auto-exclusions are not affected.
+    Used by the Clear Exclusions action in the History tab (Manual only option).
+    Returns the number of rows removed.
+    """
+    removed = db.clear_manual_exclusions()
+    return jsonify({"ok": True, "removed": removed})
+
+
+@bp.post("/api/exclusions/clear-all")
+@requires_auth
+def api_clear_all_exclusions():
+    """Delete all exclusion entries — both auto and manual.
+    Logs unexcluded events for auto-exclusions so Intel calibration data
+    is preserved. Used by the Clear Exclusions action in the History tab
+    (All option). Returns the number of rows removed.
+    """
+    removed = db.clear_all_exclusions()
+    return jsonify({"ok": True, "removed": removed})
+
 # ── Arr link ──────────────────────────────────────────────────────────
 
 

@@ -304,18 +304,13 @@
         <div class="card danger-section">
           <p class="section-label" style="color:#fca5a5">Danger Zone</p>
           <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
-          <div style="display:grid;gap:8px;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn sm danger" onclick="clearState()">Clear History</button>
-              <button class="btn sm danger" onclick="clearStats()">Clear Stats</button>
-              <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn sm danger" onclick="resetAutoExclusions()">Reset Auto-Exclusions</button>
-              <button class="btn sm danger" onclick="resetIntelData()">Reset Intel</button>
-              <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
-            </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn sm danger" onclick="clearState()">Clear History</button>
+            <button class="btn sm danger" onclick="clearImports()">Clear Imports</button>
+            <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
+            <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
           </div>
+          <p class="help" style="margin:10px 0 0;">Clear Imports removes import records only — Intel lifetime data and sweep run counts are unaffected.</p>
         </div>
 
       </div>

@@ -460,7 +460,7 @@ class TestSplitIntegrity:
             'fillAdvanced', 'syncAutoExclUi', 'syncAuthUi',
             'markUnsaved', 'syncBacklogUi', 'saveAdvanced',
             'onAutoExclDisabledKeep', 'onAutoExclDisabledClear',
-            'logout', 'resetConfig', 'clearLog', 'resetAutoExclusions',
+            'logout', 'resetConfig', 'clearLog',
             'backupAll', 'downloadDiagnostic',
         },
         'ui-settings.js': {
@@ -476,11 +476,13 @@ class TestSplitIntegrity:
             'refreshHistory', 'sortHistory', 'applySortIndicators', 'sortItems',
             'prevPage', 'nextPage', 'filterHistorySearch', 'clearHistorySearch',
             'pruneState', 'clearState',
+            'openClearExclusionsModal', 'closeClearExclusionsModal',
+            'selectClearExclOption', 'confirmClearExclusions',
         },
         'ui-imports.js': {
             'refreshImports', 'sortImports', 'prevStatsPage', 'nextStatsPage',
             'filterImportsSearch', 'clearImportsSearch', 'onImportsPeriodChange',
-            'checkImportsNow', 'clearStats', 'buildUpgradeCell', 'fmtDate',
+            'checkImportsNow', 'clearImports', 'buildUpgradeCell', 'fmtDate',
         },
         'ui-sweep.js': {
             'refreshSweep', 'showSweepNoInstancesModal', 'runNow',
@@ -553,7 +555,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 358  # updated for dynamic CF filter buttons (v4.2.0)
+        EXPECTED_CHECK_COUNT = 362  # updated for Clear Exclusions + Danger Zone cleanup (v4.2.0)
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

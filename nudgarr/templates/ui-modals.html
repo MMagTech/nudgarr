@@ -177,3 +177,36 @@
   </div>
 </div>
 
+<!-- ── Clear Exclusions modal ── -->
+<div id="clearExclusionsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border-md);border-radius:var(--radius);padding:22px;width:380px;max-width:90vw;box-shadow:0 24px 64px rgba(0,0,0,.5);">
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 6px;">Clear Exclusions</div>
+    <div class="help" style="margin:0 0 16px;line-height:1.55;">Choose which exclusions to remove. This cannot be undone.</div>
+    <div id="clearExclOptAuto" onclick="selectClearExclOption('auto')" style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s;">
+      <div id="clearExclRadioAuto" style="width:15px;height:15px;border-radius:50%;border:2px solid var(--border-md);flex-shrink:0;margin-top:1px;transition:border-color .15s;position:relative;"></div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">Clear Auto-Exclusions</div>
+        <div class="help" style="margin-top:2px;line-height:1.45;">Removes titles excluded automatically by the search threshold. Manual exclusions are kept.</div>
+      </div>
+    </div>
+    <div id="clearExclOptManual" onclick="selectClearExclOption('manual')" style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s;">
+      <div id="clearExclRadioManual" style="width:15px;height:15px;border-radius:50%;border:2px solid var(--border-md);flex-shrink:0;margin-top:1px;transition:border-color .15s;position:relative;"></div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">Clear Manual Exclusions</div>
+        <div class="help" style="margin-top:2px;line-height:1.45;">Removes titles you manually excluded. Auto-exclusions are kept.</div>
+      </div>
+    </div>
+    <div id="clearExclOptAll" onclick="selectClearExclOption('all')" style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:0;cursor:pointer;transition:border-color .15s,background .15s;">
+      <div id="clearExclRadioAll" style="width:15px;height:15px;border-radius:50%;border:2px solid var(--border-md);flex-shrink:0;margin-top:1px;transition:border-color .15s;position:relative;"></div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">Clear All Exclusions</div>
+        <div class="help" style="margin-top:2px;line-height:1.45;">Removes every exclusion — both auto and manual. All titles become eligible to search again.</div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <button class="btn sm" onclick="closeClearExclusionsModal()">Cancel</button>
+      <button class="btn sm danger" id="clearExclConfirmBtn" onclick="confirmClearExclusions()" disabled>Clear</button>
+    </div>
+  </div>
+</div>
+

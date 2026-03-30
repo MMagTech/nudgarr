@@ -1,7 +1,7 @@
 // ── Imports tab ─────────────────────────────────────────────────────────────
 // Owns: Imports tab rendering (refreshImports, sortImports, prevStatsPage,
 // nextStatsPage, filterImportsSearch, clearImportsSearch, onImportsPeriodChange,
-// checkImportsNow, clearStats) and helpers (buildUpgradeCell, fmtDate).
+// checkImportsNow, clearImports) and helpers (buildUpgradeCell, fmtDate).
 // Shared sort helpers (applySortIndicators, sortItems) live in ui-history.js
 // which loads before this file.
 function sortImports(col) {
@@ -194,8 +194,8 @@ async function checkImportsNow() {
   }
 }
 
-async function clearStats() {
-  if (!await showConfirm('Clear Stats', 'This will permanently clear all import records from the Stats tab. Lifetime totals are preserved. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
+async function clearImports() {
+  if (!await showConfirm('Clear Imports', 'This will permanently clear all import records from the Imports tab. Lifetime totals are preserved. Consider using Backup All in Support & Diagnostics first.', 'Clear', true)) return;
   await api('/api/stats/clear', {method:'POST'});
   refreshImports();
 }

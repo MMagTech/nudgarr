@@ -3,7 +3,7 @@
     <div class="grid">
       <div class="grid cols2">
 
-        <!-- ── Left card: Backlog Nudges + For the Arr-tists ── -->
+        <!-- ── Left card: Backlog Nudges + Auto-Exclusion ── -->
         <div class="card">
 
           <p class="section-label">Backlog Nudges</p>
@@ -119,45 +119,6 @@
 
           <div class="hr"></div>
 
-          <p class="section-label">For the Arr-tists</p>
-          <div class="field" style="margin-top:2px">
-            <div class="tooltip-wrap">
-              <label>Per-Instance Overrides</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or backlog behaviour. Enable and disable without losing your saved overrides.</div></span>
-            </div>
-            <div class="toggle-wrap" style="margin-top:4px">
-              <label class="toggle">
-                <input type="checkbox" id="per_instance_overrides_enabled" onchange="toggleOverridesFeature(this.checked)"/>
-                <span class="toggle-track"></span>
-                <span class="toggle-thumb"></span>
-              </label>
-              <span class="help" id="overrides_enabled_label">Disabled</span>
-            </div>
-          </div>
-
-          <div class="hr"></div>
-
-          <p class="section-label">Pipelines</p>
-          <div class="field" style="margin-top:2px">
-            <div class="tooltip-wrap">
-              <label>CF Score Scan</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff. Searches all monitored files regardless of quality tier — Radarr and Sonarr never surface these through their normal wanted system. Cutoff score and minimum increment are read directly from each quality profile. Enables the CF Score tab.</div></span>
-            </div>
-            <div class="toggle-wrap" style="margin-top:4px">
-              <label class="toggle">
-                <input type="checkbox" id="cf_score_enabled" onchange="toggleCfScoreFeature(this.checked)"/>
-                <span class="toggle-track"></span>
-                <span class="toggle-thumb"></span>
-              </label>
-              <span class="help" id="cf_score_label">Disabled</span>
-            </div>
-          </div>
-
-        </div><!-- end left card -->
-
-        <!-- ── Right card: Auto-Exclusion + Data Retention + Stats + Security + UI Prefs ── -->
-        <div class="card">
-
           <p class="section-label">Auto-Exclusion</p>
           <div class="help" style="margin-bottom:14px">Automatically exclude titles searched repeatedly with no confirmed import. (0 Disables)</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -202,6 +163,45 @@
               </div>
             </div>
 
+          </div>
+
+        </div><!-- end left card -->
+
+        <!-- ── Right card: For the Arr-tists + Pipelines + Data Retention + Stats + Security + UI Prefs ── -->
+        <div class="card">
+
+          <p class="section-label">For the Arr-tists</p>
+          <div class="field" style="margin-top:2px">
+            <div class="tooltip-wrap">
+              <label>Per-Instance Overrides</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or backlog behaviour. Enable and disable without losing your saved overrides.</div></span>
+            </div>
+            <div class="toggle-wrap" style="margin-top:4px">
+              <label class="toggle">
+                <input type="checkbox" id="per_instance_overrides_enabled" onchange="toggleOverridesFeature(this.checked)"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="overrides_enabled_label">Disabled</span>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <p class="section-label">Pipelines</p>
+          <div class="field" style="margin-top:2px">
+            <div class="tooltip-wrap">
+              <label>CF Score Scan</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff. Searches all monitored files regardless of quality tier — Radarr and Sonarr never surface these through their normal wanted system. Cutoff score and minimum increment are read directly from each quality profile. Enables the CF Score tab.</div></span>
+            </div>
+            <div class="toggle-wrap" style="margin-top:4px">
+              <label class="toggle">
+                <input type="checkbox" id="cf_score_enabled" onchange="toggleCfScoreFeature(this.checked)"/>
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span class="help" id="cf_score_label">Disabled</span>
+            </div>
           </div>
 
           <div class="hr"></div>
@@ -282,20 +282,16 @@
         <div class="card">
           <p class="section-label" style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
           <p class="help" style="margin:0 0 14px;">Data backup and diagnostic tools.</p>
-          <div style="display:grid;gap:8px;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="btn sm" onclick="backupAll()">Backup All</button>
-              <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:auto;font-family:inherit;font-weight:500;letter-spacing:.01em">
-                <option value="DEBUG">Log: DEBUG</option>
-                <option value="INFO">Log: INFO</option>
-                <option value="WARNING">Log: WARNING</option>
-                <option value="ERROR">Log: ERROR</option>
-              </select>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn sm" onclick="downloadDiagnostic()">Download Diagnostic</button>
-              <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none">Open Issue ↗</a>
-            </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="btn sm" style="width:100%;" onclick="backupAll()">Backup All</button>
+            <select id="log_level" onchange="markUnsaved('advMsg')" title="Log Level" style="font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--text);cursor:pointer;width:100%;font-family:inherit;font-weight:500;letter-spacing:.01em">
+              <option value="DEBUG">Log: DEBUG</option>
+              <option value="INFO">Log: INFO</option>
+              <option value="WARNING">Log: WARNING</option>
+              <option value="ERROR">Log: ERROR</option>
+            </select>
+            <button class="btn sm" style="width:100%;" onclick="downloadDiagnostic()">Download Diagnostic</button>
+            <a href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank" class="btn sm" style="text-decoration:none;width:100%;text-align:center;">Open Issue ↗</a>
           </div>
           <span class="msg" id="diagMsg" style="margin-top:8px;display:block"></span>
           <div id="diagBox" class="diag-box" style="display:none"></div>
@@ -308,10 +304,10 @@
           </div>
           <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <button class="btn sm danger" onclick="clearState()">Clear History</button>
-            <button class="btn sm danger" onclick="clearImports()">Clear Imports</button>
-            <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
-            <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
+            <button class="btn sm danger" style="width:100%;" onclick="clearState()">Clear History</button>
+            <button class="btn sm danger" style="width:100%;" onclick="clearImports()">Clear Imports</button>
+            <button class="btn sm danger" style="width:100%;" onclick="clearLog()">Clear Log</button>
+            <button class="btn sm danger" style="width:100%;" onclick="resetConfig()">Reset Config</button>
           </div>
         </div>
 

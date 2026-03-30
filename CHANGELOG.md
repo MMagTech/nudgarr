@@ -40,6 +40,14 @@ All notable changes to Nudgarr are documented here.
 
 - CF Score INFO log line now matches Cutoff Unmet granularity. Added `cf_score_total`, `skipped_cf_excluded`, and `skipped_cf_queued` counters alongside the existing `skipped_cf_cooldown`. Zero-eligible DEBUG log also includes all skip counters for easier diagnosis of why specific titles are not being searched.
 
+**Advanced Tab Layout Reorganisation**
+
+- Left card now contains Backlog Nudges at the top and Auto-Exclusion at the bottom.
+- Right card now contains For the Arr-tists and Pipelines at the top, followed by Data Retention, Stats, Security, and UI Preferences.
+- Support & Diagnostics buttons (Backup All, Log Level, Download Diagnostic, Open Issue) now use a uniform 2×2 grid matching the Danger Zone layout so both bottom cards are visually consistent.
+- Danger Zone buttons use `width:100%` so they fill their grid cells evenly.
+- Reset Intel wrapped in a full `card` element for proper background treatment, matching the Support & Diagnostics / Danger Zone row pattern.
+
 **Polish Fixes**
 
 - Exclusions clear refresh bug: `confirmClearExclusions` now calls `PAGE = 0; refreshHistory()` after clearing so the history table updates immediately without requiring a tab switch.

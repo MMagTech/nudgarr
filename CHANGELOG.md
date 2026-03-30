@@ -231,6 +231,33 @@ All notable changes to Nudgarr are documented here.
 - `db/backup.py` docstring updated to reflect the complete export structure.
 - Intel tab unit labels capitalised — Days, Searches, Items, Upgrades throughout all cards and the instance table.
 
+**Sweep Tab Redesign**
+
+- Complete rewrite of the Sweep tab from per-instance cards to a three-row grid layout.
+- Row 1 — Pipeline cards: three side-by-side cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. Cutoff Unmet shows six aggregate cells: Searched, Cooldown, Capped, Excluded, Tag, Profile. Backlog shows six aggregate cells: Searched, Cooldown, Capped, Grace, Tag, Profile. CF Score shows four aggregate cells: Searched, Cooldown, Excluded, Queued. Tag and Profile are not shown for CF Score — they are enforced at sync time, not sweep time. Each card has per-instance rows showing Searched, Cooldown, and Excl per enabled instance and a Disabled badge for disabled instances.
+- Row 2 — Summary cards: Sweep Health (all-healthy banner vs. failed-instance error banner with Lifetime Runs, Avg Per Run, Last Error, and Instances counts), Last Sweep (Completed, Next Run, Lifetime Runs, Lifetime Searched as a 2x2 grid), Imports Confirmed (total with Movies/Episodes breakdown, or zero-state). Imports Confirmed reads `imports_confirmed_sweep` from STATUS — no extra API call at render time.
+- Row 3 — Sweep Feed: full-width paginated table showing all items searched in the current sweep (Title, Instance, Time, Pipeline badge). Powered by `/api/state/items?since=<last_sweep_start_utc>`. Pipeline badges use `.sw-pill` (scoped class) to avoid colliding with the existing `.pill` tag/filter pills in the Filters tab. Pagination is 10/25/50/100 per page, wired into the existing `syncPageSize` mechanism so all three paginated tables (History, Imports, Sweep feed) stay in sync. Go to page included.
+- Pipeline row uses a nested sub-grid (`grid-column: 1/-1` + `display: grid`) so the loading placeholder always occupies the full top band and summary cards are always anchored to row 2.
+- `globals.py` — STATUS gains `last_sweep_start_utc` (ISO UTC written just before `run_sweep()` fires), `imports_confirmed_sweep` (`{movies: N, shows: N}` written after each sweep), and `cf_filters_changed` (bool, set by `ui-filters.js` when tag or profile filters are saved with CF Score enabled).
+- `db/entries.py` — `get_imports_since(since_utc)` counts confirmed imports since a given UTC timestamp grouped by app. Returns `{movies: N, shows: N}`.
+- `db/history.py` — `get_search_history()` gains an optional `since` parameter. When set, adds `sh.last_searched_ts >= ?` to the WHERE clause so the sweep feed only fetches rows from the current sweep window.
+- `routes/state.py` — `/api/state/items` passes the `since` query param through to `get_search_history()`.
+- `scheduler.py` — writes `STATUS["last_sweep_start_utc"]` immediately before `run_sweep()`; populates `STATUS["imports_confirmed_sweep"]` via `get_imports_since()` after a successful sweep.
+- `sweep.py` — `skipped_tag` and `skipped_profile` were previously shared accumulator variables across both the Cutoff Unmet and Backlog pipelines. Split into four independent fields: `skipped_tag_cutoff`, `skipped_profile_cutoff`, `skipped_tag_backlog`, `skipped_profile_backlog`. Added `skipped_excluded_cutoff` (items dropped by the exclusion list in the Cutoff Unmet pipeline) and `skipped_grace` to the per-instance result dict. All six new fields present in the result dict stored in `STATUS["last_summary"]`.
+- `ui-core.js` — `SWEEP_FEED_PAGE` and `SWEEP_FEED_TOTAL` added as shared state vars. `syncPageSize()` extended from a two-participant function (History / Imports) to a three-participant function (History / Imports / Sweep feed) keyed on `sweepFeedLimit`.
+
+**CF Filter Sync Warning Modal**
+
+- When a Filters tab save changes `excluded_tags` or `excluded_profiles` for any instance and CF Score is enabled globally, a warning modal appears: "CF Score Index Out of Sync". Two actions: Later (dismiss) and Sync Now (closes modal and triggers `triggerCfSync()`). Amber-bordered modal.
+- `closeCfFilterSyncModal()` and `syncCfIndexFromModal()` handlers added to `ui-filters.js`. Modal HTML added to `ui-modals.html`.
+
+**Settings Tab — Cooldown Relocation**
+
+- Cooldown field moved from the Search Behaviour card into the Scheduler card, placed after the Maintenance Window section with a divider. Cooldown belongs alongside scheduler configuration as it directly controls how the scheduler spaces repeated searches.
+- The Search Behaviour card is removed entirely. Cutoff Unmet now has the full right card to itself.
+- Cooldown help text updated from "0 Disables" to "0 = No Cooldown" in both the static HTML and the `_COOLDOWN_HELP_DEFAULT` JS constant.
+- Onboarding step 3 title updated from "Search Behaviour and Throttling" to "Cutoff Unmet and Throttling".
+
 ---
 
 ## v4.1.0

@@ -72,6 +72,14 @@
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Backlog Sample Mode Split</div>
            <div class="help">Cutoff Unmet and Backlog searches now have independent sample modes. Configure separately in Advanced and per-instance in Overrides. A Grace Period setting is also available to delay first searches after an item's availability date.</div>
          </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweep Tab Redesign</div>
+           <div class="help">The Sweep tab is rebuilt around three pipeline cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. A summary row shows Sweep Health, Last Sweep timing, and Imports Confirmed. A full-width feed logs every item searched in the current sweep with its pipeline badge, paginated and in sync with the History and Imports page size selector.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Settings Cleanup</div>
+           <div class="help">Cooldown has moved into the Scheduler card, sitting alongside the schedule and maintenance window where it belongs. The Search Behaviour card is gone — Cutoff Unmet now has the full right card to itself. Cooldown help text updated to clarify that 0 means no cooldown, not disabled.</div>
+         </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">
          <button class="btn sm primary" onclick="dismissWhatsNew()">Continue</button>
@@ -210,3 +218,20 @@
   </div>
 </div>
 
+<!-- ══ CF Filter Sync Warning Modal ══ -->
+<div class="modal-backdrop" id="cfFilterSyncModal" style="display:none" onclick="closeCfFilterSyncModal()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;border-color:rgba(251,191,36,.28)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:32px;height:32px;border-radius:50%;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.28);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <span style="font-size:15px;line-height:1">&#9888;</span>
+      </div>
+      <h2 style="margin:0;font-size:15px">CF Score Index Out of Sync</h2>
+    </div>
+    <p class="help" style="margin:0 0 16px">Your filter settings have changed. The CF Score index may still include items that should now be excluded, or be missing items that should now be included.</p>
+    <p class="help" style="margin:0 0 20px">Run a sync now to update the index, or come back to it later via the Scan Library button on the CF Score tab.</p>
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <button class="btn sm" onclick="closeCfFilterSyncModal()">Later</button>
+      <button class="btn sm" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.28);color:var(--warn);font-weight:600" onclick="syncCfIndexFromModal()">Sync Now</button>
+    </div>
+  </div>
+</div>

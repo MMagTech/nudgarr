@@ -91,21 +91,20 @@
       </div>
       <!-- TODO(v4.2.0-mobile): add maintenance window fields to mobile portrait settings — see desktop ui-tab-settings.html -->
 
+      <!-- Cooldown — moved into Scheduler card so it sits alongside schedule config -->
+      <div style="height:1px;background:rgba(255,255,255,.10);margin:20px 0"></div>
+      <div class="field">
+        <div class="tooltip-wrap">
+          <label>Cooldown (Hours)</label>
+          <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
+        </div>
+        <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
+        <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 = No Cooldown)</div>
+      </div>
+
       </div>
 
       <div class="card">
-        <div class="row" style="margin-bottom:10px"><p class="section-label" style="margin:0">Search Behaviour</p></div>
-        <div class="grid cols1" style="gap:12px">
-          <div class="field">
-            <div class="tooltip-wrap">
-              <label>Cooldown (Hours)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
-            </div>
-            <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
-            <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
-          </div>
-        </div>
-        <div class="hr"></div>
         <p class="section-label">Cutoff Unmet</p>
 
         <p class="section-label" style="margin:0 0 8px">Radarr</p>

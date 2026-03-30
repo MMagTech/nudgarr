@@ -154,8 +154,9 @@ def _sweep_instance(
     all_ids: List[int] = []
     eligible = 0
     skipped = 0
-    skipped_tag = 0
-    skipped_profile = 0
+    skipped_tag_cutoff = 0
+    skipped_profile_cutoff = 0
+    skipped_excluded_cutoff = 0
     queued_skipped: List[Any] = []
     skipped_unavailable: List[Any] = []
     searched = 0
@@ -170,10 +171,13 @@ def _sweep_instance(
             all_items = fn_get_cutoff(session, url, key)
         else:
             all_items = fn_get_cutoff(session, url, key, series_meta=series_meta)
-        all_items = [m for m in all_items if (m.get("title") or "").lower() not in excluded_titles]
+        all_items_before_excl = all_items
+        all_items = [m for m in all_items_before_excl
+                     if (m.get("title") or "").lower() not in excluded_titles]
+        skipped_excluded_cutoff = len(all_items_before_excl) - len(all_items)
 
         # Tag filter
-        skipped_tag = 0
+        skipped_tag_cutoff = 0
         if excluded_tags:
             filtered = []
             for m in all_items:
@@ -182,13 +186,13 @@ def _sweep_instance(
                     for tid in hits:
                         logger.debug("[%s:%s] skipped_tag: %s (tag=%s)",
                                      APP, name, m.get("title", "?"), tag_map.get(tid, tid))
-                    skipped_tag += len(hits)
+                    skipped_tag_cutoff += len(hits)
                 else:
                     filtered.append(m)
             all_items = filtered
 
         # Profile filter
-        skipped_profile = 0
+        skipped_profile_cutoff = 0
         if excluded_profiles:
             filtered = []
             for m in all_items:
@@ -196,7 +200,7 @@ def _sweep_instance(
                 if pid in excluded_profiles:
                     logger.debug("[%s:%s] skipped_profile: %s (profile=%s)",
                                  APP, name, m.get("title", "?"), profile_map.get(pid, pid))
-                    skipped_profile += 1
+                    skipped_profile_cutoff += 1
                 else:
                     filtered.append(m)
             all_items = filtered
@@ -233,7 +237,7 @@ def _sweep_instance(
                 "[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d "
                 "skipped_profile=%d skipped_queued=%d skipped_not_available=%d "
                 "skipped_cooldown=%d will_search=%d limit=%d",
-                name, len(all_ids), eligible, skipped_tag, skipped_profile,
+                name, len(all_ids), eligible, skipped_tag_cutoff, skipped_profile_cutoff,
                 len(queued_skipped), len(skipped_unavailable), skipped,
                 len(chosen_items), max_per_run,
             )
@@ -242,7 +246,7 @@ def _sweep_instance(
                 "[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d "
                 "skipped_profile=%d skipped_queued=%d skipped_cooldown=%d "
                 "will_search=%d limit=%d",
-                name, len(all_ids), eligible, skipped_tag, skipped_profile,
+                name, len(all_ids), eligible, skipped_tag_cutoff, skipped_profile_cutoff,
                 len(queued_skipped), skipped, len(chosen_items), max_per_run,
             )
 
@@ -277,6 +281,9 @@ def _sweep_instance(
     skipped_missing = 0
     searched_missing = 0
     chosen_missing: List[Dict[str, Any]] = []
+    skipped_tag_backlog = 0
+    skipped_profile_backlog = 0
+    skipped_grace = 0
 
     if backlog_enabled:
         if app == "radarr":
@@ -305,7 +312,7 @@ def _sweep_instance(
                     for tid in hits:
                         logger.debug("[%s:%s] skipped_tag (backlog): %s (tag=%s)",
                                      APP, name, m.get("title", "?"), tag_map.get(tid, tid))
-                    skipped_tag += len(hits)
+                    skipped_tag_backlog += len(hits)
                 else:
                     filtered.append(m)
             missing_records = filtered
@@ -318,7 +325,7 @@ def _sweep_instance(
                 if pid in excluded_profiles:
                     logger.debug("[%s:%s] skipped_profile (backlog): %s (profile=%s)",
                                  APP, name, m.get("title", "?"), profile_map.get(pid, pid))
-                    skipped_profile += 1
+                    skipped_profile_backlog += 1
                 else:
                     filtered.append(m)
             missing_records = filtered
@@ -341,7 +348,6 @@ def _sweep_instance(
 
         # Grace period filter — skip items whose availability date is within
         # the configured grace window to allow indexers time to populate.
-        skipped_grace = 0
         if missing_grace_hours > 0:
             grace_cutoff = utcnow() - timedelta(hours=missing_grace_hours)
             grace_filtered: List[Dict[str, Any]] = []
@@ -531,12 +537,18 @@ def _sweep_instance(
         "cutoff_unmet_total": len(all_ids),
         "eligible": eligible,
         "skipped_cooldown": skipped,
+        "skipped_excluded_cutoff": skipped_excluded_cutoff,
+        "skipped_tag_cutoff": skipped_tag_cutoff,
+        "skipped_profile_cutoff": skipped_profile_cutoff,
         "will_search": len(chosen_items),
         "searched": searched,
         "limit": max_per_run,
         "missing_total": missing_total,
         "eligible_missing": eligible_missing,
         "skipped_missing_cooldown": skipped_missing,
+        "skipped_grace": skipped_grace,
+        "skipped_tag_backlog": skipped_tag_backlog,
+        "skipped_profile_backlog": skipped_profile_backlog,
         "will_search_missing": len(chosen_missing),
         "searched_missing": searched_missing,
         "limit_missing": missing_max,

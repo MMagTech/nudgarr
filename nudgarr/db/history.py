@@ -59,12 +59,15 @@ def get_search_history(
     cooldown_hours: int = 48,
     instance_name_map: Optional[Dict[str, str]] = None,
     cooldown_map: Optional[Dict[str, int]] = None,
+    since: str = "",
 ) -> Tuple[int, List[Dict]]:
     """Return paginated search history rows with computed cooldown metadata.
     instance_key accepts the composite 'name|url' format and extracts the URL
     portion internally for the database query. eligible_again is computed per row
     using cooldown_map[instance_url] when present, falling back to cooldown_hours.
     This ensures per-instance cooldown overrides are reflected in the display.
+    since filters to rows whose last_searched_ts >= since (ISO UTC string).
+    Used by the Sweep tab feed to show only items searched in the current sweep.
     Returns (total, items)."""
     conn = get_connection()
     params: list = []
@@ -80,6 +83,9 @@ def get_search_history(
         else:
             where.append("sh.instance_url = ?")
             params.append(parts[0])
+    if since:
+        where.append("sh.last_searched_ts >= ?")
+        params.append(since)
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     total = conn.execute(

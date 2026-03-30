@@ -568,3 +568,31 @@ def batch_upsert_stat_entries(entries: list) -> None:
             )
         )
     conn.commit()
+
+
+def get_imports_since(since_utc: str) -> Dict[str, int]:
+    """Count confirmed imports since since_utc, broken down by app.
+
+    Used by the scheduler to populate imports_confirmed_sweep in STATUS
+    immediately after each sweep completes. Filters on imported_ts which
+    is indexed via idx_stat_imported for fast reads.
+
+    Returns {"movies": N, "shows": N} where movies = radarr, shows = sonarr.
+    """
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT app, COUNT(*) AS cnt
+        FROM stat_entries
+        WHERE imported = 1 AND imported_ts >= ?
+        GROUP BY app
+        """,
+        (since_utc,)
+    ).fetchall()
+    result: Dict[str, int] = {"movies": 0, "shows": 0}
+    for r in rows:
+        if r["app"] == "radarr":
+            result["movies"] = r["cnt"]
+        elif r["app"] == "sonarr":
+            result["shows"] = r["cnt"]
+    return result

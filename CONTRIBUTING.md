@@ -19,8 +19,12 @@ nudgarr/                    ← Python package
   db/                       ← SQLite persistence layer (package)
     __init__.py             ← public API — re-exports everything below
     connection.py           ← thread-local connection, _SCHEMA_SQL, init_db, close_connection
-    history.py              ← search_history table
-    entries.py              ← stat_entries table
+    history.py              ← search_history table; get_search_history() accepts an optional since
+                              param (ISO UTC string) to filter rows by last_searched_ts — used by the
+                              Sweep tab feed to show only items searched in the current sweep window
+    entries.py              ← stat_entries table; get_imports_since(since_utc) counts confirmed imports
+                              by app since a given UTC timestamp (used by scheduler to populate
+                              STATUS["imports_confirmed_sweep"] after each sweep)
     exclusions.py           ← exclusions table
     lifetime.py             ← sweep_lifetime and lifetime_totals tables
     appstate.py             ← nudgarr_state key/value table
@@ -47,12 +51,21 @@ nudgarr/                    ← Python package
                               writes live sync progress to nudgarr_state per instance for ring chart animation;
                               _make_instance_id() helper used by both syncer and sweep to ensure consistent keys
   stats.py                  ← import tracking, cooldown logic, stat recording
-  globals.py                ← Flask app instance, STATUS dict, RUN_LOCK, security headers, persistent secret key
+  globals.py                ← Flask app instance, STATUS dict, RUN_LOCK, security headers, persistent secret key;
+                              STATUS includes last_sweep_start_utc (ISO UTC written before run_sweep fires),
+                              imports_confirmed_sweep ({movies, shows} written after each sweep via get_imports_since),
+                              and cf_filters_changed (bool set by ui-filters.js when tag/profile filters change)
   sweep.py                  ← run_sweep orchestrator + per-instance helpers; CF Score third pipeline pass at
                               the end of _sweep_instance, after Cutoff Unmet and Backlog passes; CF Score pass
                               applies the full filter chain (exclusions, queue skip, cooldown) via
-                              pick_items_with_cooldown before capping at cf_max
-  scheduler.py              ← scheduler loop, import check loop, cf_score_sync_loop, banner, WSGI server starter
+                              pick_items_with_cooldown before capping at cf_max; per-instance result dict
+                              includes per-pipeline tag/profile/excluded/grace skip counts:
+                              skipped_tag_cutoff, skipped_profile_cutoff, skipped_excluded_cutoff (Cutoff
+                              Unmet pipeline), skipped_tag_backlog, skipped_profile_backlog, skipped_grace
+                              (Backlog pipeline) — all surfaced to the Sweep tab pipeline cards
+  scheduler.py              ← scheduler loop, import check loop, cf_score_sync_loop, banner, WSGI server
+                              starter; writes STATUS["last_sweep_start_utc"] before run_sweep() and
+                              populates STATUS["imports_confirmed_sweep"] via get_imports_since() after
   routes/                   ← Flask blueprints (one file per domain)
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup;
@@ -74,10 +87,13 @@ nudgarr/                    ← Python package
   static/                   ← JS and CSS served as static assets
     ui-core.js              ← bootstrap, shared state, cron helper, status polling, tab switching, shared sort helpers, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
-    ui-sweep.js             ← sweep tab rendering, Run Now; refreshSweep() builds per-instance sweep cards
-                              showing Library State (Cutoff Unmet, Backlog, CF Score when enabled) and
-                              This Run stats (Eligible, Searched, Cooldown, Capped) rolled up across all
-                              three pipelines; SWEEP_DATA_CACHE retains last known stats for disabled instances
+    ui-sweep.js             ← sweep tab rendering (v4.3.0 redesign), Run Now; refreshSweep() builds three
+                              pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and
+                              per-instance rows, three summary cards (Sweep Health, Last Sweep, Imports
+                              Confirmed), and a paginated sweep feed (items searched in the current sweep
+                              via /api/state/items?since=last_sweep_start_utc). Feed pagination uses
+                              SWEEP_FEED_PAGE / SWEEP_FEED_TOTAL state vars and syncs page size with
+                              History and Imports via syncPageSize('sweep'). SWEEP_DATA_CACHE removed.
     ui-history.js           ← history tab, exclusions, shared sort/pagination helpers; jumpHistoryPage() for direct page navigation
     ui-imports.js           ← imports/stats tab; jumpImportsPage() for direct page navigation
     ui-intel.js             ← Intel tab — fillIntel, renderIntel, resetIntel and all render helpers
@@ -91,7 +107,10 @@ nudgarr/                    ← Python package
     ui-advanced.js          ← advanced tab, danger zone, diagnostics; toggleCfScoreFeature and
                               syncCfScoreToggleLabel added for CF Score Scan feature gate
     ui-overrides.js         ← per-instance overrides tab and modal
-    ui-filters.js           ← filters tab — fill, load, save, pill/list render functions
+    ui-filters.js           ← filters tab — fill, load, save, pill/list render functions; saveFilters()
+                              detects changes to excluded_tags or excluded_profiles and shows the CF
+                              filter sync warning modal when CF Score is enabled; closeCfFilterSyncModal()
+                              and syncCfIndexFromModal() handlers also live here
     ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
     ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions; panel layout matches desktop (Cooldown, Cutoff Unmet, Backlog with Backlog Sample Mode + Grace Period, Notifications); backlog fields grey when backlog is off
     ui-mobile-landscape-filters.js ← landscape Filters rail/panel — lsFilters* functions
@@ -376,7 +395,7 @@ pytest tests/test_frontend_structure.py -v
 
 The test suite must pass at exactly the expected check count. If you add or remove files, functions, or validate.py checks, update `EXPECTED_CHECK_COUNT` and `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` accordingly.
 
-The current expected check count is **327** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks — which happens when you add new static files, new route files, or new required element IDs — update this constant or the test will fail with a count mismatch even though validate.py itself passes.
+The current expected check count is **363** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks — which happens when you add new static files, new route files, or new required element IDs — update this constant or the test will fail with a count mismatch even though validate.py itself passes.
 
 `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` sets a per-file line ceiling for every JS file. If you add code to an existing file and push it over its ceiling, the structural test will fail. Raise the ceiling deliberately in the same commit rather than working around it.
 

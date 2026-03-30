@@ -10,6 +10,8 @@ let IMPORTS_TOTAL = 0;     // Total import count from the last fetch (used for p
 // IMPORTS_PERIOD — persisted in localStorage so the user's selection survives page refreshes.
 // Valid values: 'lifetime', '30', '7'. Defaults to 'lifetime'.
 let IMPORTS_PERIOD = (localStorage.getItem('nudgarr_imports_period') || 'lifetime');
+let SWEEP_FEED_PAGE = 0;   // Current page index for the Sweep tab feed
+let SWEEP_FEED_TOTAL = 0;  // Total item count for the Sweep tab feed
 let ALL_INSTANCES = [];    // Flat ordered list of {key, name, app} built from CFG; used by dropdowns
 // confirmResolve — stores the Promise resolver for the shared confirm-modal pattern.
 // Set by showConfirm(), called by the OK/Cancel buttons, cleared after each use.
@@ -131,11 +133,17 @@ async function loadAll() {
   if (typeof mOvUpdateSubLabels === 'function') mOvUpdateSubLabels();
   if (typeof mInitRunBtn === 'function') mInitRunBtn();
 }
-// ── Page size memory (shared across History and Stats) ──
+// ── Page size memory (shared across History, Stats, and Sweep feed) ──
 function syncPageSize(source) {
-  const val = el(source === 'history' ? 'historyLimit' : 'importsLimit').value;
-  const other = el(source === 'history' ? 'importsLimit' : 'historyLimit');
-  if (other && other.value !== val) other.value = val;
+  const ids = { history: 'historyLimit', imports: 'importsLimit', sweep: 'sweepFeedLimit' };
+  const srcEl = el(ids[source]);
+  if (!srcEl) return;
+  const val = srcEl.value;
+  for (const [key, id] of Object.entries(ids)) {
+    if (key === source) continue;
+    const other = el(id);
+    if (other && other.value !== val) other.value = val;
+  }
 }
 async function openArrLink(app, instance, itemId, seriesId) {
   try {

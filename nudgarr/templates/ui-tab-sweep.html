@@ -1,25 +1,87 @@
 <!-- ══════════════════════════════ SWEEP ══════════════════════════════ -->
   <div class="section" id="tab-sweep">
-    <div class="grid cols2">
+    <div class="sweep-grid">
+
+      <!-- ══ ROW 1: Pipeline cards ══ -->
+      <div id="sweepPipelineRow" class="sweep-pipeline-row">
+        <p class="help" style="margin:8px 0 0">Loading&hellip;</p>
+      </div>
+
+      <!-- ══ ROW 2: Summary cards ══ -->
+      <div id="sweepHealthCard" class="card">
+        <p class="help" style="margin:4px 0">Loading&hellip;</p>
+      </div>
+
       <div class="card">
-        <div class="row" style="margin-bottom:12px">
-          <div class="tooltip-wrap">
-            <span class="section-label" style="margin:0">Radarr</span>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backlog</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><strong>CF Score</strong> — total items in the CF Score index where the custom format score is below the quality profile cutoff. Greyed when CF Score is disabled.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br><br><strong>Eligible</strong> — total items across all three pipelines whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search across all pipelines. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run across all three pipelines.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+        <span class="sum-title">Last Sweep</span>
+        <div class="last-sweep-grid">
+          <div>
+            <div class="stat-lbl">Completed</div>
+            <div class="ls-val normal" id="sweepLastCompletedVal">&mdash;</div>
+            <div class="ls-sub" id="sweepLastCompletedSub">&nbsp;</div>
+          </div>
+          <div>
+            <div class="stat-lbl">Next Run</div>
+            <div class="ls-val ok" id="sweepNextRunVal">&mdash;</div>
+            <div class="ls-sub" id="sweepNextRunSub">&nbsp;</div>
+          </div>
+          <div>
+            <div class="stat-lbl">Lifetime Runs</div>
+            <div class="ls-val muted" id="sweepLifetimeRuns">&mdash;</div>
+            <div class="ls-sub">&nbsp;</div>
+          </div>
+          <div>
+            <div class="stat-lbl">Lifetime Searched</div>
+            <div class="ls-val muted" id="sweepLifetimeSearched">&mdash;</div>
+            <div class="ls-sub">&nbsp;</div>
           </div>
         </div>
-        <p class="help" style="margin:0 0 8px">Movie sweep activity — last run and lifetime totals.</p>
-        <div id="sweepRadarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
       </div>
-      <div class="card">
-        <div class="row" style="margin-bottom:12px">
-          <div class="tooltip-wrap">
-            <span class="section-label" style="margin:0">Sonarr</span>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br><br><strong>Cutoff Unmet</strong> — total items in your library that don't meet your quality cutoff profile. Controlled via Max Per Run in the Settings tab.<br><br><strong>Backlog</strong> — total items missing in your library that are searched via Backlog Nudges. Controlled via Missing Max in the Advanced tab.<br><br><strong>CF Score</strong> — total items in the CF Score index where the custom format score is below the quality profile cutoff. Greyed when CF Score is disabled.<br><br><hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0"><strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br><br><strong>Eligible</strong> — total items across all three pipelines whose cooldown has expired and were available to search this run.<br><br><strong>On Cooldown</strong> — total items not yet ready to search across all pipelines. Adjust cooldown in the Advanced tab.<br><br><strong>Capped</strong> — total eligible items not searched because the per-run cap was reached. Raise your Max Per Run in the Settings tab to search more each sweep.<br><br><strong>Searched</strong> — total items actually searched this run across all three pipelines.<br><br><em>Use these numbers to fine-tune your per-run cap, cooldown, and exclusion list.</em></div></span>
+
+      <div id="sweepImportsCard" class="card">
+        <p class="help" style="margin:4px 0">Loading&hellip;</p>
+      </div>
+
+      <!-- ══ ROW 3: Feed ══ -->
+      <div class="card sweep-feed-card">
+        <div class="feed-hdr">
+          <span class="sum-title" style="margin-bottom:0">Searched This Sweep</span>
+          <div class="feed-controls">
+            <label>Per page</label>
+            <select id="sweepFeedLimit" onchange="syncPageSize('sweep');loadSweepFeed(0)">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
           </div>
         </div>
-        <p class="help" style="margin:0 0 8px">Episode sweep activity — last run and lifetime totals.</p>
-        <div id="sweepSonarrList"><p class="help" style="margin:8px 0 0">Loading…</p></div>
+        <table class="feed-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Instance</th>
+              <th>Time</th>
+              <th class="r">Pipeline</th>
+            </tr>
+          </thead>
+          <tbody id="sweepFeedBody">
+            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px 0;font-size:12px">No sweep has run yet.</td></tr>
+          </tbody>
+        </table>
+        <div class="feed-pagination">
+          <span class="page-info" id="sweepFeedPageInfo"></span>
+          <div class="page-btns">
+            <button class="btn sm" id="sweepFeedPrevBtn" onclick="prevSweepFeed()" disabled>Prev</button>
+            <button class="btn sm" id="sweepFeedNextBtn" onclick="nextSweepFeed()" disabled>Next</button>
+          </div>
+          <div class="page-jump-wrap">
+            <span>Go to page</span>
+            <input type="number" min="1" value="1" id="sweepFeedGoInput"/>
+            <button class="btn sm" onclick="goToSweepFeedPage()">Go</button>
+          </div>
+        </div>
       </div>
+
     </div>
   </div>

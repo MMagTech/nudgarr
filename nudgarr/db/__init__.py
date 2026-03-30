@@ -48,6 +48,7 @@ from nudgarr.db.entries import (
     batch_upsert_stat_entries,
     prune_stat_entries,
     rename_instance_in_history,
+    get_imports_since,
 )
 
 from nudgarr.db.exclusions import (
@@ -120,6 +121,7 @@ __all__ = [
     "batch_upsert_stat_entries",
     "prune_stat_entries",
     "rename_instance_in_history",
+    "get_imports_since",
     # exclusions
     "get_exclusions",
     "add_exclusion",

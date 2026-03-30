@@ -46,7 +46,7 @@ When you are ready to automate, set a cron schedule. The default is <code>0 */6 
 Nudgarr has no visibility into your indexer's rate limits. Pacing is your responsibility.`
   },
   {
-    title: "Step 3 — Search Behaviour and Throttling",
+    title: "Step 3 — Cutoff Unmet and Throttling",
     body: `<strong>Max Per Run</strong><br>
 How many items Nudgarr nudges per instance per run. Start at 1 and increase slowly. There is no rush — Nudgarr will work through your library gradually over time.
 <br><br>
@@ -470,7 +470,7 @@ async function saveSettings() {
 }
 
 // ── Cooldown note ──
-const _COOLDOWN_HELP_DEFAULT = 'Minimum hours before the same movie or episode can be searched again (0 Disables)';
+const _COOLDOWN_HELP_DEFAULT = 'Minimum hours before the same movie or episode can be searched again (0 = No Cooldown)';
 const _COOLDOWN_HELP_ZERO    = 'Cooldown is disabled. Items may repeat each sweep.';
 
 function checkCooldownWarning() {

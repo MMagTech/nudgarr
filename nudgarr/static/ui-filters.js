@@ -353,6 +353,14 @@ async function saveFilters(kind) {
     const instances = cfg.instances?.[kind] || [];
     if (idx >= instances.length) { if (msg) _setFilterStatus(kind, 'error', 'Instance not found'); return; }
 
+    // Capture old values before overwriting so we can detect changes
+    const oldFilters  = instances[idx].sweep_filters || {};
+    const oldTags     = JSON.stringify((oldFilters.excluded_tags || []).slice().sort());
+    const oldProfiles = JSON.stringify((oldFilters.excluded_profiles || []).slice().sort());
+    const newTags     = JSON.stringify((state.excludedTags || []).slice().sort());
+    const newProfiles = JSON.stringify((state.excludedProfiles || []).slice().sort());
+    const filtersChanged = (oldTags !== newTags) || (oldProfiles !== newProfiles);
+
     instances[idx].sweep_filters = {
       excluded_tags:     state.excludedTags,
       excluded_profiles: state.excludedProfiles,
@@ -364,6 +372,11 @@ async function saveFilters(kind) {
       state.dirty = false;
       _setFilterStatus(kind, 'ok', 'Saved');
       setTimeout(() => { _setFilterStatus(kind, '', ''); }, 2000);
+
+      // If CF Score is enabled and filter-relevant fields changed, show the sync modal
+      if (filtersChanged && cfg.cf_score_enabled) {
+        el('cfFilterSyncModal').style.display = 'flex';
+      }
     } else {
       _setFilterStatus(kind, 'error', res?.error || 'Save failed');
     }
@@ -376,4 +389,21 @@ async function saveFilters(kind) {
 function _getSelectedIdx(kind) {
   const sel = el('filter-' + kind + '-idx');
   return sel && sel.style.display !== 'none' ? parseInt(sel.value || '0', 10) : 0;
+}
+
+// ── CF Filter Sync Modal ──────────────────────────────────────────────────────
+
+function closeCfFilterSyncModal() {
+  el('cfFilterSyncModal').style.display = 'none';
+}
+
+// syncCfIndexFromModal -- triggered by "Sync Now" in the CF filter sync modal.
+// Delegates to the CF Score tab's triggerCfSync function if available,
+// then closes the modal and switches to the CF Score tab so the user can
+// see progress.
+async function syncCfIndexFromModal() {
+  closeCfFilterSyncModal();
+  if (typeof triggerCfSync === 'function') {
+    await triggerCfSync();
+  }
 }

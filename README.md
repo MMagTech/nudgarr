@@ -57,6 +57,7 @@ Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTec
 **UI**
 - Web UI with Instances, Sweep, Settings, Filters, History, Imports, Intel, Notifications, Advanced, and Overrides tabs
 - Sticky header — wordmark, status bar, and tab bar pin to the top of the viewport on all tabs; tab content scrolls beneath
+- Sweep tab — three pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and per-instance breakdowns; Sweep Health, Last Sweep, and Imports Confirmed summary cards; full-width paginated feed of every item searched in the current sweep with pipeline badges
 - Intel tab — lifetime performance dashboard showing Library Score, Search Health, Instance Performance, Stuck Items, Exclusion Intel, Library Age vs Success, Quality Iteration, and Sweep Efficiency
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
@@ -134,7 +135,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
+**Tags:** `latest` · `v4.2.0` · `4.2.0` · `4.2` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -187,7 +188,7 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.2.0** — Intel tab, sticky header, exclusion event tracking, protected aggregate, backlog sample mode split, maintenance window, grace period, and missing max 0 = all eligible. No config changes required. Pull the new image and restart. Migration v10 runs automatically on first start — adds `exclusion_events` and `intel_aggregate` tables. Existing data is fully preserved. Intel data begins accumulating immediately from the first sweep after upgrade. Two new config keys (`radarr_missing_grace_hours`, `sonarr_missing_grace_hours`) default to 0 — no action needed.
+**v4.2.0** — CF Score Scan, Intel tab, Sweep tab redesign, sticky header, exclusion event tracking, protected aggregate, backlog sample mode split, maintenance window, grace period, missing max 0 = all eligible, and Settings tab cleanup (Cooldown moved into Scheduler card, Search Behaviour card removed). No config changes required. Pull the new image and restart. Migration v10 and v11 run automatically on first start — adds `exclusion_events`, `intel_aggregate`, and `cf_score_entries` tables. Existing data is fully preserved. Intel data begins accumulating immediately from the first sweep after upgrade. Three new config keys (`radarr_missing_grace_hours`, `sonarr_missing_grace_hours`, `cf_score_enabled`) all default to 0 or false — no action needed.
 
 **v4.1.0** — Auto-exclusion, mobile auto-exclusion, import stats period toggle, logging improvements, and a full code quality refactor. No config changes required. Pull the new image and restart. Migration v9 runs automatically on first start — adds `source`, `search_count`, and `acknowledged` columns to the exclusions table. Existing exclusions are preserved and default to `source=manual`. From this version onwards, static assets include version query strings — browsers automatically receive fresh JS and CSS after a container upgrade without requiring a hard refresh.
 

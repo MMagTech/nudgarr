@@ -70,7 +70,7 @@ LINE_COUNT_CEILINGS = {
     'ui-core.js':                      400,
     'ui-instances.js':                 450,
     'ui-overrides.js':                 470,  # raised v4.2.0: +cf_max override field and CF Score group
-    'ui-sweep.js':                     200,
+    'ui-sweep.js':                     500,  # raised v4.2.0: Sweep tab redesign
     'ui-history.js':                   380,
     'ui-imports.js':                   250,
     'ui-intel.js':                     550,
@@ -78,7 +78,7 @@ LINE_COUNT_CEILINGS = {
     'ui-settings.js':                  660,  # raised v4.2.0: +syncMaintUi/validateMaintTime/toggleMaintDay + load/save
     'ui-notifications.js':             120,
     'ui-advanced.js':                  300,  # raised v4.2.0: +CF Score toggle functions
-    'ui-filters.js':                   450,
+    'ui-filters.js':                   470,  # raised v4.2.0: CF filter sync modal handlers
     'ui-mobile-core.js':               300,
     'ui-mobile-landscape.js':          460,
     'ui-mobile-landscape-filters.js':  340,
@@ -106,6 +106,8 @@ SHARED_STATE_VARS = [
     'IMPORTS_PAGE',
     'IMPORTS_TOTAL',
     'IMPORTS_PERIOD',
+    'SWEEP_FEED_PAGE',
+    'SWEEP_FEED_TOTAL',
     'ALL_INSTANCES',
     'ACTIVE_TAB',
     'HISTORY_SORT',
@@ -486,6 +488,10 @@ class TestSplitIntegrity:
         },
         'ui-sweep.js': {
             'refreshSweep', 'showSweepNoInstancesModal', 'runNow',
+            'loadSweepFeed', 'prevSweepFeed', 'nextSweepFeed', 'goToSweepFeedPage',
+        },
+        'ui-filters.js': {
+            'saveFilters', 'fillFilters', 'closeCfFilterSyncModal', 'syncCfIndexFromModal',
         },
         'ui-mobile-landscape-filters.js': {
             'lsFiltersRenderRail', 'lsFiltersSelectInst', 'lsFiltersRenderPanel',
@@ -555,7 +561,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 362  # updated for Clear Exclusions + Danger Zone cleanup (v4.2.0)
+        EXPECTED_CHECK_COUNT = 363  # updated for Sweep tab redesign + CF filter sync modal (v4.2.0)
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

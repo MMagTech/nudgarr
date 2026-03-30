@@ -92,6 +92,7 @@ def api_state_items():
         cooldown_hours=cooldown_hours,
         instance_name_map=name_map,
         cooldown_map=cooldown_map,
+        since=request.args.get("since", ""),
     )
     return jsonify({"total": total, "items": items})
 

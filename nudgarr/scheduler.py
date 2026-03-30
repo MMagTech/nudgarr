@@ -529,12 +529,17 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                 STATUS["run_in_progress"] = True
                 try:
                     logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))
+                    STATUS["last_sweep_start_utc"] = iso_z(utcnow())
                     summary = run_sweep(cfg, session)
                     STATUS["last_summary"] = summary
                     STATUS["last_run_utc"] = iso_z(utcnow())
                     db.set_state("last_run_utc", STATUS["last_run_utc"])
                     db.set_state("last_summary", json.dumps(summary))
                     STATUS["last_error"] = None
+                    if STATUS["last_sweep_start_utc"]:
+                        STATUS["imports_confirmed_sweep"] = db.get_imports_since(
+                            STATUS["last_sweep_start_utc"]
+                        )
                     notify_sweep_complete(summary, cfg)
                     for app_name in ("radarr", "sonarr"):
                         for inst in summary.get(app_name, []):

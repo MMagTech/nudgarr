@@ -112,7 +112,10 @@ STATUS: Dict[str, Any] = {
     "run_in_progress": False,
     "run_requested": False,
     "last_error": None,
-    "instance_health": {},  # {"radarr|name": "ok"|"bad"|"disabled", ...}
+    "instance_health": {},        # {"radarr|name": "ok"|"bad"|"disabled", ...}
+    "last_sweep_start_utc": None,  # ISO timestamp written just before run_sweep()
+    "imports_confirmed_sweep": {"movies": 0, "shows": 0},  # confirmed since last sweep start
+    "cf_filters_changed": False,   # set True when Filters tab saves tag/profile changes
 }
 
 # ── Sweep lock ────────────────────────────────────────────────────────

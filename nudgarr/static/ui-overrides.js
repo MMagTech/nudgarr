@@ -247,7 +247,9 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
       </div>
       ${backlogFieldsHtml}
       ${cfScoreSectionHtml}
-      <!-- Notifications footer -->
+      <!-- Notifications group — divider + label matching other pipeline groups -->
+      ${innerDivider}
+      ${grpHead('Notifications')}
       <div class="${notifyRowClass}" id="${cardId}-notify-row">
         <span class="help" style="font-size:11.5px" id="${cardId}-notify-label">${notifyLabel}</span>
         <label class="toggle">

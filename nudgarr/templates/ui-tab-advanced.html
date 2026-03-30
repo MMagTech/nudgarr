@@ -302,15 +302,17 @@
         </div>
 
         <div class="card danger-section">
-          <p class="section-label" style="color:#fca5a5">Danger Zone</p>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <p class="section-label" style="color:#fca5a5;margin:0;">Danger Zone</p>
+            <span class="tooltip-icon" style="border-color:rgba(239,68,68,.3);color:#fca5a5;cursor:default;">i<div class="tooltip-box">Clear Imports removes import records only — Intel lifetime data and sweep run counts are unaffected.</div></span>
+          </div>
           <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <button class="btn sm danger" onclick="clearState()">Clear History</button>
             <button class="btn sm danger" onclick="clearImports()">Clear Imports</button>
             <button class="btn sm danger" onclick="clearLog()">Clear Log</button>
             <button class="btn sm danger" onclick="resetConfig()">Reset Config</button>
           </div>
-          <p class="help" style="margin:10px 0 0;">Clear Imports removes import records only — Intel lifetime data and sweep run counts are unaffected.</p>
         </div>
 
       </div>

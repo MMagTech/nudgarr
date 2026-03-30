@@ -40,6 +40,15 @@ All notable changes to Nudgarr are documented here.
 
 - CF Score INFO log line now matches Cutoff Unmet granularity. Added `cf_score_total`, `skipped_cf_excluded`, and `skipped_cf_queued` counters alongside the existing `skipped_cf_cooldown`. Zero-eligible DEBUG log also includes all skip counters for easier diagnosis of why specific titles are not being searched.
 
+**Polish Fixes**
+
+- Exclusions clear refresh bug: `confirmClearExclusions` now calls `PAGE = 0; refreshHistory()` after clearing so the history table updates immediately without requiring a tab switch.
+- Exclusions filter pagination: when Exclusions filter is active, page size is now respected and pagination controls are shown. Previously all exclusions were shown regardless of the per-page setting.
+- Reset Intel: description text removed — bare right-aligned button only, matching Reset CF Index pattern.
+- Danger Zone: 2x2 grid layout matching the left card structure. Tooltip icon added next to the "Danger Zone" label explaining Clear Imports scope. Helper text below buttons removed.
+- CF Score tab: right card now uses `flex-direction:column` so Reset CF Index stays pinned to the card footer and aligns vertically with Save Changes on the left card.
+- Override cards: Notifications toggle row now has a `divider + grpHead('Notifications')` label above it, consistent with Cutoff Unmet, Backlog, and CF Score groups.
+
 **Danger Zone Cleanup and Reset Button Relocation**
 
 - Reset Intel moved from Advanced Danger Zone to the bottom of the Intel tab as a right-aligned button. Matches the Reset CF Index pattern on the CF Score tab — destructive action lives next to the data it affects.

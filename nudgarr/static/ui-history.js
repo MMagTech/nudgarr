@@ -114,17 +114,19 @@ async function refreshHistory() {
     const fetchOffset = EXCL_FILTER_ACTIVE ? 0 : PAGE * limit;
     const items = await api(`/api/state/items?app=${encodeURIComponent(appName)}&instance=${encodeURIComponent(instKey)}&offset=${fetchOffset}&limit=${fetchLimit}`);
 
-    // Apply exclusion filter client-side when active
+    // Apply exclusion filter client-side when active, then paginate
     if (EXCL_FILTER_ACTIVE) {
-      items.items = items.items.filter(it => EXCLUSIONS_SET.has((it.title || it.key || '').toLowerCase()));
-      items.total = items.items.length;
+      const allExcl = items.items.filter(it => EXCLUSIONS_SET.has((it.title || it.key || '').toLowerCase()));
+      const exclTotal = allExcl.length;
+      items.items = allExcl.slice(PAGE * limit, (PAGE + 1) * limit);
+      items.total = exclTotal;
     }
 
     el('pageInfo').textContent = EXCL_FILTER_ACTIVE
-      ? `${items.items.length} excluded item${items.items.length !== 1 ? 's' : ''}`
+      ? `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${items.total} excluded item${items.total !== 1 ? 's' : ''}`
       : `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${items.total} item${items.total !== 1 ? 's' : ''}`;
     HISTORY_TOTAL = items.total;
-    el('historyPagination').style.display = (!EXCL_FILTER_ACTIVE && items.total > 0) ? 'flex' : 'none';
+    el('historyPagination').style.display = items.total > 0 ? 'flex' : 'none';
 
     const sorted = sortItems(items.items, HISTORY_SORT.col, HISTORY_SORT.dir);
     const showExclFilter = EXCL_FILTER_ACTIVE;
@@ -371,4 +373,6 @@ async function confirmClearExclusions() {
   await api(endpoints[_clearExclSelected], {method: 'POST'});
   await loadExclusions();
   refreshAutoExclBadge();
+  PAGE = 0;
+  refreshHistory();
 }

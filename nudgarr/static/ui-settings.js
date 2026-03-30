@@ -8,116 +8,94 @@
 const ONBOARDING_STEPS = [
   {
     title: "Welcome to Nudgarr",
-    body: `Nudgarr searches your Radarr and Sonarr Wanted lists automatically — finding items that need a quality upgrade or haven't been grabbed yet — so you don't have to.
+    body: `Nudgarr tells your Radarr and Sonarr instances what to search for, so you don't have to. It works quietly in the background, nudging your Arrs toward better quality releases, filling in missing content, and refining what you already have.
 <br><br>
-This quick walkthrough covers the key things to know before your first run. It is key to understand these settings to prevent an indexer ban.`
+It runs on a schedule. You set the rules once and let it work through your library over time. This walkthrough covers the key concepts and settings to get you started safely.`
+  },
+  {
+    title: "How Nudgarr Works",
+    body: `Nudgarr runs three independent pipelines each sweep. Each one targets a different kind of gap in your library.
+<br><br>
+<strong>Cutoff Unmet</strong><br>
+You have the file but it does not meet your quality profile cutoff. Nudgarr tells Radarr or Sonarr to search for a better version. On by default — this is the primary pipeline.
+<br><br>
+<strong>Backlog</strong><br>
+You do not have the file at all. Nudgarr tells your Arrs to search for missing movies and episodes that were never grabbed. Off by default — enable in Advanced when you're ready.
+<br><br>
+<strong>CF Score</strong><br>
+You have the file and the quality tier is met, but the custom format score is below the cutoff for that profile. Nudgarr tells your Arrs to look for a better-scored release. Off by default — enable in Advanced when you're ready.
+<br><br>
+As sweeps run over time these three pipelines work together. Backlog fills in what is missing. Cutoff Unmet upgrades what you have. CF Score refines what is already good.`
   },
   {
     title: "Step 1 — Add Your Instances",
-    body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key.
+    body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key. Use <strong>Test Connections</strong> to confirm everything is reachable before moving on.
 <br><br>
-You can add multiple instances — Nudgarr will search across all of them each run. Note that settings like Max Per Run apply <strong>per instance</strong> — if you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Use the <strong>Test Connections</strong> button to confirm everything is connected before moving on.
+You can add multiple instances of the same app. Nudgarr will nudge all of them each run. Keep in mind that settings like Max Per Run apply <strong>per instance</strong> — two Radarr instances set to 5 means up to 10 movie search commands per sweep.
 <br><br>
-<span style="display:block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.6">On mobile, instance management requires a desktop browser. Once your instances are configured you can monitor and enable/disable them from the Home screen.</span>`
+<span style="display:block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.6">On mobile, instance management requires a desktop browser. Once configured you can monitor and enable/disable instances from the Home screen.</span>`
   },
   {
-    title: "Step 2 — Scheduler",
-    body: `The Scheduler controls when Nudgarr automatically runs sweeps.
+    title: "Step 2 — Scheduler and Run Now",
+    body: `The scheduler is <strong>off by default</strong>. Nudgarr will not run automatically until you enable it.
 <br><br>
-<strong>Automatic Sweeps</strong><br>
-Off by default — Nudgarr will not run until you enable it. You can still trigger a sweep at any time by clicking <strong>Run Now</strong>. This is the recommended approach until you are confident in your settings.
+You can trigger a sweep at any time using <strong>Run Now</strong>. This is the recommended approach for your first few runs so you can see exactly what happens before committing to a schedule.
 <br><br>
-<strong>Cron Schedule</strong><br>
-Controls when the scheduler fires. Default is <code>0 */6 * * *</code> — every 6 hours on the clock. Cron fires in container time. Set the <code>TZ</code> environment variable if you want schedules to follow a specific timezone — if unset or unresolvable, Nudgarr falls back to UTC. Start conservative and adjust based on your library size and how active your indexers are.`
+When you are ready to automate, set a cron schedule. The default is <code>0 */6 * * *</code> — every 6 hours. Start conservative and adjust based on your library size and how active your indexers are.
+<br><br>
+Nudgarr has no visibility into your indexer's rate limits. Pacing is your responsibility.`
   },
   {
-    title: "Step 3 — Search Behavior",
-    body: `These settings control what gets searched and how often.
-<br><br>
-<strong>Max Per Run</strong><br>
-How many items are searched <strong>per instance</strong> each run. If you have two Radarr instances set to 5, that's up to 10 movie searches per sweep. Starts at 1 — increase slowly as you get comfortable with how Nudgarr behaves.
+    title: "Step 3 — Search Behaviour and Throttling",
+    body: `<strong>Max Per Run</strong><br>
+How many items Nudgarr nudges per instance per run. Start at 1 and increase slowly. There is no rush — Nudgarr will work through your library gradually over time.
 <br><br>
 <strong>Cooldown</strong><br>
-How long Nudgarr waits before searching the same item again. Default is 48 hours. Do not lower this aggressively — repeated searches for the same item in a short window is one of the fastest ways to get banned from an indexer.
+How long before the same item is nudged again. Default is 48 hours. Do not lower this aggressively — triggering repeated searches for the same item in a short window is one of the fastest ways to get flagged by an indexer.
 <br><br>
 <strong>Sample Mode</strong><br>
-Controls which eligible items are picked each run. <strong>Random</strong> gives even library coverage. <strong>Alphabetical</strong> works through your library from A to Z. <strong>Oldest Added</strong> prioritises items you've had longest. <strong>Newest Added</strong> targets recently added items — use with caution if backlog nudges are enabled.`
+Controls which eligible items are picked each run. Random gives even coverage. Alphabetical works A to Z. Oldest Added prioritises items you have had longest. Newest Added targets recently added items.
+<br><br>
+<strong>Batch, Sleep, and Jitter</strong><br>
+These control how fast Nudgarr sends commands to your instances. The defaults are safe. Only adjust these if you know what you are doing.`
   },
   {
-    title: "Step 4 — Throttling",
-    body: `These settings control how fast Nudgarr communicates with your Radarr and Sonarr instances during a run.
+    title: "Step 4 — Exclusions and Auto-Exclusion",
+    body: `Some items will never be available on your indexers regardless of how many times they are searched. Excluding them keeps your eligible pool clean and avoids wasting search commands.
 <br><br>
-<strong>Batch Size</strong><br>
-How many search commands are sent at once. Default is 1. Keeping this low reduces the chance of overwhelming your indexer.
+<strong>Manual Exclusions</strong><br>
+From the History tab, hover over any row and use the exclude button to remove a title from future runs. You can remove exclusions the same way.
 <br><br>
-<strong>Sleep</strong><br>
-How long Nudgarr pauses between batches. Default is 5 seconds. A longer pause is more respectful of your indexer's rate limits.
+<strong>Auto-Exclusion</strong><br>
+In Advanced, set a search threshold. If an item is nudged that many times with no confirmed import, Nudgarr excludes it automatically. 0 disables it. Start with a conservative number like 10 and adjust based on your library.
 <br><br>
-<strong>Jitter</strong><br>
-Adds a small random delay on top of the sleep time to make search patterns less predictable. Helps avoid triggering automated rate limit detection.`
+Excluded titles appear in the History tab under the Exclusions filter. You can clear them individually or in bulk using the Clear Exclusions button.`
   },
   {
-    title: "Step 5 — History & Imports",
-    body: `Nudgarr keeps track of everything it does so you can see exactly what's happening.
+    title: "Step 5 — Notifications and Intel",
+    body: `<strong>Notifications</strong><br>
+Nudgarr can notify you when sweeps complete, imports are confirmed, items are auto-excluded, or an instance becomes unreachable. Add your Apprise-compatible URL in the Notifications tab, choose which events to be notified on, and use Send Test to confirm it is working. Supports Discord, Gotify, Ntfy, Pushover, Slack, and more.
 <br><br>
-<strong>History</strong><br>
-A log of every item that has been searched, when it was last searched, and how many times. Use this to verify Nudgarr is behaving as expected after your first few runs.
+<strong>Intel</strong><br>
+The Intel tab is a performance dashboard that builds up over time. It shows your Library Score, success rate, import turnaround, stuck items, and sweep efficiency per instance.
 <br><br>
-<strong>Imports</strong><br>
-Tracks confirmed imports — items that were searched by Nudgarr and later successfully downloaded. Movies and Episodes totals are lifetime counters that persist even if you clear the imports table. Items that have been through multiple upgrade cycles show a ×2, ×3 badge, and turnaround tracks how long from first search to confirmed import.
-<br><br>
-Both tabs support <strong>title search</strong> — type a show or movie name to filter the table instantly. Use the instance dropdown alongside it to narrow results further.`
-  },
-  {
-    title: "Step 6 — Notifications",
-    body: `Nudgarr can notify you when sweeps complete, imports are confirmed, or an instance becomes unreachable.
-<br><br>
-Add your Apprise-compatible URL, choose which events to be notified on, and use <strong>Send Test</strong> to confirm it's working before enabling. Supports Discord, Gotify, Ntfy, Pushover, Slack, and more.`
-  },
-  {
-    title: "Step 7 — Advanced & Backlog Nudges",
-    body: `The <strong>Advanced tab</strong> contains settings for backlog nudges, data retention, and security.
-<br><br>
-<strong>Backlog Nudges</strong> — Off by default. When enabled, searches for missing movies and episodes that have never been grabbed, going beyond just cutoff upgrades.<br><br>
-<strong>Missing Max (Per Instance)</strong> — How many missing items to search per instance per run. Keep this low.<br><br>
-<strong>Missing Added Days</strong> — Only search for items added to your library at least this many days ago. Prevents searching for things you just added and are still expecting to arrive naturally.<br><br>
-<strong>Data Retention</strong> — How many days Nudgarr keeps history and stats entries before pruning. Lifetime totals are never affected. Default is 180 days.<br><br>
-<strong>Import Check</strong> — Nudgarr periodically checks whether items it previously searched were successfully imported into your library. This is what feeds the Stats screen. Default is every 120 minutes.<br><br>
-<strong>Security</strong> — Session timeout controls how long before an inactive login is automatically signed out. Default is 30 minutes.
-<br><br>
-⚠️ <span style="color:#fbbf24;font-weight:600">Backlog nudges can generate a lot of searches very quickly.</span> Start with a low cap and watch your indexer's rate limits carefully.`
-  },
-  {
-    title: "Step 8 — Reading Your Sweep Stats",
-    body: `The Sweep tab is your feedback loop — it shows you exactly what happened each run so you can tune Nudgarr to work best for your setup.
-<br><br>
-<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">Library State</strong><br>
-Cutoff Unmet and Backfill reflect the current state of your library as reported by your Radarr and Sonarr instances. They update as your library changes — not as a direct result of sweeps.
-<br><br>
-<strong style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#5b72f5">This Run</strong><br>
-<strong>Eligible</strong> — how many items were ready to search this run. If this is consistently low your cooldown may be too long.<br><br>
-<strong>On Cooldown</strong> — items that were found but aren't ready yet. This is normal and healthy — it means the system is pacing itself.<br><br>
-<strong>Capped</strong> — items that were eligible but didn't get searched because the per-run cap was reached. If this is consistently high consider raising your Max Per Run gradually.<br><br>
-<strong>Searched</strong> — what actually happened this run. This is your output.
-<br><br>
-<span style="color:var(--muted);font-size:12px">The defaults are intentionally conservative. Use these numbers over time to tune gradually — small increases to Max Per Run or small decreases to cooldown can make a meaningful difference.</span>
-<br><br>
-<span class="callout-text">These numbers are informational. If you increase Max Per Run or reduce cooldown, do so gradually and monitor your indexer activity closely. Nudgarr has no visibility into your indexer's limits.</span>`
+It needs a minimum of 25 confirmed imports or 50 sweep runs before scores appear. Give it time.`
   },
   {
     title: "You're Ready",
-    body: `You're all set. Here's the recommended way to start:
+    body: `Here is the recommended way to start:
 <br><br>
 1. Add your instances and test connections<br>
-2. Review your settings — keep them conservative to start<br>
+2. Review your settings and keep them conservative<br>
 3. Hit <strong>Run Now</strong> to trigger your first sweep manually<br>
-4. Check the <strong>History tab</strong> to see what was searched<br>
-5. If everything looks right, enable the scheduler<br>
-6. Gradually increase Max Per Run as you get comfortable
+4. Check the <strong>History tab</strong> to see what was nudged<br>
+5. Check the <strong>Imports tab</strong> after a day or two to see what was confirmed<br>
+6. If everything looks right, enable the scheduler<br>
+7. Gradually increase Max Per Run as you get comfortable
 <br><br>
-Nudgarr is designed to work quietly in the background — not to hammer your indexers. Start slow and let it earn your trust.
+Nudgarr is designed to work quietly in the background. Start slow, let it earn your trust, and tune from there.
 <br><br>
-<span style="color:var(--muted);font-size:12px">If Nudgarr is useful to you, the 🍺 support link in the header is a nice way to say thanks. You can hide it anytime in Advanced → UI Preferences.</span>`
+<span style="color:var(--muted);font-size:12px">If Nudgarr is useful to you, the 🍺 support link in the header is a nice way to say thanks. You can hide it anytime in Advanced under UI Preferences.</span>`
   }
 ];
 
@@ -411,6 +389,9 @@ function fillSettings() {
   el('sonarr_sample_mode').value = CFG.sonarr_sample_mode || legacyMode;
   el('radarr_max_movies_per_run').value = CFG.radarr_max_movies_per_run;
   el('sonarr_max_episodes_per_run').value = CFG.sonarr_max_episodes_per_run;
+  el('radarr_cutoff_enabled').checked = CFG.radarr_cutoff_enabled !== false;
+  el('sonarr_cutoff_enabled').checked = CFG.sonarr_cutoff_enabled !== false;
+  syncCutoffUi();
   el('batch_size').value = CFG.batch_size;
   el('sleep_seconds').value = CFG.sleep_seconds;
   el('jitter_seconds').value = CFG.jitter_seconds;
@@ -459,6 +440,8 @@ async function saveSettings() {
     CFG.sonarr_sample_mode = el('sonarr_sample_mode').value;
     CFG.radarr_max_movies_per_run = parseInt(el('radarr_max_movies_per_run').value || '25', 10);
     CFG.sonarr_max_episodes_per_run = parseInt(el('sonarr_max_episodes_per_run').value || '25', 10);
+    CFG.radarr_cutoff_enabled = el('radarr_cutoff_enabled').checked;
+    CFG.sonarr_cutoff_enabled = el('sonarr_cutoff_enabled').checked;
     CFG.batch_size = parseInt(el('batch_size').value || '20', 10);
     CFG.sleep_seconds = parseFloat(el('sleep_seconds').value || '3');
     CFG.jitter_seconds = parseFloat(el('jitter_seconds').value || '2');
@@ -529,6 +512,22 @@ function syncSupportLinkUi() {
 }
 
 // ── Maintenance Window (v4.2.0) ──
+
+// syncCutoffUi — greys the Max and Sample Mode fields for each app when that
+// app's Cutoff Unmet pipeline is disabled. Mirrors the Backlog enabled pattern
+// in ui-advanced.js. Called on toggle change and on fillSettings.
+function syncCutoffUi() {
+  for (const app of ['radarr', 'sonarr']) {
+    const on = el(app + '_cutoff_enabled')?.checked !== false;
+    const lbl = el(app + '_cutoff_label');
+    const fields = el(app + '_cutoff_fields');
+    if (lbl) lbl.textContent = on ? 'Enabled' : 'Disabled';
+    if (fields) {
+      fields.style.opacity = on ? '' : '0.35';
+      fields.style.pointerEvents = on ? '' : 'none';
+    }
+  }
+}
 
 // syncMaintUi — enables or disables the time/day fields based on the toggle.
 // Called on toggle change and on fillSettings() load.

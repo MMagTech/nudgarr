@@ -105,19 +105,33 @@
             <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 Disables)</div>
           </div>
         </div>
-        <div class="grid cols2" style="gap:12px;margin-top:12px">
+        <div class="hr"></div>
+        <p class="section-label">Cutoff Unmet</p>
+
+        <p class="section-label" style="margin:0 0 8px">Radarr</p>
+        <div class="field" style="margin-bottom:10px">
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="radarr_cutoff_enabled" onchange="syncCutoffUi(); markUnsaved('setMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="help" id="radarr_cutoff_label">Enabled</span>
+          </div>
+        </div>
+        <div id="radarr_cutoff_fields" class="grid cols2" style="gap:12px;margin-bottom:12px">
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Radarr Cutoff Max (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies are searched per Radarr instance each sweep. If you have two Radarr instances both set to 20, a single sweep could trigger up to 40 movie searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
+              <label>Max (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies Nudgarr nudges per Radarr instance each sweep. Two Radarr instances set to 20 means up to 40 movie search commands per sweep. Start low and increase gradually. 0 means all eligible items are nudged each run.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet movies searched per instance per run (0 Disables)</div>
+            <div class="help">Maximum Cutoff Unmet movies nudged per instance per run (0 = All Eligible)</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Radarr Sample Mode</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end. Missing Added Days sets the eligible pool — set to 0 to search all missing items newest-first with no age filter.</div></span>
+              <label>Sample Mode</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.</div></span>
             </div>
             <select id="radarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
@@ -125,21 +139,33 @@
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help">How Nudgarr picks which Radarr items to search each run</div>
+            <div class="help">How Nudgarr picks which Radarr items to nudge each run</div>
           </div>
         </div>
-        <div class="grid cols2" style="gap:12px;margin-top:12px">
+
+        <p class="section-label" style="margin:0 0 8px">Sonarr</p>
+        <div class="field" style="margin-bottom:10px">
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="sonarr_cutoff_enabled" onchange="syncCutoffUi(); markUnsaved('setMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="help" id="sonarr_cutoff_label">Enabled</span>
+          </div>
+        </div>
+        <div id="sonarr_cutoff_fields" class="grid cols2" style="gap:12px">
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Sonarr Cutoff Max (Per Instance)</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes are searched per Sonarr instance each sweep. If you have two Sonarr instances both set to 20, a single sweep could trigger up to 40 episode searches. Start low and increase gradually — combine with a sensible cooldown and cron schedule to keep total search volume manageable.</div></span>
+              <label>Max (Per Instance)</label>
+              <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes Nudgarr nudges per Sonarr instance each sweep. Two Sonarr instances set to 20 means up to 40 episode search commands per sweep. Start low and increase gradually. 0 means all eligible items are nudged each run.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet episodes searched per instance per run (0 Disables)</div>
+            <div class="help">Maximum Cutoff Unmet episodes nudged per instance per run (0 = All Eligible)</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">
-              <label>Sonarr Sample Mode</label>
+              <label>Sample Mode</label>
               <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
             </div>
             <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg')">
@@ -148,7 +174,7 @@
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
             </select>
-            <div class="help">How Nudgarr picks which Sonarr items to search each run</div>
+            <div class="help">How Nudgarr picks which Sonarr items to nudge each run</div>
           </div>
         </div>
       </div>

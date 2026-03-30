@@ -34,6 +34,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     "radarr_max_movies_per_run": 1,
     "sonarr_max_episodes_per_run": 1,
+    "radarr_cutoff_enabled": True,     # master toggle for Radarr Cutoff Unmet pipeline (v4.2.0)
+    "sonarr_cutoff_enabled": True,     # master toggle for Sonarr Cutoff Unmet pipeline (v4.2.0)
 
     # Optional Radarr backlog missing nudges (OFF by default)
     "radarr_backlog_enabled": False,

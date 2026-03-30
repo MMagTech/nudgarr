@@ -148,105 +148,127 @@ def _sweep_instance(
     profile_map = arr_get_profile_map(session, url, key) if excluded_profiles else {}
 
     # ── Cutoff-unmet pipeline ──────────────────────────────────────────
+    # Guarded by radarr_cutoff_enabled / sonarr_cutoff_enabled (v4.2.0).
+    # When disabled all counters remain 0 and no items are fetched or searched.
 
-    if app == "radarr":
-        all_items = fn_get_cutoff(session, url, key)
-    else:
-        all_items = fn_get_cutoff(session, url, key, series_meta=series_meta)
-    all_items = [m for m in all_items if (m.get("title") or "").lower() not in excluded_titles]
-
-    # Tag filter
+    all_ids: List[int] = []
+    eligible = 0
+    skipped = 0
     skipped_tag = 0
-    if excluded_tags:
-        filtered = []
-        for m in all_items:
-            hits = excluded_tags & set(m.get("tagIds") or [])
-            if hits:
-                for tid in hits:
-                    logger.debug("[%s:%s] skipped_tag: %s (tag=%s)",
-                                 APP, name, m.get("title", "?"), tag_map.get(tid, tid))
-                skipped_tag += len(hits)
-            else:
-                filtered.append(m)
-        all_items = filtered
-
-    # Profile filter
     skipped_profile = 0
-    if excluded_profiles:
-        filtered = []
-        for m in all_items:
-            pid = m.get("qualityProfileId")
-            if pid in excluded_profiles:
-                logger.debug("[%s:%s] skipped_profile: %s (profile=%s)",
-                             APP, name, m.get("title", "?"), profile_map.get(pid, pid))
-                skipped_profile += 1
-            else:
-                filtered.append(m)
-        all_items = filtered
-
-    # Queue skip
-    queue_ids = fn_get_queue_ids(session, url, key)
-    queued_skipped = [m for m in all_items if m["id"] in queue_ids]
-    all_items = [m for m in all_items if m["id"] not in queue_ids]
-    for m in queued_skipped:
-        logger.debug("[%s:%s] skipped_queued: %s (id=%s)", APP, name, m.get("title", "?"), m["id"])
-
-    # Availability filter — Radarr only
-    skipped_unavailable: List[Dict[str, Any]] = []
-    if app == "radarr":
-        skipped_unavailable = [m for m in all_items if not m.get("isAvailable", True)]
-        all_items = [m for m in all_items if m.get("isAvailable", True)]
-        if skipped_unavailable:
-            for m in skipped_unavailable:
-                threshold = m.get("minimumAvailability") or "unknown"
-                release = m.get("releaseDate") or "no date"
-                logger.debug("[Radarr:%s] skipped_not_available: %s (minimumAvailability=%s, releaseDate=%s)",
-                             name, m.get("title", "?"), threshold, release)
-
-    STATUS["instance_health"][f"{app}|{name}"] = "ok"
-    all_ids = [m["id"] for m in all_items]
-
-    chosen_items, eligible, skipped = pick_items_with_cooldown(
-        all_items, app, name, inst_url, item_type,
-        cooldown_hours, max_per_run, sample_mode
-    )
-
-    if app == "radarr":
-        logger.info(
-            "[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d "
-            "skipped_profile=%d skipped_queued=%d skipped_not_available=%d "
-            "skipped_cooldown=%d will_search=%d limit=%d",
-            name, len(all_ids), eligible, skipped_tag, skipped_profile,
-            len(queued_skipped), len(skipped_unavailable), skipped,
-            len(chosen_items), max_per_run,
-        )
-    else:
-        logger.info(
-            "[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d "
-            "skipped_profile=%d skipped_queued=%d skipped_cooldown=%d "
-            "will_search=%d limit=%d",
-            name, len(all_ids), eligible, skipped_tag, skipped_profile,
-            len(queued_skipped), skipped, len(chosen_items), max_per_run,
-        )
-
-    # Search loop — cutoff items
+    queued_skipped: List[Any] = []
+    skipped_unavailable: List[Any] = []
     searched = 0
-    for i in range(0, len(chosen_items), batch_size):
-        batch_items = chosen_items[i:i + batch_size]
-        batch_ids = [m["id"] for m in batch_items]
-        for m in batch_items:
-            logger.debug("[%s:%s] cutoff item: %s (id=%s quality_from=%s)",
-                         APP, name, m.get("title", "?"), m["id"], m.get("quality_from", ""))
-            if not m.get("quality_from"):
-                m["quality_from"] = fn_get_quality(session, url, key, m["id"])
-                logger.debug("[%s:%s] quality_from fallback fetch: %s → %s",
-                             APP, name, m.get("title", "?"), m.get("quality_from") or "(empty)")
-        fn_search(session, url, key, batch_ids, instance_name=name)
-        mark_items_searched(app, name, inst_url, item_type, batch_items, "Cutoff")
-        batch_record_stat_entries(app, name, inst_url, batch_items, "Upgraded", iso_z(utcnow()))
-        searched += len(batch_items)
-        if i + batch_size < len(chosen_items):
-            jitter_sleep(sleep_seconds, jitter_seconds)
+    chosen_items: List[Dict[str, Any]] = []
+
+    cutoff_enabled = bool(cfg.get(
+        "radarr_cutoff_enabled" if app == "radarr" else "sonarr_cutoff_enabled", True
+    ))
+
+    if cutoff_enabled:
+        if app == "radarr":
+            all_items = fn_get_cutoff(session, url, key)
+        else:
+            all_items = fn_get_cutoff(session, url, key, series_meta=series_meta)
+        all_items = [m for m in all_items if (m.get("title") or "").lower() not in excluded_titles]
+
+        # Tag filter
+        skipped_tag = 0
+        if excluded_tags:
+            filtered = []
+            for m in all_items:
+                hits = excluded_tags & set(m.get("tagIds") or [])
+                if hits:
+                    for tid in hits:
+                        logger.debug("[%s:%s] skipped_tag: %s (tag=%s)",
+                                     APP, name, m.get("title", "?"), tag_map.get(tid, tid))
+                    skipped_tag += len(hits)
+                else:
+                    filtered.append(m)
+            all_items = filtered
+
+        # Profile filter
+        skipped_profile = 0
+        if excluded_profiles:
+            filtered = []
+            for m in all_items:
+                pid = m.get("qualityProfileId")
+                if pid in excluded_profiles:
+                    logger.debug("[%s:%s] skipped_profile: %s (profile=%s)",
+                                 APP, name, m.get("title", "?"), profile_map.get(pid, pid))
+                    skipped_profile += 1
+                else:
+                    filtered.append(m)
+            all_items = filtered
+
+        # Queue skip
+        queue_ids = fn_get_queue_ids(session, url, key)
+        queued_skipped = [m for m in all_items if m["id"] in queue_ids]
+        all_items = [m for m in all_items if m["id"] not in queue_ids]
+        for m in queued_skipped:
+            logger.debug("[%s:%s] skipped_queued: %s (id=%s)", APP, name, m.get("title", "?"), m["id"])
+
+        # Availability filter — Radarr only
+        skipped_unavailable: List[Dict[str, Any]] = []
+        if app == "radarr":
+            skipped_unavailable = [m for m in all_items if not m.get("isAvailable", True)]
+            all_items = [m for m in all_items if m.get("isAvailable", True)]
+            if skipped_unavailable:
+                for m in skipped_unavailable:
+                    threshold = m.get("minimumAvailability") or "unknown"
+                    release = m.get("releaseDate") or "no date"
+                    logger.debug("[Radarr:%s] skipped_not_available: %s (minimumAvailability=%s, releaseDate=%s)",
+                                 name, m.get("title", "?"), threshold, release)
+
+        STATUS["instance_health"][f"{app}|{name}"] = "ok"
+        all_ids = [m["id"] for m in all_items]
+
+        chosen_items, eligible, skipped = pick_items_with_cooldown(
+            all_items, app, name, inst_url, item_type,
+            cooldown_hours, max_per_run, sample_mode
+        )
+
+        if app == "radarr":
+            logger.info(
+                "[Radarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d "
+                "skipped_profile=%d skipped_queued=%d skipped_not_available=%d "
+                "skipped_cooldown=%d will_search=%d limit=%d",
+                name, len(all_ids), eligible, skipped_tag, skipped_profile,
+                len(queued_skipped), len(skipped_unavailable), skipped,
+                len(chosen_items), max_per_run,
+            )
+        else:
+            logger.info(
+                "[Sonarr:%s] cutoff_unmet_total=%d eligible=%d skipped_tag=%d "
+                "skipped_profile=%d skipped_queued=%d skipped_cooldown=%d "
+                "will_search=%d limit=%d",
+                name, len(all_ids), eligible, skipped_tag, skipped_profile,
+                len(queued_skipped), skipped, len(chosen_items), max_per_run,
+            )
+
+        # Search loop — cutoff items
+        for i in range(0, len(chosen_items), batch_size):
+            batch_items = chosen_items[i:i + batch_size]
+            batch_ids = [m["id"] for m in batch_items]
+            for m in batch_items:
+                logger.debug("[%s:%s] cutoff item: %s (id=%s quality_from=%s)",
+                             APP, name, m.get("title", "?"), m["id"], m.get("quality_from", ""))
+                if not m.get("quality_from"):
+                    m["quality_from"] = fn_get_quality(session, url, key, m["id"])
+                    logger.debug("[%s:%s] quality_from fallback fetch: %s → %s",
+                                 APP, name, m.get("title", "?"), m.get("quality_from") or "(empty)")
+            fn_search(session, url, key, batch_ids, instance_name=name)
+            mark_items_searched(app, name, inst_url, item_type, batch_items, "Cutoff")
+            batch_record_stat_entries(app, name, inst_url, batch_items, "Upgraded", iso_z(utcnow()))
+            searched += len(batch_items)
+            if i + batch_size < len(chosen_items):
+                jitter_sleep(sleep_seconds, jitter_seconds)
+
+    else:
+        # When cutoff is disabled, still fetch queue_ids so Backlog and CF Score
+        # can skip items already in the download queue.
+        queue_ids = fn_get_queue_ids(session, url, key)
+        STATUS["instance_health"][f"{app}|{name}"] = "ok"
 
     # ── Backlog pipeline ───────────────────────────────────────────────
 

@@ -40,6 +40,27 @@ All notable changes to Nudgarr are documented here.
 
 - CF Score INFO log line now matches Cutoff Unmet granularity. Added `cf_score_total`, `skipped_cf_excluded`, and `skipped_cf_queued` counters alongside the existing `skipped_cf_cooldown`. Zero-eligible DEBUG log also includes all skip counters for easier diagnosis of why specific titles are not being searched.
 
+**Cutoff Unmet Toggle (v4.2.0)**
+
+- `radarr_cutoff_enabled` and `sonarr_cutoff_enabled` added as independent per-app toggles for the Cutoff Unmet pipeline. Both default to `True` so existing installs are unaffected.
+- Settings tab updated with Radarr and Sonarr Cutoff Unmet sections, each with a toggle and greyed Max/Sample Mode fields when disabled. Matches Backlog layout in the Advanced tab.
+- Max Per Run help text updated from "0 Disables" to "0 = All Eligible" for both Cutoff Unmet and Backlog fields. The toggle is now the on/off switch; 0 means all eligible items are nudged each run.
+- `sweep.py` Cutoff Unmet filter chain wrapped in `if cutoff_enabled` guard. When disabled all counters remain 0, no items are fetched, and queue_ids are still fetched so Backlog and CF Score can skip items already downloading.
+- `ui-sweep.js` Library State Cutoff Unmet cell greys with a dash when disabled, matching Backlog behaviour.
+- `ui-overrides.js` Cutoff Unmet group fields grey when disabled globally, consistent with Backlog fields greying when Backlog is off.
+- Migration: if `radarr_cutoff_enabled` or `sonarr_cutoff_enabled` is absent from config and the corresponding max is 0 (previously used as a disable mechanism), `validate_config` sets the toggle to `False` and resets max to 1 preserving the user's intent.
+- Onboarding Step 2 updated — Cutoff Unmet described as "on by default" rather than "always active".
+
+**Onboarding Walkthrough Rewrite**
+
+- Reduced from 10 steps to 8. New structure: Welcome, How Nudgarr Works (new), Add Instances, Scheduler and Run Now, Search Behaviour and Throttling, Exclusions and Auto-Exclusion (new), Notifications and Intel, You're Ready.
+- New "How Nudgarr Works" step introduces all three pipelines (Cutoff Unmet, Backlog, CF Score) as a natural progression before any configuration steps. Frames Nudgarr as nudging the Arrs rather than searching directly.
+- Exclusions and Auto-Exclusion step added covering manual exclusions, auto-exclusion threshold, and Clear Exclusions.
+- Intel tab introduced in Notifications step.
+- All references to "Nudgarr searches" corrected to reflect that Nudgarr sends search commands to Radarr and Sonarr.
+- Backfill renamed to Backlog throughout. Stats tab renamed to Imports throughout.
+- Onboarding modal given fixed height (520px) with scrollable content area and pinned footer. Navigation buttons now stay at the same position regardless of step content length.
+
 **Advanced Tab Layout Reorganisation**
 
 - Left card now contains Backlog Nudges at the top and Auto-Exclusion at the bottom.

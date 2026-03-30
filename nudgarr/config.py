@@ -129,6 +129,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
         "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
         "notify_on_queue_threshold", "dry_run", "cf_score_enabled",
+        "radarr_cutoff_enabled", "sonarr_cutoff_enabled",
     ):
         v = cfg.get(bool_key)
         if v is not None and not isinstance(v, bool):
@@ -197,6 +198,22 @@ def load_or_init_config() -> Dict[str, Any]:
 
     for legacy_key in ("run_interval_minutes", "cron_enabled"):
         merged.pop(legacy_key, None)
+
+    # Migration (v4.2.0): radarr_cutoff_enabled / sonarr_cutoff_enabled introduced.
+    # If the key is absent and the corresponding max is 0, the user was using 0 as
+    # a disable mechanism — preserve that intent by setting enabled=False and
+    # resetting max to 1 so 0 now correctly means "all eligible".
+    for app, max_key, toggle_key in (
+        ("radarr", "radarr_max_movies_per_run", "radarr_cutoff_enabled"),
+        ("sonarr", "sonarr_max_episodes_per_run", "sonarr_cutoff_enabled"),
+    ):
+        if toggle_key not in cfg and int(merged.get(max_key, 1)) == 0:
+            merged[toggle_key] = False
+            merged[max_key] = 1
+            logger.info(
+                "Migration: %s was 0 (used as disable). Set %s=False, %s=1.",
+                max_key, toggle_key, max_key,
+            )
 
     ok, errs = validate_config(merged)
     if not ok:

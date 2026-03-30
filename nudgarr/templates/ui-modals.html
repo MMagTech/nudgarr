@@ -92,11 +92,11 @@
 
   <!-- ══ Onboarding Modal ══ -->
   <div class="modal-backdrop" id="onboardingModal" style="display:none">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
-      <div id="onboardingContent"></div>
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px">
-        <div style="display:flex; gap:6px" id="onboardingDots"></div>
-        <div style="display:flex; gap:8px">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;display:flex;flex-direction:column;height:520px;">
+      <div id="onboardingContent" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);flex-shrink:0;">
+        <div style="display:flex;gap:6px" id="onboardingDots"></div>
+        <div style="display:flex;gap:8px">
           <button class="btn sm" id="onboardingPrev" onclick="onboardingStep(-1)">Back</button>
           <button class="btn sm primary" id="onboardingNext" onclick="onboardingStep(1)">Next</button>
         </div>

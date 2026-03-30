@@ -164,6 +164,10 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const gGrace    = _getGlobal(kind, 'missing_grace_hours');
   const gCfMax    = _getGlobal(kind, 'cf_max');
   const cfScoreEnabled = CFG ? !!CFG.cf_score_enabled : false;
+  const cutoffEnabledGlobal = CFG
+    ? (kind === 'radarr' ? CFG.radarr_cutoff_enabled !== false : CFG.sonarr_cutoff_enabled !== false)
+    : true;
+  const cutoffFieldsStyle = cutoffEnabledGlobal ? '' : 'opacity:0.38;pointer-events:none';
 
   // Backlog fields: Max Backlog / Backlog Sample Mode (both apps)
   // Radarr row 2: Max Missing Days / Grace Period (Hours)
@@ -229,7 +233,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
       ${innerDivider}
       <!-- Cutoff Unmet group -->
       ${grpHead('Cutoff Unmet')}
-      <div class="ov-fields" style="margin-bottom:10px">
+      <div class="ov-fields" style="margin-bottom:10px;${cutoffFieldsStyle}">
         ${numField('max_cutoff_unmet', 'Max', gCutoff)}
         ${modeField}
       </div>

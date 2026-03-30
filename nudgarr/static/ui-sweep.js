@@ -30,6 +30,10 @@ async function refreshSweep() {
     radarr: !!cfg.radarr_backlog_enabled,
     sonarr: !!cfg.sonarr_backlog_enabled,
   };
+  const cutoffEnabledGlobal = {
+    radarr: cfg.radarr_cutoff_enabled !== false,
+    sonarr: cfg.sonarr_cutoff_enabled !== false,
+  };
 
   function fmtMode(m) {
     return (m || 'random').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -57,6 +61,8 @@ async function refreshSweep() {
       const backlogOn = 'backlog_enabled' in instOv
         ? !!instOv.backlog_enabled
         : backlogEnabledGlobal[kind];
+
+      const cutoffOn = cutoffEnabledGlobal[kind];
 
       // Lifetime row for this instance
       const lk = Object.keys(lifetime).find(k => k.startsWith(`${kind}|${inst.name}|`));
@@ -90,9 +96,9 @@ async function refreshSweep() {
       const hasData = cached != null;
       const dim     = 'dim';
 
-      // Library State -- Cutoff Unmet always shown, Backlog and CF Score greyed when off
-      const cuVal = hasData ? cached.cutoffUnmet : '—';
-      const cuDim = hasData ? (cached.cutoffUnmet === '—' ? dim : '') : dim;
+      // Library State -- Cutoff Unmet greyed when disabled, Backlog and CF Score greyed when off
+      const cuVal = !cutoffOn ? '—' : (hasData ? cached.cutoffUnmet : '—');
+      const cuDim = (!cutoffOn || !hasData || cached.cutoffUnmet === '—') ? dim : '';
 
       const bfVal = !backlogOn ? '—' : (hasData ? cached.backlog : '—');
       const bfDim = (!backlogOn || !hasData) ? dim : '';

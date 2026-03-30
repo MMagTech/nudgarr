@@ -468,7 +468,7 @@ class TestSplitIntegrity:
             'fillSettings', 'saveSettings', 'validateCronExpr', 'describeCron',
             'checkCooldownWarning', 'maybeShowWhatsNew', 'dismissWhatsNew',
             'renderOnboardingStep', 'onboardingStep', 'maybeShowOnboarding',
-            'replayOnboarding',
+            'replayOnboarding', 'syncCutoffUi',
         },
         'ui-history.js': {
             'loadExclusions', 'toggleExclusion', 'refreshAutoExclBadge',

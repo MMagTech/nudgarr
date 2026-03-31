@@ -933,7 +933,7 @@
     .feed-badge-cell { text-align: right; white-space: nowrap; }
 
     /* Pipeline pills — scoped to sw-pill to avoid collision with .pill tag/filter pills */
-    .sw-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .sw-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
     .sw-pill.cutoff  { background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent-lt); }
     .sw-pill.backlog { background: var(--ok-dim);     border: 1px solid rgba(34,197,94,.22);  color: var(--ok); }
     .sw-pill.cfscore { background: var(--warn-dim);   border: 1px solid rgba(251,191,36,.2);  color: var(--warn); }

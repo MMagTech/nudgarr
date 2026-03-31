@@ -121,7 +121,9 @@ async function refreshImports() {
     const sorted = sortItems(data.entries, IMPORTS_SORT.col, IMPORTS_SORT.dir);
     const rows = sorted.map(e => {
       const countCell = (e.iteration && e.iteration > 1) ? `<span class="imports-iter-pill">×${e.iteration}</span>` : '';
-      const tagClass = e.type === 'Acquired' ? 'tag acquired' : 'tag';
+      const tagClass = e.type === 'Acquired' ? 'tag acquired'
+        : e.type === 'CF Score' ? 'tag cf-score'
+        : 'tag';
       return `
       <tr>
         <td class="arr-link" title="Open in ${e.app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(e.app)}','${escapeHtml(e.instance)}','${escapeHtml(e.item_id)}','${escapeHtml(e.series_id || '')}')">${escapeHtml(e.title || e.item_id)}</td>

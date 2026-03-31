@@ -817,7 +817,6 @@
     /* Pipeline row spans all 3 columns and carries its own 3-col sub-grid.
        This keeps the loading placeholder anchored to row 1 so the summary
        cards always sit in row 2 regardless of loading state. */
-    .sweep-pipeline-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     .sweep-feed-card { grid-column: 1 / -1; } /* feed spans all 3 columns */
 
     /* ── Pipeline cards ── */
@@ -946,4 +945,88 @@
     .page-jump-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     .page-jump-wrap span { font-size: 11px; color: var(--muted); }
     .page-jump-wrap input { width: 52px; padding: 3px 6px; font-size: 11px; text-align: center; }
+
+
+    /* ── Font size bump (v4.2.0) ──────────────────────────────────────────────
+       Uniform +1px across all typographic tiers. Structural sizes (dots, badges,
+       borders) are unchanged. All overrides are collected here so they can be
+       adjusted or reverted in one place without touching individual declarations.
+    ── */
+
+    /* Tier 1 — 10px → 11px: uppercase section/stat labels, table headers */
+    th                         { font-size: 11px; }
+    .section-lbl               { font-size: 11px; }
+    .stat-lbl                  { font-size: 11px; }
+    .stat-sub                  { font-size: 11px; }
+    .lifetime-lbl              { font-size: 11px; }
+    .sweep-stat-label          { font-size: 11px; }
+    .sum-title                 { font-size: 11px; }
+    .p-lbl                     { font-size: 11px; }
+    .feed-table thead th       { font-size: 11px; }
+    .cf-table th               { font-size: 11px; }
+    .intel-table th            { font-size: 11px; }
+    .intel-half-label          { font-size: 11px; }
+    .intel-half-sub            { font-size: 11px; }
+    .intel-score-sublbl        { font-size: 11px; }
+    .intel-callout-label       { font-size: 11px; }
+    .intel-excl-stat-label     { font-size: 11px; }
+    .intel-qi-label            { font-size: 11px; }
+    .upgrade-header            { font-size: 11px; }
+    .upgrade-acquired          { font-size: 11px; }
+    .upgrade-date              { font-size: 11px; }
+    .import-cell-sub           { font-size: 11px; }
+    .import-lifetime-lbl       { font-size: 11px; }
+    .p-badge                   { font-size: 11px; }
+    .sw-pill                   { font-size: 11px; }
+    .cf-badge                  { font-size: 11px; }
+
+    /* Tier 2 — 11px → 12px: secondary text, meta, pills */
+    .tagline                   { font-size: 12.5px; }
+    .card-label                { font-size: 12px; }
+    .card-sub                  { font-size: 12.5px; }
+    .count-pill                { font-size: 12px; }
+    .iter-pill                 { font-size: 12px; }
+    .mode-pill                 { font-size: 12px; }
+    .source-badge              { font-size: 12px; }
+    .kpi-lbl                   { font-size: 12px; }
+    .p-name                    { font-size: 12px; }
+    .intel-grade               { font-size: 12px; }
+    .intel-comp-val            { font-size: 12px; }
+    .intel-stuck-count         { font-size: 12px; }
+    .intel-stuck-meta          { font-size: 12px; }
+    .intel-age-label           { font-size: 12px; }
+    .intel-age-pct             { font-size: 12px; }
+    .intel-unknown-note        { font-size: 12px; }
+    .intel-up-count            { font-size: 12px; }
+    .intel-eff-numbers         { font-size: 12px; }
+    .sweep-url                 { font-size: 12px; }
+    .sweep-lastrun             { font-size: 12px; }
+    .health-err-hint           { font-size: 12px; }
+    .ls-sub                    { font-size: 12px; }
+    .import-total-sub          { font-size: 12px; }
+    .feed-controls label       { font-size: 12px; }
+    .page-jump-wrap span       { font-size: 12px; }
+    .page-jump-wrap input      { font-size: 12px; }
+    .feed-time                 { font-size: 12px; }
+    .p-inst-disabled           { font-size: 12px; }
+    .upgrade-mono              { font-size: 12px; }
+
+    /* Tier 3 — 11.5px → 12.5px: field labels and help text */
+    label                      { font-size: 12.5px; }
+    .help                      { font-size: 12.5px; }
+    .intel-up-from             { font-size: 12.5px; }
+    .intel-up-to               { font-size: 12.5px; }
+
+    /* Tier 4 — 13px → 14px: section headings, inputs, table body, body copy */
+    .section-label             { font-size: 14px; }
+    input, select, textarea    { font-size: 14px; }
+    table                      { font-size: 14px; }
+    .sweep-inst-name           { font-size: 14px; }
+    .test-card .tc-name        { font-size: 14px; }
+    .test-card .tc-detail      { font-size: 13px; }
+    .sweep-stat-value          { font-size: 14px; }
+    .intel-stat-label          { font-size: 13px; }
+    .intel-stat-val            { font-size: 14px; }
+    .filter-list-item          { font-size: 13px; }
+    .filter-search             { font-size: 13px; }
 

@@ -398,12 +398,16 @@ function closeCfFilterSyncModal() {
 }
 
 // syncCfIndexFromModal -- triggered by "Sync Now" in the CF filter sync modal.
-// Delegates to the CF Score tab's triggerCfSync function if available,
-// then closes the modal and switches to the CF Score tab so the user can
-// see progress.
+// Calls the scan API directly then switches to the CF Score tab so the user
+// can see progress. Does not depend on ui-cf-scores.js being loaded.
 async function syncCfIndexFromModal() {
   closeCfFilterSyncModal();
-  if (typeof triggerCfSync === 'function') {
-    await triggerCfSync();
+  try {
+    await api('/api/cf-scores/scan', {method: 'POST'});
+  } catch(e) {
+    // Non-fatal -- user can manually trigger from CF Score tab
+    console.debug('[CF Filter] syncCfIndexFromModal scan request failed:', e);
   }
+  // Switch to CF Score tab so the user sees progress
+  if (typeof showTab === 'function') showTab('cf-scores');
 }

@@ -19,10 +19,10 @@
     /* ── 720px: tablet portrait and below ─────────────────────────────── */
     @media (max-width: 720px) {
 
-      /* Sweep pipeline grid: 3-col → 1-col.
-         sweep-pipeline-row carries its own 3-col sub-grid — stack that too. */
+      /* Sweep pipeline grid: 3-col → 1-col at narrow viewport.
+         Pipeline cards are now direct grid children so sweep-grid
+         stacking covers all six cards (3 pipeline + 3 summary). */
       .sweep-grid              { grid-template-columns: 1fr; }
-      .sweep-pipeline-row      { grid-template-columns: 1fr; }
 
       /* Intel Library Score + Search Health: fixed 270px 1fr → stack */
       .intel-grid-score        { grid-template-columns: 1fr; }
@@ -86,14 +86,23 @@
       .wrap { padding-left: 12px; padding-right: 12px; }
 
       /* Tab bar: stop wrapping to a second line — scroll horizontally instead.
-         A right-fade gradient hint is added via .sticky-inner::after below. */
+         A right-fade gradient hint is added via .sticky-inner::after below.
+         flex-shrink: 0 on .tab prevents tabs from being compressed before
+         overflow kicks in. overflow-y: hidden + touch-action: pan-x prevent
+         the tab bar from wiggling vertically during a page scroll gesture. */
       .tabs {
         flex-wrap: nowrap;
         overflow-x: auto;
+        overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        touch-action: pan-x;
       }
       .tabs::-webkit-scrollbar { display: none; }
+
+      /* Each tab must not shrink — without this flexbox compresses tabs and
+         clips their text before the container scrolls */
+      .tab { flex-shrink: 0; }
 
       /* Fade hint on the right edge of the tab bar to signal more tabs */
       .sticky-inner {

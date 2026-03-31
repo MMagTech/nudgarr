@@ -502,12 +502,22 @@ def _sweep_instance(
                 skipped_cf, len(chosen_cf), cf_max,
             )
             for item in chosen_cf:
+                # Fetch quality_from for the upgrade history tooltip.
+                # CF Score items always have a file so this should succeed.
+                # Mirrors the Cutoff Unmet fallback fetch pattern.
+                if not item.get("quality_from"):
+                    item["quality_from"] = fn_get_quality(session, url, key, item["id"])
+                    logger.debug(
+                        "[%s:%s] cf_score quality_from fetch: %s → %s",
+                        APP, name, item.get("title", "?"), item.get("quality_from") or "(empty)",
+                    )
                 logger.debug(
-                    "[%s:%s] cf_score item: %s (id=%s current=%d cutoff=%d gap=%s)",
+                    "[%s:%s] cf_score item: %s (id=%s current=%d cutoff=%d gap=%s quality_from=%s)",
                     APP, name, item.get("title", "?"), item["id"],
                     item.get("current_score", 0),
                     item.get("cutoff_score", 0),
                     item.get("gap", "?"),
+                    item.get("quality_from", ""),
                 )
                 if app == "radarr":
                     radarr_search_movies(session, url, key, [item["id"]], instance_name=name)

@@ -65,6 +65,9 @@ def api_cf_scores_status():
                 }
 
         enriched_instances = []
+        seen_ids = set()
+
+        # First pass: enrich instances that already have rows in cf_score_entries
         for row in instances:
             meta = instance_map.get(row["arr_instance_id"], {})
             # Read live sync progress from nudgarr_state for the ring chart
@@ -79,6 +82,32 @@ def api_cf_scores_status():
                 "instance_name": meta.get("name", row["arr_instance_id"]),
                 "sync_progress": sync_progress,
             })
+            seen_ids.add(row["arr_instance_id"])
+
+        # Second pass: if a scan is in progress, also include configured instances
+        # that have no rows yet (e.g. immediately after a reset). This ensures the
+        # progress rings are visible from the start of the first scan rather than
+        # only appearing after the first entries are written.
+        if _scan_lock.locked():
+            for instance_id, meta in instance_map.items():
+                if instance_id in seen_ids:
+                    continue
+                progress_raw = db.get_state(CF_SYNC_PROGRESS_PREFIX + instance_id)
+                try:
+                    sync_progress = json.loads(progress_raw) if progress_raw else None
+                except (ValueError, TypeError):
+                    sync_progress = None
+                if sync_progress:
+                    enriched_instances.append({
+                        "arr_instance_id": instance_id,
+                        "total_indexed": 0,
+                        "below_cutoff": 0,
+                        "passing": 0,
+                        "last_synced_at": None,
+                        "app": meta.get("app", "unknown"),
+                        "instance_name": meta.get("name", instance_id),
+                        "sync_progress": sync_progress,
+                    })
 
         return jsonify({
             "enabled": enabled,

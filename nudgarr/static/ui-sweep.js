@@ -130,8 +130,11 @@ function _pipelineCardHtml(type, badge, insts, summary, health, cfEnabled) {
   const name = type === 'cutoff' ? 'Cutoff Unmet' : type === 'backlog' ? 'Backlog' : 'CF Score';
   const enabled = type === 'cfscore' ? cfEnabled : true;
   const badgeText = type === 'cutoff' ? 'Always On' : (enabled ? 'Enabled' : 'Disabled');
+  const slotId = type === 'cutoff' ? 'sweepPipelineCutoff'
+    : type === 'backlog' ? 'sweepPipelineBacklog'
+    : 'sweepPipelineCfScore';
 
-  return `<div class="p-card ${type}">
+  return `<div id="${slotId}" class="p-card ${type}">
     <div class="p-hdr">
       <div class="p-hdr-left"><span class="p-name">${name}</span></div>
       <span class="p-badge">${badgeText}</span>
@@ -171,16 +174,21 @@ async function refreshSweep() {
     return !!cfg.sonarr_backlog_enabled;
   });
 
-  const pipelineRow = el('sweepPipelineRow');
+  const cutoffSlot  = el('sweepPipelineCutoff');
+  const backlogSlot = el('sweepPipelineBacklog');
+  const cfSlot      = el('sweepPipelineCfScore');
+
   if (!allInsts.length) {
-    pipelineRow.innerHTML = '<p class="help" style="margin:8px 0 0">No instances configured.</p>';
+    const msg = '<p class="help" style="margin:8px 0 0">No instances configured.</p>';
+    if (cutoffSlot)  cutoffSlot.innerHTML  = msg;
+    if (backlogSlot) backlogSlot.innerHTML = msg;
+    if (cfSlot)      cfSlot.innerHTML      = msg;
   } else {
-    const cutoffHtml  = _pipelineCardHtml('cutoff',  'Always On', allInsts, allSummary, health, cfEnabled);
-    const backlogHtml = _pipelineCardHtml('backlog',  backlogEnabled ? 'Enabled' : 'Disabled', allInsts, allSummary, health, cfEnabled);
-    const cfHtml      = cfEnabled
-      ? _pipelineCardHtml('cfscore', 'Enabled', allInsts, allSummary, health, cfEnabled)
-      : _pipelineCardHtml('cfscore', 'Disabled', allInsts, [], health, false);
-    pipelineRow.innerHTML = cutoffHtml + backlogHtml + cfHtml;
+    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  'Always On', allInsts, allSummary, health, cfEnabled);
+    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog',  backlogEnabled ? 'Enabled' : 'Disabled', allInsts, allSummary, health, cfEnabled);
+    if (cfSlot)      cfSlot.outerHTML      = cfEnabled
+      ? _pipelineCardHtml('cfscore', 'Enabled',  allInsts, allSummary, health, cfEnabled)
+      : _pipelineCardHtml('cfscore', 'Disabled', allInsts, [],         health, false);
   }
 
   // ── Health card ───────────────────────────────────────────────────────

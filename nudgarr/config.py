@@ -66,7 +66,6 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "radarr_missing_added_days",
         "radarr_missing_grace_hours",
         "sonarr_missing_max",
-        "sonarr_missing_added_days",
         "sonarr_missing_grace_hours",
         "auto_exclude_movies_threshold",
         "auto_exclude_shows_threshold",
@@ -105,7 +104,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     if not isinstance(overrides, dict):
                         errs.append(f"instances.{app}[{i}].overrides must be an object")
                     else:
-                        for ov_key in ("cooldown_hours", "max_cutoff_unmet", "max_backlog", "max_missing_days"):
+                        for ov_key in ("cooldown_hours", "max_cutoff_unmet", "max_backlog",
+                                       "max_missing_days", "missing_grace_hours", "cf_max"):
                             v = overrides.get(ov_key)
                             if v is not None and (not isinstance(v, int) or v < 0):
                                 errs.append(f"instances.{app}[{i}].overrides.{ov_key} must be an int >= 0")
@@ -125,10 +125,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
     for bool_key in (
         "per_instance_overrides_enabled", "per_instance_overrides_seen",
-        "per_instance_overrides_seen_mobile", "radarr_backlog_enabled",
+        "radarr_backlog_enabled",
         "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
         "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
-        "notify_on_queue_threshold", "dry_run", "cf_score_enabled",
+        "cf_score_enabled",
         "radarr_cutoff_enabled", "sonarr_cutoff_enabled",
         "radarr_auto_exclude_enabled", "sonarr_auto_exclude_enabled",
     ):
@@ -231,6 +231,20 @@ def load_or_init_config() -> Dict[str, Any]:
                     "Migration: %s=%d found, setting %s=True.",
                     threshold_key, threshold, toggle_key,
                 )
+
+    # Migration (v4.2.0): remove keys that no longer exist in DEFAULT_CONFIG.
+    # sonarr_missing_added_days — Sonarr never had a missing-added-days filter (Radarr-only).
+    # per_instance_overrides_seen_mobile — mobile UI removed in v4.2.0.
+    # notify_on_queue_threshold / dry_run — features never shipped; were leftover in validation only.
+    for dead_key in (
+        "sonarr_missing_added_days",
+        "per_instance_overrides_seen_mobile",
+        "notify_on_queue_threshold",
+        "dry_run",
+    ):
+        if dead_key in merged:
+            merged.pop(dead_key)
+            logger.info("Migration: removed dead config key '%s'.", dead_key)
 
     ok, errs = validate_config(merged)
     if not ok:

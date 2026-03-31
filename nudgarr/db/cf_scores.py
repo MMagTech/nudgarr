@@ -41,7 +41,7 @@ from nudgarr.utils import iso_z, utcnow
 logger = logging.getLogger(__name__)
 
 
-def upsert_cf_score_entry(
+def _upsert_cf_score_entry(
     arr_instance_id: str,
     item_type: str,
     external_item_id: int,
@@ -110,7 +110,7 @@ def upsert_cf_score_entry(
     conn.commit()
 
 
-def touch_cf_score_entry(
+def _touch_cf_score_entry(
     arr_instance_id: str,
     item_type: str,
     external_item_id: int,
@@ -139,7 +139,7 @@ def touch_cf_score_entry(
     conn.commit()
 
 
-def delete_cf_score_entry(
+def _delete_cf_score_entry(
     arr_instance_id: str,
     item_type: str,
     external_item_id: int,

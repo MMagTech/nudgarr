@@ -55,7 +55,7 @@ function cfPopulateInstanceDropdown(status) {
   const current = sel.value;
   sel.innerHTML = '<option value="">All Instances</option>' +
     instances.map(i =>
-      `<option value="${_escHtml(i.arr_instance_id)}"${i.arr_instance_id === current ? ' selected' : ''}>${_escHtml(i.instance_name || i.arr_instance_id)}</option>`
+      `<option value="${escapeHtml(i.arr_instance_id)}"${i.arr_instance_id === current ? ' selected' : ''}>${escapeHtml(i.instance_name || i.arr_instance_id)}</option>`
     ).join('');
 }
 
@@ -198,7 +198,7 @@ function cfRenderCoverage(status) {
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;${isLast ? '' : 'border-bottom:1px solid var(--border);'}">
       <div>
         <div style="font-size:12.5px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          ${_escHtml(inst.instance_name || inst.arr_instance_id)}
+          ${escapeHtml(inst.instance_name || inst.arr_instance_id)}
           <span style="font-size:12px;font-weight:700;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent-lt);border-radius:6px;padding:1px 7px;${pctStyle}">${pctLabel}</span>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">${total.toLocaleString()} indexed · ${below.toLocaleString()} below cutoff</div>
@@ -296,9 +296,9 @@ function _cfRenderPage() {
     const itemId = e.external_item_id || '';
     const seriesId = e.series_id || '';
     return `<tr>
-      <td class="arr-link" style="font-size:12.5px;" title="Open in ${app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${_escHtml(app)}','${_escHtml(e.instance_name || '')}','${itemId}','${seriesId}')">${_escHtml(e.title || '—')}</td>
-      <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.instance_name || '—')}</td>
-      <td style="font-size:12px;color:var(--text-dim);">${_escHtml(e.quality_profile_name || '—')}</td>
+      <td class="arr-link" style="font-size:12.5px;" title="Open in ${app === 'radarr' ? 'Radarr' : 'Sonarr'}" onclick="openArrLink('${escapeHtml(app)}','${escapeHtml(e.instance_name || '')}','${itemId}','${seriesId}')">${escapeHtml(e.title || '—')}</td>
+      <td style="font-size:12px;color:var(--text-dim);">${escapeHtml(e.instance_name || '—')}</td>
+      <td style="font-size:12px;color:var(--text-dim);">${escapeHtml(e.quality_profile_name || '—')}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--bad);font-weight:600;">${e.current_score}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--text-dim);">${e.cutoff_score}</td>
       <td style="font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--warn);font-weight:600;">
@@ -445,12 +445,3 @@ async function cfResetIndex() {
   }
 }
 
-
-// ── _escHtml ───────────────────────────────────────────────────────────────────
-function _escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

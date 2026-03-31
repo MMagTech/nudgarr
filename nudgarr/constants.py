@@ -46,7 +46,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # Optional Sonarr backlog missing nudges (OFF by default)
     "sonarr_backlog_enabled": False,
     "sonarr_missing_max": 1,
-    "sonarr_missing_added_days": 14,
     "sonarr_missing_grace_hours": 0,
 
     "batch_size": 1,
@@ -85,7 +84,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # Per-Instance Overrides (v3.2.0)
     "per_instance_overrides_enabled": False,
     "per_instance_overrides_seen": False,
-    "per_instance_overrides_seen_mobile": False,
 
     # Logging (v4.0.0)
     "log_level": "INFO",   # DEBUG | INFO | WARNING | ERROR
@@ -129,10 +127,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
 # Valid sample modes for radarr_sample_mode, sonarr_sample_mode, and per-instance overrides.
 # Single definition — sweep.py and config.py import this instead of defining their own.
+# NOTE: if adding a cutoff-only mode here (e.g. quality gap scoring), evaluate whether
+# VALID_BACKLOG_SAMPLE_MODES below should also receive it. Missing items have no file
+# so quality-based modes cannot apply to backlog.
 VALID_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
 
 # Valid sample modes for the backlog (missing) pipeline.
 # Kept separate from VALID_SAMPLE_MODES so the backlog dropdown never exposes
 # any future cutoff-only modes (e.g. quality gap scoring) that require an
 # existing file. Missing items have no file, so those modes cannot apply.
+# NOTE: currently identical to VALID_SAMPLE_MODES — if this diverges, update
+# config.py validation, ui-tab-advanced.html, and ui-tab-settings.html selects.
 VALID_BACKLOG_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")

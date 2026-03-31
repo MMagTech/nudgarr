@@ -536,34 +536,34 @@ def scheduler_loop(shutdown: threading.Event) -> None:
             if should_run:
                 if RUN_LOCK.locked():
                     logger.debug("Sweep skipped — RUN_LOCK already held (sweep in progress)")
-                    should_run = False
-                STATUS["run_in_progress"] = True
-                try:
-                    logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))
-                    STATUS["last_sweep_start_utc"] = iso_z(utcnow())
-                    summary = run_sweep(cfg, session)
-                    STATUS["last_summary"] = summary
-                    STATUS["last_run_utc"] = iso_z(utcnow())
-                    db.set_state("last_run_utc", STATUS["last_run_utc"])
-                    db.set_state("last_sweep_start_utc", STATUS["last_sweep_start_utc"])
-                    db.set_state("last_summary", json.dumps(summary))
-                    STATUS["last_error"] = None
-                    if STATUS["last_sweep_start_utc"]:
-                        STATUS["imports_confirmed_sweep"] = db.get_imports_since(
-                            STATUS["last_sweep_start_utc"]
-                        )
-                    notify_sweep_complete(summary, cfg)
-                    for app_name in ("radarr", "sonarr"):
-                        for inst in summary.get(app_name, []):
-                            if "error" in inst and inst.get("notifications_enabled", True):
-                                notify_error(f"'{inst['name']}' is unreachable.", cfg)
-                except Exception:
-                    STATUS["last_error"] = "Sweep failed — see logs for details"
-                    logger.exception("Sweep failed")
-                    notify_error("Sweep failed — check logs.", cfg)
-                finally:
-                    STATUS["run_in_progress"] = False
-                    STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
+                else:
+                    STATUS["run_in_progress"] = True
+                    try:
+                        logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))
+                        STATUS["last_sweep_start_utc"] = iso_z(utcnow())
+                        summary = run_sweep(cfg, session)
+                        STATUS["last_summary"] = summary
+                        STATUS["last_run_utc"] = iso_z(utcnow())
+                        db.set_state("last_run_utc", STATUS["last_run_utc"])
+                        db.set_state("last_sweep_start_utc", STATUS["last_sweep_start_utc"])
+                        db.set_state("last_summary", json.dumps(summary))
+                        STATUS["last_error"] = None
+                        if STATUS["last_sweep_start_utc"]:
+                            STATUS["imports_confirmed_sweep"] = db.get_imports_since(
+                                STATUS["last_sweep_start_utc"]
+                            )
+                        notify_sweep_complete(summary, cfg)
+                        for app_name in ("radarr", "sonarr"):
+                            for inst in summary.get(app_name, []):
+                                if "error" in inst and inst.get("notifications_enabled", True):
+                                    notify_error(f"'{inst['name']}' is unreachable.", cfg)
+                    except Exception:
+                        STATUS["last_error"] = "Sweep failed — see logs for details"
+                        logger.exception("Sweep failed")
+                        notify_error("Sweep failed — check logs.", cfg)
+                    finally:
+                        STATUS["run_in_progress"] = False
+                        STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
 
             if shutdown.is_set():
                 break

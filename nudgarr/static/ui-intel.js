@@ -6,7 +6,6 @@
  * Public functions (checked by validate.py):
  *   fillIntel()    -- called by showTab('intel') to load/refresh data
  *   renderIntel()  -- render a payload object into the DOM
- *   resetIntel()   -- called by Danger Zone Reset Intel button
  */
 
 'use strict';
@@ -100,16 +99,6 @@ function _renderColdStart(d) {
       progressWrap.style.display = 'none';
     }
   }
-}
-
-// ── Public: resetIntel ───────────────────────────────────────────────────
-
-function resetIntel() {
-  api('/api/intel/reset', { method: 'POST' })
-    .then(() => {
-      fillIntel();
-    })
-    .catch(() => alert('Reset Intel failed. Please try again.'));
 }
 
 // ── Score ─────────────────────────────────────────────────────────────────
@@ -301,8 +290,8 @@ function _renderStuckItems(items, sh) {
   }
 
   listEl.innerHTML = items.map(item => {
-    const firstDate    = item.first_searched ? _fmtDate(item.first_searched) : 'Unknown';
-    const addedDate    = item.library_added  ? _fmtDate(item.library_added)  : 'Unknown';
+    const firstDate    = item.first_searched ? _fmtDateUS(item.first_searched) : 'Unknown';
+    const addedDate    = item.library_added  ? _fmtDateUS(item.library_added)  : 'Unknown';
     const addedText    = item.library_added  ? ' \u00b7 Added ' + addedDate  : '';
     return `<div class="intel-stuck-item">
       <div class="intel-stuck-top">
@@ -481,7 +470,9 @@ function _num(n) {
   return (n || 0).toLocaleString();
 }
 
-function _fmtDate(iso) {
+// en-US locale (e.g. "Mar 31, 2026") — intentionally different from fmtDate() in ui-imports.js
+// which uses en-GB. Both are local to their file; do not consolidate without updating output format.
+function _fmtDateUS(iso) {
   if (!iso) return 'Unknown';
   try {
     const d = new Date(iso);

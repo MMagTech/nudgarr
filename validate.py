@@ -58,14 +58,13 @@ for _partial in sorted(os.listdir(TEMPLATE_DIR)):
 # cover all template partials.
 lines = content.split('\n')
 
-# Build html_lines for wrap/mobile-ui nesting checks — these depend on document
-# order, so we reconstruct from the three files that form the structural skeleton:
-# ui.html -> ui-modals.html (closes .wrap) -> ui-mobile.html (opens #mobile-ui).
+# Build html_lines for wrap nesting checks — these depend on document
+# order, so we reconstruct from the two files that form the structural skeleton:
+# ui.html -> ui-modals.html (closes .wrap).
 _structural = open(UI_FILE).read()
-for _sk in ('ui-modals.html', 'ui-mobile.html'):
-    _sp = os.path.join(TEMPLATE_DIR, _sk)
-    if os.path.exists(_sp):
-        _structural += open(_sp).read() + '\n'
+_modals_path = os.path.join(TEMPLATE_DIR, 'ui-modals.html')
+if os.path.exists(_modals_path):
+    _structural += open(_modals_path).read() + '\n'
 html_lines = _structural.split('\n')
 
 # Load all static JS files into a combined string for JS checks

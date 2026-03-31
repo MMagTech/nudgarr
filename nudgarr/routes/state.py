@@ -4,12 +4,9 @@ nudgarr/routes/state.py
 State inspection, file downloads, and exclusion list management.
 
   GET  /api/state/summary                  -- entry counts and file size per instance
-  GET  /api/state/raw                      -- full state dict (compat shim)
   GET  /api/state/items                    -- paginated history items with cooldown info
   POST /api/state/prune                    -- prune entries older than retention_days
   POST /api/state/clear                    -- wipe search history (preserves sweep_lifetime)
-  GET  /api/file/config                    -- download config JSON
-  GET  /api/file/state                     -- download state JSON (from DB)
   GET  /api/file/backup                    -- download zip of all data
   GET  /api/exclusions                     -- list exclusions with source/count/acknowledged
   GET  /api/exclusions/unacknowledged-count -- count of unseen auto-exclusions (badge)
@@ -20,7 +17,6 @@ State inspection, file downloads, and exclusion list management.
 """
 
 import io
-import json
 import logging
 import os
 import zipfile
@@ -45,14 +41,6 @@ bp = Blueprint("state", __name__)
 def api_state_summary():
     cfg = load_or_init_config()
     return jsonify(db.get_search_history_summary(cfg))
-
-
-@bp.get("/api/state/raw")
-@requires_auth
-def api_state_raw():
-    """Compatibility shim: return DB contents shaped like the old state JSON."""
-    export = db.export_as_json_dict()
-    return jsonify(export["state"])
 
 
 @bp.get("/api/state/items")
@@ -113,20 +101,6 @@ def api_state_clear():
     return jsonify({"ok": True})
 
 # ── File downloads ────────────────────────────────────────────────────
-
-
-@bp.get("/api/file/config")
-@requires_auth
-def api_file_config():
-    cfg = load_or_init_config()
-    return Response(json.dumps(cfg, indent=2), mimetype="application/json")
-
-
-@bp.get("/api/file/state")
-@requires_auth
-def api_file_state():
-    export = db.export_as_json_dict()
-    return Response(json.dumps(export["state"], indent=2), mimetype="application/json")
 
 
 @bp.get("/api/file/backup")

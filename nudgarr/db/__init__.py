@@ -82,9 +82,6 @@ from nudgarr.db.intel import (
 )
 
 from nudgarr.db.cf_scores import (
-    upsert_cf_score_entry,
-    touch_cf_score_entry,
-    delete_cf_score_entry,
     delete_cf_scores_for_instance,
     prune_stale_cf_scores,
     get_cf_score_entries,
@@ -148,9 +145,6 @@ __all__ = [
     "update_intel_aggregate",
     "reset_intel",
     # cf_scores (v4.2.0)
-    "upsert_cf_score_entry",
-    "touch_cf_score_entry",
-    "delete_cf_score_entry",
     "delete_cf_scores_for_instance",
     "prune_stale_cf_scores",
     "get_cf_score_entries",

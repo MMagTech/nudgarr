@@ -6,7 +6,47 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.2.0
 
-**CF Score Scan, Intel Tab, Backlog Sample Mode Split, Maintenance Window, Grace Period, Sticky Header, and Advanced Tab Restructure.**
+**CF Score Scan, Intel Tab, Sweep Tab Redesign, Responsive UI, Backlog Sample Mode Split, Maintenance Window, Grace Period, Auto-Exclusion Toggles, Cutoff Unmet Toggles, Advanced Tab Restructure, and Sticky Header.**
+
+**Auto-Exclusion Toggles**
+
+- `radarr_auto_exclude_enabled` and `sonarr_auto_exclude_enabled` added as independent per-app master toggles for auto-exclusion. Both default to `False` so fresh installs have auto-exclusion off by default and explicit enabling is required.
+- Toggle is now the on/off switch — the threshold field is the search count, not the off mechanism. Setting the threshold to 0 while the toggle is on is not valid; `syncAutoExclUi()` auto-sets it to 1 when the toggle is turned on with a 0 value.
+- Fields (Exclude After X Searches, Unexclude After X Days) grey out when the toggle is off, matching the Backlog and Cutoff Unmet pattern.
+- Disabled popup fires when the toggle is turned off while auto-exclusions exist, not only when the threshold drops to zero — covers the new toggle-off disabling path.
+- Migration: if the toggle key is absent and the threshold is above 0 (existing user who had auto-exclusion active), `validate_config` sets `enabled=True` preserving their behaviour. Threshold at 0 with no toggle key leaves `enabled=False`.
+- `scheduler.py` `_run_auto_exclusion_check` reads both enabled toggles before reading thresholds — a disabled app treats its threshold as 0 without requiring the user to change the threshold field.
+- UI labels updated throughout: "0 = Off" replaced by "0 = Disabled" where threshold semantics were previously implied. Section description updated to remove stale reference to Per-Instance Overrides tooltip.
+- Sonarr-facing wording updated from "show" to "episode" throughout (tooltip, help text, and unexclude field) to match the actual level Nudgarr operates at — auto-exclusion fires per episode title, not per series.
+
+**Advanced Tab Restructure (final)**
+
+- Three full-width horizontal cards replacing the previous two-card side-by-side layout:
+  - Row 1 — Backlog Nudges: full width, Radarr and Sonarr side by side with their own toggle, fields, and sample mode. Each app column has its own `app-head` divider.
+  - Row 2 — Auto-Exclusion: full width, Radarr and Sonarr side by side. Each app has its own toggle and fields (Exclude After X Searches, Unexclude After X Days).
+  - Row 3 — Configuration: full width, `cols3` inner grid in two rows of three. Top row: For the Arr-tists, Pipelines, Data Retention. Bottom row: Stats, Security, UI Preferences. Vertical dividers via `border-right` with padding on each cell.
+- `adv-cfg-cell--left/mid/right` classes added to all six configuration cells. At 720px breakpoint in `ui-responsive.css`, `border-right` is removed and cells gain `border-top` separators — correct stacking on mobile portrait.
+- Advanced tab pager removed entirely (`advSetPage()` and all pager elements gone). All settings visible simultaneously without scrolling between pages.
+
+**Settings Tab Layout**
+
+- Scheduler and Cutoff Unmet cards wrapped in `cols2` with `align-items:stretch` — side by side at equal height, matching the confirmed mockup.
+- Radarr and Sonarr sub-labels in Cutoff Unmet use the same bordered uppercase inline style as the Auto-Exclusion section in Advanced.
+
+**Bug Fixes**
+
+- Sweep feed empty after container restart: `last_sweep_start_utc` was only stored in memory. On restart it reset to `None`, causing the feed to show "No sweep has run yet." while stats (restored from DB via `last_summary`) showed correctly. Fixed by writing `last_sweep_start_utc` to `db.set_state()` after each sweep and restoring it from `db.get_state()` on scheduler startup alongside `last_run_utc` and `last_summary`.
+- CF Score progress stuck mid-percentage: `_cfWaitForScan` was only called from `cfScanLibrary`. Syncs triggered from the filter change popup or background scheduler left progress rings frozen at whatever percentage was rendered when the tab was first opened. Fixed by adding `_cfScanPolling` flag and auto-start logic in `fillCfScores` — if `scan_in_progress` is true on tab open and no polling loop is running, `_cfWaitForScan` starts automatically.
+- CF Score sync popup navigating to tab: `syncCfIndexFromModal` was calling `showTab('cf-scores')` after firing the scan. Removed — modal closes, scan fires, user stays on their current tab.
+- CF Score `quality_from` empty: CF Score items had `quality_from: ""` so the Imports tab showed "Acquired" instead of "Upgraded". Added `fn_get_quality` fallback fetch per item in `sweep.py` CF Score search loop.
+
+**Polish**
+
+- `sw-pill` (pipeline badge in Imports and Sweep feed) gained `white-space:nowrap` — "CF Score" no longer wraps to two lines in narrow table cells.
+- Per-page default changed from 25 to 10 across History, Imports, CF Score, and Sweep feed — both HTML `selected` attribute and JS fallback defaults.
+- Log level select gained `text-align:center` so the selected value is centred in the dropdown.
+- Sample Mode help text shortened to single line across Settings and Advanced — "Pick order for Cutoff Unmet Radarr/Sonarr items" and "Pick order for missing Radarr/Sonarr items".
+- All "0 Disables" and "0 = Disabled" wording replaced with "0 = Off", "0 = Keep Forever", "0 = No Grace Period", "0 = No Cooldown", or "0 = No Age Filter" as appropriate throughout Advanced and Settings tabs.
 
 **CF Score Scan**
 

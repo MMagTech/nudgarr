@@ -58,7 +58,7 @@
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">CF Score Scan</div>
-           <div class="help">A third independent search pipeline that finds any monitored file where the custom format score is below the quality profile cutoff, regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab.</div>
+           <div class="help">A third independent search pipeline that finds monitored files where the custom format score is below the quality profile cutoff, regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab</div>
@@ -68,9 +68,16 @@
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweep Tab Redesign</div>
            <div class="help">The Sweep tab is rebuilt around three pipeline cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. A summary row covers Sweep Health, Last Sweep timing, and Imports Confirmed. A full-width feed logs every item searched in the current sweep with its pipeline badge and pagination.</div>
          </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Responsive UI</div>
+           <div class="help">The dedicated mobile UI has been replaced with a fully responsive desktop UI that works on any screen size — phone, tablet, or desktop. All features including CF Score, Intel, Overrides, and every configuration field are now accessible everywhere. No more rotating your device to reach a setting.</div>
+         </div>
          <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px">
            <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Also in this release</div>
+           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Toggles:</strong> Radarr and Sonarr auto-exclusion now each have an independent on/off toggle. The threshold field is the count, not the switch.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Advanced Tab Restructure:</strong> Backlog Nudges, Auto-Exclusion, and Configuration are now full-width horizontal cards — no more side-by-side cramming or paging.</div>
            <div class="help" style="margin-bottom:4px"><strong>Maintenance Window:</strong> suppress scheduled sweeps during a defined time window. Configure in Settings. Manual Run Now always bypasses it.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Cutoff Unmet Toggles:</strong> Radarr and Sonarr Cutoff Unmet can now be independently enabled or disabled in Settings.</div>
            <div class="help" style="margin-bottom:4px"><strong>Backlog Sample Mode Split:</strong> Cutoff Unmet and Backlog now have independent sample modes. Grace Period also available in Advanced.</div>
            <div class="help"><strong>Settings cleanup:</strong> Cooldown moved into the Scheduler card. Cutoff Unmet has the full right card to itself.</div>
          </div>

@@ -96,6 +96,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # so Radarr and Sonarr can have different thresholds.
     "auto_exclude_movies_threshold": 0,   # searches before auto-excluding a movie
     "auto_exclude_shows_threshold": 0,    # searches before auto-excluding a show
+    "radarr_auto_exclude_enabled": False,  # master toggle for Radarr auto-exclusion (v4.2.0)
+    "sonarr_auto_exclude_enabled": False,  # master toggle for Sonarr auto-exclusion (v4.2.0)
     # Auto-excluded titles older than this many days are removed at sweep start,
     # making them eligible again. 0 means they stay excluded until manually removed.
     "auto_unexclude_movies_days": 0,      # days before a movie auto-exclusion expires

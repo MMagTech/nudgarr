@@ -308,7 +308,7 @@ async function loadSweepFeed(page) {
     el('sweepFeedNextBtn').disabled = true;
     return;
   }
-  const limit  = parseInt(el('sweepFeedLimit').value || '25', 10);
+  const limit  = parseInt(el('sweepFeedLimit').value || '10', 10);
   const offset = page * limit;
   const data   = await api(`/api/state/items?since=${encodeURIComponent(since)}&limit=${limit}&offset=${offset}`);
   SWEEP_FEED_TOTAL = data.total || 0;
@@ -358,13 +358,13 @@ function prevSweepFeed() {
 }
 
 function nextSweepFeed() {
-  const limit    = parseInt(el('sweepFeedLimit').value || '25', 10);
+  const limit    = parseInt(el('sweepFeedLimit').value || '10', 10);
   const maxPage  = Math.ceil(SWEEP_FEED_TOTAL / limit) - 1;
   if (SWEEP_FEED_PAGE < maxPage) loadSweepFeed(SWEEP_FEED_PAGE + 1);
 }
 
 function goToSweepFeedPage() {
-  const limit   = parseInt(el('sweepFeedLimit').value || '25', 10);
+  const limit   = parseInt(el('sweepFeedLimit').value || '10', 10);
   const maxPage = Math.max(0, Math.ceil(SWEEP_FEED_TOTAL / limit) - 1);
   const p       = Math.min(maxPage, Math.max(0, parseInt(el('sweepFeedGoInput').value || '1', 10) - 1));
   loadSweepFeed(p);

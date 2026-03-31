@@ -9,8 +9,9 @@
 let CF_FILTER = 'all';
 let CF_FILTER_INSTANCE_ID = '';
 let CF_PAGE = 0;
-let CF_PAGE_SIZE = 25;
+let CF_PAGE_SIZE = 10;
 let CF_TOTAL = 0;
+let _cfScanPolling = false; // prevents duplicate _cfWaitForScan loops
 
 
 // ── fillCfScores ───────────────────────────────────────────────────────────────
@@ -28,6 +29,17 @@ async function fillCfScores() {
     cfPopulateInstanceDropdown(status);
     cfRenderTable(entries);
     cfSyncConfigFields();
+
+    // If a scan is already running (e.g. triggered from the filter sync popup or
+    // the background scheduler) and we are not already polling, start the wait
+    // loop so progress rings update automatically without needing to leave the tab.
+    if (status?.scan_in_progress && !_cfScanPolling) {
+      _cfScanPolling = true;
+      _cfWaitForScan().finally(() => {
+        _cfScanPolling = false;
+        fillCfScores();
+      });
+    }
   } catch(e) {
     console.error('[CF Score] fillCfScores failed:', e.message);
   }
@@ -73,14 +85,14 @@ function cfClearSearch() {
 
 // ── jumpCfPage ─────────────────────────────────────────────────────────────────
 function jumpCfPage() {
-  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '25', 10);
+  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '10', 10);
   const val = parseInt(el('cfPageJump')?.value || '1', 10);
   const totalPages = Math.max(1, Math.ceil(CF_TOTAL / CF_PAGE_SIZE));
   if (!isNaN(val) && val >= 1) { CF_PAGE = Math.min(val - 1, totalPages - 1); _cfRenderPage(); }
 }
 
 function cfChangePageSize() {
-  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '25', 10);
+  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '10', 10);
   CF_PAGE = 0;
   _cfRenderPage();
 }
@@ -235,7 +247,7 @@ function _cfRenderPage() {
   const pageInfo = el('cfPageInfo');
   if (!wrap) return;
 
-  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '25', 10);
+  CF_PAGE_SIZE = parseInt(el('cfPageSize')?.value || '10', 10);
 
   // Apply client-side search filter
   const searchFiltered = CF_SEARCH_TERM
@@ -386,7 +398,9 @@ async function cfScanLibrary() {
   try {
     const result = await api('/api/cf-scores/scan', {method: 'POST'});
     if (result?.ok) {
+      _cfScanPolling = true;
       await _cfWaitForScan();
+      _cfScanPolling = false;
       await fillCfScores();
     } else {
       showAlert(result?.error || 'Scan could not be started.');

@@ -107,7 +107,7 @@ async function refreshHistory() {
     const instKey = selected ? selected.key : '';
     const appName = selected ? selected.app : '';
 
-    const limit = parseInt(el('historyLimit').value || '25', 10);
+    const limit = parseInt(el('historyLimit').value || '10', 10);
     // When exclusion filter is active fetch all items so client-side filter
     // isn't limited to the current page — excluded items may span all pages.
     const fetchLimit = EXCL_FILTER_ACTIVE ? 9999 : limit;
@@ -260,11 +260,11 @@ function sortItems(items, col, dir) {
 
 function prevPage() { if (PAGE > 0) { PAGE--; refreshHistory(); } }
 function nextPage() {
-  const limit = parseInt(el('historyLimit').value || '25', 10);
+  const limit = parseInt(el('historyLimit').value || '10', 10);
   if ((PAGE + 1) * limit < HISTORY_TOTAL) { PAGE++; refreshHistory(); }
 }
 function jumpHistoryPage() {
-  const limit = parseInt(el('historyLimit').value || '25', 10);
+  const limit = parseInt(el('historyLimit').value || '10', 10);
   const val = parseInt(el('historyPageJump')?.value || '1', 10);
   const maxPage = Math.max(0, Math.ceil(HISTORY_TOTAL / limit) - 1);
   if (!isNaN(val) && val >= 1) { PAGE = Math.min(val - 1, maxPage); refreshHistory(); }

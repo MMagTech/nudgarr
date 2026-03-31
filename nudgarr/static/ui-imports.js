@@ -76,7 +76,7 @@ async function refreshImports() {
   try {
     const inst = el('importsInstance') ? el('importsInstance').value : '';
     const type = el('importsType') ? el('importsType').value : '';
-    const limit = parseInt(el('importsLimit')?.value || '25', 10);
+    const limit = parseInt(el('importsLimit')?.value || '10', 10);
 
     // Restore period select to match the persisted IMPORTS_PERIOD value
     const periodSel = el('importsPeriod');
@@ -165,11 +165,11 @@ async function refreshImports() {
 
 function prevStatsPage() { if (IMPORTS_PAGE > 0) { IMPORTS_PAGE--; refreshImports(); } }
 function nextStatsPage() {
-  const limit = parseInt(el('importsLimit')?.value || '25', 10);
+  const limit = parseInt(el('importsLimit')?.value || '10', 10);
   if ((IMPORTS_PAGE + 1) * limit < IMPORTS_TOTAL) { IMPORTS_PAGE++; refreshImports(); }
 }
 function jumpImportsPage() {
-  const limit = parseInt(el('importsLimit')?.value || '25', 10);
+  const limit = parseInt(el('importsLimit')?.value || '10', 10);
   const val = parseInt(el('importsPageJump')?.value || '1', 10);
   const maxPage = Math.max(0, Math.ceil(IMPORTS_TOTAL / limit) - 1);
   if (!isNaN(val) && val >= 1) { IMPORTS_PAGE = Math.min(val - 1, maxPage); refreshImports(); }

@@ -130,6 +130,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
         "notify_on_queue_threshold", "dry_run", "cf_score_enabled",
         "radarr_cutoff_enabled", "sonarr_cutoff_enabled",
+        "radarr_auto_exclude_enabled", "sonarr_auto_exclude_enabled",
     ):
         v = cfg.get(bool_key)
         if v is not None and not isinstance(v, bool):
@@ -214,6 +215,22 @@ def load_or_init_config() -> Dict[str, Any]:
                 "Migration: %s was 0 (used as disable). Set %s=False, %s=1.",
                 max_key, toggle_key, max_key,
             )
+
+    # Migration (v4.2.0): radarr_auto_exclude_enabled / sonarr_auto_exclude_enabled introduced.
+    # If the key is absent and the threshold is > 0, the user had auto-exclusion active —
+    # set enabled=True to preserve that behaviour. If threshold is 0, enabled stays False.
+    for threshold_key, toggle_key in (
+        ("auto_exclude_movies_threshold", "radarr_auto_exclude_enabled"),
+        ("auto_exclude_shows_threshold", "sonarr_auto_exclude_enabled"),
+    ):
+        if toggle_key not in cfg:
+            threshold = int(merged.get(threshold_key, 0))
+            if threshold > 0:
+                merged[toggle_key] = True
+                logger.info(
+                    "Migration: %s=%d found, setting %s=True.",
+                    threshold_key, threshold, toggle_key,
+                )
 
     ok, errs = validate_config(merged)
     if not ok:

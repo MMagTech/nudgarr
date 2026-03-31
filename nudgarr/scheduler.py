@@ -143,6 +143,13 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
     movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
     shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
 
+    # Respect the per-app enabled toggles (v4.2.0).
+    # If the toggle is off for an app, treat its threshold as 0 (disabled).
+    if not cfg.get("radarr_auto_exclude_enabled", False):
+        movies_threshold = 0
+    if not cfg.get("sonarr_auto_exclude_enabled", False):
+        shows_threshold = 0
+
     logger.info("[Auto-Exclude] check invoked — movies_threshold=%d shows_threshold=%d",
                 movies_threshold, shows_threshold)
 

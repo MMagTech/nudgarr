@@ -19,6 +19,20 @@
     /* ── 720px: tablet portrait and below ─────────────────────────────── */
     @media (max-width: 720px) {
 
+      /* Advanced tab configuration card: cols3 stacks at 720px.
+         Remove border-right (now a stray right border on full-width cells),
+         normalise padding, and add a top border between stacked cells. */
+      .adv-cfg-cell--left,
+      .adv-cfg-cell--mid,
+      .adv-cfg-cell--right {
+        border-right: none !important;
+        padding: 12px 0 !important;
+      }
+      .adv-cfg-cell--mid,
+      .adv-cfg-cell--right {
+        border-top: 1px solid var(--border);
+      }
+
       /* Sweep pipeline grid: 3-col → 1-col at narrow viewport.
          Pipeline cards are now direct grid children so sweep-grid
          stacking covers all six cards (3 pipeline + 3 summary). */

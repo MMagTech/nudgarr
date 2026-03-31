@@ -45,15 +45,14 @@ function fillAdvanced() {
 }
 
 // syncAutoExclUi — greys the threshold and unexclude fields when the toggle is
-// off. When the toggle is on, also greys the unexclude field if the threshold
-// is 0 (no searches configured yet). Mirrors the Backlog and Cutoff Unmet
-// greying pattern.
+// off. When the toggle is on, all fields are active regardless of values.
+// If the toggle is turned on while the threshold is 0, auto-sets it to 1 so
+// there is a valid starting value (0 searches before exclusion is meaningless).
 function syncAutoExclUi() {
   for (const app of ['radarr', 'sonarr']) {
     const toggleId = app + '_auto_exclude_enabled';
     const labelId  = app + '_auto_excl_label';
     const fieldsId = app + '_auto_excl_fields';
-    const unexclId = app === 'radarr' ? 'auto_unexclude_movies_wrap' : 'auto_unexclude_shows_wrap';
     const threshId = app === 'radarr' ? 'auto_exclude_movies_threshold' : 'auto_exclude_shows_threshold';
 
     const on = el(toggleId)?.checked ?? false;
@@ -65,13 +64,12 @@ function syncAutoExclUi() {
       fields.style.pointerEvents = on ? '' : 'none';
     }
 
-    // When toggle is on, also grey unexclude if threshold is still 0
+    // Auto-set threshold to 1 when enabling — 0 has no meaningful effect
     if (on) {
-      const thresh = parseInt(el(threshId)?.value || '0', 10);
-      const unexcl = el(unexclId);
-      if (unexcl) {
-        unexcl.style.opacity = thresh > 0 ? '' : '0.35';
-        unexcl.style.pointerEvents = thresh > 0 ? '' : 'none';
+      const thresh = el(threshId);
+      if (thresh && parseInt(thresh.value || '0', 10) === 0) {
+        thresh.value = '1';
+        markUnsaved('advMsg');
       }
     }
   }

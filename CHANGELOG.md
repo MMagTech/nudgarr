@@ -258,6 +258,17 @@ All notable changes to Nudgarr are documented here.
 - Cooldown help text updated from "0 Disables" to "0 = No Cooldown" in both the static HTML and the `_COOLDOWN_HELP_DEFAULT` JS constant.
 - Onboarding step 3 title updated from "Search Behaviour and Throttling" to "Cutoff Unmet and Throttling".
 
+**Responsive Desktop UI — Mobile UI Removal**
+
+- The dedicated mobile UI (portrait and landscape) has been replaced with a fully responsive desktop UI that works on any screen size. All features are now accessible on mobile — the CF Score tab, Intel tab, Overrides, and every configuration field are no longer desktop-only.
+- `ui-responsive.css` added as a new static file containing only `@media` blocks. `ui.css` is never modified — the responsive layer is the sole responsive surface.
+- At 720px: sweep pipeline grid stacks to single column, `intel-grid-score` stacks, History, Imports, and CF Score table wrappers get `overflow-x: auto` with a sticky first column, sweep feed table wrapped in a scrollable div, CF Score filter controls realign from right-anchored to full-width.
+- At 480px: tab bar switches from wrapping to horizontal scroll with a right-fade hint, wrap padding tightened, Last and Next run segments hidden from the status bar, pipeline aggregate cells reflow (6-col to 3-col, 4-col to 2-col), Advanced auto-exclusion grid stacks from 2-col to 1-col.
+- 11 files removed: `ui-mobile.html`, `ui-mobile.css`, `ui-landscape.css`, `ui-mobile-core.js`, `ui-mobile-portrait.js`, `ui-mobile-portrait-home.js`, `ui-mobile-portrait-history.js`, `ui-mobile-portrait-settings.js`, `ui-mobile-landscape.js`, `ui-mobile-landscape-exec.js`, `ui-mobile-landscape-filters.js`. Net reduction of approximately 3,700 lines.
+- `ui-core.js` — `MOBILE` constant and `if (!MOBILE)` desktop init guard removed. Desktop init and poll cycle now run unconditionally on all clients.
+- `ui-header.html` — Mobile view button removed.
+- `validate.py` and `tests/test_frontend_structure.py` updated to reflect the removed files, removed mobile function and element checks, and removed `MOBILE` const and guard checks.
+
 ---
 
 ## v4.1.0

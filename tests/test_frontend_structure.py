@@ -52,14 +52,6 @@ JS_LOAD_ORDER = [
     'ui-notifications.js',
     'ui-advanced.js',
     'ui-filters.js',
-    'ui-mobile-core.js',
-    'ui-mobile-landscape.js',
-    'ui-mobile-landscape-filters.js',
-    'ui-mobile-landscape-exec.js',
-    'ui-mobile-portrait-home.js',
-    'ui-mobile-portrait-history.js',
-    'ui-mobile-portrait-settings.js',
-    'ui-mobile-portrait.js',
 ]
 
 # ── Line-count ceilings per file (0 = no ceiling set) ─────────────────────────
@@ -79,22 +71,12 @@ LINE_COUNT_CEILINGS = {
     'ui-notifications.js':             120,
     'ui-advanced.js':                  300,  # raised v4.2.0: +CF Score toggle functions
     'ui-filters.js':                   470,  # raised v4.2.0: CF filter sync modal handlers
-    'ui-mobile-core.js':               300,
-    'ui-mobile-landscape.js':          460,
-    'ui-mobile-landscape-filters.js':  340,
-    'ui-mobile-landscape-exec.js':     370,
-    'ui-mobile-portrait-home.js':      320,
-    'ui-mobile-portrait-history.js':   310,
-    'ui-mobile-portrait-settings.js':  300,
-    'ui-mobile-portrait.js':           200,
 }
 
 # ── Known intentional duplicate function names (defined in two files by design)
 # Format: frozenset of the two filenames that each define the function.
 
 KNOWN_DUPLICATE_FUNCTIONS = {
-    'updateBacklogLabel': frozenset({'ui-mobile-landscape.js', 'ui-overrides.js'}),
-    'updateNotifyLabel':  frozenset({'ui-mobile-landscape.js', 'ui-overrides.js'}),
 }
 
 # ── Shared state that must be declared in ui-core.js ─────────────────────────
@@ -114,7 +96,6 @@ SHARED_STATE_VARS = [
     'IMPORTS_SORT',
     'EXCLUSIONS_SET',
     'EXCL_FILTER_ACTIVE',
-    'MOBILE',
 ]
 
 # ── Cross-file load-order dependencies ────────────────────────────────────────
@@ -312,9 +293,6 @@ class TestElementIdResolution:
     DYNAMIC_IDS = {
         # Instance cards rendered by renderInstances()
         'radarrList', 'sonarrList',
-        # Sweep cards rendered by refreshSweep()
-        'sweepRadarrList', 'sweepSonarrList',
-        # Status dots injected per instance
     }
 
     def test_el_calls_reference_existing_ids(self):
@@ -427,20 +405,7 @@ class TestLoadOrder:
         assert settings_order < filters_order, \
             "ui-settings.js must load before ui-filters.js"
 
-    def test_landscape_filters_loads_after_landscape(self):
-        landscape_order         = JS_LOAD_ORDER.index('ui-mobile-landscape.js')
-        landscape_filters_order = JS_LOAD_ORDER.index('ui-mobile-landscape-filters.js')
-        assert landscape_order < landscape_filters_order, \
-            "ui-mobile-landscape.js must load before ui-mobile-landscape-filters.js"
 
-    def test_landscape_exec_loads_last_among_landscape_files(self):
-        landscape_order         = JS_LOAD_ORDER.index('ui-mobile-landscape.js')
-        landscape_filters_order = JS_LOAD_ORDER.index('ui-mobile-landscape-filters.js')
-        landscape_exec_order    = JS_LOAD_ORDER.index('ui-mobile-landscape-exec.js')
-        assert landscape_exec_order > landscape_order, \
-            "ui-mobile-landscape-exec.js must load after ui-mobile-landscape.js"
-        assert landscape_exec_order > landscape_filters_order, \
-            "ui-mobile-landscape-exec.js must load after ui-mobile-landscape-filters.js"
 
 
 # ── Tests — Split integrity ───────────────────────────────────────────────────
@@ -492,15 +457,6 @@ class TestSplitIntegrity:
         },
         'ui-filters.js': {
             'saveFilters', 'fillFilters', 'closeCfFilterSyncModal', 'syncCfIndexFromModal',
-        },
-        'ui-mobile-landscape-filters.js': {
-            'lsFiltersRenderRail', 'lsFiltersSelectInst', 'lsFiltersRenderPanel',
-            'lsFiltersSearch', 'lsFiltersToggle', 'lsFiltersLoad', 'lsFiltersApply',
-        },
-        'ui-mobile-landscape.js': {
-            'lsOvRenderRail', 'lsOvSelectInstance', 'lsOvRenderPanel',
-            'lsOvStep', 'lsOvHoldStart', 'lsOvHoldEnd', 'lsOvMarkDirty',
-            'lsOvUpdateFooter', 'lsOvApply', 'lsOvReset',
         },
     }
 
@@ -561,7 +517,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 363  # updated for Sweep tab redesign + CF filter sync modal (v4.2.0)
+        EXPECTED_CHECK_COUNT = 303  # updated for mobile UI removal Phase 2 (v4.2.0)
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

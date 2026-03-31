@@ -26,20 +26,11 @@ JS_FILES = [
     'ui-notifications.js',
     'ui-advanced.js',
     'ui-filters.js',
-    'ui-mobile-core.js',
-    'ui-mobile-landscape.js',
-    'ui-mobile-landscape-filters.js',
-    'ui-mobile-landscape-exec.js',
-    'ui-mobile-portrait-home.js',
-    'ui-mobile-portrait-history.js',
-    'ui-mobile-portrait-settings.js',
-    'ui-mobile-portrait.js',
 ]
 
 CSS_FILES = [
     'ui.css',
-    'ui-mobile.css',
-    'ui-landscape.css',
+    'ui-responsive.css',
 ]
 
 PASS = FAIL = 0
@@ -290,11 +281,9 @@ if dupes:
     [fail(f"Duplicate id: #{d}") for d in sorted(dupes)]
 else: ok(f"No duplicate IDs ({len(all_ids)} total)")
 
-wrap_start   = next((i for i,l in enumerate(html_lines) if 'class="wrap"' in l), None)
-mobile_start = next((i for i,l in enumerate(html_lines) if 'id="mobile-ui"' in l), None)
+wrap_start = next((i for i,l in enumerate(html_lines) if 'class="wrap"' in l), None)
 
-if not wrap_start:   fail(".wrap div not found")
-elif not mobile_start: fail("#mobile-ui not found")
+if not wrap_start: fail(".wrap div not found")
 else:
     depth, wrap_closed_at = 0, None
     for i, line in enumerate(html_lines):
@@ -302,52 +291,12 @@ else:
         depth += line.count('<div') - line.count('</div')
         if i > wrap_start and depth == 0: wrap_closed_at = i; break
     if wrap_closed_at is None: fail(".wrap div never closes")
-    elif wrap_closed_at >= mobile_start:
-        fail(f".wrap closes at line {wrap_closed_at+1} but #mobile-ui starts at line {mobile_start+1} — mobile UI is inside wrap")
-    else: ok(f".wrap closes at line {wrap_closed_at+1}, #mobile-ui at line {mobile_start+1} — correct")
-
-if mobile_start:
-    depth = sum(l.count('<div') - l.count('</div') for l in html_lines[:mobile_start])
-    if depth != 0: fail(f"#mobile-ui nested inside {depth} unclosed div(s) — should be at body level")
-    else: ok("#mobile-ui is at body level (depth 0)")
-
-# ── Key Mobile Elements ───────────────────────────────────────────────────────
-section("Key Mobile Elements")
-
-for label, pat in {
-    '#mobile-ui':'id="mobile-ui"',
-    '#m-home':'id="m-home"', '#m-instances':'id="m-instances"',
-    '#m-sweep':'id="m-sweep"', '#m-nav':'id="m-nav"',
-    '#m-imports-sheet':'id="m-imports-sheet"',
-    '#ls-tab-filters':'id="ls-tab-filters"', '#ls-nav-filters':'id="ls-nav-filters"'
-}.items():
-    if pat not in content: fail(f"Missing element: {label}")
-    else: ok(f"Found: {label}")
-
-# Nav items that open sheets (not tabs) — exclusions opens a bottom sheet
-SHEET_NAV_ITEMS = {'exclusions'}
-nav_ids = re.findall(r'id="m-nav-(\w+)"', content)
-tab_ids = [t for t in re.findall(r'id="m-(\w+)"', content)
-           if t not in ('nav','ver','last','next','running','prev')]
-for nav in nav_ids:
-    if nav in SHEET_NAV_ITEMS:
-        ok(f"Nav m-nav-{nav} → opens sheet (no tab required)")
-    elif nav not in tab_ids:
-        fail(f"Nav item m-nav-{nav} has no tab m-{nav}")
-    else:
-        ok(f"Nav m-nav-{nav} → tab m-{nav} matched")
+    else: ok(f".wrap div closes at line {wrap_closed_at+1}")
 
 # ── JavaScript Sanity ─────────────────────────────────────────────────────────
 section("JavaScript Sanity")
 
-for fn in ['mUpdateHome','mRenderSweep',
-           'mRunNow','mToggleAuto','mToggleNotifySettings','mToggleRadarrBacklog',
-           'mToggleSonarrBacklog','mToggleInstance',
-           'mAccordion','mSwitchTab','mPollCycle',
-           'mOpenExclusions','mSwitchExclTab',
-           'mLoadExclusions','mExclRemove','mLoadExclHistory','mExclAdd',
-           'mOpenImports','mCloseImports','mLoadImports',
-           'toggleOverridesFeature','dismissOverridesModal',
+for fn in ['toggleOverridesFeature','dismissOverridesModal',
            'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
            'resetCardOverrides','resetFieldOverride',
            'markCardDirty','updateBacklogLabel','updateNotifyLabel',
@@ -356,23 +305,7 @@ for fn in ['mUpdateHome','mRenderSweep',
     if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
     else: ok(f"Found function: {fn}()")
 
-mobile_count = len(re.findall(r'const MOBILE\b(?!_)', js_content))
-if mobile_count == 0:   fail("MOBILE const not defined")
-elif mobile_count > 1:  fail(f"MOBILE const defined {mobile_count} times — duplicate")
-else:                   ok("MOBILE const defined exactly once")
-
 js_lines = js_content.split('\n')
-mc_line = next((i for i,l in enumerate(js_lines) if re.search(r'const MOBILE\b(?!_)', l)), None)
-di_line = next((i for i,l in enumerate(js_lines) if 'if (!MOBILE)' in l), None)
-if mc_line and di_line:
-    if mc_line < di_line: ok(f"MOBILE const (line {mc_line+1}) before desktop init guard (line {di_line+1})")
-    else: fail(f"MOBILE const (line {mc_line+1}) defined AFTER desktop init guard (line {di_line+1})")
-
-if 'if (!MOBILE)' not in js_content: fail("Desktop init not gated behind if (!MOBILE)")
-else: ok("Desktop init gated behind if (!MOBILE)")
-
-if 'if (MOBILE)' not in js_content: fail("Mobile init not gated behind if (MOBILE)")
-else: ok("Mobile init gated behind if (MOBILE)")
 
 if re.search(r"style\.cssText\s*=\s*['\"][^'\"]*!important", js_content):
     fail("Found !important inside style.cssText — silently ignored by browsers")

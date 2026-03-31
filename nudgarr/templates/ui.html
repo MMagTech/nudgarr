@@ -8,8 +8,7 @@
   <title>Nudgarr</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='ui.css', v=VERSION) }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='ui-mobile.css', v=VERSION) }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='ui-landscape.css', v=VERSION) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui-responsive.css', v=VERSION) }}">
 </head>
 <body>
 <div class="sticky-shell">
@@ -47,7 +46,6 @@
 
     {% include "ui-modals.html" %}
 
-{% include "ui-mobile.html" %}
 <script src="{{ url_for('static', filename='ui-core.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-instances.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-overrides.js', v=VERSION) }}"></script>
@@ -60,13 +58,5 @@
 <script src="{{ url_for('static', filename='ui-notifications.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-advanced.js', v=VERSION) }}"></script>
 <script src="{{ url_for('static', filename='ui-filters.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-core.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-landscape.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-landscape-filters.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-landscape-exec.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-portrait-home.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-portrait-history.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-portrait-settings.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-mobile-portrait.js', v=VERSION) }}"></script>
 </body>
 </html>

@@ -58,27 +58,21 @@
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">CF Score Scan</div>
-           <div class="help">A third independent search pipeline that finds any monitored file where the custom format score is below the quality profile cutoff — regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab. Cutoff score and minimum increment are read directly from each quality profile.</div>
+           <div class="help">A third independent search pipeline that finds any monitored file where the custom format score is below the quality profile cutoff, regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab</div>
-           <div class="help">A lifetime performance dashboard tracking search health, instance efficiency, stuck items, exclusion calibration, library age vs success rate, and quality upgrade paths. Gets richer the longer Nudgarr runs. Reset from the Danger Zone if needed.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Maintenance Window</div>
-           <div class="help">Scheduled sweeps can now be suppressed during a defined time window — useful for avoiding indexer searches during peak hours. Configure in Settings. Supports overnight ranges and per-day selection. Manual Run Now always bypasses the window.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Backlog Sample Mode Split</div>
-           <div class="help">Cutoff Unmet and Backlog searches now have independent sample modes. Configure separately in Advanced and per-instance in Overrides. A Grace Period setting is also available to delay first searches after an item's availability date.</div>
+           <div class="help">A lifetime performance dashboard tracking search health, instance efficiency, stuck items, exclusion calibration, library age vs success rate, and quality upgrade paths. Gets richer the longer Nudgarr runs. Reset from the bottom of the Intel tab if needed.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweep Tab Redesign</div>
-           <div class="help">The Sweep tab is rebuilt around three pipeline cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. A summary row shows Sweep Health, Last Sweep timing, and Imports Confirmed. A full-width feed logs every item searched in the current sweep with its pipeline badge, paginated and in sync with the History and Imports page size selector.</div>
+           <div class="help">The Sweep tab is rebuilt around three pipeline cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. A summary row covers Sweep Health, Last Sweep timing, and Imports Confirmed. A full-width feed logs every item searched in the current sweep with its pipeline badge and pagination.</div>
          </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Settings Cleanup</div>
-           <div class="help">Cooldown has moved into the Scheduler card, sitting alongside the schedule and maintenance window where it belongs. The Search Behaviour card is gone — Cutoff Unmet now has the full right card to itself. Cooldown help text updated to clarify that 0 means no cooldown, not disabled.</div>
+         <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px">
+           <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Also in this release</div>
+           <div class="help" style="margin-bottom:4px"><strong>Maintenance Window:</strong> suppress scheduled sweeps during a defined time window. Configure in Settings. Manual Run Now always bypasses it.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Backlog Sample Mode Split:</strong> Cutoff Unmet and Backlog now have independent sample modes. Grace Period also available in Advanced.</div>
+           <div class="help"><strong>Settings cleanup:</strong> Cooldown moved into the Scheduler card. Cutoff Unmet has the full right card to itself.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">

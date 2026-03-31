@@ -1,0 +1,132 @@
+    /* ══════════════════════════════════════════════════════════════════════
+       ui-responsive.css — narrow-viewport responsive layer for the desktop UI.
+
+       Pure @media blocks. No rules apply at full desktop width.
+       Loaded after ui.css; overrides only what needs adjusting at narrow viewports.
+       ui.css is never modified — this file is the sole responsive surface.
+
+       Two breakpoints:
+         720px  matches the existing ui.css .cols2 / .cols3 breakpoint.
+                Grid stacking (sweep-grid, intel-grid-score), table scroll,
+                CF Score filter row alignment.
+
+         480px  phone portrait specifics: tab bar horizontal scroll,
+                header condensing, wrap padding, pipeline total cell reflow,
+                Advanced auto-exclusion grid stack.
+    ══════════════════════════════════════════════════════════════════════ */
+
+
+    /* ── 720px: tablet portrait and below ─────────────────────────────── */
+    @media (max-width: 720px) {
+
+      /* Sweep pipeline grid: 3-col → 1-col.
+         sweep-pipeline-row carries its own 3-col sub-grid — stack that too. */
+      .sweep-grid              { grid-template-columns: 1fr; }
+      .sweep-pipeline-row      { grid-template-columns: 1fr; }
+
+      /* Intel Library Score + Search Health: fixed 270px 1fr → stack */
+      .intel-grid-score        { grid-template-columns: 1fr; }
+
+      /* Tables rendered dynamically into these wrapper divs scroll horizontally.
+         A minimum width forces scroll before content overflows.
+         The first column (title / instance name) is pinned via sticky positioning. */
+      #historyTableWrap,
+      #importsTableWrap,
+      #cfEntriesWrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #historyTableWrap table,
+      #importsTableWrap table,
+      #cfEntriesWrap table {
+        min-width: 560px;
+      }
+
+      #historyTableWrap td:first-child,
+      #historyTableWrap th:first-child,
+      #importsTableWrap td:first-child,
+      #importsTableWrap th:first-child {
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 1;
+      }
+
+      /* Sweep feed table — wrapped in .feed-table-wrap in the template */
+      .feed-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -4px;
+        padding: 0 4px;
+      }
+
+      .feed-table-wrap .feed-table { min-width: 460px; }
+
+      /* CF Score filter controls: margin-left:auto pushes everything right at narrow.
+         Override to left-align and allow wrapping. */
+      .cf-filter-controls {
+        margin-left: 0 !important;
+        flex-wrap: wrap;
+        width: 100%;
+      }
+
+      .cf-filter-controls .field {
+        min-width: 0 !important;
+        flex: 1 1 140px;
+      }
+
+    }
+
+
+    /* ── 480px: phone portrait ─────────────────────────────────────────── */
+    @media (max-width: 480px) {
+
+      /* Wrap: reduce side padding from 24px to 12px */
+      .wrap { padding-left: 12px; padding-right: 12px; }
+
+      /* Tab bar: stop wrapping to a second line — scroll horizontally instead.
+         A right-fade gradient hint is added via .sticky-inner::after below. */
+      .tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+
+      /* Fade hint on the right edge of the tab bar to signal more tabs */
+      .sticky-inner {
+        position: relative;
+      }
+      .sticky-inner::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 40px;
+        height: 38px; /* covers tab bar height */
+        background: linear-gradient(to right, transparent, var(--bg));
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      /* Hide Last run and Next run status bar segments — too cramped at phone width.
+         The scheduler running dot remains visible. */
+      .status-seg-last,
+      .status-seg-next { display: none; }
+
+      /* Hide the Mobile view button — no longer needed */
+      .mobile-view-btn { display: none; }
+
+      /* Sweep pipeline aggregate totals:
+         Cutoff Unmet and Backlog 6-col → 3-col (two rows of three)
+         CF Score 4-col → 2-col (two rows of two) */
+      .p-totals   { grid-template-columns: repeat(3, 1fr); }
+      .p-totals-4 { grid-template-columns: repeat(2, 1fr); }
+
+      /* Advanced Auto-Exclusion Radarr/Sonarr columns: 2-col → 1-col.
+         Uses .adv-autoexcl-grid class added to the inline-grid div in the template. */
+      .adv-autoexcl-grid { grid-template-columns: 1fr; }
+
+    }

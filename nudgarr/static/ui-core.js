@@ -1,7 +1,6 @@
 // ── Core globals, polling loop, API wrapper, tab switching, and activity ping ──
 // Loaded first. Provides shared state and utilities consumed by all other UI modules.
 
-const MOBILE = Math.min(window.screen.width, window.screen.height) <= 500;
 let CFG = null;            // Live config object; refreshed by loadAll() and after each save
 let PAGE = 0;              // Current page index for the History tab
 let HISTORY_TOTAL = 0;     // Total history item count from the last fetch (used for pagination)
@@ -251,8 +250,7 @@ async function pollCycle() {
   }
 }
 
-if (!MOBILE) {
-  loadAll().then(() => {
+loadAll().then(() => {
     // Only pulse checking on enabled instances — disabled stay grey
     (CFG?.instances?.radarr || []).forEach((inst, idx) => {
       if (inst.enabled !== false) {
@@ -269,11 +267,10 @@ if (!MOBILE) {
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
   }).catch(e => showAlert('Failed to load — please refresh the page. (' + e.message + ')'));
-  setInterval(pollCycle, 5000);
-}
+setInterval(pollCycle, 5000);
 
 // ── Global error boundary ──────────────────────────────────────────────────
-// Catches unhandled promise rejections and JS exceptions across all six modules.
+// Catches unhandled promise rejections and JS exceptions across all modules.
 // Logs to console only — does not block the user with an alert for background
 // poll failures. Gives enough signal for a user who opens devtools to copy and
 // paste into a bug report.
@@ -285,12 +282,10 @@ window.addEventListener('error', function(ev) {
   console.error('[unhandled error]', ev.message, ev.filename + ':' + ev.lineno);
 });
 
-// ══════════════════════════════════════════════════════════════════════════
-// MOBILE UI
-// ══════════════════════════════════════════════════════════════════════════
-// ── Activity ping — updates session last_active on real user interaction only ──
-// Background polling does NOT reset the session timer. Only clicks, keypresses,
-// and scrolls count as activity. Debounced to fire at most once every 15 seconds.
+// ── Activity ping ──────────────────────────────────────────────────────────
+// Updates session last_active on real user interaction only. Background polling
+// does NOT reset the session timer. Only clicks, keypresses, and scrolls count
+// as activity. Debounced to fire at most once every 15 seconds.
 (function() {
   let _pingTimer = null;
   function _ping() {

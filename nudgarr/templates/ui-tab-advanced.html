@@ -2,7 +2,7 @@
   <div class="section" id="tab-advanced">
     <div class="grid">
 
-      <!-- ── ROW 1: Backlog Nudges ── -->
+      <!-- ── ROW 1: Backlog Nudges (full-width, Radarr + Sonarr side by side) ── -->
       <div class="card">
         <p class="section-label">Backlog Nudges</p>
         <div class="help" style="margin-bottom:12px">Finds and searches items missing from your library on top of your regular cutoff sweeps.</div>
@@ -63,8 +63,7 @@
                 </div>
               </div>
             </div>
-            </div><!-- end radarr_auto_excl_fields -->
-          </div>
+          </div><!-- end Radarr -->
 
           <!-- Sonarr -->
           <div>
@@ -113,12 +112,13 @@
                 <div></div>
               </div>
             </div>
-          </div>
+          </div><!-- end Sonarr -->
 
         </div>
+        <!-- TODO(v4.2.0-mobile): add maintenance window fields to mobile portrait settings -->
       </div>
 
-      <!-- ── ROW 2: Auto-Exclusion ── -->
+      <!-- ── ROW 2: Auto-Exclusion (full-width, Radarr + Sonarr side by side) ── -->
       <div class="card">
         <p class="section-label">Auto-Exclusion</p>
         <div class="help" style="margin-bottom:12px">Automatically exclude titles searched repeatedly with no confirmed import. Auto-exclusion thresholds are global and apply across all instances — see the Per-Instance Overrides tooltip for details.</div>
@@ -139,23 +139,24 @@
               </div>
             </div>
             <div id="radarr_auto_excl_fields" style="opacity:0.35;pointer-events:none">
-            <div class="field" style="margin-bottom:10px">
-              <div class="tooltip-wrap">
-                <label>Exclude After X Searches</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. Set to 0 to turn off auto-exclusion for movies — the Unexclude field greys out when this is 0.<br><br>Auto-exclusion thresholds are global and are not available as per-instance overrides. Because exclusions apply by title across all instances, a per-instance threshold could cause one instance to exclude a title that another instance could still successfully upgrade — for example, a 4K instance excluding a title before the 1080p instance has finished trying. Configure your threshold with your most conservative instance in mind.</div></span>
+              <div class="field" style="margin-bottom:10px">
+                <div class="tooltip-wrap">
+                  <label>Exclude After X Searches</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. Set to 0 to turn off auto-exclusion for movies — the Unexclude field greys out when this is 0.<br><br>Auto-exclusion thresholds are global and are not available as per-instance overrides. Because exclusions apply by title across all instances, a per-instance threshold could cause one instance to exclude a title that another instance could still successfully upgrade — for example, a 4K instance excluding a title before the 1080p instance has finished trying. Configure your threshold with your most conservative instance in mind.</div></span>
+                </div>
+                <input id="auto_exclude_movies_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
+                <div class="help">0 = Off</div>
               </div>
-              <input id="auto_exclude_movies_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
-              <div class="help">0 = Off</div>
-            </div>
-            <div class="field" id="auto_unexclude_movies_wrap">
-              <div class="tooltip-wrap">
-                <label>Unexclude After X Days</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a movie from auto-exclusions after this many days, giving it another chance. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+              <div class="field" id="auto_unexclude_movies_wrap">
+                <div class="tooltip-wrap">
+                  <label>Unexclude After X Days</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a movie from auto-exclusions after this many days, giving it another chance. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+                </div>
+                <input id="auto_unexclude_movies_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+                <div class="help">0 = Permanent until manually removed</div>
               </div>
-              <input id="auto_unexclude_movies_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
-              <div class="help">0 = Permanent until manually removed</div>
-            </div>
-          </div>
+            </div><!-- end radarr_auto_excl_fields -->
+          </div><!-- end Radarr -->
 
           <!-- Sonarr -->
           <div>
@@ -171,24 +172,24 @@
               </div>
             </div>
             <div id="sonarr_auto_excl_fields" style="opacity:0.35;pointer-events:none">
-            <div class="field" style="margin-bottom:10px">
-              <div class="tooltip-wrap">
-                <label>Exclude After X Searches</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a show after this many searches with no confirmed import. Set to 0 to turn off auto-exclusion for shows — the Unexclude field greys out when this is 0.<br><br>Auto-exclusion thresholds are global and are not available as per-instance overrides. Because exclusions apply by title across all instances, a per-instance threshold could cause one instance to exclude a title that another instance could still successfully upgrade. Configure your threshold with your most conservative instance in mind.</div></span>
+              <div class="field" style="margin-bottom:10px">
+                <div class="tooltip-wrap">
+                  <label>Exclude After X Searches</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Auto-exclude a show after this many searches with no confirmed import. Set to 0 to turn off auto-exclusion for shows — the Unexclude field greys out when this is 0.<br><br>Auto-exclusion thresholds are global and are not available as per-instance overrides. Because exclusions apply by title across all instances, a per-instance threshold could cause one instance to exclude a title that another instance could still successfully upgrade. Configure your threshold with your most conservative instance in mind.</div></span>
+                </div>
+                <input id="auto_exclude_shows_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
+                <div class="help">0 = Off</div>
               </div>
-              <input id="auto_exclude_shows_threshold" type="number" min="0" oninput="syncAutoExclUi(); markUnsaved('advMsg')"/>
-              <div class="help">0 = Off</div>
-            </div>
-            <div class="field" id="auto_unexclude_shows_wrap">
-              <div class="tooltip-wrap">
-                <label>Unexclude After X Days</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a show from auto-exclusions after this many days. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+              <div class="field" id="auto_unexclude_shows_wrap">
+                <div class="tooltip-wrap">
+                  <label>Unexclude After X Days</label>
+                  <span class="tooltip-icon">i<div class="tooltip-box">Automatically remove a show from auto-exclusions after this many days. Applies to auto-excluded entries only. 0 means they stay excluded until manually removed.</div></span>
+                </div>
+                <input id="auto_unexclude_shows_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
+                <div class="help">0 = Permanent until manually removed</div>
               </div>
-              <input id="auto_unexclude_shows_days" type="number" min="0" oninput="markUnsaved('advMsg')"/>
-              <div class="help">0 = Permanent until manually removed</div>
-            </div>
             </div><!-- end sonarr_auto_excl_fields -->
-          </div>
+          </div><!-- end Sonarr -->
 
         </div>
       </div>

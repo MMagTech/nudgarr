@@ -15,7 +15,7 @@
 
 // ── Pipeline card builder ─────────────────────────────────────────────────
 
-function _pipelineCardHtml(type, badge, insts, summary, health, cfEnabled) {
+function _pipelineCardHtml(type, insts, summary, health) {
   // type: 'cutoff' | 'backlog' | 'cfscore'
   // Aggregate totals across all instances for this pipeline.
   let agg = {};
@@ -88,7 +88,7 @@ function _pipelineCardHtml(type, badge, insts, summary, health, cfEnabled) {
   // Per-instance rows
   let instHtml = '';
   for (const inst of insts) {
-    const hk = (type === 'cfscore' ? 'radarr' : inst._kind) + '|' + inst.name;
+    const hk = inst._kind + '|' + inst.name;
     const dotState = health[hk] || 'checking';
     const disabled = inst.enabled === false;
     const s = summary.find(x => x.name === inst.name);
@@ -128,16 +128,24 @@ function _pipelineCardHtml(type, badge, insts, summary, health, cfEnabled) {
   }
 
   const name = type === 'cutoff' ? 'Cutoff Unmet' : type === 'backlog' ? 'Backlog' : 'CF Score';
-  const enabled = type === 'cfscore' ? cfEnabled : true;
-  const badgeText = type === 'cutoff' ? 'Always On' : (enabled ? 'Enabled' : 'Disabled');
   const slotId = type === 'cutoff' ? 'sweepPipelineCutoff'
     : type === 'backlog' ? 'sweepPipelineBacklog'
     : 'sweepPipelineCfScore';
 
+  const tooltipText = type === 'cutoff'
+    ? 'Finds items that have a file but have not reached the quality profile cutoff and tells the Arr to search for a better version.'
+    : type === 'backlog'
+    ? 'Finds missing movies and episodes that have never been grabbed and tells the Arr to search for them.'
+    : 'Finds monitored files where the custom format score is below the quality profile cutoff and tells the Arr to search for a better-scored release.';
+
   return `<div id="${slotId}" class="p-card ${type}">
     <div class="p-hdr">
-      <div class="p-hdr-left"><span class="p-name">${name}</span></div>
-      <span class="p-badge">${badgeText}</span>
+      <div class="p-hdr-left">
+        <span class="p-name">${name}</span>
+        <div class="tooltip-wrap" style="display:inline-block;margin-left:5px;vertical-align:middle">
+          <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">${tooltipText}</div></span>
+        </div>
+      </div>
     </div>
     ${totalsHtml}
     <div class="p-divider"></div>
@@ -169,11 +177,6 @@ async function refreshSweep() {
   const allSummary    = [...radarrSummary, ...sonarrSummary];
 
   // ── Pipeline cards ────────────────────────────────────────────────────
-  const backlogEnabled = allInsts.some(i => {
-    if (i._kind === 'radarr') return !!cfg.radarr_backlog_enabled;
-    return !!cfg.sonarr_backlog_enabled;
-  });
-
   const cutoffSlot  = el('sweepPipelineCutoff');
   const backlogSlot = el('sweepPipelineBacklog');
   const cfSlot      = el('sweepPipelineCfScore');
@@ -184,11 +187,11 @@ async function refreshSweep() {
     if (backlogSlot) backlogSlot.innerHTML = msg;
     if (cfSlot)      cfSlot.innerHTML      = msg;
   } else {
-    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  'Always On', allInsts, allSummary, health, cfEnabled);
-    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog',  backlogEnabled ? 'Enabled' : 'Disabled', allInsts, allSummary, health, cfEnabled);
+    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  allInsts, allSummary, health);
+    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog', allInsts, allSummary, health);
     if (cfSlot)      cfSlot.outerHTML      = cfEnabled
-      ? _pipelineCardHtml('cfscore', 'Enabled',  allInsts, allSummary, health, cfEnabled)
-      : _pipelineCardHtml('cfscore', 'Disabled', allInsts, [],         health, false);
+      ? _pipelineCardHtml('cfscore', allInsts, allSummary, health)
+      : _pipelineCardHtml('cfscore', allInsts, [],         health);
   }
 
   // ── Health card ───────────────────────────────────────────────────────

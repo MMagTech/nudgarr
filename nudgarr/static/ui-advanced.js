@@ -197,7 +197,7 @@ async function logout() {
 }
 
 async function resetConfig() {
-  if (!await showConfirm('Reset Config', 'This will reset all settings to defaults — all instances and configuration will be lost. Consider using Backup All in Support & Diagnostics first.', 'Reset', true)) return;
+  if (!await showConfirm('Reset Config', 'This will reset all settings to factory defaults and permanently delete all data — history, imports, exclusions, CF Score index, and Intel. This cannot be undone. Use Backup All first if you want to preserve anything.', 'Reset', true)) return;
   await api('/api/config/reset', {method:'POST'});
   showAlert('Config reset to defaults.');
   await loadAll();

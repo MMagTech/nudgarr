@@ -525,7 +525,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 297  # updated: audit cleanup — dead mobile/route refs removed
+        EXPECTED_CHECK_COUNT = 298  # +1: delete_state added to db exports
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

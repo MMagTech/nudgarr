@@ -140,6 +140,7 @@ __all__ = [
     # appstate
     "get_state",
     "set_state",
+    "delete_state",
     # intel
     "get_intel_aggregate",
     "update_intel_aggregate",

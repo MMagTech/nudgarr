@@ -3,8 +3,9 @@ nudgarr/db/appstate.py
 
 nudgarr_state table — key/value persistence for application state.
 
-  get_state() -- retrieve a value by key
-  set_state() -- persist a value by key
+  get_state()    -- retrieve a value by key
+  set_state()    -- persist a value by key
+  delete_state() -- remove a value by key
 
 Named appstate to avoid confusion with nudgarr/state.py.
 """
@@ -35,4 +36,11 @@ def set_state(key: str, value: str) -> None:
         " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value)
     )
+    conn.commit()
+
+
+def delete_state(key: str) -> None:
+    """Remove a persisted state value by key. No-op if the key does not exist."""
+    conn = get_connection()
+    conn.execute("DELETE FROM nudgarr_state WHERE key = ?", (key,))
     conn.commit()

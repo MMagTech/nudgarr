@@ -136,6 +136,13 @@ def api_set_config():
 @bp.post("/api/config/reset")
 @requires_auth
 def api_reset_config():
+    """Factory reset — write DEFAULT_CONFIG and wipe all persistent data.
+
+    Clears: search_history, stat_entries, exclusions (all), cf_score_entries,
+    intel_aggregate, exclusion_events, and the three persisted nudgarr_state
+    sweep keys. Resets STATUS in-memory fields so the UI reflects a clean state
+    immediately without waiting for the next sweep.
+    """
     from nudgarr.constants import DEFAULT_CONFIG
     cfg = deep_copy(DEFAULT_CONFIG)
     try:
@@ -143,6 +150,26 @@ def api_reset_config():
     except Exception:
         logger.exception("Failed to write config in api_reset_config")
         return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
+
+    # Wipe all persistent data tables
+    db.clear_search_history()
+    db.clear_stat_entries()
+    db.clear_all_exclusions()
+    db.clear_cf_score_index()
+    db.reset_intel()
+
+    # Remove persisted sweep state keys so the scheduler starts clean
+    for key in ("last_run_utc", "last_sweep_start_utc", "last_summary"):
+        db.delete_state(key)
+
+    # Reset in-memory STATUS so the UI reflects a clean slate immediately
+    STATUS["last_run_utc"] = None
+    STATUS["last_sweep_start_utc"] = None
+    STATUS["last_summary"] = {}
+    STATUS["last_error"] = None
+    STATUS["imports_confirmed_sweep"] = {"movies": 0, "shows": 0}
+
+    logger.info("Factory reset complete — config, history, imports, exclusions, CF index, and Intel cleared.")
     return jsonify({"ok": True})
 
 

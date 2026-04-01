@@ -80,7 +80,9 @@ def api_get_stats():
 @bp.post("/api/stats/clear")
 @requires_auth
 def api_clear_stats():
+    from nudgarr.globals import STATUS
     db.clear_stat_entries()
+    STATUS["imports_confirmed_sweep"] = {"movies": 0, "shows": 0}
     return jsonify({"ok": True})
 
 

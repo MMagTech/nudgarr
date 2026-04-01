@@ -75,9 +75,21 @@
         min-width: 100%;
       }
 
+      #importsTableWrap {
+        max-width: 100%;
+      }
+
       #importsTableWrap table {
         width: max-content;
         min-width: 100%;
+      }
+
+      #importsTableWrap td:first-child,
+      #importsTableWrap th:first-child {
+        min-width: 120px;
+        max-width: 160px;
+        white-space: normal;
+        word-break: break-word;
       }
 
       #historyTableWrap td:first-child,

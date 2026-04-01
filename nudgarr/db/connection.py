@@ -500,17 +500,27 @@ def _run_migration_v12(conn: sqlite3.Connection) -> None:
     ).fetchone()
     if existing:
         return
-    try:
-        # ADD COLUMN is safe on existing tables -- SQLite supports it natively.
-        # The column gets DEFAULT 0 so all existing rows are valid immediately.
+    # Fresh installs already have this column via _SCHEMA_SQL.  Only ALTER if
+    # the column is genuinely absent so we never hit a duplicate column error.
+    cols = [
+        row[1]
+        for row in conn.execute(
+            "PRAGMA table_info(intel_aggregate)"
+        ).fetchall()
+    ]
+    if "cf_score_import_count" not in cols:
         conn.execute(
-            "ALTER TABLE intel_aggregate ADD COLUMN cf_score_import_count INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE intel_aggregate ADD COLUMN"
+            " cf_score_import_count INTEGER NOT NULL DEFAULT 0"
         )
-        conn.execute(
-            "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (12, ?)",
-            (iso_z(utcnow()),)
-        )
-        conn.commit()
         logger.info("[Migration v12] Added cf_score_import_count to intel_aggregate")
-    except Exception:
-        logger.exception("[Migration v12] FAILED")
+    else:
+        logger.info(
+            "[Migration v12] cf_score_import_count already present, skipping ALTER"
+        )
+    # Always write the migration record so this never re-runs.
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (12, ?)",
+        (iso_z(utcnow()),)
+    )
+    conn.commit()

@@ -71,31 +71,34 @@
 
       #historyTableWrap table,
       #cfEntriesWrap table {
-        width: max-content;
+        width: auto;
         min-width: 100%;
       }
 
       #importsTableWrap {
-        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       #importsTableWrap table {
-        width: max-content;
-        min-width: 100%;
+        width: auto;
+        min-width: 760px;
       }
 
+      /* position:sticky inside overflow-x:auto causes Safari to add phantom
+         scroll space equal to the viewport width after the last column.
+         Removing sticky on the imports table first column fixes blank scroll. */
       #importsTableWrap td:first-child,
       #importsTableWrap th:first-child {
-        min-width: 120px;
-        max-width: 160px;
+        position: static;
         white-space: normal;
         word-break: break-word;
+        min-width: 130px;
+        max-width: 160px;
       }
 
       #historyTableWrap td:first-child,
-      #historyTableWrap th:first-child,
-      #importsTableWrap td:first-child,
-      #importsTableWrap th:first-child {
+      #historyTableWrap th:first-child {
         position: sticky;
         left: 0;
         background: var(--card);

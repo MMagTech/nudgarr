@@ -54,7 +54,7 @@
       /* Sweep pipeline grid: 3-col → 1-col at narrow viewport.
          Pipeline cards are now direct grid children so sweep-grid
          stacking covers all six cards (3 pipeline + 3 summary). */
-      .sweep-grid              { grid-template-columns: 1fr; }
+      .sweep-grid              { grid-template-columns: minmax(0, 1fr); }
 
       /* Intel Library Score + Search Health: fixed 270px 1fr → stack */
       .intel-grid-score        { grid-template-columns: 1fr; }
@@ -199,10 +199,13 @@
          Uses .adv-autoexcl-grid class added to the inline-grid div in the template. */
       .adv-autoexcl-grid { grid-template-columns: 1fr; }
 
-    }
-
-
-    /* ── Phone landscape: single-line scrollable tab bar ───────────────── */
+      /* Sweep cards: constrain all grid children to the column width
+         and allow horizontal scroll within each card so per-instance
+         stat rows and aggregate totals don't overflow the viewport. */
+      .sweep-grid > .card {
+        min-width: 0;
+        overflow-x: auto;
+      }: single-line scrollable tab bar ───────────────── */
     /* max-height:500px targets phone landscape only — tablets and desktops
        in landscape are taller than 500px so this never fires for them. */
     @media (orientation: landscape) and (max-height: 500px) {
@@ -230,6 +233,13 @@
         background: linear-gradient(to right, transparent, var(--bg));
         pointer-events: none;
         z-index: 10;
+      }
+
+      /* Sweep cards: same overflow fix as portrait — constrains cards to
+         column width and allows horizontal scroll within each card. */
+      .sweep-grid > .card {
+        min-width: 0;
+        overflow-x: auto;
       }
 
     }

@@ -205,7 +205,12 @@
       .sweep-grid > .card {
         min-width: 0;
         overflow-x: auto;
-      }: single-line scrollable tab bar ───────────────── */
+      }
+
+    }
+
+
+    /* ── Phone landscape: single-line scrollable tab bar ───────────────── */
     /* max-height:500px targets phone landscape only — tablets and desktops
        in landscape are taller than 500px so this never fires for them. */
     @media (orientation: landscape) and (max-height: 500px) {
@@ -237,6 +242,7 @@
 
       /* Sweep cards: same overflow fix as portrait — constrains cards to
          column width and allows horizontal scroll within each card. */
+      .sweep-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .sweep-grid > .card {
         min-width: 0;
         overflow-x: auto;

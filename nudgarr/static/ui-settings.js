@@ -470,7 +470,7 @@ async function saveSettings() {
 }
 
 // ── Cooldown note ──
-const _COOLDOWN_HELP_DEFAULT = 'Minimum hours before the same movie or episode can be searched again (0 = No Cooldown)';
+const _COOLDOWN_HELP_DEFAULT = 'Minimum hours before an item can be searched again (0 = No Cooldown)';
 const _COOLDOWN_HELP_ZERO    = 'Cooldown is disabled. Items may repeat each sweep.';
 
 function checkCooldownWarning() {

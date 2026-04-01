@@ -121,7 +121,7 @@
       <!-- ── ROW 2: Auto-Exclusion (full-width, Radarr + Sonarr side by side) ── -->
       <div class="card">
         <p class="section-label">Auto-Exclusion</p>
-        <div class="help" style="margin-bottom:12px">Automatically exclude titles searched repeatedly with no confirmed import. Auto-exclusion thresholds are global and apply across all instances — exclusions are matched by title across all apps.</div>
+        <div class="help" style="margin-bottom:12px">Auto-exclude titles repeatedly searched with no confirmed import. Exclusion thresholds are global and apply across all instances by title.</div>
 
         <div class="adv-autoexcl-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
 
@@ -272,7 +272,10 @@
           <div class="adv-cfg-cell adv-cfg-cell--mid" style="padding:0 20px;border-right:1px solid var(--border)">
             <p class="section-label">Security</p>
             <div class="field">
-              <label>Require Login</label>
+              <div class="tooltip-wrap">
+                <label>Require Login</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Adds a login screen to prevent accidental or unauthorized setting changes on your local network. Passwords are salted and hashed with progressive lockout on failed attempts. Not a substitute for network-level security. Use a VPN or reverse proxy with HTTPS for remote access.</div></span>
+              </div>
               <div class="toggle-wrap">
                 <label class="toggle">
                   <input type="checkbox" id="auth_enabled" onchange="syncAuthUi(); markUnsaved('advMsg')"/>
@@ -282,7 +285,7 @@
                 <span class="help" id="auth_label">Enabled</span>
               </div>
             </div>
-            <div class="field" style="margin-bottom:0">
+            <div class="field" style="margin-top:12px;margin-bottom:0">
               <label>Session Timeout (Minutes)</label>
               <input id="auth_session_minutes" type="number" min="1" oninput="markUnsaved('advMsg')"/>
               <div class="help">Minutes of inactivity before requiring re-login</div>
@@ -297,7 +300,7 @@
               <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
               <div class="help" style="margin-top:6px">View the initial walkthrough.</div>
             </div>
-            <div class="field" style="margin-bottom:0">
+            <div class="field" style="margin-top:12px;margin-bottom:0">
               <label>Show Support Link</label>
               <div class="toggle-wrap">
                 <label class="toggle">
@@ -339,7 +342,7 @@
         </div>
 
         <div class="card danger-section">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
             <p class="section-label" style="color:#fca5a5;margin:0;">Danger Zone</p>
             <span class="tooltip-icon" style="border-color:rgba(239,68,68,.3);color:#fca5a5;cursor:default;">i<div class="tooltip-box">Clear Imports removes import records only — Intel lifetime data and sweep run counts are unaffected. Reset Config is a full factory reset — it wipes all data including history, imports, exclusions, CF Score index, and Intel in addition to resetting all settings.</div></span>
           </div>

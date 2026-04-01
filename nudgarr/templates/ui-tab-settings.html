@@ -58,7 +58,7 @@
             </label>
             <span class="help" id="maint_label">Disabled</span>
           </div>
-          <div class="help">Scheduled sweep suppression. Manual runs are not affected.</div>
+          <div class="help">Manual runs are not affected.</div>
         </div>
         <!-- Time inputs and day pills — greyed when toggle is off -->
         <div class="field" id="maint_controls" style="max-width:340px;opacity:0.35;pointer-events:none">
@@ -101,13 +101,14 @@
           <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span>
         </div>
         <input id="cooldown_hours" type="number" min="0" oninput="markUnsaved('setMsg'); checkCooldownWarning()" style="max-width:160px"/>
-        <div class="help" id="cooldownHelpText">Minimum hours before the same movie or episode can be searched again (0 = No Cooldown)</div>
+        <div class="help" id="cooldownHelpText">Minimum hours before an item can be searched again (0 = No Cooldown)</div>
       </div>
 
       </div>
 
       <div class="card">
         <p class="section-label">Cutoff Unmet</p>
+        <div class="help" style="margin-bottom:12px">Finds and searches cutoff unmet titles from your library.</div>
 
         <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text)">Radarr</p>
         <div class="field" style="margin-bottom:10px">
@@ -127,7 +128,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet movies Nudgarr nudges per Radarr instance each sweep. Two Radarr instances set to 20 means up to 40 movie search commands per sweep. Start low and increase gradually. 0 means all eligible items are nudged each run.</div></span>
             </div>
             <input id="radarr_max_movies_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet movies nudged per instance per run (0 = All Eligible)</div>
+            <div class="help">0 = All Eligible</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">
@@ -162,7 +163,7 @@
               <span class="tooltip-icon">i<div class="tooltip-box">How many Cutoff Unmet episodes Nudgarr nudges per Sonarr instance each sweep. Two Sonarr instances set to 20 means up to 40 episode search commands per sweep. Start low and increase gradually. 0 means all eligible items are nudged each run.</div></span>
             </div>
             <input id="sonarr_max_episodes_per_run" type="number" min="0" oninput="markUnsaved('setMsg')"/>
-            <div class="help">Maximum Cutoff Unmet episodes nudged per instance per run (0 = All Eligible)</div>
+            <div class="help">0 = All Eligible</div>
           </div>
           <div class="field">
             <div class="tooltip-wrap">

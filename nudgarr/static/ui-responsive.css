@@ -195,6 +195,14 @@
       .p-totals   { grid-template-columns: repeat(3, 1fr); }
       .p-totals-4 { grid-template-columns: repeat(2, 1fr); }
 
+      /* Imports tab stat cards: reorder to Confirmed top full-width,
+         Movies and Episodes side by side below. Uses CSS order so the
+         HTML (and JS references) are unchanged. */
+      .import-stats { flex-direction: row; flex-wrap: wrap; }
+      .import-stat-card.movies { order: 2; flex: 1 1 calc(50% - 4px); min-width: 0; }
+      .import-stat-card.shows  { order: 3; flex: 1 1 calc(50% - 4px); min-width: 0; }
+      .import-stats > .import-stat-card:not(.movies):not(.shows) { order: 1; flex: 1 1 100%; }
+
       /* Advanced Auto-Exclusion Radarr/Sonarr columns: 2-col → 1-col.
          Uses .adv-autoexcl-grid class added to the inline-grid div in the template. */
       .adv-autoexcl-grid { grid-template-columns: 1fr; }

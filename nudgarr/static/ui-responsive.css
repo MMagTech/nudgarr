@@ -19,6 +19,12 @@
     /* ── 720px: tablet portrait and below ─────────────────────────────── */
     @media (max-width: 720px) {
 
+      /* Prevent overflowing elements from making the page body horizontally
+         scrollable. Mirrors the same rule in the 480px block below. Child
+         elements with explicit overflow-x: auto still scroll within their
+         own context (table wrappers, tab bar). */
+      html, body { overflow-x: hidden; }
+
       /* Advanced tab configuration card: cols3 stacks at 720px.
          Remove border-right (now a stray right border on full-width cells),
          normalise padding, and add a top border between stacked cells. */
@@ -95,6 +101,11 @@
 
     /* ── 480px: phone portrait ─────────────────────────────────────────── */
     @media (max-width: 480px) {
+
+      /* Prevent any overflowing element from making the page body horizontally
+         scrollable. Child elements with their own overflow-x: auto (table
+         wrappers, tab bar) still scroll correctly within their own context. */
+      html, body { overflow-x: hidden; }
 
       /* Wrap: reduce side padding from 24px to 12px */
       .wrap { padding-left: 12px; padding-right: 12px; }

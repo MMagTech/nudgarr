@@ -8,12 +8,24 @@
        Two breakpoints:
          720px  matches the existing ui.css .cols2 / .cols3 breakpoint.
                 Grid stacking (sweep-grid, intel-grid-score), table scroll,
-                CF Score filter row alignment.
+                CF Score filter row alignment, Settings scheduler row wrap,
+                History/Imports filter controls wrap.
 
          480px  phone portrait specifics: tab bar horizontal scroll,
                 header condensing, wrap padding, pipeline total cell reflow,
-                Advanced auto-exclusion grid stack.
+                Advanced auto-exclusion grid stack, sweep card scroll.
+
+       Orientation query:
+         landscape + max-height 500px  phone landscape tab bar scroll.
+
+       Global:
+         html overflow-x hidden prevents Safari from zooming the page when
+         any element briefly exceeds the viewport width.
     ══════════════════════════════════════════════════════════════════════ */
+
+    /* Global: prevent horizontal overflow from triggering Safari auto-zoom.
+       Child elements with their own overflow-x: auto still scroll correctly. */
+    html { overflow-x: hidden; }
 
 
     /* ── 720px: tablet portrait and below ─────────────────────────────── */
@@ -83,8 +95,32 @@
 
       .feed-table-wrap .feed-table { min-width: 460px; }
 
-      /* CF Score filter controls: margin-left:auto pushes everything right at narrow.
-         Override to left-align and allow wrapping. */
+      /* Settings scheduler rows: allow wrapping at narrow viewport so the
+         Automatic Sweeps/Cron and Maintenance Window rows don't overflow
+         the left card of the cols2 grid. */
+      .sched-row { flex-wrap: wrap !important; }
+
+      /* History, Imports, and CF Score filter controls: break out of the
+         row, go full-width, wrap fields, and shed hard min-widths. Applies
+         at 720px so landscape phone viewports are covered. */
+      .tab-filter-controls {
+        margin-left: 0 !important;
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .tab-filter-controls .field {
+        min-width: 0 !important;
+        flex: 1 1 calc(50% - 4px);
+      }
+      .tab-filter-controls .field:last-of-type {
+        flex: 1 1 100%;
+      }
+
+      /* CF Score filter controls already have .cf-filter-controls handled
+         below — ensure min-width is fully shed at this breakpoint too. */
+      .cf-filter-controls .field {
+        min-width: 0 !important;
+      }
       .cf-filter-controls {
         margin-left: 0 !important;
         flex-wrap: wrap;
@@ -162,5 +198,38 @@
       /* Advanced Auto-Exclusion Radarr/Sonarr columns: 2-col → 1-col.
          Uses .adv-autoexcl-grid class added to the inline-grid div in the template. */
       .adv-autoexcl-grid { grid-template-columns: 1fr; }
+
+    }
+
+
+    /* ── Phone landscape: single-line scrollable tab bar ───────────────── */
+    /* max-height:500px targets phone landscape only — tablets and desktops
+       in landscape are taller than 500px so this never fires for them. */
+    @media (orientation: landscape) and (max-height: 500px) {
+
+      .tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        touch-action: pan-x;
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab { flex-shrink: 0; }
+
+      /* Fade hint on the right edge matching the portrait treatment */
+      .sticky-inner { position: relative; }
+      .sticky-inner::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 40px;
+        height: 38px;
+        background: linear-gradient(to right, transparent, var(--bg));
+        pointer-events: none;
+        z-index: 10;
+      }
 
     }

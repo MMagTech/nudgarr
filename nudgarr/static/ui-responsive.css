@@ -71,11 +71,13 @@
 
       #historyTableWrap table,
       #cfEntriesWrap table {
-        min-width: 560px;
+        width: max-content;
+        min-width: 100%;
       }
 
       #importsTableWrap table {
-        min-width: 780px;
+        width: max-content;
+        min-width: 100%;
       }
 
       #historyTableWrap td:first-child,

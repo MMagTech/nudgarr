@@ -115,7 +115,15 @@
 
       .feed-table-wrap .feed-table { min-width: 460px; }
 
-      /* Settings scheduler rows: allow wrapping at narrow viewport so the
+      /* Tooltip boxes use position:absolute with left:calc(100%+3px) and
+         width:280px — on mobile this pushes them off the right edge of the
+         viewport. Safari counts this in page width even when opacity:0,
+         triggering auto-zoom. Flip to open leftward and cap width. */
+      .tooltip-box {
+        left: auto;
+        right: calc(100% + 3px);
+        width: 220px;
+      }
          Automatic Sweeps/Cron and Maintenance Window rows don't overflow
          the left card of the cols2 grid. */
       .sched-row { flex-wrap: wrap !important; }

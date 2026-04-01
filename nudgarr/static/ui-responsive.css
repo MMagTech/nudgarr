@@ -70,9 +70,12 @@
       }
 
       #historyTableWrap table,
-      #importsTableWrap table,
       #cfEntriesWrap table {
         min-width: 560px;
+      }
+
+      #importsTableWrap table {
+        min-width: 780px;
       }
 
       #historyTableWrap td:first-child,

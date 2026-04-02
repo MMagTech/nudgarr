@@ -605,7 +605,7 @@
       border-radius: 10px; padding: 10px 12px;
       font-size: 12px; font-weight: 400; font-style: normal;
       color: var(--text-dim); line-height: 1.5;
-      width: 280px; z-index: 200;
+      width: 280px; z-index: 201;
       opacity: 0; pointer-events: none;
       transition: opacity .2s;
       box-shadow: 0 12px 32px rgba(0,0,0,.6);

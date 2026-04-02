@@ -1,8 +1,6 @@
 # Changelog
 
-
 All notable changes to Nudgarr are documented here.
-
 
 ---
 
@@ -49,6 +47,23 @@ All notable changes to Nudgarr are documented here.
 - Log level select gained `text-align:center` so the selected value is centred in the dropdown.
 - Sample Mode help text shortened to single line across Settings and Advanced — "Pick order for Cutoff Unmet Radarr/Sonarr items" and "Pick order for missing Radarr/Sonarr items".
 - All "0 Disables" and "0 = Disabled" wording replaced with "0 = Off", "0 = Keep Forever", "0 = No Grace Period", "0 = No Cooldown", or "0 = No Age Filter" as appropriate throughout Advanced and Settings tabs.
+
+**CF Score Sync — Cron Schedule and Persistence**
+
+- `cf_score_sync_hours` replaced by `cf_score_sync_cron` (default `0 0 * * *` — midnight daily). Full cron expression gives users precise control to avoid conflicts with other scheduled tasks. Same cron infrastructure and UI pattern as the sweep scheduler.
+- Last sync time persisted to `nudgarr_state` DB (`cf_last_sync_utc`). Container restarts now correctly respect the cron schedule rather than triggering an immediate re-sync. Next scheduled fire is calculated on startup and logged.
+- Enabling CF Score for the first time triggers an immediate sync so the CF Score tab populates without waiting for the next cron fire.
+- Next Sync displayed in the CF Score tab right card alongside Last Synced, calculated from the cron expression and last sync time.
+- Coverage pills now color-coded: blue = sync in progress (with live percentage), green = 100% complete, muted dash = never synced.
+- Migration: existing `cf_score_sync_hours` values are automatically converted to an equivalent cron expression on first start after upgrade.
+- Scheduled CF Score syncs are now suppressed during the configured Maintenance Window, consistent with sweep suppression. Manual Scan Library always bypasses the window. Settings tab Maintenance Window help text updated to reflect this.
+- `cf_score_sync_cron` tooltip updated to mention Maintenance Window suppression and that manual Scan Library always runs regardless.
+
+- CF Score sync concurrency fix: a second scheduled cron fire while a sync was already running would start a concurrent sync, corrupting progress state and leaving coverage pills frozen mid-percentage. Fixed with `STATUS["cf_sync_in_progress"]` flag — the scheduler loop skips a scheduled fire if a sync is already running. Manual Scan Library also respects this flag. Progress rings now correctly clear on exception via `try/finally` in both Radarr and Sonarr instance sync methods.
+
+- CF Score tab stat cards (Items Indexed, Below CF Cutoff) removed — both always showed identical numbers since `cf_score_entries` only contains items below cutoff by design. The per-instance coverage list already surfaces this data accurately.
+- CF Score Save Changes failing with `cf_score_sync_hours must be an int >= 0` — old key was still present in the integer validation list and not stripped from incoming POST payloads. Fixed by removing from validation and adding to dead keys list so it is stripped before validation on both load and save.
+- CF Score settings card: spacing added between Sync Schedule and Per-Run Limits sections.
 
 **Bug Fixes (post-release)**
 

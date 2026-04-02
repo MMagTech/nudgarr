@@ -24,7 +24,6 @@ async function fillCfScores() {
       api('/api/cf-scores/status'),
       api(entriesUrl),
     ]);
-    cfRenderStats(status);
     cfRenderCoverage(status);
     cfPopulateInstanceDropdown(status);
     cfRenderTable(entries);
@@ -115,36 +114,6 @@ async function cfFilterEntries(instanceId) {
 }
 
 
-// ── cfRenderStats ──────────────────────────────────────────────────────────────
-function cfRenderStats(status) {
-  const stats = status?.stats || {};
-  const indexed = stats.total_indexed ?? 0;
-  const below = stats.below_cutoff ?? 0;
-  const passing = stats.passing ?? 0;
-  const instances = status?.instances || [];
-
-  const indexedEl = el('cfStatIndexed');
-  const belowEl = el('cfStatBelow');
-  const passingEl = el('cfStatPassing');
-  const indexedSub = el('cfStatIndexedSub');
-  const passingPct = el('cfStatPassingPct');
-
-  if (indexedEl) indexedEl.textContent = indexed.toLocaleString();
-  if (belowEl) belowEl.textContent = below.toLocaleString();
-  if (passingEl) passingEl.textContent = passing.toLocaleString();
-  if (indexedSub) {
-    const n = instances.length;
-    indexedSub.textContent = n > 0 ? `across ${n} instance${n !== 1 ? 's' : ''}` : '';
-  }
-  if (passingPct) {
-    passingPct.textContent = indexed > 0
-      ? `${Math.round((passing / indexed) * 100)}% of indexed library`
-      : '';
-  }
-  if (belowEl) belowEl.style.color = below > 0 ? 'var(--bad)' : 'var(--muted)';
-}
-
-
 // ── cfRenderCoverage ───────────────────────────────────────────────────────────
 // Flat list: instance name, app badge, inline percentage pill, file counts.
 // Scrollable via CSS on the container. Sync progress from sync_progress field.
@@ -153,45 +122,53 @@ function cfRenderCoverage(status) {
   if (!wrap) return;
 
   const instances = status?.instances || [];
-  const lastSyncedDot = el('cfLastSyncedDot');
+  const lastSyncedDot  = el('cfLastSyncedDot');
   const lastSyncedText = el('cfLastSyncedText');
+  const nextSyncText   = el('cfNextSyncText');
+
+  // Populate Last Synced from global status field (persisted to DB)
+  const globalLastSync = status?.last_sync_at;
+  if (lastSyncedDot) lastSyncedDot.style.background = globalLastSync ? 'var(--ok)' : 'var(--muted)';
+  if (lastSyncedText) {
+    lastSyncedText.textContent = globalLastSync
+      ? 'Last Synced ' + fmtTime(globalLastSync)
+      : 'Never synced';
+  }
+
+  // Populate Next Sync
+  if (nextSyncText) {
+    const nextSync = status?.next_sync_at;
+    nextSyncText.textContent = nextSync
+      ? 'Next Sync ' + fmtTime(nextSync)
+      : 'Next sync: —';
+  }
 
   if (!instances.length) {
     wrap.innerHTML = '<p class="help">No instances synced yet. Run Scan Library to build the index.</p>';
-    if (lastSyncedDot) lastSyncedDot.style.background = 'var(--muted)';
-    if (lastSyncedText) lastSyncedText.textContent = 'Never synced';
     return;
-  }
-
-  const timestamps = instances.map(i => i.last_synced_at).filter(Boolean).sort();
-  const latestSync = timestamps.length ? timestamps[timestamps.length - 1] : null;
-  if (lastSyncedDot) lastSyncedDot.style.background = latestSync ? 'var(--ok)' : 'var(--muted)';
-  if (lastSyncedText) {
-    lastSyncedText.textContent = latestSync
-      ? 'Last Synced ' + fmtTime(latestSync)
-      : 'Never synced';
   }
 
   wrap.innerHTML = instances.map((inst, idx) => {
     const app = (inst.app || 'radarr').toLowerCase();
     const isRadarr = app === 'radarr';
-    const appLabel = isRadarr ? 'Radarr' : 'Sonarr';
     const total = inst.total_indexed || 0;
     const below = inst.below_cutoff || 0;
 
     const prog = inst.sync_progress;
     let pctLabel = '—';
-    let pctStyle = 'color:var(--muted);background:transparent;border-color:var(--border);';
-    if (prog) {
-      const pct = prog.in_progress
-        ? Math.min(99, prog.total > 0 ? Math.round((prog.processed / prog.total) * 100) : 0)
-        : (prog.total > 0 ? 100 : 0);
-      pctLabel = prog.in_progress ? pct + '%' : (prog.total > 0 ? '100%' : '—');
-      if (prog.total > 0) pctStyle = '';
-    } else if (total > 0) {
-      // No active sync progress but instance has indexed items — show 100%
+    // Pill color: blue = in progress, green = 100% complete, muted = never synced
+    let pillColor = 'color:var(--muted);background:transparent;border-color:var(--border);';
+
+    if (prog && prog.in_progress) {
+      const pct = prog.total > 0 ? Math.min(99, Math.round((prog.processed / prog.total) * 100)) : 0;
+      pctLabel = pct + '%';
+      pillColor = 'color:var(--accent-lt);background:var(--accent-dim);border-color:var(--accent-border);';
+    } else if (prog && prog.total > 0) {
       pctLabel = '100%';
-      pctStyle = '';
+      pillColor = 'color:var(--ok);background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.25);';
+    } else if (total > 0) {
+      pctLabel = '100%';
+      pillColor = 'color:var(--ok);background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.25);';
     }
 
     const isLast = idx === instances.length - 1;
@@ -199,7 +176,7 @@ function cfRenderCoverage(status) {
       <div>
         <div style="font-size:12.5px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           ${escapeHtml(inst.instance_name || inst.arr_instance_id)}
-          <span style="font-size:12px;font-weight:700;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent-lt);border-radius:6px;padding:1px 7px;${pctStyle}">${pctLabel}</span>
+          <span style="font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px;border:1px solid;${pillColor}">${pctLabel}</span>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">${total.toLocaleString()} indexed · ${below.toLocaleString()} below cutoff</div>
       </div>
@@ -355,10 +332,13 @@ function cfNextPage() { if ((CF_PAGE + 1) * CF_PAGE_SIZE < CF_TOTAL) { CF_PAGE++
 // ── cfSyncConfigFields ─────────────────────────────────────────────────────────
 function cfSyncConfigFields() {
   if (!CFG) return;
-  const hours = el('cfSyncHours');
+  const cronInput = el('cfSyncCron');
   const rMax = el('cfRadarrMax');
   const sMax = el('cfSonarrMax');
-  if (hours) hours.value = CFG.cf_score_sync_hours ?? 24;
+  if (cronInput) {
+    cronInput.value = CFG.cf_score_sync_cron ?? '0 0 * * *';
+    validateCfCronExpr();
+  }
   if (rMax) rMax.value = CFG.radarr_cf_max_per_run ?? 1;
   if (sMax) sMax.value = CFG.sonarr_cf_max_per_run ?? 1;
   const msg = el('cfMsg');
@@ -370,10 +350,11 @@ function cfSyncConfigFields() {
 async function saveCfScores() {
   if (!CFG) return;
   try {
-    const hoursVal = parseInt(el('cfSyncHours')?.value || '24', 10);
+    const cronVal = (el('cfSyncCron')?.value || '0 0 * * *').trim();
     const rMaxVal  = parseInt(el('cfRadarrMax')?.value || '1', 10);
     const sMaxVal  = parseInt(el('cfSonarrMax')?.value || '1', 10);
-    CFG.cf_score_sync_hours    = isNaN(hoursVal) || hoursVal < 1 ? 24 : hoursVal;
+    const cronParts = cronVal.split(/\s+/);
+    CFG.cf_score_sync_cron     = cronParts.length === 5 ? cronVal : '0 0 * * *';
     CFG.radarr_cf_max_per_run  = isNaN(rMaxVal)  || rMaxVal  < 1 ? 1  : rMaxVal;
     CFG.sonarr_cf_max_per_run  = isNaN(sMaxVal)  || sMaxVal  < 1 ? 1  : sMaxVal;
     await api('/api/config', {
@@ -429,7 +410,37 @@ async function _cfWaitForScan() {
 }
 
 
-// ── cfResetIndex ───────────────────────────────────────────────────────────────
+// ── validateCfCronExpr ─────────────────────────────────────────────────────────
+// Validates the CF cron expression input and updates the hint line.
+// Mirrors the sweep scheduler's validateCronExpr pattern.
+function validateCfCronExpr() {
+  const input = el('cfSyncCron');
+  const hint  = el('cfCronHintLine');
+  if (!input || !hint) return;
+  const val = input.value.trim();
+  const parts = val.split(/\s+/);
+  if (parts.length !== 5) {
+    hint.textContent = 'Must be a valid 5-field cron expression';
+    hint.style.color = 'var(--bad)';
+    return;
+  }
+  // Produce a human-readable description for common patterns
+  const [min, hr, dom, mon, dow] = parts;
+  let desc = '';
+  if (min === '0' && hr === '0' && dom === '*' && mon === '*' && dow === '*') {
+    desc = 'Every day at midnight';
+  } else if (min === '0' && dom === '*' && mon === '*' && dow === '*') {
+    if (hr === '*') desc = 'Every hour';
+    else if (hr.startsWith('*/')) desc = `Every ${hr.slice(2)} hours`;
+    else desc = `Every day at ${hr.padStart(2,'0')}:00`;
+  } else if (min.startsWith('*/') && hr === '*') {
+    desc = `Every ${min.slice(2)} minutes`;
+  } else {
+    desc = 'Custom schedule';
+  }
+  hint.textContent = desc;
+  hint.style.color = 'var(--ok)';
+}
 async function cfResetIndex() {
   if (!await showConfirm(
     'Reset CF Score Index',

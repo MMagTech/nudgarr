@@ -288,81 +288,86 @@ class CustomFormatScoreSyncer:
         # Map file_id -> customFormatScore across all batches
         file_scores: Dict[int, int] = {}
         processed_files = 0
-        for i in range(0, len(file_ids), CF_SCORE_API_BATCH_SIZE):
-            batch = file_ids[i:i + CF_SCORE_API_BATCH_SIZE]
-            batch_scores = cf_radarr_get_movie_files_batch(session, url, key, batch)
-            file_scores.update(batch_scores)
-            processed_files += len(batch)
-            _write_sync_progress(instance_id, processed_files, total_files, True)
-            # Courtesy delay between batches -- avoids bursting the Radarr API
-            if i + CF_SCORE_API_BATCH_SIZE < len(file_ids):
-                _random_delay()
+        try:
+            for i in range(0, len(file_ids), CF_SCORE_API_BATCH_SIZE):
+                batch = file_ids[i:i + CF_SCORE_API_BATCH_SIZE]
+                batch_scores = cf_radarr_get_movie_files_batch(session, url, key, batch)
+                file_scores.update(batch_scores)
+                processed_files += len(batch)
+                _write_sync_progress(instance_id, processed_files, total_files, True)
+                # Courtesy delay between batches -- avoids bursting the Radarr API
+                if i + CF_SCORE_API_BATCH_SIZE < len(file_ids):
+                    _random_delay()
 
-        # Step 4 & 5: apply gap filter and build upsert batch
-        entries_to_write: List[Dict[str, Any]] = []
-        skipped = 0
+            # Step 4 & 5: apply gap filter and build upsert batch
+            entries_to_write: List[Dict[str, Any]] = []
+            skipped = 0
 
-        for file_id, movie in file_id_to_movie.items():
-            profile_id = movie.get("quality_profile_id", 0)
-            profile = profiles.get(profile_id)
-            if not profile:
-                skipped += 1
-                continue
+            for file_id, movie in file_id_to_movie.items():
+                profile_id = movie.get("quality_profile_id", 0)
+                profile = profiles.get(profile_id)
+                if not profile:
+                    skipped += 1
+                    continue
 
-            cutoff_score = profile.get("cutoffFormatScore", 0)
-            min_format_score = profile.get("minFormatScore", 0)
-            current_score = file_scores.get(file_id, 0)
-            gap = cutoff_score - current_score
+                cutoff_score = profile.get("cutoffFormatScore", 0)
+                min_format_score = profile.get("minFormatScore", 0)
+                current_score = file_scores.get(file_id, 0)
+                gap = cutoff_score - current_score
 
-            # Only write items where the gap exists and the current score
-            # is at or above the minimum format score floor.
-            if current_score < min_format_score:
-                skipped += 1
-                logger.debug(
-                    "[CF Sync] Radarr:%s skipped %s -- current_score=%d below minFormatScore=%d",
-                    name, movie.get("title", "?"), current_score, min_format_score,
-                )
-                continue
+                # Only write items where the gap exists and the current score
+                # is at or above the minimum format score floor.
+                if current_score < min_format_score:
+                    skipped += 1
+                    logger.debug(
+                        "[CF Sync] Radarr:%s skipped %s -- current_score=%d below minFormatScore=%d",
+                        name, movie.get("title", "?"), current_score, min_format_score,
+                    )
+                    continue
 
-            if gap <= 0:
-                skipped += 1
-                continue
+                if gap <= 0:
+                    skipped += 1
+                    continue
 
-            entries_to_write.append({
-                "arr_instance_id": instance_id,
-                "item_type": "movie",
-                "external_item_id": movie["id"],
-                "series_id": 0,
-                "file_id": file_id,
-                "title": movie.get("title", ""),
-                "current_score": current_score,
-                "cutoff_score": cutoff_score,
-                "quality_profile_id": profile_id,
-                "quality_profile_name": profile.get("name", ""),
-                "is_monitored": 1 if movie.get("monitored", True) else 0,
-                "added_date": movie.get("added_date", ""),
-            })
+                entries_to_write.append({
+                    "arr_instance_id": instance_id,
+                    "item_type": "movie",
+                    "external_item_id": movie["id"],
+                    "series_id": 0,
+                    "file_id": file_id,
+                    "title": movie.get("title", ""),
+                    "current_score": current_score,
+                    "cutoff_score": cutoff_score,
+                    "quality_profile_id": profile_id,
+                    "quality_profile_name": profile.get("name", ""),
+                    "is_monitored": 1 if movie.get("monitored", True) else 0,
+                    "added_date": movie.get("added_date", ""),
+                })
 
-        # Batch upsert -- 200 rows per DB transaction
-        if entries_to_write:
-            db.batch_upsert_cf_scores(entries_to_write)
+            # Batch upsert -- 200 rows per DB transaction
+            if entries_to_write:
+                db.batch_upsert_cf_scores(entries_to_write)
 
-        # Step 6: prune entries not touched in this run (deleted / unmonitored)
-        pruned = db.prune_stale_cf_scores(instance_id, sync_started_at)
+            # Step 6: prune entries not touched in this run (deleted / unmonitored)
+            pruned = db.prune_stale_cf_scores(instance_id, sync_started_at)
 
-        # Mark sync complete for the ring chart
-        _write_sync_progress(instance_id, total_files, total_files, False)
+            # Mark sync complete for the ring chart
+            _write_sync_progress(instance_id, total_files, total_files, False)
 
-        logger.info(
-            "[CF Sync] Radarr:%s done -- eligible=%d written=%d skipped=%d pruned=%d",
-            name, len(movies), len(entries_to_write), skipped, pruned,
-        )
-        return {
-            "name": name,
-            "written": len(entries_to_write),
-            "skipped": skipped,
-            "pruned": pruned,
-        }
+            logger.info(
+                "[CF Sync] Radarr:%s done -- eligible=%d written=%d skipped=%d pruned=%d",
+                name, len(movies), len(entries_to_write), skipped, pruned,
+            )
+            return {
+                "name": name,
+                "written": len(entries_to_write),
+                "skipped": skipped,
+                "pruned": pruned,
+            }
+        except Exception:
+            # Ensure progress ring is not left frozen on exception
+            _write_sync_progress(instance_id, processed_files, total_files, False)
+            raise
 
     def _sync_sonarr_instance(
         self,
@@ -448,91 +453,98 @@ class CustomFormatScoreSyncer:
         _write_sync_progress(instance_id, 0, total_series, True)
 
         # Step 3: for each series, fetch episodes and episode files
-        for idx, series in enumerate(all_series):
-            series_id = series["id"]
-            profile_id = series.get("quality_profile_id", 0)
-            profile = profiles.get(profile_id)
+        current_idx = 0
+        try:
+            for idx, series in enumerate(all_series):
+                current_idx = idx
+                series_id = series["id"]
+                profile_id = series.get("quality_profile_id", 0)
+                profile = profiles.get(profile_id)
 
-            if not profile:
-                total_skipped += 1
-                continue
+                if not profile:
+                    total_skipped += 1
+                    continue
 
-            cutoff_score = profile.get("cutoffFormatScore", 0)
-            min_format_score = profile.get("minFormatScore", 0)
+                cutoff_score = profile.get("cutoffFormatScore", 0)
+                min_format_score = profile.get("minFormatScore", 0)
 
-            # Fetch episodes (for eligibility: monitored, hasFile)
-            episodes = cf_sonarr_get_episodes_for_series(session, url, key, series_id)
-            if not episodes:
-                # Delay even on empty to respect the API
+                # Fetch episodes (for eligibility: monitored, hasFile)
+                episodes = cf_sonarr_get_episodes_for_series(session, url, key, series_id)
+                if not episodes:
+                    # Delay even on empty to respect the API
+                    if idx < len(all_series) - 1:
+                        _random_delay()
+                    continue
+
+                # Fetch episode files (for customFormatScore)
+                ep_files = cf_sonarr_get_episode_files(session, url, key, series_id)
+                # Build a lookup: file_id -> customFormatScore
+                file_score_map: Dict[int, int] = {
+                    ef["file_id"]: ef["custom_format_score"] for ef in ep_files
+                }
+
+                for ep in episodes:
+                    file_id = ep.get("episode_file_id", 0)
+                    if not file_id:
+                        total_skipped += 1
+                        continue
+
+                    current_score = file_score_map.get(file_id, 0)
+                    gap = cutoff_score - current_score
+
+                    # Skip episodes where current score is below the minimum format
+                    # score floor -- Radarr/Sonarr won't grab anything below that floor
+                    if current_score < min_format_score:
+                        total_skipped += 1
+                        continue
+
+                    if gap <= 0:
+                        total_skipped += 1
+                        continue
+
+                    entries_to_write.append({
+                        "arr_instance_id": instance_id,
+                        "item_type": "episode",
+                        "external_item_id": ep["id"],
+                        "series_id": series_id,
+                        "file_id": file_id,
+                        "title": ep.get("title", series.get("title", "")),
+                        "current_score": current_score,
+                        "cutoff_score": cutoff_score,
+                        "quality_profile_id": profile_id,
+                        "quality_profile_name": profile.get("name", ""),
+                        "is_monitored": 1 if ep.get("monitored", True) else 0,
+                        "added_date": "",
+                    })
+
+                # Random delay between series -- avoids bursting Sonarr API
                 if idx < len(all_series) - 1:
                     _random_delay()
-                continue
 
-            # Fetch episode files (for customFormatScore)
-            ep_files = cf_sonarr_get_episode_files(session, url, key, series_id)
-            # Build a lookup: file_id -> customFormatScore
-            file_score_map: Dict[int, int] = {
-                ef["file_id"]: ef["custom_format_score"] for ef in ep_files
+                # Update progress after each series
+                _write_sync_progress(instance_id, idx + 1, total_series, True)
+
+            # Batch upsert -- 200 rows per DB transaction
+            if entries_to_write:
+                db.batch_upsert_cf_scores(entries_to_write)
+
+            # Step 4: prune entries not touched in this run
+            pruned = db.prune_stale_cf_scores(instance_id, sync_started_at)
+
+            # Mark sync complete for the ring chart
+            _write_sync_progress(instance_id, total_series, total_series, False)
+
+            logger.info(
+                "[CF Sync] Sonarr:%s done -- series=%d written=%d skipped=%d pruned=%d",
+                name, len(all_series), len(entries_to_write), total_skipped, pruned,
+            )
+            return {
+                "name": name,
+                "written": len(entries_to_write),
+                "skipped": total_skipped,
+                "pruned": pruned,
             }
-
-            for ep in episodes:
-                file_id = ep.get("episode_file_id", 0)
-                if not file_id:
-                    total_skipped += 1
-                    continue
-
-                current_score = file_score_map.get(file_id, 0)
-                gap = cutoff_score - current_score
-
-                # Skip episodes where current score is below the minimum format
-                # score floor -- Radarr/Sonarr won't grab anything below that floor
-                if current_score < min_format_score:
-                    total_skipped += 1
-                    continue
-
-                if gap <= 0:
-                    total_skipped += 1
-                    continue
-
-                entries_to_write.append({
-                    "arr_instance_id": instance_id,
-                    "item_type": "episode",
-                    "external_item_id": ep["id"],
-                    "series_id": series_id,
-                    "file_id": file_id,
-                    "title": ep.get("title", series.get("title", "")),
-                    "current_score": current_score,
-                    "cutoff_score": cutoff_score,
-                    "quality_profile_id": profile_id,
-                    "quality_profile_name": profile.get("name", ""),
-                    "is_monitored": 1 if ep.get("monitored", True) else 0,
-                    "added_date": "",
-                })
-
-            # Random delay between series -- avoids bursting Sonarr API
-            if idx < len(all_series) - 1:
-                _random_delay()
-
-            # Update progress after each series
-            _write_sync_progress(instance_id, idx + 1, total_series, True)
-
-        # Batch upsert -- 200 rows per DB transaction
-        if entries_to_write:
-            db.batch_upsert_cf_scores(entries_to_write)
-
-        # Step 4: prune entries not touched in this run
-        pruned = db.prune_stale_cf_scores(instance_id, sync_started_at)
-
-        # Mark sync complete for the ring chart
-        _write_sync_progress(instance_id, total_series, total_series, False)
-
-        logger.info(
-            "[CF Sync] Sonarr:%s done -- series=%d written=%d skipped=%d pruned=%d",
-            name, len(all_series), len(entries_to_write), total_skipped, pruned,
-        )
-        return {
-            "name": name,
-            "written": len(entries_to_write),
-            "skipped": total_skipped,
-            "pruned": pruned,
-        }
+        except Exception:
+            # Ensure progress ring is not left frozen on exception
+            _write_sync_progress(instance_id, current_idx, total_series, False)
+            raise

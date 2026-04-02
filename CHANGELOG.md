@@ -59,6 +59,8 @@ All notable changes to Nudgarr are documented here.
 - Scheduled CF Score syncs are now suppressed during the configured Maintenance Window, consistent with sweep suppression. Manual Scan Library always bypasses the window. Settings tab Maintenance Window help text updated to reflect this.
 - `cf_score_sync_cron` tooltip updated to mention Maintenance Window suppression and that manual Scan Library always runs regardless.
 
+- CF Score sync concurrency fix: a second scheduled cron fire while a sync was already running would start a concurrent sync, corrupting progress state and leaving coverage pills frozen mid-percentage. Fixed with `STATUS["cf_sync_in_progress"]` flag — the scheduler loop skips a scheduled fire if a sync is already running. Manual Scan Library also respects this flag. Progress rings now correctly clear on exception via `try/finally` in both Radarr and Sonarr instance sync methods.
+
 - CF Score tab stat cards (Items Indexed, Below CF Cutoff) removed — both always showed identical numbers since `cf_score_entries` only contains items below cutoff by design. The per-instance coverage list already surfaces this data accurately.
 - CF Score Save Changes failing with `cf_score_sync_hours must be an int >= 0` — old key was still present in the integer validation list and not stripped from incoming POST payloads. Fixed by removing from validation and adding to dead keys list so it is stripped before validation on both load and save.
 - CF Score settings card: spacing added between Sync Schedule and Per-Run Limits sections.

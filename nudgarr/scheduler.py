@@ -503,7 +503,12 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
                 logger.info("[CF Sync] Maintenance window active -- deferring sync run")
                 continue
 
+            if STATUS.get("cf_sync_in_progress", False):
+                logger.debug("[CF Sync] Sync already in progress -- skipping scheduled fire")
+                continue
+
             try:
+                STATUS["cf_sync_in_progress"] = True
                 logger.info("[CF Sync] Scheduled sync starting (cron: %s)", cron_expr)
                 syncer.run(cfg, session)
                 last_sync_dt = utcnow().replace(tzinfo=_dt.timezone.utc)
@@ -516,6 +521,8 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
                 logger.info("[CF Sync] Scheduled sync complete (cron: %s)", cron_expr)
             except Exception:
                 logger.exception("[CF Sync] Scheduled sync failed")
+            finally:
+                STATUS["cf_sync_in_progress"] = False
     finally:
         db.close_connection()
 

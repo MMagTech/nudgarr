@@ -56,7 +56,8 @@ All notable changes to Nudgarr are documented here.
 - Next Sync displayed in the CF Score tab right card alongside Last Synced, calculated from the cron expression and last sync time.
 - Coverage pills now color-coded: blue = sync in progress (with live percentage), green = 100% complete, muted dash = never synced.
 - Migration: existing `cf_score_sync_hours` values are automatically converted to an equivalent cron expression on first start after upgrade.
-- Startup log line confirms last sync time and next scheduled fire so users can verify the schedule is working correctly after a container restart.
+- Scheduled CF Score syncs are now suppressed during the configured Maintenance Window, consistent with sweep suppression. Manual Scan Library always bypasses the window. Settings tab Maintenance Window help text updated to reflect this.
+- `cf_score_sync_cron` tooltip updated to mention Maintenance Window suppression and that manual Scan Library always runs regardless.
 
 - CF Score tab stat cards (Items Indexed, Below CF Cutoff) removed — both always showed identical numbers since `cf_score_entries` only contains items below cutoff by design. The per-instance coverage list already surfaces this data accurately.
 - CF Score Save Changes failing with `cf_score_sync_hours must be an int >= 0` — old key was still present in the integer validation list and not stripped from incoming POST payloads. Fixed by removing from validation and adding to dead keys list so it is stripped before validation on both load and save.

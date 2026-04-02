@@ -499,6 +499,10 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
                 logger.info("[CF Sync] Sweep in progress -- deferring sync run")
                 continue
 
+            if _in_maintenance_window(cfg):
+                logger.info("[CF Sync] Maintenance window active -- deferring sync run")
+                continue
+
             try:
                 logger.info("[CF Sync] Scheduled sync starting (cron: %s)", cron_expr)
                 syncer.run(cfg, session)

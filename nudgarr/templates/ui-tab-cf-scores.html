@@ -16,7 +16,7 @@
         <div class="field">
           <div class="tooltip-wrap">
             <label>Cron Expression</label>
-            <span class="tooltip-icon tip-down">i<div class="tooltip-box">Schedule for automatic CF score index rebuilds. Uses standard 5-field cron syntax. Cron fires at fixed clock times — the TZ environment variable controls which timezone is used (defaults to UTC). Leave at the default to sync once daily at midnight.</div></span>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box">Schedule for automatic CF score index rebuilds. Uses standard 5-field cron syntax. Cron fires at fixed clock times — the TZ environment variable controls which timezone is used (defaults to UTC). Syncs are suppressed during the configured Maintenance Window. Manual Scan Library always runs regardless.</div></span>
             <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-lt);opacity:0.7;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;margin-left:8px;">cron generator ↗</a>
           </div>
           <input id="cfSyncCron" type="text" placeholder="0 0 * * *" oninput="markUnsaved('cfMsg'); validateCfCronExpr()"/>

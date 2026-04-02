@@ -69,8 +69,9 @@ nudgarr/                    ← Python package
                               cf_score_sync_loop runs on its own cron schedule (cf_score_sync_cron,
                               default "0 0 * * *"). Persists last sync time to nudgarr_state so
                               container restarts respect the schedule. Triggers an immediate sync when
-                              CF Score is first enabled. Writes cf_last_sync_utc and cf_next_sync_utc
-                              to STATUS for the CF Score tab UI.
+                              CF Score is first enabled. Respects the Maintenance Window for scheduled
+                              syncs — manual Scan Library always bypasses it. Writes cf_last_sync_utc
+                              and cf_next_sync_utc to STATUS for the CF Score tab UI.
   routes/                   ← Flask blueprints (one file per domain)
     __init__.py             ← register_blueprints() — called once from main.py
     auth.py                 ← /, /login, /setup, /api/auth/*, /api/setup;

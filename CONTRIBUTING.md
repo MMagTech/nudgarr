@@ -111,21 +111,14 @@ nudgarr/                    ← Python package
                               detects changes to excluded_tags or excluded_profiles and shows the CF
                               filter sync warning modal when CF Score is enabled; closeCfFilterSyncModal()
                               and syncCfIndexFromModal() handlers also live here
-    ui-mobile-core.js              ← shared mobile helpers, mSaveCfgKeys, poll cycle, bridge functions
-    ui-mobile-landscape.js         ← landscape Overrides rail/panel — lsOv* functions; panel layout matches desktop (Cooldown, Cutoff Unmet, Backlog with Backlog Sample Mode + Grace Period, Notifications); backlog fields grey when backlog is off
-    ui-mobile-landscape-filters.js ← landscape Filters rail/panel — lsFilters* functions
-    ui-mobile-landscape-exec.js    ← landscape Backlog and Execution tabs — ls* functions, LS_* state; backlog sample mode selects (lsSaveBacklogSampleMode), Grace Period steppers (r-grace, s-grace), Maintenance Window band (lsToggleMaint, lsSaveMaintTime, lsToggleMaintDay, lsSyncMaintUi, lsBuildMaintHint), switchToMobileView()
-    ui-mobile-portrait-home.js     ← portrait Home, Instances, and Sweep tabs; mToggleAuto and mToggleMaintWindow live here
-    ui-mobile-portrait-history.js  ← portrait History tab and Imports sheet
-    ui-mobile-portrait-settings.js ← portrait Settings tab
-    ui-mobile-portrait.js          ← portrait tab switcher, swipe gesture, mobile init block
-    ui.css                         ← desktop styles
-    ui-mobile.css                  ← portrait mobile styles
-    ui-landscape.css               ← landscape styles
+    ui.css                         ← all desktop styles; never modified for responsive behaviour
+    ui-responsive.css              ← sole responsive surface; pure @media blocks only; loaded after ui.css.
+                                     Two breakpoints (720px, 480px) plus a phone landscape orientation query.
+                                     Never add responsive rules to ui.css — add them here instead.
   templates/                ← HTML served by Flask render_template()
     login.html              ← login page
     setup.html              ← first-run setup page
-    ui.html                 ← 61-line shell — loads CSS, includes partials, loads JS
+    ui.html                 ← shell — loads CSS, includes partials, loads JS
     ui-header.html          ← header bar and status bar
     ui-nav.html             ← desktop tab navigation
     ui-tab-instances.html   ← Instances tab section
@@ -138,8 +131,7 @@ nudgarr/                    ← Python package
     ui-tab-notifications.html ← Notifications tab section
     ui-tab-advanced.html    ← Advanced tab section
     ui-tab-overrides.html   ← Overrides tab section
-    ui-modals.html          ← all desktop modals
-    ui-mobile.html          ← entire landscape/mobile UI block
+    ui-modals.html          ← all modals
 main.py                     ← entry point: signals (SIGTERM/SIGINT via threading.Event), startup ping, thread launch and join
 nudgarr.py                  ← compatibility shim for source runners (deprecated)
 validate.py                 ← pre-package static analysis tool
@@ -395,7 +387,7 @@ pytest tests/test_frontend_structure.py -v
 
 The test suite must pass at exactly the expected check count. If you add or remove files, functions, or validate.py checks, update `EXPECTED_CHECK_COUNT` and `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` accordingly.
 
-The current expected check count is **363** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks — which happens when you add new static files, new route files, or new required element IDs — update this constant or the test will fail with a count mismatch even though validate.py itself passes.
+The current expected check count is **298** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks — which happens when you add new static files, new route files, or new required element IDs — update this constant or the test will fail with a count mismatch even though validate.py itself passes.
 
 `LINE_COUNT_CEILINGS` in `tests/test_frontend_structure.py` sets a per-file line ceiling for every JS file. If you add code to an existing file and push it over its ceiling, the structural test will fail. Raise the ceiling deliberately in the same commit rather than working around it.
 

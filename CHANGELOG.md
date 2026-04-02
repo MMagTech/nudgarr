@@ -48,7 +48,42 @@ All notable changes to Nudgarr are documented here.
 - Sample Mode help text shortened to single line across Settings and Advanced — "Pick order for Cutoff Unmet Radarr/Sonarr items" and "Pick order for missing Radarr/Sonarr items".
 - All "0 Disables" and "0 = Disabled" wording replaced with "0 = Off", "0 = Keep Forever", "0 = No Grace Period", "0 = No Cooldown", or "0 = No Age Filter" as appropriate throughout Advanced and Settings tabs.
 
-**CF Score Scan**
+**Bug Fixes (post-release)**
+
+- Migration v12 (`cf_score_import_count`) crashed on fresh install container restart with `sqlite3.OperationalError: duplicate column name`. Fresh installs already have the column via `_SCHEMA_SQL` so the `ALTER TABLE` failed before the migration record was written, causing it to re-fail on every restart. Fixed with a `PRAGMA table_info` check before the `ALTER` — the migration record is now always written whether or not the column was added.
+- Turnaround column tooltip in the Imports table was rendering as a single line extending off the right edge of the screen on desktop. Root cause: the `th` element has `white-space: nowrap` which cascaded into the tooltip box. Tooltip removed entirely — the column label is self-explanatory.
+- Confirmed tooltip on the Imports stat card was opening rightward and overlapping the tab bar. Changed to `tip-down`.
+- Tooltip `z-index` raised from 200 to 201 — previously equal to the sticky header's `z-index: 200`, causing tooltips in the top card of any tab to render behind the sticky header on desktop.
+- Tooltip direction classes audited across all tabs. Right-column and right-card tooltips in Settings and Advanced were opening rightward and overflowing the viewport on desktop. Changed to `tip-left` where appropriate, `tip-down` for the Backlog Nudges card (first card, closest to sticky header).
+
+**UI Text Polish**
+
+- Settings — Maintenance Window help: `Scheduled sweep suppression. Manual runs are not affected.` shortened to `Manual runs are not affected.`
+- Settings — Cooldown help: `Minimum hours before the same movie or episode can be searched again (0 = No Cooldown)` shortened to `Minimum hours before an item can be searched again (0 = No Cooldown)`. JS constant `_COOLDOWN_HELP_DEFAULT` updated to match.
+- Settings — Cutoff Unmet card: added `Finds and searches cutoff unmet titles from your library.` helper text beneath the heading, matching the Backlog Nudges reference style in Advanced.
+- Settings — Max (Per Instance) help under Cutoff Unmet: `Maximum Cutoff Unmet movies/episodes nudged per instance per run (0 = All Eligible)` collapsed to `0 = All Eligible`.
+- Notifications — Auto-exclusion event help: shortened to `Fires on auto-exclusion when the search threshold is reached with no import`.
+- Advanced — Auto-exclusion section description: shortened to `Auto-exclude titles repeatedly searched with no confirmed import. Exclusion thresholds are global and apply across all instances by title.`
+- Advanced — Session Timeout and Show Support Link fields: `margin-top: 12px` added for breathing room.
+- Advanced — Require Login: tooltip added summarising local-network scope, password hashing, and remote access guidance.
+- Advanced — Danger Zone header: `margin-bottom` corrected from 4px to 10px so the button rows align with Support & Diagnostics.
+
+**Mobile Responsive**
+
+- `html { overflow-x: hidden }` added globally to prevent Safari from auto-zooming the page when any element briefly exceeds the viewport width.
+- Settings tab: `sched-row` class added to both `flex-wrap: nowrap` rows in the Scheduler card. At 720px they wrap so the Cron Expression and Maintenance Window fields don't overflow on narrow viewports.
+- History and Imports tabs: `.tab-filter-controls` class added to the filter wrapper div. At 720px the controls go full-width, `margin-left: auto` is removed, dropdowns wrap two-per-row, and search input takes the full width of the third row.
+- Sweep grid: `1fr` column changed to `minmax(0, 1fr)` at 720px to prevent grid cells expanding beyond the viewport when inner content is wide.
+- Sweep cards: `min-width: 0; overflow-x: auto` at 480px (portrait) and in the landscape orientation query so per-instance stat rows scroll within each card rather than overflowing.
+- Sweep tab in landscape: grid stacks to single column so each card gets the full viewport width with content scrollable horizontally within the card.
+- Import stat cards: reordered in portrait (480px) using CSS `order` — Confirmed card goes full-width on top, Movies and Episodes sit side by side below. HTML and JS references unchanged.
+- Imports table: `width: auto` override added at 720px to counter `ui.css` global `table { width: 100% }` which was causing the 8-column table to squish into the wrapper width and produce phantom horizontal scroll space. `min-width: 760px` floors the table at a size that fits all columns. `position: sticky` removed from the imports table first column — applying sticky inside `overflow-x: auto` causes Safari to add phantom scroll space equal to the viewport width after the last column.
+- Imports table first column: `white-space: normal; word-break: break-word; min-width: 130px; max-width: 160px` allows long titles to wrap to two lines on mobile.
+- Tooltip boxes: all tooltips override to open downward (`top: calc(100% + 3px)`) on portrait (480px) and landscape phone viewports — downward is the only direction guaranteed to have space when cards stack full-width. Width reduced to 220px and `white-space: normal` enforced so text wraps correctly inside the box.
+- Tab bar in landscape: `flex-wrap: nowrap; overflow-x: auto` at `orientation: landscape` and `max-height: 500px` keeps all tabs on a single scrollable line. Targets phones only — tablets and desktops in landscape are taller than 500px.
+- CF Score filter controls: `min-width` constraints shed at 720px so filter dropdowns don't overflow on narrow viewports.
+
+
 
 - New third search pipeline that finds monitored files where `customFormatScore` is below the quality profile's `cutoffFormatScore`. Completely independent of the quality tier — scans all monitored files with `hasFile=true` and `isAvailable=true` (Radarr) regardless of `qualityCutoffNotMet` status. A movie at 720p with a low CF score is just as eligible as a movie at Bluray-1080p with a low CF score.
 - Enable in Advanced > Pipelines to unlock the CF Score tab. Feature is fully dormant when disabled — no background work runs.

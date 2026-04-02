@@ -1,6 +1,8 @@
 # Changelog
 
+
 All notable changes to Nudgarr are documented here.
+
 
 ---
 

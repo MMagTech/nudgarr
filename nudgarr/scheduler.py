@@ -429,11 +429,9 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
         try:
             cfg_startup = load_or_init_config()
             cron_startup = cfg_startup.get("cf_score_sync_cron") or _DEFAULT_CRON
-            cron_obj = croniter(cron_startup, last_sync_dt)
-            next_startup = cron_obj.get_next(_dt.datetime)
-            if next_startup.tzinfo is None:
-                next_startup = next_startup.replace(tzinfo=_dt.timezone.utc)
-            STATUS["cf_next_sync_utc"] = iso_z(next_startup)
+            next_startup_str = _next_cron_utc(cron_startup)
+            STATUS["cf_next_sync_utc"] = next_startup_str
+            next_startup = _dt.datetime.fromisoformat(next_startup_str.replace("Z", "+00:00"))
             now_aware = utcnow().replace(tzinfo=_dt.timezone.utc)
             remaining = next_startup - now_aware
             hours_r, rem_r = divmod(max(0, int(remaining.total_seconds())), 3600)
@@ -462,26 +460,26 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
             now = utcnow()
             now_aware = now.replace(tzinfo=_dt.timezone.utc)
 
-            # Calculate next fire time from cron
+            # Calculate next fire time from cron — TZ-aware via _next_cron_utc
             try:
-                cron = croniter(cron_expr, last_sync_dt or (now - _dt.timedelta(days=1)))
-                next_fire = cron.get_next(_dt.datetime)
-                if next_fire.tzinfo is None:
-                    next_fire = next_fire.replace(tzinfo=_dt.timezone.utc)
+                next_fire_str = _next_cron_utc(cron_expr)
+                next_fire = _dt.datetime.fromisoformat(
+                    next_fire_str.replace("Z", "+00:00")
+                )
             except Exception:
                 logger.warning("[CF Sync] Invalid cron expression '%s' -- using default", cron_expr)
                 cron_expr = _DEFAULT_CRON
-                cron = croniter(cron_expr, last_sync_dt or (now - _dt.timedelta(days=1)))
-                next_fire = cron.get_next(_dt.datetime)
-                if next_fire.tzinfo is None:
-                    next_fire = next_fire.replace(tzinfo=_dt.timezone.utc)
+                next_fire_str = _next_cron_utc(cron_expr)
+                next_fire = _dt.datetime.fromisoformat(
+                    next_fire_str.replace("Z", "+00:00")
+                )
 
             # Write next sync time to STATUS for UI display
             STATUS["cf_next_sync_utc"] = iso_z(next_fire)
 
             # Determine if we should sync
             first_enable = enabled and not was_enabled
-            cron_fired = last_sync_dt is None or now_aware >= next_fire
+            cron_fired = last_sync_dt is None or _cron_due(cron_expr)
 
             if first_enable:
                 logger.info("[CF Sync] CF Score enabled -- triggering immediate sync")
@@ -510,11 +508,8 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
                 db.set_state(_CF_LAST_SYNC_KEY, iso_z(last_sync_dt))
                 STATUS["cf_last_sync_utc"] = iso_z(last_sync_dt)
                 # Recalculate and store next fire time
-                cron2 = croniter(cron_expr, last_sync_dt)
-                next2 = cron2.get_next(_dt.datetime)
-                if next2.tzinfo is None:
-                    next2 = next2.replace(tzinfo=_dt.timezone.utc)
-                STATUS["cf_next_sync_utc"] = iso_z(next2)
+                next2_str = _next_cron_utc(cron_expr)
+                STATUS["cf_next_sync_utc"] = next2_str
                 logger.info("[CF Sync] Scheduled sync complete (cron: %s)", cron_expr)
             except Exception:
                 logger.exception("[CF Sync] Scheduled sync failed")

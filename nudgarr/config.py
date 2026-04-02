@@ -80,7 +80,6 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "auto_exclude_shows_threshold",
         "auto_unexclude_movies_days",
         "auto_unexclude_shows_days",
-        "cf_score_sync_hours",
         "radarr_cf_max_per_run",
         "sonarr_cf_max_per_run",
     ):
@@ -250,6 +249,7 @@ def load_or_init_config() -> Dict[str, Any]:
         "per_instance_overrides_seen_mobile",
         "notify_on_queue_threshold",
         "dry_run",
+        "cf_score_sync_hours",
     ):
         if dead_key in merged:
             merged.pop(dead_key)

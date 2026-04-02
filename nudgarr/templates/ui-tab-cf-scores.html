@@ -1,25 +1,6 @@
 <!-- ══════════════════════════════ CF SCORE ══════════════════════════════ -->
   <div class="section" id="tab-cf-scores">
 
-    <!-- ── Stat cards: single row of three ── -->
-    <div class="grid cols3" style="margin-bottom:12px;">
-      <div class="card" style="display:flex;flex-direction:column;gap:6px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);">Items Indexed</div>
-        <div id="cfStatIndexed" style="font-size:28px;font-weight:800;line-height:1;color:var(--accent-lt);">—</div>
-        <div id="cfStatIndexedSub" class="help" style="margin:0;"></div>
-      </div>
-      <div class="card" style="display:flex;flex-direction:column;gap:6px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);">Below CF Cutoff</div>
-        <div id="cfStatBelow" style="font-size:28px;font-weight:800;line-height:1;color:var(--bad);">—</div>
-        <div class="help" style="margin:0;">Score below cutoff, eligible for sweep</div>
-      </div>
-      <div class="card" style="display:flex;flex-direction:column;gap:6px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);">Passing</div>
-        <div id="cfStatPassing" style="font-size:28px;font-weight:800;line-height:1;color:var(--ok);">—</div>
-        <div id="cfStatPassingPct" class="help" style="margin:0;"></div>
-      </div>
-    </div>
-
     <!-- ── Config + Coverage ── -->
     <div class="grid cols2">
 
@@ -42,7 +23,7 @@
           <div class="cron-hint-line" id="cfCronHintLine"></div>
         </div>
 
-        <div class="section-lbl">Per-Run Limits</div>
+        <div class="section-lbl" style="margin-top:16px">Per-Run Limits</div>
         <div class="field">
           <div class="tooltip-wrap">
             <label>Radarr Max Searches (Per Run)</label>

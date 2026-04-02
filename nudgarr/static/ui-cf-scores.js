@@ -24,7 +24,6 @@ async function fillCfScores() {
       api('/api/cf-scores/status'),
       api(entriesUrl),
     ]);
-    cfRenderStats(status);
     cfRenderCoverage(status);
     cfPopulateInstanceDropdown(status);
     cfRenderTable(entries);
@@ -112,36 +111,6 @@ async function cfFilterEntries(instanceId) {
   } catch(e) {
     console.error('[CF Score] cfFilterEntries failed:', e.message);
   }
-}
-
-
-// ── cfRenderStats ──────────────────────────────────────────────────────────────
-function cfRenderStats(status) {
-  const stats = status?.stats || {};
-  const indexed = stats.total_indexed ?? 0;
-  const below = stats.below_cutoff ?? 0;
-  const passing = stats.passing ?? 0;
-  const instances = status?.instances || [];
-
-  const indexedEl = el('cfStatIndexed');
-  const belowEl = el('cfStatBelow');
-  const passingEl = el('cfStatPassing');
-  const indexedSub = el('cfStatIndexedSub');
-  const passingPct = el('cfStatPassingPct');
-
-  if (indexedEl) indexedEl.textContent = indexed.toLocaleString();
-  if (belowEl) belowEl.textContent = below.toLocaleString();
-  if (passingEl) passingEl.textContent = passing.toLocaleString();
-  if (indexedSub) {
-    const n = instances.length;
-    indexedSub.textContent = n > 0 ? `across ${n} instance${n !== 1 ? 's' : ''}` : '';
-  }
-  if (passingPct) {
-    passingPct.textContent = indexed > 0
-      ? `${Math.round((passing / indexed) * 100)}% of indexed library`
-      : '';
-  }
-  if (belowEl) belowEl.style.color = below > 0 ? 'var(--bad)' : 'var(--muted)';
 }
 
 

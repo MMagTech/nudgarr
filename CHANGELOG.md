@@ -58,6 +58,10 @@ All notable changes to Nudgarr are documented here.
 - Migration: existing `cf_score_sync_hours` values are automatically converted to an equivalent cron expression on first start after upgrade.
 - Startup log line confirms last sync time and next scheduled fire so users can verify the schedule is working correctly after a container restart.
 
+- CF Score tab stat cards (Items Indexed, Below CF Cutoff) removed — both always showed identical numbers since `cf_score_entries` only contains items below cutoff by design. The per-instance coverage list already surfaces this data accurately.
+- CF Score Save Changes failing with `cf_score_sync_hours must be an int >= 0` — old key was still present in the integer validation list and not stripped from incoming POST payloads. Fixed by removing from validation and adding to dead keys list so it is stripped before validation on both load and save.
+- CF Score settings card: spacing added between Sync Schedule and Per-Run Limits sections.
+
 **Bug Fixes (post-release)**
 
 - Migration v12 (`cf_score_import_count`) crashed on fresh install container restart with `sqlite3.OperationalError: duplicate column name`. Fresh installs already have the column via `_SCHEMA_SQL` so the `ALTER TABLE` failed before the migration record was written, causing it to re-fail on every restart. Fixed with a `PRAGMA table_info` check before the `ALTER` — the migration record is now always written whether or not the column was added.

@@ -409,7 +409,6 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
     manual-only mode still get CF score index updates on schedule.
     """
     _CF_LAST_SYNC_KEY = "cf_last_sync_utc"
-    _CF_NEXT_SYNC_KEY = "cf_next_sync_utc"
     _DEFAULT_CRON = "0 0 * * *"
 
     session = requests.Session()

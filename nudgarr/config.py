@@ -46,6 +46,15 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         if len(parts) != 5:
             errs.append("cron_expression must be a valid 5-field cron string")
 
+    cf_cron = cfg.get("cf_score_sync_cron")
+    if cf_cron is not None:
+        if not isinstance(cf_cron, str):
+            errs.append("cf_score_sync_cron must be a string")
+        else:
+            parts = cf_cron.strip().split()
+            if len(parts) != 5:
+                errs.append("cf_score_sync_cron must be a valid 5-field cron string")
+
     for mode_key in ("radarr_sample_mode", "sonarr_sample_mode"):
         if cfg.get(mode_key) not in VALID_SAMPLE_MODES:
             errs.append(f"{mode_key} must be one of {VALID_SAMPLE_MODES}")
@@ -245,6 +254,28 @@ def load_or_init_config() -> Dict[str, Any]:
         if dead_key in merged:
             merged.pop(dead_key)
             logger.info("Migration: removed dead config key '%s'.", dead_key)
+
+    # Migration (v4.2.0): cf_score_sync_hours replaced by cf_score_sync_cron.
+    # Convert existing hours value to the nearest cron equivalent so users who
+    # had a custom interval don't silently fall back to the midnight default.
+    if "cf_score_sync_hours" in merged and "cf_score_sync_cron" not in cfg:
+        hours = int(merged.get("cf_score_sync_hours", 24))
+        if hours <= 0:
+            hours = 24
+        if hours == 1:
+            cron = "0 * * * *"
+        elif hours == 24:
+            cron = "0 0 * * *"
+        elif 24 % hours == 0:
+            cron = f"0 */{hours} * * *"
+        else:
+            cron = f"0 */{hours} * * *"
+        merged["cf_score_sync_cron"] = cron
+        logger.info(
+            "Migration: cf_score_sync_hours=%d converted to cf_score_sync_cron='%s'.",
+            hours, cron,
+        )
+    merged.pop("cf_score_sync_hours", None)
 
     ok, errs = validate_config(merged)
     if not ok:

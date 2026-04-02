@@ -108,7 +108,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # own schedule; the sweep OR-conditions against it. Feature is fully dormant
     # until cf_score_enabled is set to True — no background work runs otherwise.
     "cf_score_enabled": False,        # master toggle — disables all CF score activity when False
-    "cf_score_sync_hours": 24,        # hours between automatic index re-syncs
+    "cf_score_sync_cron": "0 0 * * *",  # cron schedule for automatic index re-syncs (default: midnight daily)
     "radarr_cf_max_per_run": 1,       # max CF-score-only Radarr items searched per sweep
     "sonarr_cf_max_per_run": 1,       # max CF-score-only Sonarr items searched per sweep
 

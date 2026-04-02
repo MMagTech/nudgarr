@@ -389,21 +389,61 @@ def _in_maintenance_window(cfg: Dict[str, Any]) -> bool:
 def cf_score_sync_loop(shutdown: threading.Event) -> None:
     """Background CF score sync loop running in its own daemon thread.
 
-    Wakes every 60 seconds to check whether cf_score_sync_hours hours have
-    elapsed since the last sync.  Skips the run entirely if:
+    Wakes every 60 seconds to check whether the configured cron expression
+    has fired since the last sync.  Skips the run entirely if:
       - cf_score_enabled is False
       - A sweep is currently in progress (defers to avoid simultaneous load)
 
+    Last sync time is persisted to nudgarr_state so container restarts do not
+    trigger an immediate re-sync if the cron has not fired since the last run.
+
+    On first enable (cf_score_enabled transitions False -> True) an immediate
+    sync is triggered so the CF Score tab populates without waiting for the
+    next cron fire.
+
     The syncer is the sole writer of cf_score_entries.  This loop owns the
-    scheduled runs; the manual Scan Library button triggers runs via the
-    /api/cf-scores/scan route independently.
+    scheduled runs; the manual Scan Library button and the filter-change popup
+    trigger runs via the /api/cf-scores/scan route independently.
 
     Intentionally runs even when the main scheduler is disabled so users in
     manual-only mode still get CF score index updates on schedule.
     """
+    _CF_LAST_SYNC_KEY = "cf_last_sync_utc"
+    _CF_NEXT_SYNC_KEY = "cf_next_sync_utc"
+    _DEFAULT_CRON = "0 0 * * *"
+
     session = requests.Session()
     syncer = CustomFormatScoreSyncer()
-    last_sync_ts = None  # None means never synced -- run immediately on first wake
+    was_enabled = False  # track enable/disable transitions for first-enable detection
+
+    # Restore last sync time from DB so restarts respect the cron schedule
+    try:
+        stored = db.get_state(_CF_LAST_SYNC_KEY)
+        last_sync_dt = _dt.datetime.fromisoformat(stored.replace("Z", "+00:00")) if stored else None
+    except Exception:
+        last_sync_dt = None
+
+    # Populate STATUS on startup so the UI shows correct last/next sync immediately
+    if last_sync_dt:
+        STATUS["cf_last_sync_utc"] = iso_z(last_sync_dt)
+        try:
+            cfg_startup = load_or_init_config()
+            cron_startup = cfg_startup.get("cf_score_sync_cron") or _DEFAULT_CRON
+            cron_obj = croniter(cron_startup, last_sync_dt)
+            next_startup = cron_obj.get_next(_dt.datetime)
+            if next_startup.tzinfo is None:
+                next_startup = next_startup.replace(tzinfo=_dt.timezone.utc)
+            STATUS["cf_next_sync_utc"] = iso_z(next_startup)
+            now_aware = utcnow().replace(tzinfo=_dt.timezone.utc)
+            remaining = next_startup - now_aware
+            hours_r, rem_r = divmod(max(0, int(remaining.total_seconds())), 3600)
+            mins_r = rem_r // 60
+            logger.info(
+                "[CF Sync] Last sync: %s -- next scheduled in %dh %dm (cron: %s)",
+                iso_z(last_sync_dt), hours_r, mins_r, cron_startup,
+            )
+        except Exception:
+            logger.debug("[CF Sync] Could not calculate next sync time on startup")
 
     try:
         while not shutdown.is_set():
@@ -412,36 +452,70 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
                 break
 
             cfg = load_or_init_config()
+            enabled = bool(cfg.get("cf_score_enabled", False))
 
-            if not cfg.get("cf_score_enabled", False):
-                # Feature is off -- reset last_sync_ts so a sync runs
-                # immediately if the feature is later re-enabled
-                last_sync_ts = None
+            if not enabled:
+                was_enabled = False
                 continue
 
-            sync_hours = int(cfg.get("cf_score_sync_hours", 24))
-            if sync_hours < 1:
-                sync_hours = 1
-
+            cron_expr = cfg.get("cf_score_sync_cron") or _DEFAULT_CRON
             now = utcnow()
-            should_sync = False
+            now_aware = now.replace(tzinfo=_dt.timezone.utc)
 
-            if last_sync_ts is None:
-                # First run since startup (or after re-enable) -- sync now
-                should_sync = True
-            else:
-                elapsed_hours = (now - last_sync_ts).total_seconds() / 3600
-                if elapsed_hours >= sync_hours:
-                    should_sync = True
+            # Calculate next fire time from cron
+            try:
+                cron = croniter(cron_expr, last_sync_dt or (now - _dt.timedelta(days=1)))
+                next_fire = cron.get_next(_dt.datetime)
+                if next_fire.tzinfo is None:
+                    next_fire = next_fire.replace(tzinfo=_dt.timezone.utc)
+            except Exception:
+                logger.warning("[CF Sync] Invalid cron expression '%s' -- using default", cron_expr)
+                cron_expr = _DEFAULT_CRON
+                cron = croniter(cron_expr, last_sync_dt or (now - _dt.timedelta(days=1)))
+                next_fire = cron.get_next(_dt.datetime)
+                if next_fire.tzinfo is None:
+                    next_fire = next_fire.replace(tzinfo=_dt.timezone.utc)
 
-            if not should_sync:
+            # Write next sync time to STATUS for UI display
+            STATUS["cf_next_sync_utc"] = iso_z(next_fire)
+
+            # Determine if we should sync
+            first_enable = enabled and not was_enabled
+            cron_fired = last_sync_dt is None or now_aware >= next_fire
+
+            if first_enable:
+                logger.info("[CF Sync] CF Score enabled -- triggering immediate sync")
+            elif not cron_fired:
+                remaining = next_fire - now_aware
+                hours, rem = divmod(int(remaining.total_seconds()), 3600)
+                mins = rem // 60
+                logger.debug(
+                    "[CF Sync] Next scheduled sync in %dh %dm (cron: %s) -- skipping",
+                    hours, mins, cron_expr,
+                )
+                was_enabled = True
+                continue
+
+            was_enabled = True
+
+            if STATUS.get("run_in_progress", False):
+                logger.info("[CF Sync] Sweep in progress -- deferring sync run")
                 continue
 
             try:
-                logger.info("[CF Sync] Scheduled sync starting")
+                logger.info("[CF Sync] Scheduled sync starting (cron: %s)", cron_expr)
                 syncer.run(cfg, session)
-                last_sync_ts = utcnow()
-                logger.info("[CF Sync] Scheduled sync complete")
+                last_sync_dt = utcnow().replace(tzinfo=_dt.timezone.utc)
+                # Persist to DB so restarts respect the schedule
+                db.set_state(_CF_LAST_SYNC_KEY, iso_z(last_sync_dt))
+                STATUS["cf_last_sync_utc"] = iso_z(last_sync_dt)
+                # Recalculate and store next fire time
+                cron2 = croniter(cron_expr, last_sync_dt)
+                next2 = cron2.get_next(_dt.datetime)
+                if next2.tzinfo is None:
+                    next2 = next2.replace(tzinfo=_dt.timezone.utc)
+                STATUS["cf_next_sync_utc"] = iso_z(next2)
+                logger.info("[CF Sync] Scheduled sync complete (cron: %s)", cron_expr)
             except Exception:
                 logger.exception("[CF Sync] Scheduled sync failed")
     finally:

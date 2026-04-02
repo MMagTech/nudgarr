@@ -48,6 +48,16 @@ All notable changes to Nudgarr are documented here.
 - Sample Mode help text shortened to single line across Settings and Advanced — "Pick order for Cutoff Unmet Radarr/Sonarr items" and "Pick order for missing Radarr/Sonarr items".
 - All "0 Disables" and "0 = Disabled" wording replaced with "0 = Off", "0 = Keep Forever", "0 = No Grace Period", "0 = No Cooldown", or "0 = No Age Filter" as appropriate throughout Advanced and Settings tabs.
 
+**CF Score Sync — Cron Schedule and Persistence**
+
+- `cf_score_sync_hours` replaced by `cf_score_sync_cron` (default `0 0 * * *` — midnight daily). Full cron expression gives users precise control to avoid conflicts with other scheduled tasks. Same cron infrastructure and UI pattern as the sweep scheduler.
+- Last sync time persisted to `nudgarr_state` DB (`cf_last_sync_utc`). Container restarts now correctly respect the cron schedule rather than triggering an immediate re-sync. Next scheduled fire is calculated on startup and logged.
+- Enabling CF Score for the first time triggers an immediate sync so the CF Score tab populates without waiting for the next cron fire.
+- Next Sync displayed in the CF Score tab right card alongside Last Synced, calculated from the cron expression and last sync time.
+- Coverage pills now color-coded: blue = sync in progress (with live percentage), green = 100% complete, muted dash = never synced.
+- Migration: existing `cf_score_sync_hours` values are automatically converted to an equivalent cron expression on first start after upgrade.
+- Startup log line confirms last sync time and next scheduled fire so users can verify the schedule is working correctly after a container restart.
+
 **Bug Fixes (post-release)**
 
 - Migration v12 (`cf_score_import_count`) crashed on fresh install container restart with `sqlite3.OperationalError: duplicate column name`. Fresh installs already have the column via `_SCHEMA_SQL` so the `ALTER TABLE` failed before the migration record was written, causing it to re-fail on every restart. Fixed with a `PRAGMA table_info` check before the `ALTER` — the migration record is now always written whether or not the column was added.

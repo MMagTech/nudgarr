@@ -34,10 +34,12 @@
         <div class="section-lbl">Sync Schedule</div>
         <div class="field">
           <div class="tooltip-wrap">
-            <label>Sync Interval (Hours)</label>
-            <span class="tooltip-icon">i<div class="tooltip-box">How often Nudgarr rebuilds the CF score index across all instances. A full library pass runs at this interval in the background. Minimum 1 hour.</div></span>
+            <label>Cron Expression</label>
+            <span class="tooltip-icon tip-down">i<div class="tooltip-box">Schedule for automatic CF score index rebuilds. Uses standard 5-field cron syntax. Cron fires at fixed clock times — the TZ environment variable controls which timezone is used (defaults to UTC). Leave at the default to sync once daily at midnight.</div></span>
+            <a href="https://crontab.guru" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-lt);opacity:0.7;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;margin-left:8px;">cron generator ↗</a>
           </div>
-          <input id="cfSyncHours" type="number" min="1" oninput="markUnsaved('cfMsg')"/>
+          <input id="cfSyncCron" type="text" placeholder="0 0 * * *" oninput="markUnsaved('cfMsg'); validateCfCronExpr()"/>
+          <div class="cron-hint-line" id="cfCronHintLine"></div>
         </div>
 
         <div class="section-lbl">Per-Run Limits</div>
@@ -65,11 +67,17 @@
       <!-- Right: Last synced + Scan Library + Coverage + Reset -->
       <div class="card" style="display:flex;flex-direction:column;">
 
-        <!-- Last synced + Scan Library at top -->
+        <!-- Last synced + Next sync + Scan Library at top -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div id="cfLastSynced" style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
-            <span id="cfLastSyncedDot" style="width:5px;height:5px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0;"></span>
-            <span id="cfLastSyncedText">Never synced</span>
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <div id="cfLastSynced" style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+              <span id="cfLastSyncedDot" style="width:5px;height:5px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0;"></span>
+              <span id="cfLastSyncedText">Never synced</span>
+            </div>
+            <div id="cfNextSync" style="font-size:11px;color:var(--accent-lt);display:flex;align-items:center;gap:6px;">
+              <span style="width:5px;height:5px;border-radius:50%;background:var(--accent-lt);display:inline-block;flex-shrink:0;"></span>
+              <span id="cfNextSyncText">Next sync: —</span>
+            </div>
           </div>
           <button class="btn run-now" id="cfScanBtn" onclick="cfScanLibrary()">Scan Library</button>
         </div>

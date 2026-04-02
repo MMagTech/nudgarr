@@ -114,6 +114,8 @@ def api_cf_scores_status():
             "stats": stats,
             "instances": enriched_instances,
             "scan_in_progress": _scan_lock.locked(),
+            "last_sync_at": STATUS.get("cf_last_sync_utc"),
+            "next_sync_at": STATUS.get("cf_next_sync_utc"),
         })
     except Exception:
         logger.exception("[CF Scores] GET /api/cf-scores/status failed")

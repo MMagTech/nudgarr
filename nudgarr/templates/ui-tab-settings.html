@@ -13,7 +13,7 @@
             <span style="font-size:13px; font-weight:600; color:var(--text-dim)">Scheduling Mode</span>
             <span id="cronContainerTime" style="font-size:11px; color:var(--muted);"></span>
             <div class="tooltip-wrap">
-              <span class="tooltip-icon">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
+              <span class="tooltip-icon tip-down">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span>
             </div>
           </div>
         </div>
@@ -133,7 +133,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.</div></span>
             </div>
             <select id="radarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
@@ -168,7 +168,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
             </div>
             <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
@@ -197,7 +197,7 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sleep Seconds</label>
-              <span class="tooltip-icon">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep. A sleep of 5 seconds with a batch size of 1 means one search every 5 seconds. Lowering this too much reduces the breathing room between searches and increases the risk of hitting indexer rate limits.</div></span>
             </div>
             <input id="sleep_seconds" type="number" min="0" step="0.1" oninput="markUnsaved('setMsg')"/>
             <div class="help">Pause between batches in seconds. Gives your indexers time to breathe.</div>

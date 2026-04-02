@@ -231,6 +231,20 @@
       .import-stat-card.shows  { order: 3; flex: 1 1 calc(50% - 4px); min-width: 0; }
       .import-stats > .import-stat-card:not(.movies):not(.shows) { order: 1; flex: 1 1 100%; }
 
+      /* On mobile portrait all cards stack full-width so left/right tooltip
+         directions are unreliable. Force all tooltips to open downward —
+         the page scrolls vertically so there is always room below. */
+      .tooltip-icon .tooltip-box,
+      .tooltip-icon.tip-left .tooltip-box,
+      .tooltip-icon.tip-down .tooltip-box {
+        left: 0;
+        right: auto;
+        top: calc(100% + 3px);
+        bottom: auto;
+        width: 220px;
+        white-space: normal;
+      }
+
       /* Advanced Auto-Exclusion Radarr/Sonarr columns: 2-col → 1-col.
          Uses .adv-autoexcl-grid class added to the inline-grid div in the template. */
       .adv-autoexcl-grid { grid-template-columns: 1fr; }
@@ -274,6 +288,18 @@
         background: linear-gradient(to right, transparent, var(--bg));
         pointer-events: none;
         z-index: 10;
+      }
+
+      /* Force tooltips downward in landscape — same reasoning as portrait. */
+      .tooltip-icon .tooltip-box,
+      .tooltip-icon.tip-left .tooltip-box,
+      .tooltip-icon.tip-down .tooltip-box {
+        left: 0;
+        right: auto;
+        top: calc(100% + 3px);
+        bottom: auto;
+        width: 220px;
+        white-space: normal;
       }
 
       /* Sweep cards: stack to single column in landscape so each card has

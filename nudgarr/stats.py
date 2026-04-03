@@ -252,6 +252,34 @@ def pick_items_with_cooldown(
         eligible.sort(key=lambda x: (x.get("added") or "9999"))
     elif sample_mode == "newest_added":
         eligible.sort(key=lambda x: (x.get("added") or ""), reverse=True)
+    elif sample_mode == "round_robin":
+        # Items never searched (NULL in search_history) are highest priority —
+        # shuffled randomly among themselves so new additions don't always
+        # queue in the same order. Searched items sort ascending by
+        # last_searched_ts so the longest-waiting item goes first.
+        # Tiebreaker for equal timestamps: order is stable (effectively random
+        # from the preceding shuffle step applied to the full list).
+        nulls = [i for i in eligible if ts_map.get(str(i["id"])) is None]
+        searched = [i for i in eligible if ts_map.get(str(i["id"])) is not None]
+        random.shuffle(nulls)
+        searched.sort(key=lambda x: ts_map.get(str(x["id"])) or "")
+        eligible = nulls + searched
+    elif sample_mode == "largest_gap_first":
+        # Primary sort: gap descending (cutoff_score - current_score).
+        # Tiebreaker: Round Robin within tied gap groups — whoever has been
+        # waiting longest goes first; NULL (never searched) items within a
+        # tied group are shuffled randomly so the same titles don't monopolize
+        # every cooldown cycle. This fixes the starvation bug where high-gap
+        # items with equal scores were always searched in the same order.
+        nulls = [i for i in eligible if ts_map.get(str(i["id"])) is None]
+        searched = [i for i in eligible if ts_map.get(str(i["id"])) is not None]
+        random.shuffle(nulls)
+        nulls.sort(key=lambda x: -(x.get("cutoff_score", 0) - x.get("current_score", 0)))
+        searched.sort(key=lambda x: (
+            -(x.get("cutoff_score", 0) - x.get("current_score", 0)),
+            ts_map.get(str(x["id"])) or "",
+        ))
+        eligible = nulls + searched
 
     chosen = eligible[:max_per_run] if max_per_run > 0 else eligible
     return chosen, len(eligible), skipped

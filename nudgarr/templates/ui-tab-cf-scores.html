@@ -27,16 +27,47 @@
         <div class="field">
           <div class="tooltip-wrap">
             <label>Radarr Max Searches (Per Run)</label>
-            <span class="tooltip-icon">i<div class="tooltip-box">How many CF score items are searched per Radarr instance each sweep. Nudgarr picks the worst gap items first. Set higher to work through the index faster.</div></span>
+            <span class="tooltip-icon">i<div class="tooltip-box">How many CF score items are searched per Radarr instance each sweep. Sample mode controls pick order. Set higher to work through the index faster.</div></span>
           </div>
           <input id="cfRadarrMax" type="number" min="1" oninput="markUnsaved('cfMsg')"/>
         </div>
-        <div class="field">
+        <div class="field" style="margin-top:6px">
+          <div class="tooltip-wrap">
+            <label>Radarr Sample Mode</label>
+            <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Radarr CF Score items are selected each run.<br><br><strong>Largest Gap First</strong> — prioritizes items furthest from their CF cutoff score. Within tied gaps, rotates to avoid searching the same titles every cycle.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+          </div>
+          <select id="cfRadarrSampleMode" onchange="markUnsaved('cfMsg')">
+            <option value="largest_gap_first">Largest Gap First</option>
+            <option value="round_robin">Round Robin</option>
+            <option value="random">Random</option>
+            <option value="alphabetical">Alphabetical</option>
+            <option value="oldest_added">Oldest Added</option>
+            <option value="newest_added">Newest Added</option>
+          </select>
+          <div class="help">Pick order for Radarr CF Score items</div>
+        </div>
+
+        <div style="margin-top:14px" class="field">
           <div class="tooltip-wrap">
             <label>Sonarr Max Searches (Per Run)</label>
-            <span class="tooltip-icon">i<div class="tooltip-box">How many CF score items are searched per Sonarr instance each sweep. Nudgarr picks the worst gap episodes first. Set higher to work through the index faster.</div></span>
+            <span class="tooltip-icon">i<div class="tooltip-box">How many CF score items are searched per Sonarr instance each sweep. Sample mode controls pick order. Set higher to work through the index faster.</div></span>
           </div>
           <input id="cfSonarrMax" type="number" min="1" oninput="markUnsaved('cfMsg')"/>
+        </div>
+        <div class="field" style="margin-top:6px">
+          <div class="tooltip-wrap">
+            <label>Sonarr Sample Mode</label>
+            <span class="tooltip-icon">i<div class="tooltip-box">Controls which eligible Sonarr CF Score items are selected each run.<br><br><strong>Largest Gap First</strong> — prioritizes items furthest from their CF cutoff score. Within tied gaps, rotates to avoid searching the same titles every cycle.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+          </div>
+          <select id="cfSonarrSampleMode" onchange="markUnsaved('cfMsg')">
+            <option value="largest_gap_first">Largest Gap First</option>
+            <option value="round_robin">Round Robin</option>
+            <option value="random">Random</option>
+            <option value="alphabetical">Alphabetical</option>
+            <option value="oldest_added">Oldest Added</option>
+            <option value="newest_added">Newest Added</option>
+          </select>
+          <div class="help">Pick order for Sonarr CF Score items</div>
         </div>
 
         <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;">

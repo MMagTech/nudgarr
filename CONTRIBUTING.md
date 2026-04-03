@@ -58,7 +58,9 @@ nudgarr/                    ← Python package
   sweep.py                  ← run_sweep orchestrator + per-instance helpers; CF Score third pipeline pass at
                               the end of _sweep_instance, after Cutoff Unmet and Backlog passes; CF Score pass
                               applies the full filter chain (exclusions, queue skip, cooldown) via
-                              pick_items_with_cooldown before capping at cf_max; per-instance result dict
+                              pick_items_with_cooldown before capping at cf_max; cf_sample_mode resolved via
+                              _resolve() per-instance (falls back to global radarr_cf_sample_mode /
+                              sonarr_cf_sample_mode); per-instance result dict
                               includes per-pipeline tag/profile/excluded/grace skip counts:
                               skipped_tag_cutoff, skipped_profile_cutoff, skipped_excluded_cutoff (Cutoff
                               Unmet pipeline), skipped_tag_backlog, skipped_profile_backlog, skipped_grace
@@ -313,6 +315,8 @@ The missing search pipeline applies filters in this order before handing items t
 **`pick_items_with_cooldown` and max_per_run**
 
 `pick_items_with_cooldown` in `stats.py` applies the cooldown filter, sorts by sample mode, and caps the result. `max_per_run=0` means all eligible items are returned — it does not disable the pipeline. The guard in `_sweep_instance` is `if backlog_enabled:` (not `if backlog_enabled and missing_max > 0:`) — backlog runs when max is 0 and relies on `pick_items_with_cooldown` to return the full eligible pool.
+
+Supported sort branches: `random`, `alphabetical`, `oldest_added`, `newest_added`, `round_robin`, `largest_gap_first`. Round Robin sorts NULL items (never searched) first in random order, then searched items ascending by `last_searched_ts`. Largest Gap First is CF Score-only — primary sort gap descending, Round Robin tiebreaker within tied gap groups using `current_score` and `cutoff_score` fields that must be present on item dicts (mapped in the CF Score reshape block in `sweep.py`). Unrecognised mode strings fall through without sorting, preserving the caller's input order.
 
 ### Changing database schema
 

@@ -335,12 +335,16 @@ function cfSyncConfigFields() {
   const cronInput = el('cfSyncCron');
   const rMax = el('cfRadarrMax');
   const sMax = el('cfSonarrMax');
+  const rMode = el('cfRadarrSampleMode');
+  const sMode = el('cfSonarrSampleMode');
   if (cronInput) {
     cronInput.value = CFG.cf_score_sync_cron ?? '0 0 * * *';
     validateCfCronExpr();
   }
   if (rMax) rMax.value = CFG.radarr_cf_max_per_run ?? 1;
   if (sMax) sMax.value = CFG.sonarr_cf_max_per_run ?? 1;
+  if (rMode) rMode.value = CFG.radarr_cf_sample_mode ?? 'largest_gap_first';
+  if (sMode) sMode.value = CFG.sonarr_cf_sample_mode ?? 'largest_gap_first';
   const msg = el('cfMsg');
   if (msg) { msg.textContent = ''; msg.className = 'msg'; }
 }
@@ -350,13 +354,17 @@ function cfSyncConfigFields() {
 async function saveCfScores() {
   if (!CFG) return;
   try {
-    const cronVal = (el('cfSyncCron')?.value || '0 0 * * *').trim();
+    const cronVal  = (el('cfSyncCron')?.value || '0 0 * * *').trim();
     const rMaxVal  = parseInt(el('cfRadarrMax')?.value || '1', 10);
     const sMaxVal  = parseInt(el('cfSonarrMax')?.value || '1', 10);
+    const rModeVal = el('cfRadarrSampleMode')?.value || 'largest_gap_first';
+    const sModeVal = el('cfSonarrSampleMode')?.value || 'largest_gap_first';
     const cronParts = cronVal.split(/\s+/);
-    CFG.cf_score_sync_cron     = cronParts.length === 5 ? cronVal : '0 0 * * *';
-    CFG.radarr_cf_max_per_run  = isNaN(rMaxVal)  || rMaxVal  < 1 ? 1  : rMaxVal;
-    CFG.sonarr_cf_max_per_run  = isNaN(sMaxVal)  || sMaxVal  < 1 ? 1  : sMaxVal;
+    CFG.cf_score_sync_cron      = cronParts.length === 5 ? cronVal : '0 0 * * *';
+    CFG.radarr_cf_max_per_run   = isNaN(rMaxVal)  || rMaxVal  < 1 ? 1  : rMaxVal;
+    CFG.sonarr_cf_max_per_run   = isNaN(sMaxVal)  || sMaxVal  < 1 ? 1  : sMaxVal;
+    CFG.radarr_cf_sample_mode   = rModeVal;
+    CFG.sonarr_cf_sample_mode   = sModeVal;
     await api('/api/config', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},

@@ -17,7 +17,7 @@ import logging
 import re
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES
 from nudgarr.utils import load_json, save_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,11 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     for mode_key in ("radarr_backlog_sample_mode", "sonarr_backlog_sample_mode"):
         if cfg.get(mode_key) not in VALID_BACKLOG_SAMPLE_MODES:
             errs.append(f"{mode_key} must be one of {VALID_BACKLOG_SAMPLE_MODES}")
+
+    # CF Score sample mode — independent pipeline, validated against VALID_CF_SAMPLE_MODES (v4.2.1)
+    for mode_key in ("radarr_cf_sample_mode", "sonarr_cf_sample_mode"):
+        if cfg.get(mode_key) not in VALID_CF_SAMPLE_MODES:
+            errs.append(f"{mode_key} must be one of {VALID_CF_SAMPLE_MODES}")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -124,6 +129,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         bsm = overrides.get("backlog_sample_mode")
                         if bsm is not None and bsm not in VALID_BACKLOG_SAMPLE_MODES:
                             errs.append(f"instances.{app}[{i}].overrides.backlog_sample_mode must be one of {VALID_BACKLOG_SAMPLE_MODES}")
+                        # CF Score sample mode override — validated against VALID_CF_SAMPLE_MODES (v4.2.1)
+                        cfsm = overrides.get("cf_sample_mode")
+                        if cfsm is not None and cfsm not in VALID_CF_SAMPLE_MODES:
+                            errs.append(f"instances.{app}[{i}].overrides.cf_sample_mode must be one of {VALID_CF_SAMPLE_MODES}")
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")

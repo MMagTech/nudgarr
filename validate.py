@@ -552,6 +552,89 @@ if '_release_date' in open('nudgarr/sweep.py').read():
 else:
     fail("_release_date() helper missing from sweep.py")
 
+section("Sample Mode Overhaul (v4.2.1)")
+# Round Robin — Settings tab (Cutoff Unmet selects)
+if 'round_robin' in open('nudgarr/templates/ui-tab-settings.html').read():
+    ok("round_robin present in Settings tab sample mode selects")
+else:
+    fail("round_robin missing from Settings tab sample mode selects")
+# Round Robin — Advanced tab (Backlog selects)
+if 'round_robin' in open('nudgarr/templates/ui-tab-advanced.html').read():
+    ok("round_robin present in Advanced tab backlog sample mode selects")
+else:
+    fail("round_robin missing from Advanced tab backlog sample mode selects")
+# CF Score sample mode selects in HTML
+_cf_html = open('nudgarr/templates/ui-tab-cf-scores.html').read()
+if 'cfRadarrSampleMode' in _cf_html:
+    ok("cfRadarrSampleMode select present in CF Score tab")
+else:
+    fail("cfRadarrSampleMode select missing from CF Score tab")
+if 'cfSonarrSampleMode' in _cf_html:
+    ok("cfSonarrSampleMode select present in CF Score tab")
+else:
+    fail("cfSonarrSampleMode select missing from CF Score tab")
+if 'largest_gap_first' in _cf_html:
+    ok("largest_gap_first option present in CF Score tab selects")
+else:
+    fail("largest_gap_first option missing from CF Score tab selects")
+# CF Score sample mode JS
+_cf_js = open('nudgarr/static/ui-cf-scores.js').read()
+if 'radarr_cf_sample_mode' in _cf_js:
+    ok("radarr_cf_sample_mode referenced in ui-cf-scores.js")
+else:
+    fail("radarr_cf_sample_mode missing from ui-cf-scores.js")
+if 'sonarr_cf_sample_mode' in _cf_js:
+    ok("sonarr_cf_sample_mode referenced in ui-cf-scores.js")
+else:
+    fail("sonarr_cf_sample_mode missing from ui-cf-scores.js")
+# CF Score sample mode in Overrides JS
+_ov_js = open('nudgarr/static/ui-overrides.js').read()
+if 'cf_sample_mode' in _ov_js:
+    ok("cf_sample_mode present in ui-overrides.js")
+else:
+    fail("cf_sample_mode missing from ui-overrides.js")
+if 'VALID_CF_MODES' in _ov_js:
+    ok("VALID_CF_MODES constant present in ui-overrides.js")
+else:
+    fail("VALID_CF_MODES constant missing from ui-overrides.js")
+# VALID_CF_SAMPLE_MODES in constants.py
+_const = open('nudgarr/constants.py').read()
+if 'VALID_CF_SAMPLE_MODES' in _const:
+    ok("VALID_CF_SAMPLE_MODES constant present in constants.py")
+else:
+    fail("VALID_CF_SAMPLE_MODES constant missing from constants.py")
+if 'radarr_cf_sample_mode' in _const:
+    ok("radarr_cf_sample_mode present in DEFAULT_CONFIG")
+else:
+    fail("radarr_cf_sample_mode missing from DEFAULT_CONFIG")
+# round_robin in VALID_SAMPLE_MODES and VALID_BACKLOG_SAMPLE_MODES
+if 'round_robin' in _const:
+    ok("round_robin present in constants.py mode tuples")
+else:
+    fail("round_robin missing from constants.py mode tuples")
+# cf_sample_mode in config.py validation
+_cfg_py = open('nudgarr/config.py').read()
+if 'VALID_CF_SAMPLE_MODES' in _cfg_py:
+    ok("VALID_CF_SAMPLE_MODES used in config.py validation")
+else:
+    fail("VALID_CF_SAMPLE_MODES missing from config.py validation")
+# largest_gap_first sort branch in stats.py
+_stats = open('nudgarr/stats.py').read()
+if 'largest_gap_first' in _stats:
+    ok("largest_gap_first sort branch present in stats.py")
+else:
+    fail("largest_gap_first sort branch missing from stats.py")
+if 'round_robin' in _stats:
+    ok("round_robin sort branch present in stats.py")
+else:
+    fail("round_robin sort branch missing from stats.py")
+# cf_sample_mode resolved in sweep.py
+_sweep = open('nudgarr/sweep.py').read()
+if 'cf_sample_mode' in _sweep:
+    ok("cf_sample_mode resolved in sweep.py")
+else:
+    fail("cf_sample_mode missing from sweep.py")
+
 # ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \

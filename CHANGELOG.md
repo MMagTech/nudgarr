@@ -4,6 +4,38 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v4.2.1
+
+**Sample Mode Overhaul — Round Robin across all pipelines, CF Score gets full mode control, starvation fix.**
+
+**Round Robin — Cutoff Unmet and Backlog**
+
+- `round_robin` added to `VALID_SAMPLE_MODES` and `VALID_BACKLOG_SAMPLE_MODES`. Both constants remain independent — adding a mode to one does not automatically add it to the other.
+- Round Robin primary sort: oldest `last_searched_ts` ascending so the longest-waiting eligible item goes first.
+- NULL handling: items with no record in `search_history` (never searched) are treated as highest priority. Among NULL items the tiebreaker is random so new additions do not always queue in the same insertion order.
+- Tiebreaker for equal timestamps on Cutoff Unmet and Backlog: random (consistent with the shuffle step that precedes the sort).
+- Round Robin option added to the Radarr and Sonarr Sample Mode selects in the Settings tab (Cutoff Unmet) and Advanced tab (Backlog). All four tooltips updated to document the new mode.
+
+**CF Score Sample Modes (new)**
+
+- CF Score pipeline previously had no user-selectable sample mode — pick order was hardcoded worst-gap-first with no tiebreaker.
+- `VALID_CF_SAMPLE_MODES` constant added: `random`, `alphabetical`, `oldest_added`, `newest_added`, `round_robin`, `largest_gap_first`. Kept as a third independent constant — do not merge with `VALID_SAMPLE_MODES` or `VALID_BACKLOG_SAMPLE_MODES`.
+- `radarr_cf_sample_mode` and `sonarr_cf_sample_mode` added to `DEFAULT_CONFIG`, both defaulting to `largest_gap_first`. Existing installs receive these keys silently on first boot via `fill_missing_keys()` — no manual migration required.
+- `largest_gap_first` formalizes the previous hardcoded behavior: primary sort gap descending, with a Round Robin tiebreaker added to fix the starvation bug (see below).
+- CF Score Sample Mode selects added to the CF Score tab config card, stacked below each respective max input (Radarr then Sonarr). Tooltips cover all six modes with CF-specific descriptions for Largest Gap First and Round Robin.
+- Existing max input tooltips updated to remove the stale "picks worst gap items first" wording now that sample mode is user-controlled.
+- `cf_sample_mode` override field added to the CF Score section of each instance card in the Overrides tab. Uses the `__global__` sentinel pattern matching `backlog_sample_mode` — shows "Use Global (Largest Gap First)" when no override is set, highlights with `ov-active` blue ring when overridden. Hidden when CF Score is disabled globally, consistent with existing CF Score section behavior.
+- Per-instance `cf_sample_mode` resolved via `_resolve()` in `sweep.py`, falling back to the global `radarr_cf_sample_mode` or `sonarr_cf_sample_mode` when no override is set. Invalid resolved values fall back to `largest_gap_first`.
+- `config.py` validates `radarr_cf_sample_mode` and `sonarr_cf_sample_mode` at the top level and `cf_sample_mode` in the per-instance overrides block against `VALID_CF_SAMPLE_MODES`.
+
+**Starvation Fix — Largest Gap First**
+
+- Previous hardcoded worst-gap-first had no tiebreaker: items with equal gap values were returned in arbitrary DB order, causing the same small group of titles to be searched every cooldown cycle while other equal-gap items were never reached.
+- `largest_gap_first` now uses a Round Robin tiebreaker within tied gap groups: among items sharing the same gap value, whoever has been waiting longest goes first. NULL items within a tied group are shuffled randomly.
+- Effect: every eligible item in a tied gap group is eventually searched before any item in that group gets a second turn.
+
+---
+
 ## v4.2.0
 
 **CF Score Scan, Intel Tab, Sweep Tab Redesign, Responsive UI, Backlog Sample Mode Split, Maintenance Window, Grace Period, Auto-Exclusion Toggles, Cutoff Unmet Toggles, Advanced Tab Restructure, and Sticky Header.**

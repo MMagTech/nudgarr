@@ -16,7 +16,7 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - Five new cards: Import Summary, Instance Performance, Upgrade History, CF Score Health, and Exclusion Intel.
 - Import Summary shows average turnaround, searches per import, quality upgrades confirmed, and a pipeline breakdown table with import counts, search counts, and conversion rate per pipeline. Disabled pipelines show their historic data dimmed with a Disabled pill.
 - Instance Performance shows sweep runs, total searched, confirmed imports, and average turnaround per instance. Disabled instances show historic data dimmed.
-- Upgrade History replaces Quality Iteration. Shows Imported Once and Upgraded counts alongside the top 5 upgrade paths across all apps.
+- Upgrade History replaces Quality Iteration. Shows Imported Once and Upgraded counts alongside the top 3 upgrade paths across all apps.
 - CF Score Health is a new card showing total indexed, below cutoff count, percentage, average gap, worst gap, Radarr/Sonarr split, and last synced time. Reads live from `cf_score_entries` and is not stored in `intel_aggregate`. Not affected by Reset Intel. Card is hidden when CF Score is disabled.
 - Exclusion Intel simplified to total exclusions, auto this month, manual/auto split, titles cycled through exclusions, and unexcluded titles later imported. Calibration Signal and avg searches at exclusion removed. Auto-exclusions disabled notice added when auto-exclusion is off.
 - `get_pipeline_search_counts()` and `get_cf_score_health()` added to `db/intel.py` as named functions following the existing DB module pattern.
@@ -25,11 +25,18 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - `ui-responsive.css` dead `.intel-grid-score` stacking rule removed.
 - Cold start screen unchanged: 25 confirmed imports or 50 sweep runs threshold preserved.
 - Reset Intel, Clear History, Clear Imports, and Clear Log are fully independent operations with no overlap.
+- Average turnaround displays in smart units matching the Imports tab format (30m, 3h, 1d 12h, 8d etc) rather than a raw decimal days value. Instances with no confirmed imports show a dash.
+- Import Summary headline grid reflows to a 2+1 layout at phone width so the three headline numbers no longer overflow.
+- Pipeline breakdown section label renamed from Pipeline Breakdown to Breakdown to avoid repeating the word alongside the Pipeline column header.
+- Quality Upgrades Confirmed tooltip opens leftward to stay within the card on narrow viewports.
+- Instance Performance tooltip reworded to plain language with an explanation of what Avg Turnaround measures.
+- `formatCompact` applied to pipeline breakdown Imports and Searches columns and Instance Performance Sweep Runs, Total Searched, and Confirmed Imports columns.
 
 **KPI Number Formatting (v4.3.0)**
 
 - `formatCompact(n)` utility function added to `ui-core.js`. Numbers below 10,000 display as-is; 10,000 and above display as compact format (10k, 1.2M etc).
 - Applied at five locations where large counts would overflow constrained mobile layouts: History page info line, History KPI pills, Imports page info line, Imports Movies/Episodes stat cards, CF Score page info line and coverage inline text.
+- Also applied to Intel tab pipeline breakdown and Instance Performance table columns.
 
 **Auto-Exclusion Queue Check Fix (from v4.2.1)**
 

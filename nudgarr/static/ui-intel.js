@@ -173,8 +173,8 @@ function _renderImportSummary(is_) {
         <div class="pip-dot" style="background:${dotColor}"></div>
         <span class="tag ${r.tagClass}" style="${tagOpacity}">${r.label}</span>
       </div></td>
-      <td style="text-align:right;${dimStyle}font-weight:600;">${_num(r.imports)} <span class="conv-rate">${r.pctOfTotal}</span></td>
-      <td style="text-align:right;${dimStyle}font-weight:600;">${_num(r.searches)}</td>
+      <td style="text-align:right;${dimStyle}font-weight:600;">${formatCompact(r.imports)} <span class="conv-rate">${r.pctOfTotal}</span></td>
+      <td style="text-align:right;${dimStyle}font-weight:600;">${formatCompact(r.searches)}</td>
       <td style="text-align:right;">${convCell}</td>
     </tr>`;
   }).join('');
@@ -218,9 +218,9 @@ function _renderInstanceTable(rows) {
 
     return `<tr>
       <td>${nameCell}</td>
-      <td style="${cellStyle}"><strong>${_num(r.runs)}</strong></td>
-      <td style="${cellStyle}"><strong>${_num(r.searched)}</strong></td>
-      <td style="${cellStyle}color:${enabled ? 'var(--ok)' : 'var(--text-dim)'}"><strong>${_num(r.confirmed_imports)}</strong></td>
+      <td style="${cellStyle}"><strong>${formatCompact(r.runs)}</strong></td>
+      <td style="${cellStyle}"><strong>${formatCompact(r.searched)}</strong></td>
+      <td style="${cellStyle}color:${enabled ? 'var(--ok)' : 'var(--text-dim)'}"><strong>${formatCompact(r.confirmed_imports)}</strong></td>
       <td style="${cellStyle}"><strong>${_fmtAvgTurnaround(r.turnaround_avg_days)}</strong></td>
     </tr>`;
   }).join('');

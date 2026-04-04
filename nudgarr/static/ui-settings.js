@@ -120,6 +120,9 @@ async function onboardingStep(dir) {
     el('onboardingModal').style.display = 'none';
     await api('/api/onboarding/complete', {method: 'POST'});
     if (CFG) { CFG.onboarding_complete = true; CFG.last_seen_version = el('ver').textContent; }
+    // Seed localStorage so the first post-onboarding load lands on Instances.
+    // From here on normal tab navigation takes over and updates this value.
+    try { localStorage.setItem('nudgarr_last_tab', 'instances'); } catch (_) {}
     return;
   }
   _obStep = Math.max(0, Math.min(total - 1, _obStep + dir));

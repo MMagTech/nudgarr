@@ -6,7 +6,13 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.2.1
 
-**Sample Mode Overhaul — Round Robin across all pipelines, CF Score gets full mode control, starvation fix.**
+**Sample Mode Overhaul — Round Robin across all pipelines, CF Score gets full mode control, starvation fix. Auto-exclusion queue check fix.**
+
+**Auto-Exclusion Queue Check Fix**
+
+- `_is_title_in_queue` in `scheduler.py` has been removed. It used `/api/v3/queue?movieId=X` and `/api/v3/queue?seriesId=X` to check if a candidate title was actively downloading before writing an auto-exclusion. The per-item filtered endpoint does not work reliably across Radarr/Sonarr versions — on affected versions the filter is silently ignored and the full queue is returned for every request, causing every auto-exclusion candidate to be reported as in-queue and skipped indefinitely regardless of actual queue state.
+- Auto-exclusion queue check now fetches the full queue once per instance upfront using `radarr_get_queued_movie_ids` and `sonarr_get_queued_episode_ids` — the same functions the sweep pipeline already uses. Candidate item IDs are checked against the resulting set in memory. This reduces API calls from one per candidate to one per instance per cycle and produces correct results regardless of Radarr/Sonarr version.
+- Users with auto-exclusion enabled who had stuck items that never got excluded despite reaching the threshold will see those titles correctly excluded on the next import check cycle after upgrading.
 
 **Round Robin — Cutoff Unmet and Backlog**
 

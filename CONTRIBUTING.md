@@ -65,6 +65,10 @@ nudgarr/                    ← Python package
                               skipped_tag_cutoff, skipped_profile_cutoff, skipped_excluded_cutoff (Cutoff
                               Unmet pipeline), skipped_tag_backlog, skipped_profile_backlog, skipped_grace
                               (Backlog pipeline) — all surfaced to the Sweep tab pipeline cards
+  scheduler.py              ← cron scheduler, import check loop, auto-exclusion check; auto-exclusion queue
+                              check fetches the full queue once per instance via radarr_get_queued_movie_ids /
+                              sonarr_get_queued_episode_ids (same as sweep pipeline) rather than per-candidate
+                              filtered API calls which do not work reliably across arr versions
   scheduler.py              ← scheduler loop, import check loop, cf_score_sync_loop, banner, WSGI server
                               starter; writes STATUS["last_sweep_start_utc"] before run_sweep() and
                               populates STATUS["imports_confirmed_sweep"] via get_imports_since() after.

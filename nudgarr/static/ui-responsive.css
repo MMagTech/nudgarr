@@ -56,8 +56,8 @@
          stacking covers all six cards (3 pipeline + 3 summary). */
       .sweep-grid              { grid-template-columns: minmax(0, 1fr); }
 
-      /* Intel Library Score + Search Health: fixed 270px 1fr → stack */
-      .intel-grid-score        { grid-template-columns: 1fr; }
+      /* Intel Library Score + Search Health grid removed in v4.3.0.
+         Intel tab now uses standard full-width cards. */
 
       /* Tables rendered dynamically into these wrapper divs scroll horizontally.
          A minimum width forces scroll before content overflows.

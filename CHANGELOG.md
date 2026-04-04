@@ -4,7 +4,60 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v4.3.0
+
+**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting.**
+
+This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
+
+**Intel Tab Redesign (v4.3.0)**
+
+- Library Score ring, Stuck Items card, Sweep Efficiency card, and Library Age vs Success card removed. The scoring system and assumption-based metrics have been replaced with hard facts drawn directly from the database.
+- Five new cards: Import Summary, Instance Performance, Upgrade History, CF Score Health, and Exclusion Intel.
+- Import Summary shows average turnaround, searches per import, quality upgrades confirmed, and a pipeline breakdown table with import counts, search counts, and conversion rate per pipeline. Disabled pipelines show their historic data dimmed with a Disabled pill.
+- Instance Performance shows sweep runs, total searched, confirmed imports, and average turnaround per instance. Disabled instances show historic data dimmed.
+- Upgrade History replaces Quality Iteration. Shows Imported Once and Upgraded counts alongside the top 5 upgrade paths across all apps.
+- CF Score Health is a new card showing total indexed, below cutoff count, percentage, average gap, worst gap, Radarr/Sonarr split, and last synced time. Reads live from `cf_score_entries` and is not stored in `intel_aggregate`. Not affected by Reset Intel. Card is hidden when CF Score is disabled.
+- Exclusion Intel simplified to total exclusions, auto this month, manual/auto split, titles cycled through exclusions, and unexcluded titles later imported. Calibration Signal and avg searches at exclusion removed. Auto-exclusions disabled notice added when auto-exclusion is off.
+- `get_pipeline_search_counts()` and `get_cf_score_health()` added to `db/intel.py` as named functions following the existing DB module pattern.
+- Dead code removed: `_compute_library_score()`, `_compute_calibration()`, `_sh_field()`, `_CALIBRATION_HIGH`, `_CALIBRATION_LOW` from `routes/intel.py`. `_get_library_age_bucket()` from `db/entries.py`. `_get_library_age_bucket_for_history()` from `db/history.py`.
+- Dead writes removed: `library_age_buckets` and `success_total_worked` no longer written to `intel_aggregate` on every search/import. The columns remain in the table as unused but removing them would require a migration.
+- `ui-responsive.css` dead `.intel-grid-score` stacking rule removed.
+- Cold start screen unchanged: 25 confirmed imports or 50 sweep runs threshold preserved.
+- Reset Intel, Clear History, Clear Imports, and Clear Log are fully independent operations with no overlap.
+
+**KPI Number Formatting (v4.3.0)**
+
+- `formatCompact(n)` utility function added to `ui-core.js`. Numbers below 10,000 display as-is; 10,000 and above display as compact format (10k, 1.2M etc).
+- Applied at five locations where large counts would overflow constrained mobile layouts: History page info line, History KPI pills, Imports page info line, Imports Movies/Episodes stat cards, CF Score page info line and coverage inline text.
+
+**Auto-Exclusion Queue Check Fix (from v4.2.1)**
+
+- `_is_title_in_queue` in `scheduler.py` removed. It used `/api/v3/queue?movieId=X` to check if a candidate was actively downloading before writing an auto-exclusion. The per-item filtered endpoint does not work reliably across Radarr/Sonarr versions. On affected versions the filter is silently ignored and the full queue is returned for every request, causing every auto-exclusion candidate to be reported as in-queue and skipped indefinitely.
+- Auto-exclusion queue check now fetches the full queue once per instance upfront using `radarr_get_queued_movie_ids` and `sonarr_get_queued_episode_ids`. Reduces API calls from one per candidate to one per instance per cycle.
+- Users with auto-exclusion enabled who had stuck items that never got excluded despite reaching the threshold will see correct exclusions on the next import check cycle after upgrading.
+
+**Sample Mode Overhaul (from v4.2.1)**
+
+- `round_robin` added to `VALID_SAMPLE_MODES` and `VALID_BACKLOG_SAMPLE_MODES`.
+- `VALID_CF_SAMPLE_MODES` constant added: `random`, `alphabetical`, `oldest_added`, `newest_added`, `round_robin`, `largest_gap_first`. Independent of the other two constants.
+- `radarr_cf_sample_mode` and `sonarr_cf_sample_mode` added to `DEFAULT_CONFIG`, both defaulting to `largest_gap_first`. Existing installs receive these keys on first boot via `fill_missing_keys`.
+- Round Robin sorts NULL items (never searched) first in random order, then searched items ascending by `last_searched_ts`.
+- `largest_gap_first` uses a unified sort key `(-gap, null_flag, tiebreaker)` so gap group boundaries are never violated. Previous split-list implementation incorrectly placed low-gap NULL items above high-gap searched items.
+- CF Score sample mode added to Overrides tab per-instance override field.
+- Round Robin option added to Settings tab (Cutoff Unmet) and Advanced tab (Backlog). All four tooltips updated.
+- CF Score tab Sample Mode selects added below each max input (Radarr then Sonarr).
+- 14 unit tests added covering both new sort modes including NULL handling, tiebreakers, and cross-group ordering.
+
+---
+
 ## v4.2.1
+
+Folded into v4.3.0. Never publicly shipped.
+
+---
+
+## v4.2.0
 
 **Sample Mode Overhaul — Round Robin across all pipelines, CF Score gets full mode control, starvation fix. Auto-exclusion queue check fix.**
 

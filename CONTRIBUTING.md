@@ -29,7 +29,7 @@ nudgarr/                    ← Python package
     lifetime.py             ← sweep_lifetime and lifetime_totals tables
     appstate.py             ← nudgarr_state key/value table
     backup.py               ← JSON export helper
-    intel.py                ← intel_aggregate and exclusion_events tables; get_intel_aggregate, update_intel_aggregate, reset_intel
+    intel.py                ← intel_aggregate and exclusion_events tables; get_intel_aggregate, update_intel_aggregate, reset_intel, get_pipeline_search_counts (live pipeline search counts from search_history), get_cf_score_health (live CF Score index health from cf_score_entries)
   state.py                  ← exclusions and history helpers built on top of nudgarr.db;
                               also exposes state_key(name, url) — the canonical composite
                               key used across search_history, stat_entries, and cooldown
@@ -159,13 +159,16 @@ The database lives at `/config/nudgarr.db` by default (controlled by the `DB_FIL
 
 **Intel aggregate write points**
 
-`intel_aggregate` is a protected accumulator — it must never be cleared by any normal operation (Clear History, Clear Imports, pruning). It is only reset by the explicit Reset Intel action at the bottom of the Intel tab. The aggregate is updated at three write points:
+`intel_aggregate` is a protected accumulator — it must never be cleared by any normal operation (Clear History, Clear Imports, pruning). It is only reset by the explicit Reset Intel action at the bottom of the Intel tab. The aggregate is updated at two write points:
 
-- `confirm_stat_entry()` in `db/entries.py` — snapshots turnaround, searches per import, pipeline import split (Cutoff Unmet via `entry_type="Upgraded"`, CF Score via `entry_type="CF Score"`, Backlog via all other types), quality upgrades, iteration counts, per-instance imports and turnaround, and library age bucket imported counts at the moment each import is confirmed.
-- `batch_upsert_search_history()` in `db/history.py` — increments `success_total_worked` and library age bucket totals on first insert of each new item (when `search_count == 1` after the upsert).
+- `confirm_stat_entry()` in `db/entries.py` — snapshots turnaround, searches per import, pipeline import split (Cutoff Unmet via `entry_type="Upgraded"`, CF Score via `entry_type="CF Score"`, Backlog via all other types), quality upgrades, iteration counts, and per-instance imports and turnaround at the moment each import is confirmed.
 - `reset_intel()` in `db/intel.py` — the only operation that clears both `intel_aggregate` and `exclusion_events`.
 
+Note: `success_total_worked` and `library_age_buckets` remain as columns in `intel_aggregate` but are no longer written to as of v4.3.0. They are unused orphan columns retained to avoid a migration. `batch_upsert_search_history()` in `db/history.py` no longer writes to the aggregate.
+
 All aggregate writes happen inside the same transaction as the operation that triggers them. A rollback undoes both the primary write and the aggregate update atomically.
+
+Live Intel queries (pipeline search counts, CF Score health) read directly from `search_history` and `cf_score_entries` at request time via `get_pipeline_search_counts()` and `get_cf_score_health()` in `db/intel.py`. These are not stored in the aggregate and are not affected by Reset Intel.
 
 **Exclusion event write points**
 
@@ -177,7 +180,7 @@ All aggregate writes happen inside the same transaction as the operation that tr
 | `stat_entries` | Items pending import confirmation and confirmed imports |
 | `quality_history` | Per-import quality upgrade records for the Imports tab tooltip |
 | `exclusions` | Titles excluded from sweeps — includes source (manual/auto), search count, and acknowledged flag |
-| `exclusion_events` | Append-only audit log of every exclude and unexclude action — powers Intel calibration signal |
+| `exclusion_events` | Append-only audit log of every exclude and unexclude action — powers Exclusion Intel cycling stats |
 | `intel_aggregate` | Single protected row accumulating lifetime Intel metrics — never cleared by Clear History, Clear Imports, or pruning |
 | `sweep_lifetime` | Per-instance lifetime sweep stats |
 | `lifetime_totals` | Lifetime confirmed import counts (movies/shows) |

@@ -89,7 +89,7 @@ async function refreshHistory() {
       const appSt = sum.per_instance || {};
       const count = (appSt[inst.app] && appSt[inst.app][inst.key]) || 0;
       if (count === 0) return '';
-      return `<div class="kpi-card"><span class="kpi-lbl">${escapeHtml(inst.name)}</span><span class="kpi-val">${count}</span></div>`;
+      return `<div class="kpi-card"><span class="kpi-lbl">${escapeHtml(inst.name)}</span><span class="kpi-val">${formatCompact(count)}</span></div>`;
     }).join('');
     el('kpis').innerHTML = instPills;
 
@@ -123,8 +123,8 @@ async function refreshHistory() {
     }
 
     el('pageInfo').textContent = EXCL_FILTER_ACTIVE
-      ? `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${items.total} excluded item${items.total !== 1 ? 's' : ''}`
-      : `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${items.total} item${items.total !== 1 ? 's' : ''}`;
+      ? `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${formatCompact(items.total)} excluded item${items.total !== 1 ? 's' : ''}`
+      : `Page ${PAGE+1} of ${Math.max(1, Math.ceil(items.total / limit))} · ${formatCompact(items.total)} item${items.total !== 1 ? 's' : ''}`;
     HISTORY_TOTAL = items.total;
     el('historyPagination').style.display = items.total > 0 ? 'flex' : 'none';
 

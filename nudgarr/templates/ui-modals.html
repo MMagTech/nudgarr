@@ -53,33 +53,22 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v4.2.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v4.3.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">CF Score Scan</div>
-           <div class="help">A third independent search pipeline that finds monitored files where the custom format score is below the quality profile cutoff, regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab Redesign</div>
+           <div class="help">The Intel tab launched just a few days ago in v4.2.0 and has already been rebuilt. My apologies for the quick turnaround. After stepping back and looking at what it was, it became clear the scoring and assumptions probably weren't ideal for what Intel should represent. The new design strips it back to hard facts only. Five focused cards showing exactly what Nudgarr has done with no scoring, no judgments, and nothing that depends on how you have the app configured. Just straight facts derived from information that resides in the database.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab</div>
-           <div class="help">A lifetime performance dashboard tracking search health, instance efficiency, stuck items, exclusion calibration, library age vs success rate, and quality upgrade paths. Gets richer the longer Nudgarr runs. Reset from the bottom of the Intel tab if needed.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweep Tab Redesign</div>
-           <div class="help">The Sweep tab is rebuilt around three pipeline cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. A summary row covers Sweep Health, Last Sweep timing, and Imports Confirmed. A full-width feed logs every item searched in the current sweep with its pipeline badge and pagination.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Responsive UI</div>
-           <div class="help">The dedicated mobile UI has been replaced with a fully responsive desktop UI that works on any screen size — phone, tablet, or desktop. All features including CF Score, Intel, Overrides, and every configuration field are now accessible everywhere. No more rotating your device to reach a setting.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sample Mode Overhaul</div>
+           <div class="help">Round Robin added to Cutoff Unmet and Backlog. Searches whoever has been waiting longest, with never-searched items going first. CF Score gains full mode control: Largest Gap First (default), Round Robin, Random, Alphabetical, Oldest Added, Newest Added. CF Score sample mode is also available in per-instance Overrides.</div>
          </div>
          <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px">
            <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Also in this release</div>
-           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Toggles:</strong> Radarr and Sonarr auto-exclusion now each have an independent on/off toggle. The threshold field is the count, not the switch.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Advanced Tab Restructure:</strong> Backlog Nudges, Auto-Exclusion, and Configuration are now full-width horizontal cards — no more side-by-side cramming or paging.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Maintenance Window:</strong> suppress scheduled sweeps during a defined time window. Configure in Settings. Manual Run Now always bypasses it.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Cutoff Unmet Toggles:</strong> Radarr and Sonarr Cutoff Unmet can now be independently enabled or disabled in Settings.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Backlog Sample Mode Split:</strong> Cutoff Unmet and Backlog now have independent sample modes. Grace Period also available in Advanced.</div>
-           <div class="help"><strong>Settings cleanup:</strong> Cooldown moved into the Scheduler card. Cutoff Unmet has the full right card to itself.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Fix:</strong> titles that reached your threshold were being silently blocked from exclusion by a Radarr/Sonarr queue API inconsistency. Fixed. Affected titles will be correctly excluded on the next import check cycle after upgrading.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Largest Gap First Starvation Fix:</strong> items with equal gap values now rotate fairly so the same titles do not monopolize every cooldown cycle.</div>
+           <div class="help"><strong>CF Score sample mode in Overrides:</strong> per-instance override for CF Score pick order, using the same pattern as the existing Backlog sample mode override.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">

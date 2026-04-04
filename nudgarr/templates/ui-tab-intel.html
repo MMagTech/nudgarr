@@ -7,7 +7,7 @@
         <div style="font-size:48px;line-height:1;">📡</div>
         <div class="card-title" style="font-size:20px;margin:0;">Intel is Building...</div>
         <p class="help" style="max-width:480px;margin:0;font-size:13.5px;color:var(--text-dim);line-height:1.6;">
-          Intel tracks your library performance over time and needs a minimum amount of data before it can produce meaningful scores. Run a few sweeps and come back once things have settled in.
+          Intel tracks your library performance over time and needs a minimum amount of data before it can produce meaningful numbers. Run a few sweeps and come back once things have settled in.
         </p>
         <div style="display:flex;gap:24px;align-items:center;margin-top:4px;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px 28px;">
@@ -40,219 +40,89 @@
     <!-- Normal content — hidden during cold start -->
     <div id="intelContent">
 
-    <!-- ROW 1 — Library Score + Search Health -->
-    <div class="intel-grid-score intel-row">
+    <!-- ROW 1 — Import Summary -->
+    <div class="card intel-row">
+      <div class="card-title">Import Summary <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime import activity across all pipelines and instances. Turnaround and Searches per Import are drawn from the protected Intel aggregate and survive Clear History and Clear Stats. Pipeline search counts are live queries from search history and reflect your current data. All numbers are hard counts or ratios derived directly from the database with no assumptions.</div></span></span></div>
+      <p class="card-sub">Lifetime confirmed import activity across all pipelines</p>
 
-      <!-- Library Score -->
-      <div class="card intel-score-card">
-        <div style="text-align:center;">
-          <div class="card-title" style="text-align:center;margin-bottom:2px;">Library Score <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">A 0 to 100 composite score summarising overall Nudgarr health. Weighted from four components: success rate (40%), turnaround (25%), stuck items (20%), and sweep efficiency (15%). Shows Building until 25 confirmed imports or 50 sweep runs have accumulated.</div></span></span></div>
-          <p class="help" style="text-align:center;margin:0;">Overall Nudgarr health</p>
+      <!-- Headline numbers -->
+      <div class="intel-headlines">
+        <div class="intel-headline-cell">
+          <div class="intel-headline-num ok" id="intelTurnaround">—</div>
+          <div class="intel-headline-lbl">Avg Turnaround</div>
         </div>
-        <div class="intel-score-ring-wrap" id="intelScoreRingWrap">
-          <svg width="130" height="130" viewBox="0 0 130 130">
-            <circle class="intel-score-track" cx="65" cy="65" r="54"/>
-            <circle class="intel-score-fill" id="intelScoreFill" cx="65" cy="65" r="54"
-              stroke-dasharray="339.3" stroke-dashoffset="339.3"/>
-          </svg>
-          <div class="intel-score-center">
-            <div class="intel-score-num" id="intelScoreNum">—</div>
-            <div class="intel-score-sublbl" id="intelScoreSublbl">/ 100</div>
-          </div>
+        <div class="intel-headline-cell">
+          <div class="intel-headline-num accent" id="intelSearchesPerImport">—</div>
+          <div class="intel-headline-lbl">Searches per Import</div>
         </div>
-        <div class="intel-grade" id="intelScoreGrade" style="display:none;"></div>
-        <div class="intel-score-comps" id="intelScoreComps">
-          <div class="intel-comp">
-            <div class="intel-comp-label">Success Rate</div>
-            <div class="intel-comp-bar"><div class="intel-comp-fill" id="intelCompSuccessFill" style="width:0%;background:var(--ok);"></div></div>
-            <div class="intel-comp-val" id="intelCompSuccessVal">—</div>
-          </div>
-          <div class="intel-comp">
-            <div class="intel-comp-label">Turnaround</div>
-            <div class="intel-comp-bar"><div class="intel-comp-fill" id="intelCompTurnaroundFill" style="width:0%;background:var(--accent);"></div></div>
-            <div class="intel-comp-val" id="intelCompTurnaroundVal">—</div>
-          </div>
-          <div class="intel-comp">
-            <div class="intel-comp-label">Stuck Items</div>
-            <div class="intel-comp-bar"><div class="intel-comp-fill" id="intelCompStuckFill" style="width:0%;background:var(--ok);"></div></div>
-            <div class="intel-comp-val" id="intelCompStuckVal">—</div>
-          </div>
-          <div class="intel-comp">
-            <div class="intel-comp-label">Efficiency</div>
-            <div class="intel-comp-bar"><div class="intel-comp-fill" id="intelCompEffFill" style="width:0%;background:var(--accent);"></div></div>
-            <div class="intel-comp-val" id="intelCompEffVal">—</div>
-          </div>
+        <div class="intel-headline-cell">
+          <div class="intel-headline-num" id="intelUpgradesCount">—</div>
+          <div class="intel-headline-lbl">Quality Upgrades Confirmed <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Total confirmed quality upgrade events. Items that were already imported and later found at a higher quality. Excludes first-time acquisitions.</div></span></span></div>
         </div>
       </div>
 
-      <!-- Search Health -->
-      <div class="card">
-        <div class="card-title">Search Health</div>
-        <p class="card-sub">Lifetime performance across all instances</p>
-        <div class="section-lbl">Overall</div>
-        <div class="intel-stat-row">
-          <span class="intel-stat-label">Success Rate
-            <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Percentage of tracked items confirmed imported at least once. Includes items still pending import in the denominator.</div></span></span>
-          </span>
-          <span class="intel-stat-val ok" id="intelSuccessRate">—</span>
-        </div>
-        <div class="intel-stat-row">
-          <span class="intel-stat-label">Average Turnaround
-            <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Average time from first search to confirmed import across all confirmed imports.</div></span></span>
-          </span>
-          <span class="intel-stat-val" id="intelTurnaround">—</span>
-        </div>
-        <div class="intel-stat-row">
-          <span class="intel-stat-label">Searches per Import
-            <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Average search count at time of import. May be understated for titles previously auto-excluded and reset.</div></span></span>
-          </span>
-          <span class="intel-stat-val" id="intelSearchesPerImport">—</span>
-        </div>
-        <div class="intel-stat-row">
-          <span class="intel-stat-label">Stuck Items
-            <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Items searched at or above your auto-exclusion threshold with no confirmed import. May undercount titles previously auto-excluded and reset.</div></span></span>
-          </span>
-          <span class="intel-stat-val warn" id="intelStuckTotal">—</span>
-        </div>
-        <div class="section-lbl" style="margin-top:14px;">Import Breakdown</div>
-        <div class="intel-split" id="intelImportSplit" style="margin-bottom:10px;">
-          <div class="intel-half">
-            <div class="intel-half-label">Cutoff Unmet</div>
-            <div class="intel-half-val accent" id="intelCutoffCount">—</div>
-            <div class="intel-half-sub" id="intelCutoffPct"></div>
-          </div>
-          <div class="intel-half">
-            <div class="intel-half-label">Backlog</div>
-            <div class="intel-half-val ok" id="intelBacklogCount">—</div>
-            <div class="intel-half-sub" id="intelBacklogPct"></div>
-          </div>
-          <div class="intel-half">
-            <div class="intel-half-label">CF Score</div>
-            <div class="intel-half-val" style="color:var(--warn);" id="intelCfScoreCount">—</div>
-            <div class="intel-half-sub" id="intelCfScorePct"></div>
-          </div>
-        </div>
-        <div class="intel-stat-row">
-          <span class="intel-stat-label">Quality Upgrades Confirmed
-            <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Total confirmed quality upgrade events — items that were already imported and later found at a higher quality. Excludes first-time acquisitions.</div></span></span>
-          </span>
-          <span class="intel-stat-val accent" id="intelUpgradesCount">—</span>
-        </div>
-      </div>
+      <!-- Pipeline breakdown table -->
+      <div class="section-lbl" style="margin-top:16px">Pipeline Breakdown</div>
+      <div id="intelPipelineTable"></div>
     </div>
 
     <!-- ROW 2 — Instance Performance -->
     <div class="card intel-row">
-      <div class="card-title">Instance Performance <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime metrics broken down per instance. Sweep Runs and Total Searched are protected and unaffected by any clear operation. Confirmed Imports, Success Rate, and Turnaround come from the protected Intel aggregate and survive Clear History and Clear Stats. Eligible Used is a lifetime average across all runs for that instance.</div></span></span></div>
-      <p class="card-sub">Lifetime metrics per instance — eligible used is a lifetime average</p>
+      <div class="card-title">Instance Performance <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime counts per instance. Sweep Runs and Total Searched come from sweep_lifetime and search_history and reflect current data. Confirmed Imports and Avg Turnaround come from the protected Intel aggregate and survive Clear History and Clear Stats. Instances that are currently disabled show their historic counts dimmed.</div></span></span></div>
+      <p class="card-sub">Lifetime counts per instance</p>
       <div id="intelInstanceTable">
-        <p class="help">Loading…</p>
+        <p class="help">Loading...</p>
       </div>
     </div>
 
-    <!-- ROW 3 — Stuck Items + Exclusion Intel -->
+    <!-- ROW 3 — Upgrade History -->
+    <div class="card intel-row">
+      <div class="card-title">Upgrade History <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Imported Once is any title Nudgarr confirmed imported for the first time regardless of how many searches it took. Upgraded is any title that later received a second confirmed import at a higher quality. Upgraded reflects Cutoff Unmet and CF Score activity only since Backlog handles missing content and cannot produce upgrades. Upgrade paths show the most common quality transitions across your library.</div></span></span></div>
+      <p class="card-sub">How many titles were found once vs improved after initial import</p>
+
+      <div class="intel-qi-split">
+        <div class="intel-qi-cell">
+          <div class="intel-qi-num" id="intelImportedOnce">—</div>
+          <div class="intel-qi-label">Imported Once</div>
+        </div>
+        <div class="intel-qi-cell">
+          <div class="intel-qi-num accent" id="intelUpgraded">—</div>
+          <div class="intel-qi-label">Upgraded</div>
+        </div>
+      </div>
+
+      <div class="section-lbl">Most Common Upgrade Paths</div>
+      <div id="intelUpgradePaths">
+        <p class="help">Loading...</p>
+      </div>
+    </div>
+
+    <!-- ROW 4 — CF Score Health + Exclusion Intel -->
     <div class="grid cols2 intel-row">
 
-      <!-- Stuck Items -->
-      <div class="card">
-        <div class="card-title">Stuck Items <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Titles searched at or above your auto-exclusion threshold with no confirmed import and not yet excluded. Sorted by search count. Use this list to decide which titles to manually exclude or to review your threshold setting. Only available when auto-exclusion thresholds are enabled.</div></span></span></div>
-        <p class="card-sub" id="intelStuckSub">Items searched repeatedly with no confirmed import</p>
-        <div id="intelStuckList" style="max-height:320px;overflow-y:auto;padding-right:4px;">
-          <p class="help">Loading…</p>
+      <!-- CF Score Health — only shown when cf_score_enabled is True -->
+      <div class="card" id="intelCfScoreCard" style="display:none;">
+        <div class="card-title">CF Score Health <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Live stats from the CF Score index. These numbers reflect the current state of the index and are not part of the protected Intel aggregate. Reset Intel has no effect on this card. Numbers update after each Scan Library run.</div></span></span></div>
+        <p class="card-sub">Current state of the CF Score index</p>
+        <div id="intelCfScoreContent">
+          <p class="help">Loading...</p>
         </div>
       </div>
 
       <!-- Exclusion Intel -->
-      <div class="card">
-        <div class="card-title">Exclusion Intel <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime summary of your exclusions activity. The Calibration Signal shows how many auto-excluded titles eventually imported after being given a second chance, helping you assess whether your auto-exclusion threshold is set at the right level.</div></span></span></div>
-        <p class="card-sub">Lifetime exclusion activity and threshold calibration</p>
-        <div class="intel-excl-stats">
-          <div class="intel-excl-stat">
-            <div class="intel-excl-stat-val" id="intelExclTotal">—</div>
-            <div class="intel-excl-stat-label">Total Exclusions</div>
-          </div>
-          <div class="intel-excl-stat">
-            <div class="intel-excl-stat-val" id="intelExclThisMonth">—</div>
-            <div class="intel-excl-stat-label">Auto this month</div>
-          </div>
-        </div>
-        <div class="intel-split" style="margin-bottom:12px;">
-          <div class="intel-half">
-            <div class="intel-half-label">Manual</div>
-            <div class="intel-half-val" id="intelExclManual">—</div>
-            <div class="intel-half-sub" id="intelExclManualPct"></div>
-          </div>
-          <div class="intel-half">
-            <div class="intel-half-label">Auto</div>
-            <div class="intel-half-val" id="intelExclAuto">—</div>
-            <div class="intel-half-sub" id="intelExclAutoPct"></div>
-          </div>
-        </div>
-        <div class="intel-stat-row" style="padding-top:0;">
-          <span class="intel-stat-label">Avg searches at auto-exclusion
-            <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Average search_count at the moment each title was auto-excluded. Captured at exclusion time and unaffected by subsequent resets.</div></span></span>
-          </span>
-          <span class="intel-stat-val" id="intelAvgSearches">—</span>
-        </div>
-        <hr class="intel-divider">
-        <div class="section-lbl">Calibration Signal</div>
-        <div class="intel-stat-row" style="padding-top:4px;">
-          <span class="intel-stat-label">Auto-excluded titles later imported</span>
-          <span class="intel-stat-val" id="intelCalibrationRatio">—</span>
-        </div>
-        <div class="intel-callout" id="intelCalibrationCallout" style="display:none;">
-          <div class="intel-callout-label">Threshold Assessment</div>
-          <span id="intelCalibrationText"></span>
+      <div class="card" id="intelExclusionCard">
+        <div class="card-title">Exclusion Intel <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime summary of exclusion activity. Total Exclusions and the Manual/Auto split reflect the current exclusions table. Auto this month counts auto-exclusions written since the first of the current calendar month. Titles Cycled and Unexcluded Later Imported are derived from exclusion_events and are reset by Reset Intel.</div></span></span></div>
+        <p class="card-sub">Lifetime exclusion activity</p>
+        <div id="intelExclusionContent">
+          <p class="help">Loading...</p>
         </div>
       </div>
-    </div>
 
-    <!-- ROW 4 — Library Age + Quality Iteration -->
-    <div class="grid cols2 intel-row">
-
-      <!-- Library Age vs Success -->
-      <div class="card">
-        <div class="card-title">Library Age vs Success <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Import success rate grouped by how long items had been in your library at the time Nudgarr first searched them. A drop in success rate at older age buckets typically means long-tail content that indexers do not carry. Items without a recorded library added date are excluded from the chart.</div></span></span></div>
-        <p class="card-sub">Import success rate by how long items were in your library at first search</p>
-        <div class="intel-age-chart" id="intelAgeChart">
-          <p class="help">Loading…</p>
-        </div>
-        <div class="intel-unknown-note" id="intelUnknownNote" style="display:none;"></div>
-      </div>
-
-      <!-- Quality Iteration -->
-      <div class="card">
-        <div class="card-title">Quality Iteration <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Shows how many titles were imported once versus upgraded at least once after the initial import. The most common upgrade path is shown separately for Radarr and Sonarr since quality profile naming differs between apps.</div></span></span></div>
-        <p class="card-sub">How many titles were upgraded after initial import</p>
-        <div class="intel-qi-split">
-          <div class="intel-qi-cell">
-            <div class="intel-qi-num" id="intelImportedOnce">—</div>
-            <div class="intel-qi-label">Imported Once</div>
-          </div>
-          <div class="intel-qi-cell">
-            <div class="intel-qi-num accent" id="intelUpgraded" style="color:var(--accent-lt);">—</div>
-            <div class="intel-qi-label">Upgraded</div>
-          </div>
-        </div>
-        <div class="section-lbl">Most Common Upgrade Paths</div>
-        <div id="intelUpgradePaths">
-          <p class="help">Loading…</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ROW 5 — Sweep Efficiency -->
-    <div class="card intel-row">
-      <div class="card-title">Sweep Efficiency <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Lifetime average ratio of items searched versus items eligible per sweep, per instance. Green means strong coverage, amber means moderate, red means low. This is a lifetime average so recent cap changes will drift toward the new value over time rather than reflecting it immediately.</div></span></span></div>
-      <p class="card-sub">Lifetime average ratio of items searched vs eligible per instance</p>
-      <div id="intelEfficiency">
-        <p class="help">Loading…</p>
-      </div>
-    </div>
+    </div><!-- end cols2 -->
 
     </div><!-- end #intelContent -->
 
-    <!-- Reset Intel — card with right-aligned button matching Support/Danger Zone row treatment -->
+    <!-- Reset Intel -->
     <div class="card" style="margin-top:12px;display:flex;justify-content:flex-end;">
       <button class="btn sm danger" onclick="resetIntelData()">Reset Intel</button>
     </div>

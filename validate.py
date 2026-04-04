@@ -528,6 +528,53 @@ if 'resetIntelData' in content:
     ok("Reset Intel button present in HTML (Danger Zone)")
 else:
     fail("Reset Intel button missing from HTML (Danger Zone)")
+# v4.3.0 Intel redesign checks
+_intel_html = open('nudgarr/templates/ui-tab-intel.html').read()
+_intel_js = open('nudgarr/static/ui-intel.js').read()
+if 'intelPipelineTable' in _intel_html:
+    ok("intelPipelineTable present in Intel tab HTML (Import Summary)")
+else:
+    fail("intelPipelineTable missing from Intel tab HTML")
+if 'intelInstanceTable' in _intel_html:
+    ok("intelInstanceTable present in Intel tab HTML (Instance Performance)")
+else:
+    fail("intelInstanceTable missing from Intel tab HTML")
+if 'intelUpgradePaths' in _intel_html:
+    ok("intelUpgradePaths present in Intel tab HTML (Upgrade History)")
+else:
+    fail("intelUpgradePaths missing from Intel tab HTML")
+if 'intelCfScoreCard' in _intel_html:
+    ok("intelCfScoreCard present in Intel tab HTML (CF Score Health)")
+else:
+    fail("intelCfScoreCard missing from Intel tab HTML")
+if 'intelExclusionContent' in _intel_html:
+    ok("intelExclusionContent present in Intel tab HTML (Exclusion Intel)")
+else:
+    fail("intelExclusionContent missing from Intel tab HTML")
+if '_renderImportSummary' in _intel_js:
+    ok("_renderImportSummary present in ui-intel.js")
+else:
+    fail("_renderImportSummary missing from ui-intel.js")
+if '_renderCfScoreHealth' in _intel_js:
+    ok("_renderCfScoreHealth present in ui-intel.js")
+else:
+    fail("_renderCfScoreHealth missing from ui-intel.js")
+if '_renderUpgradeHistory' in _intel_js:
+    ok("_renderUpgradeHistory present in ui-intel.js")
+else:
+    fail("_renderUpgradeHistory missing from ui-intel.js")
+if 'get_pipeline_search_counts' in open('nudgarr/db/intel.py').read():
+    ok("get_pipeline_search_counts present in db/intel.py")
+else:
+    fail("get_pipeline_search_counts missing from db/intel.py")
+if 'get_cf_score_health' in open('nudgarr/db/intel.py').read():
+    ok("get_cf_score_health present in db/intel.py")
+else:
+    fail("get_cf_score_health missing from db/intel.py")
+if 'formatCompact' in open('nudgarr/static/ui-core.js').read():
+    ok("formatCompact utility present in ui-core.js")
+else:
+    fail("formatCompact utility missing from ui-core.js")
 
 # ── Grace Period structural checks ────────────────────────────────────────────
 section("Grace Period")

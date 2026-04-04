@@ -14,7 +14,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v4.2.1` · `4.2.1` · `v4.2.0` · `4.2.0` · `4.2` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
+**Tags:** `latest` · `v4.3.0` · `4.3.0` · `4.3` · `v4.2.0` · `4.2.0` · `4.2` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -135,7 +135,9 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 
 ## Upgrade notes
 
-**v4.2.1** adds Round Robin sample mode to Cutoff Unmet and Backlog pipelines, full user-selectable sample modes for CF Score (Largest Gap First, Round Robin, Random, Alphabetical, Oldest Added, Newest Added), and fixes a starvation bug in Largest Gap First where items with equal gap values were always searched in the same order. No config changes required. Pull the new image and restart. New config keys are injected automatically on first start.
+**v4.3.0** rebuilds the Intel tab with five focused cards showing hard facts from your database with no scoring or assumptions. Includes the sample mode overhaul (Round Robin across all pipelines, full CF Score mode control), auto-exclusion queue fix, and KPI number formatting for mobile. No config changes required. Pull the new image and restart. New config keys are injected automatically on first start.
+
+**v4.2.1** — folded into v4.3.0, never publicly shipped.
 
 **v4.2.0** adds CF Score Scan, Intel tab, Sweep tab redesign, responsive desktop UI (mobile UI removed), sticky header, exclusion event tracking, backlog sample mode split, maintenance window, grace period, and Settings tab cleanup. No config changes required. Pull the new image and restart. Migrations v10 and v11 run automatically on first start. Existing data is fully preserved.
 

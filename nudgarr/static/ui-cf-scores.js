@@ -178,7 +178,7 @@ function cfRenderCoverage(status) {
           ${escapeHtml(inst.instance_name || inst.arr_instance_id)}
           <span style="font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px;border:1px solid;${pillColor}">${pctLabel}</span>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${total.toLocaleString()} indexed · ${below.toLocaleString()} below cutoff</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${formatCompact(total)} indexed · ${formatCompact(below)} below cutoff</div>
       </div>
     </div>`;
   }).join('');
@@ -303,7 +303,7 @@ function _cfRenderPage() {
 
   const end = Math.min(start + CF_PAGE_SIZE, total);
   const totalPages = Math.max(1, Math.ceil(total / CF_PAGE_SIZE));
-  if (pageInfo) pageInfo.textContent = `Page ${CF_PAGE + 1} of ${totalPages} · ${total} item${total !== 1 ? 's' : ''}`;
+  if (pageInfo) pageInfo.textContent = `Page ${CF_PAGE + 1} of ${totalPages} · ${formatCompact(total)} item${total !== 1 ? 's' : ''}`;
 
   const btnPrev = el('cfPagination')?.querySelector('button:first-child');
   const btnNext = el('cfPagination')?.querySelector('button:nth-child(2)');

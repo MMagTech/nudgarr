@@ -285,9 +285,17 @@ loadAll().then(() => {
       let startTab = null;
       try { startTab = localStorage.getItem('nudgarr_last_tab'); } catch (_) {}
       if (!startTab) startTab = (CFG.default_tab || 'sweep');
-      // Validate the tab is visible in the nav before navigating to it.
-      const tabBtn = document.querySelector(`.tab[data-tab="${startTab}"]`);
-      if (startTab !== 'instances' && tabBtn && tabBtn.offsetParent !== null) {
+      // Validate the tab is actually accessible before navigating to it.
+      // Conditional tabs depend on feature flags — use CFG directly rather than
+      // checking DOM visibility which may not be reliable at load time.
+      const conditionalOk = {
+        'overrides':  () => !!CFG.per_instance_overrides_enabled,
+        'cf-scores':  () => !!CFG.cf_score_enabled,
+        'filters':    () => !!(CFG.instances?.radarr?.length || CFG.instances?.sonarr?.length),
+      };
+      const check = conditionalOk[startTab];
+      const tabVisible = !check || check();
+      if (startTab !== 'instances' && tabVisible) {
         showTab(startTab);
       }
     }

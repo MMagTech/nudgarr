@@ -140,6 +140,16 @@ function replayOnboarding() {
 }
 
 function showTab(name) {
+  // Guard: refuse to navigate to a conditional tab if its feature is currently disabled.
+  // Fall back to sweep so the user always lands somewhere visible.
+  const conditionalTabEnabled = {
+    'overrides': () => !!CFG?.per_instance_overrides_enabled,
+    'cf-scores': () => !!CFG?.cf_score_enabled,
+    'filters':   () => !!((CFG?.instances?.radarr?.length || 0) + (CFG?.instances?.sonarr?.length || 0)),
+  };
+  const tabCheck = conditionalTabEnabled[name];
+  if (tabCheck && !tabCheck()) { _doShowTab('sweep'); return; }
+
   // Overrides tab — check for pending (dirty) cards before navigating away
   if (ACTIVE_TAB === 'overrides' && name !== 'overrides') {
     const dirty = document.querySelectorAll('#overrides-grid .ov-card.ov-dirty');

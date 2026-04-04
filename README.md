@@ -58,7 +58,7 @@ The interface covers everything in one place: instance management, sweep status 
 - Web UI with Instances, Sweep, Settings, Filters, History, Imports, Intel, Notifications, Advanced, and Overrides tabs
 - Sticky header — wordmark, status bar, and tab bar pin to the top of the viewport on all tabs; tab content scrolls beneath
 - Sweep tab — three pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and per-instance breakdowns; Sweep Health, Last Sweep, and Imports Confirmed summary cards; full-width paginated feed of every item searched in the current sweep with pipeline badges
-- Intel tab — lifetime performance dashboard showing Library Score, Search Health, Instance Performance, Stuck Items, Exclusion Intel, Library Age vs Success, Quality Iteration, and Sweep Efficiency
+- Intel tab — lifetime performance dashboard showing Import Summary (turnaround, searches per import, pipeline breakdown with conversion rate), Instance Performance, Upgrade History, CF Score Health, and Exclusion Intel. All stats are hard facts derived directly from the database.
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Auto-exclusion badge and confirmed import tracking with lifetime totals, period toggle, type filtering, title search, and quality upgrade history per item
@@ -144,12 +144,6 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 **v4.1.0** adds auto-exclusion, import stats period toggle, and logging improvements. No config changes required. Pull the new image and restart. Migration v9 runs automatically on first start. From this version onwards, static assets include version query strings — browsers automatically receive fresh JS and CSS after a container upgrade without requiring a hard refresh.
 
 **v4.0.0** is the foundations release. No config changes required, no data migration needed. Pull the new image and restart. If upgrading directly from v3.1.x or earlier, upgrade to v3.2.0 first.
-
-**v3.2.0** — No config changes required. Per-Instance Overrides is off by default — enable in Advanced if you want to use it.
-
-**v3.1.0** — All data (history, stats, exclusions) moves to a SQLite database. Existing JSON files migrate automatically on first start — no action needed.
-
-**v3.0.0** — No config changes required.
 
 For full version history see [CHANGELOG.md](CHANGELOG.md).
 

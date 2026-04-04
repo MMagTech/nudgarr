@@ -713,8 +713,10 @@
     .intel-row { margin-bottom: 12px; }
     .intel-row:last-child { margin-bottom: 0; }
     /* Intel Import Summary headline numbers (v4.3.0) */
-    .intel-headlines { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 16px; }
+    .intel-headlines { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-radius: var(--radius-sm); overflow: visible; margin-bottom: 16px; position: relative; }
     .intel-headline-cell { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+    .intel-headline-cell:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .intel-headline-cell:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
     .intel-headline-num { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
     .intel-headline-num.accent { color: var(--accent-lt); }
     .intel-headline-num.ok { color: var(--ok); }

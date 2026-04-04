@@ -166,7 +166,7 @@ def _build_intel_payload():
 
     # ── 5. Upgrade History ────────────────────────────────────────────
     logger.debug("[Intel] fetching upgrade paths")
-    upgrade_paths = _top_upgrade_paths(conn, limit=5)
+    upgrade_paths = _top_upgrade_paths(conn, limit=3)
 
     upgrade_history = {
         "imported_once": agg["imported_once_count"],

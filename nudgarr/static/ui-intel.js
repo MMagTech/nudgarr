@@ -94,7 +94,7 @@ function _renderColdStart(d) {
 function _renderImportSummary(is_) {
   // Headline numbers
   const avgDays = is_.turnaround_avg_days || 0;
-  _setText('intelTurnaround', avgDays.toFixed(1) + ' Days');
+  _setText('intelTurnaround', _fmtAvgTurnaround(avgDays));
   _setText('intelSearchesPerImport', (is_.searches_per_import_avg || 0).toFixed(1) + ' Searches');
   const upg = is_.quality_upgrades_count || 0;
   _setText('intelUpgradesCount', _num(upg) + ' Upgrade' + (upg !== 1 ? 's' : ''));
@@ -179,7 +179,7 @@ function _renderImportSummary(is_) {
     </tr>`;
   }).join('');
 
-  tableEl.innerHTML = `<table class="intel-pipeline-table"><${thead}<tbody>${tbody}</tbody></table>`;
+  tableEl.innerHTML = `<table class="intel-pipeline-table">${thead}<tbody>${tbody}</tbody></table>`;
 }
 
 // ── Instance Performance Table ────────────────────────────────────────────
@@ -215,14 +215,13 @@ function _renderInstanceTable(rows) {
       : '';
     const badge = `<div class="inst-badge ${app}" style="${badgeOpacity}"><div class="inst-dot" style="${dotStyle}"></div>${escapeHtml(r.instance_name)}</div>`;
     const nameCell = `<div style="display:flex;align-items:center;gap:6px;">${badge}${disabledPill}</div>`;
-    const ta = r.turnaround_avg_days || 0;
 
     return `<tr>
       <td>${nameCell}</td>
       <td style="${cellStyle}"><strong>${_num(r.runs)}</strong></td>
       <td style="${cellStyle}"><strong>${_num(r.searched)}</strong></td>
       <td style="${cellStyle}color:${enabled ? 'var(--ok)' : 'var(--text-dim)'}"><strong>${_num(r.confirmed_imports)}</strong></td>
-      <td style="${cellStyle}"><strong>${ta.toFixed(1)} Days</strong></td>
+      <td style="${cellStyle}"><strong>${_fmtAvgTurnaround(r.turnaround_avg_days)}</strong></td>
     </tr>`;
   }).join('');
 
@@ -415,4 +414,31 @@ function _fmtDateUS(iso) {
     const d = new Date(iso);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch (_) { return iso; }
+}
+
+// _fmtAvgTurnaround -- format a float days value as a human-readable duration,
+// matching the per-item turnaround format used on the Imports tab.
+// 0 or no imports returns '--'.
+function _fmtAvgTurnaround(days) {
+  if (!days || days <= 0) return '--';
+  const totalSeconds = days * 86400;
+  if (totalSeconds < 30) return '<1m';
+  const minutes = Math.round(totalSeconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days_ = Math.floor(hours / 24);
+  if (days_ >= 56) return Math.floor(days_ / 30) + 'mo';
+  if (days_ >= 7) {
+    const weeks = Math.floor(days_ / 7);
+    const remDays = days_ % 7;
+    return remDays ? weeks + 'w ' + remDays + 'd' : weeks + 'w';
+  }
+  if (days_ > 0) {
+    const remHours = hours % 24;
+    return remHours ? days_ + 'd ' + remHours + 'h' : days_ + 'd';
+  }
+  if (hours > 0) {
+    const remMins = minutes % 60;
+    return remMins ? hours + 'h ' + remMins + 'm' : hours + 'h';
+  }
+  return minutes + 'm';
 }

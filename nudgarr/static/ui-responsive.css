@@ -85,16 +85,16 @@
         min-width: 760px;
       }
 
-      /* position:sticky inside overflow-x:auto causes Safari to add phantom
-         scroll space equal to the viewport width after the last column.
-         Removing sticky on the imports table first column fixes blank scroll. */
+      /* Imports table first column: sticky. The Safari phantom scroll issue
+         that previously required position:static here was caused by a tooltip
+         on the first column — that tooltip has since been removed so sticky
+         is safe to use. */
       #importsTableWrap td:first-child,
       #importsTableWrap th:first-child {
-        position: static;
-        white-space: normal;
-        word-break: break-word;
-        min-width: 130px;
-        max-width: 160px;
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 1;
       }
 
       #historyTableWrap td:first-child,
@@ -231,8 +231,25 @@
       .import-stat-card.shows  { order: 3; flex: 1 1 calc(50% - 4px); min-width: 0; }
       .import-stats > .import-stat-card:not(.movies):not(.shows) { order: 1; flex: 1 1 100%; }
 
-      /* Intel Import Summary headlines: 3-col → 2+1 layout.
-         Turnaround and Searches side by side, Upgrades full width below. */
+      /* Intel Instance Performance table: horizontal scroll with sticky
+         first column on portrait mobile. No tooltip on first column so
+         no Safari phantom scroll workaround needed. */
+      #intelInstanceTable {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      #intelInstanceTable table {
+        width: auto;
+        min-width: 100%;
+      }
+      #intelInstanceTable td:first-child,
+      #intelInstanceTable th:first-child {
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 1;
+      }
+
       .intel-headlines { grid-template-columns: 1fr 1fr; }
       .intel-headline-cell:last-child {
         grid-column: 1 / -1;

@@ -20,6 +20,7 @@ function fillAdvanced() {
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
   el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
   if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
+  if (el('default_tab')) el('default_tab').value = CFG.default_tab || 'sweep';
   if (el('log_level')) el('log_level').value = CFG.log_level || 'INFO';
   if (el('per_instance_overrides_enabled')) {
     el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
@@ -118,6 +119,7 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
+    if (el('default_tab')) CFG.default_tab = el('default_tab').value;
     if (el('log_level')) CFG.log_level = el('log_level').value || 'INFO';
 
     // Auto-exclusion fields — capture previous state before updating so we can

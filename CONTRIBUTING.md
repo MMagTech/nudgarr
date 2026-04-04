@@ -114,7 +114,7 @@ nudgarr/                    ← Python package
                               cfFilterSearch, cfClearSearch, cfSortTable, cfPrevPage, cfNextPage, jumpCfPage,
                               cfScanLibrary (_cfWaitForScan polls and updates coverage live), cfResetIndex.
                               Titles use .arr-link with openArrLink(). No row cap — all entries returned.
-    ui-settings.js          ← settings tab, tab switching, onboarding, What's New modal
+    ui-settings.js          ← settings tab, tab switching (showTab, _doShowTab, localStorage tab memory), onboarding, What's New modal
     ui-notifications.js     ← notifications tab
     ui-advanced.js          ← advanced tab, danger zone, diagnostics; toggleCfScoreFeature and
                               syncCfScoreToggleLabel added for CF Score Scan feature gate

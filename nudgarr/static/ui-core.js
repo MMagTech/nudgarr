@@ -277,6 +277,20 @@ loadAll().then(() => {
     });
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
+    // Navigate to the correct starting tab.
+    // New installs (onboarding not complete) always stay on Instances.
+    // Returning users: check localStorage for last visited tab, then fall back
+    // to the configured default_tab, then fall back to sweep.
+    if (CFG && CFG.onboarding_complete) {
+      let startTab = null;
+      try { startTab = localStorage.getItem('nudgarr_last_tab'); } catch (_) {}
+      if (!startTab) startTab = (CFG.default_tab || 'sweep');
+      // Validate the tab is visible in the nav before navigating to it.
+      const tabBtn = document.querySelector(`.tab[data-tab="${startTab}"]`);
+      if (startTab !== 'instances' && tabBtn && tabBtn.offsetParent !== null) {
+        showTab(startTab);
+      }
+    }
   }).catch(e => showAlert('Failed to load — please refresh the page. (' + e.message + ')'));
 setInterval(pollCycle, 5000);
 

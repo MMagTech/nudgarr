@@ -682,7 +682,40 @@ if 'cf_sample_mode' in _sweep:
 else:
     fail("cf_sample_mode missing from sweep.py")
 
-# ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
+# ── Default Tab (v4.3.0) ──────────────────────────────────────────────────────
+section("Default Tab")
+if 'VALID_TABS' in open('nudgarr/constants.py').read():
+    ok("VALID_TABS constant present in constants.py")
+else:
+    fail("VALID_TABS constant missing from constants.py")
+if '"default_tab": "sweep"' in open('nudgarr/constants.py').read():
+    ok("default_tab defaults to sweep in DEFAULT_CONFIG")
+else:
+    fail("default_tab default missing from DEFAULT_CONFIG")
+if 'VALID_TABS' in open('nudgarr/config.py').read():
+    ok("VALID_TABS imported and used in config.py validation")
+else:
+    fail("VALID_TABS not used in config.py")
+_adv_html = open('nudgarr/templates/ui-tab-advanced.html').read()
+if 'id="default_tab"' in _adv_html:
+    ok("default_tab select present in Advanced tab HTML")
+else:
+    fail("default_tab select missing from Advanced tab HTML")
+if 'Documentation' in _adv_html:
+    ok("Documentation link present in Advanced tab HTML")
+else:
+    fail("Documentation link missing from Advanced tab HTML")
+_adv_js = open('nudgarr/static/ui-advanced.js').read()
+if 'default_tab' in _adv_js:
+    ok("default_tab handled in ui-advanced.js")
+else:
+    fail("default_tab missing from ui-advanced.js")
+if 'nudgarr_last_tab' in open('nudgarr/static/ui-core.js').read():
+    ok("nudgarr_last_tab localStorage key present in ui-core.js")
+else:
+    fail("nudgarr_last_tab localStorage key missing from ui-core.js")
+
+
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):

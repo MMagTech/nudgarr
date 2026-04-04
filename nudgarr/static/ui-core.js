@@ -41,6 +41,17 @@ function escapeHtml(s) {
     .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 }
 
+// formatCompact -- compact number display for narrow mobile viewports.
+// Numbers below 10,000 display as-is. 10,000+ display as 10k, 1.2M etc.
+// Applied only where large counts would overflow constrained mobile layouts:
+// History/Imports/CF Score page info lines, History KPI pills, Imports stat cards.
+function formatCompact(n) {
+  const v = Number(n) || 0;
+  if (v < 10000) return v.toLocaleString();
+  if (v < 1000000) return (v / 1000).toFixed(v < 100000 ? 1 : 0) + 'k';
+  return (v / 1000000).toFixed(1) + 'M';
+}
+
 function fmtTime(s) {
   if (!s) return '—';
   try { return new Date(s).toLocaleString(); } catch(e) { return s; }

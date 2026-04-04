@@ -61,7 +61,7 @@ JS_LOAD_ORDER = [
 LINE_COUNT_CEILINGS = {
     'ui-core.js':                      400,
     'ui-instances.js':                 450,
-    'ui-overrides.js':                 470,  # raised v4.2.0: +cf_max override field and CF Score group
+    'ui-overrides.js':                 510,  # raised v4.2.1: +cf_sample_mode override field, VALID_CF_MODES, CF_MODE_LABELS
     'ui-sweep.js':                     500,  # raised v4.2.0: Sweep tab redesign
     'ui-history.js':                   380,
     'ui-imports.js':                   250,
@@ -525,7 +525,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 298  # +1: delete_state added to db exports
+        EXPECTED_CHECK_COUNT = 327  # raised v4.3.0: +13 Intel redesign checks
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

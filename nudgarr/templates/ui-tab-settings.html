@@ -133,13 +133,14 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.</div></span>
             </div>
             <select id="radarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
+              <option value="round_robin">Round Robin</option>
             </select>
             <div class="help">Pick order for Cutoff Unmet Radarr items</div>
           </div>
@@ -168,13 +169,14 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.</div></span>
             </div>
             <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
+              <option value="round_robin">Round Robin</option>
             </select>
             <div class="help">Pick order for Cutoff Unmet Sonarr items</div>
           </div>

@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")
@@ -111,6 +111,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "cf_score_sync_cron": "0 0 * * *",  # cron schedule for automatic index re-syncs (default: midnight daily)
     "radarr_cf_max_per_run": 1,       # max CF-score-only Radarr items searched per sweep
     "sonarr_cf_max_per_run": 1,       # max CF-score-only Sonarr items searched per sweep
+    "radarr_cf_sample_mode": "largest_gap_first",  # pick order for Radarr CF Score items (v4.2.1)
+    "sonarr_cf_sample_mode": "largest_gap_first",  # pick order for Sonarr CF Score items (v4.2.1)
 
     # Maintenance Window (v4.2.0)
     # Suppresses scheduled (cron-triggered) sweeps during a defined time window.
@@ -130,7 +132,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 # NOTE: if adding a cutoff-only mode here (e.g. quality gap scoring), evaluate whether
 # VALID_BACKLOG_SAMPLE_MODES below should also receive it. Missing items have no file
 # so quality-based modes cannot apply to backlog.
-VALID_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
+VALID_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added", "round_robin")
 
 # Valid sample modes for the backlog (missing) pipeline.
 # Kept separate from VALID_SAMPLE_MODES so the backlog dropdown never exposes
@@ -138,4 +140,10 @@ VALID_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
 # existing file. Missing items have no file, so those modes cannot apply.
 # NOTE: currently identical to VALID_SAMPLE_MODES — if this diverges, update
 # config.py validation, ui-tab-advanced.html, and ui-tab-settings.html selects.
-VALID_BACKLOG_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added")
+VALID_BACKLOG_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added", "round_robin")
+
+# Valid sample modes for the CF Score pipeline (v4.2.1).
+# Separate constant — CF Score has an additional mode (largest_gap_first) that
+# is specific to gap-based scoring and does not apply to the other pipelines.
+# Do not merge with VALID_SAMPLE_MODES or VALID_BACKLOG_SAMPLE_MODES.
+VALID_CF_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added", "round_robin", "largest_gap_first")

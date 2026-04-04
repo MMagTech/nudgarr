@@ -38,7 +38,7 @@ from nudgarr.arr_clients import (
     _sonarr_get_series_meta,
 )
 from nudgarr.cf_score_syncer import _make_instance_id
-from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
+from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES
 from nudgarr.globals import STATUS
 from nudgarr.state import load_exclusions, prune_state_by_retention, state_key
 from nudgarr.stats import (
@@ -443,6 +443,20 @@ def _sweep_instance(
     _ov_enabled = bool(cfg.get("per_instance_overrides_enabled", False))
     cf_max = int(_resolve(inst, cfg, _ov_enabled, "cf_max", global_cf_max))
 
+    # Resolve CF Score sample mode — per-instance override falls back to global (v4.2.1)
+    global_cf_sample_mode = str(cfg.get(
+        "radarr_cf_sample_mode" if app == "radarr" else "sonarr_cf_sample_mode",
+        "largest_gap_first",
+    )).lower()
+    cf_sample_mode = str(_resolve(inst, cfg, _ov_enabled, "cf_sample_mode", global_cf_sample_mode)).lower()
+    if cf_sample_mode not in VALID_CF_SAMPLE_MODES:
+        cf_sample_mode = "largest_gap_first"
+    logger.debug(
+        "[%s:%s] cf_sample_mode resolved: %s%s",
+        APP, name, cf_sample_mode,
+        " (override)" if cf_sample_mode != global_cf_sample_mode else " (global)",
+    )
+
     if cfg.get("cf_score_enabled", False) and cf_max > 0:
         cf_instance_id = _make_instance_id(app, inst_url)
         cf_item_type = item_type  # 'movie' for Radarr, 'episode' for Sonarr
@@ -487,11 +501,12 @@ def _sweep_instance(
         ]
 
         # Cooldown filter + cap at cf_max.
-        # "worst_gap" is not a recognised sample_mode so the worst-gap-first
-        # ordering from the DB query is preserved through the filter.
+        # sample_mode is the resolved cf_sample_mode — largest_gap_first is the
+        # default and formalizes the previous hardcoded worst-gap-first ordering,
+        # now with a Round Robin tiebreaker to fix the starvation bug.
         chosen_cf, eligible_cf, skipped_cf = pick_items_with_cooldown(
             cf_sweep_items, app, name, inst_url, cf_item_type,
-            cooldown_hours, cf_max, "worst_gap"
+            cooldown_hours, cf_max, cf_sample_mode
         )
 
         if chosen_cf:

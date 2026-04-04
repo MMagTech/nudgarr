@@ -252,6 +252,42 @@ def pick_items_with_cooldown(
         eligible.sort(key=lambda x: (x.get("added") or "9999"))
     elif sample_mode == "newest_added":
         eligible.sort(key=lambda x: (x.get("added") or ""), reverse=True)
+    elif sample_mode == "round_robin":
+        # Items never searched (NULL in search_history) are highest priority —
+        # shuffled randomly among themselves so new additions don't always
+        # queue in the same order. Searched items sort ascending by
+        # last_searched_ts so the longest-waiting item goes first.
+        # Tiebreaker for equal timestamps: order is stable (effectively random
+        # from the preceding shuffle step applied to the full list).
+        nulls = [i for i in eligible if ts_map.get(str(i["id"])) is None]
+        searched = [i for i in eligible if ts_map.get(str(i["id"])) is not None]
+        random.shuffle(nulls)
+        searched.sort(key=lambda x: ts_map.get(str(x["id"])) or "")
+        eligible = nulls + searched
+    elif sample_mode == "largest_gap_first":
+        # Primary sort: gap descending (cutoff_score - current_score).
+        # Within each tied gap group:
+        #   - NULL items (never searched) sort before searched items — treated
+        #     as highest priority. Among NULL items the tiebreaker is random.
+        #   - Searched items sort ascending by last_searched_ts.
+        # Uses a unified sort key so gap-group boundaries are never violated —
+        # a high-gap searched item always precedes a low-gap NULL item.
+        _null_rand = {
+            str(i["id"]): random.random()
+            for i in eligible
+            if ts_map.get(str(i["id"])) is None
+        }
+
+        def _lgf_key(item):
+            gap = item.get("cutoff_score", 0) - item.get("current_score", 0)
+            ts = ts_map.get(str(item["id"]))
+            if ts is None:
+                # (gap desc, 0=NULL-first-within-group, random tiebreak)
+                return (-gap, 0, _null_rand.get(str(item["id"]), 0.5))
+            # (gap desc, 1=searched-after-NULLs-within-group, ts asc)
+            return (-gap, 1, ts)
+
+        eligible.sort(key=_lgf_key)
 
     chosen = eligible[:max_per_run] if max_per_run > 0 else eligible
     return chosen, len(eligible), skipped

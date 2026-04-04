@@ -7,8 +7,9 @@ Intel tab -- read-only lifetime performance dashboard route.
                           and live tables
   POST /api/intel/reset -- clear intel_aggregate and exclusion_events (Danger Zone)
 
-All aggregate writes happen at confirm and exclusion event time in
-db/entries.py and db/exclusions.py. This route only reads and resets.
+All aggregate writes happen at confirm time in db/entries.py. This route
+only reads and resets. Live queries (pipeline search counts, CF Score health,
+exclusion cycles) run directly against their source tables on each request.
 """
 
 import logging
@@ -24,10 +25,6 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("intel", __name__)
 
-# Calibration thresholds -- ratio of auto-excluded titles that later imported.
-_CALIBRATION_HIGH = 0.20
-_CALIBRATION_LOW = 0.05
-
 # Cold start minimum thresholds.
 _COLD_START_MIN_IMPORTS = 25
 _COLD_START_MIN_RUNS = 50
@@ -40,10 +37,10 @@ _COLD_START_MIN_RUNS = 50
 def api_intel():
     """Assemble and return the full Intel dashboard payload.
 
-    Reads intel_aggregate for protected lifetime metrics, then runs a small
-    set of live queries for current-state metrics (stuck items, exclusion
-    counts, sweep lifetime, upgrade paths, calibration signal). All computation
-    happens in Python; the frontend receives a single flat JSON object.
+    Reads intel_aggregate for protected lifetime metrics, then runs live
+    queries for current-state metrics (pipeline search counts, CF Score
+    health, exclusion cycles). All computation happens in Python; the
+    frontend receives a single flat JSON object.
     """
     logger.debug("[Intel] GET /api/intel called")
     try:
@@ -54,8 +51,7 @@ def api_intel():
 
 
 def _build_intel_payload():
-    """Assemble the full Intel payload. Separated from the route handler so
-    exceptions are caught and logged at the route boundary."""
+    """Assemble the full Intel payload."""
     cfg = load_or_init_config()
     conn = db.get_connection()
 
@@ -73,23 +69,7 @@ def _build_intel_payload():
     logger.debug("[Intel] cold_start=%s total_runs=%d imported=%d",
                  cold_start, total_runs, agg["success_total_imported"])
 
-    # ── 3. Library Score ──────────────────────────────────────────────
-    library_score = None
-    if not cold_start:
-        library_score = _compute_library_score(agg, cfg)
-        logger.debug("[Intel] library_score=%d", library_score)
-
-    # ── 4. Search Health ──────────────────────────────────────────────
-    movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
-    shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
-    logger.debug("[Intel] fetching stuck items (movies_threshold=%d shows_threshold=%d)",
-                 movies_threshold, shows_threshold)
-    stuck_rows = db.get_high_search_count_unconfirmed(movies_threshold, shows_threshold)
-
-    success_rate = 0.0
-    if agg["success_total_worked"] > 0:
-        success_rate = round(agg["success_total_imported"] / agg["success_total_worked"], 4)
-
+    # ── 3. Import Summary ─────────────────────────────────────────────
     turnaround_avg = 0.0
     if agg["turnaround_count"] > 0:
         turnaround_avg = round(agg["turnaround_sum_days"] / agg["turnaround_count"], 2)
@@ -100,24 +80,47 @@ def _build_intel_payload():
             agg["searches_per_import_sum"] / agg["searches_per_import_count"], 2
         )
 
-    stuck_disabled = movies_threshold == 0 and shows_threshold == 0
-    stuck_total = len(stuck_rows) if not stuck_disabled else None
+    # Live pipeline search counts from search_history.sweep_type
+    logger.debug("[Intel] fetching pipeline search counts")
+    pipeline_searches = db.get_pipeline_search_counts()
 
-    search_health = {
-        "success_rate": success_rate,
-        "success_total_imported": agg["success_total_imported"],
-        "success_total_worked": agg["success_total_worked"],
+    cutoff_imports = agg["cutoff_import_count"]
+    backlog_imports = agg["backlog_import_count"]
+    cf_imports = agg["cf_score_import_count"]
+    total_imports = cutoff_imports + backlog_imports + cf_imports
+
+    # Pipeline enabled state from config for disabled pill in UI
+    cutoff_enabled = (
+        cfg.get("radarr_cutoff_enabled", True) or cfg.get("sonarr_cutoff_enabled", True)
+    )
+    backlog_enabled = False
+    for app_name in ("radarr", "sonarr"):
+        for inst in cfg.get("instances", {}).get(app_name, []):
+            if inst.get("enabled", True):
+                ov_on = cfg.get("per_instance_overrides_enabled", False)
+                ov = inst.get("overrides", {}) if ov_on else {}
+                if ov.get("backlog_enabled",
+                          cfg.get(f"{app_name}_backlog_enabled", False)):
+                    backlog_enabled = True
+    cf_enabled = cfg.get("cf_score_enabled", False)
+
+    import_summary = {
         "turnaround_avg_days": turnaround_avg,
         "searches_per_import_avg": searches_per_import_avg,
-        "stuck_items_total": stuck_total,
-        "stuck_items_disabled": stuck_disabled,
-        "cutoff_import_count": agg["cutoff_import_count"],
-        "backlog_import_count": agg["backlog_import_count"],
-        "cf_score_import_count": agg["cf_score_import_count"],
         "quality_upgrades_count": agg["quality_upgrades_count"],
+        "total_imports": total_imports,
+        "cutoff_import_count": cutoff_imports,
+        "backlog_import_count": backlog_imports,
+        "cf_score_import_count": cf_imports,
+        "cutoff_search_count": pipeline_searches["cutoff_unmet"],
+        "backlog_search_count": pipeline_searches["backlog"],
+        "cf_score_search_count": pipeline_searches["cf_score"],
+        "cutoff_enabled": cutoff_enabled,
+        "backlog_enabled": backlog_enabled,
+        "cf_enabled": cf_enabled,
     }
 
-    # ── 5. Instance Performance ───────────────────────────────────────
+    # ── 4. Instance Performance ───────────────────────────────────────
     logger.debug("[Intel] building instance performance")
     lifetime_rows = conn.execute("SELECT * FROM sweep_lifetime").fetchall()
     per_inst_imports = agg["per_instance_imports"]
@@ -125,16 +128,13 @@ def _build_intel_payload():
 
     url_to_name = {}
     url_to_app = {}
+    url_to_enabled = {}
     for app_name in ("radarr", "sonarr"):
         for inst in cfg.get("instances", {}).get(app_name, []):
             url = inst["url"].rstrip("/")
             url_to_name[url] = inst["name"]
             url_to_app[url] = app_name
-
-    stuck_by_url = {}
-    for s in stuck_rows:
-        u = s["instance_url"].rstrip("/")
-        stuck_by_url[u] = stuck_by_url.get(u, 0) + 1
+            url_to_enabled[url] = inst.get("enabled", True)
 
     instance_performance = []
     for lr in lifetime_rows:
@@ -149,44 +149,36 @@ def _build_intel_payload():
         )
 
         sh_count = conn.execute(
-            "SELECT COUNT(DISTINCT item_id) FROM search_history WHERE instance_url = ?",
+            "SELECT SUM(search_count) FROM search_history WHERE instance_url = ?",
             (inst_url,)
-        ).fetchone()[0]
-        inst_success_rate = round(confirmed / sh_count, 4) if sh_count > 0 else 0.0
-
-        eligible = lr["eligible"] or 0
-        searched = lr["searched"] or 0
-        ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
+        ).fetchone()[0] or 0
 
         instance_performance.append({
             "instance_url": inst_url,
             "instance_name": inst_name,
             "app": app_name,
             "runs": lr["runs"] or 0,
-            "searched": searched,
+            "searched": sh_count,
             "confirmed_imports": confirmed,
-            "success_rate": inst_success_rate,
             "turnaround_avg_days": inst_turnaround,
-            "eligible": eligible,
-            "eligible_used_ratio": ratio,
-            "stuck_items": stuck_by_url.get(inst_url, 0),
+            "enabled": url_to_enabled.get(inst_url, True),
         })
 
-    # ── 6. Stuck items detail list (top 20) ───────────────────────────
-    stuck_items = []
-    for s in sorted(stuck_rows, key=lambda x: x["search_count"], reverse=True)[:20]:
-        stuck_items.append({
-            "title": s["title"],
-            "app": s["app"],
-            "instance_name": s["instance_name"],
-            "search_count": s["search_count"],
-            "first_searched": _sh_field(
-                conn, s["app"], s["instance_url"], s["item_id"], "first_searched_ts"
-            ),
-            "library_added": _sh_field(
-                conn, s["app"], s["instance_url"], s["item_id"], "library_added"
-            ) or "",
-        })
+    # ── 5. Upgrade History ────────────────────────────────────────────
+    logger.debug("[Intel] fetching upgrade paths")
+    upgrade_paths = _top_upgrade_paths(conn, limit=3)
+
+    upgrade_history = {
+        "imported_once": agg["imported_once_count"],
+        "upgraded": agg["upgraded_count"],
+        "upgrade_paths": upgrade_paths,
+    }
+
+    # ── 6. CF Score Health (live -- not in aggregate, not reset by Reset Intel) ──
+    cf_score_health = None
+    if cf_enabled:
+        logger.debug("[Intel] fetching CF Score health")
+        cf_score_health = db.get_cf_score_health()
 
     # ── 7. Exclusion Intel ────────────────────────────────────────────
     logger.debug("[Intel] building exclusion intel")
@@ -201,11 +193,6 @@ def _build_intel_payload():
         elif row["source"] == "auto":
             auto_count = row["cnt"]
 
-    avg_row = conn.execute(
-        "SELECT AVG(search_count) as avg FROM exclusions WHERE source = 'auto'"
-    ).fetchone()
-    avg_searches_at_excl = round(avg_row["avg"] or 0.0, 1)
-
     now_utc = datetime.now(timezone.utc)
     first_of_month = now_utc.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     first_of_month_iso = first_of_month.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -214,164 +201,25 @@ def _build_intel_payload():
         (first_of_month_iso,)
     ).fetchone()[0]
 
-    logger.debug("[Intel] running calibration query")
-    calibration = _compute_calibration(conn)
-
-    exclusion_intel = {
-        "total": manual_count + auto_count,
-        "manual_count": manual_count,
-        "auto_count": auto_count,
-        "avg_searches_at_exclusion": avg_searches_at_excl,
-        "auto_exclusions_this_month": auto_this_month,
-        "calibration": calibration,
-    }
-
-    # ── 8. Sweep Efficiency ───────────────────────────────────────────
-    sweep_efficiency = []
-    for lr in lifetime_rows:
-        inst_url, inst_name, app_name = _parse_instance_key(
-            lr["instance_key"], url_to_name, url_to_app
-        )
-        eligible = lr["eligible"] or 0
-        searched = lr["searched"] or 0
-        ratio = round(searched / eligible, 4) if eligible > 0 else 0.0
-        sweep_efficiency.append({
-            "instance_url": inst_url,
-            "instance_name": inst_name,
-            "app": app_name,
-            "runs": lr["runs"] or 0,
-            "eligible": eligible,
-            "searched": searched,
-            "ratio": ratio,
-        })
-
-    # ── 9. Library Age ────────────────────────────────────────────────
-    logger.debug("[Intel] building library age buckets")
-    age_buckets_raw = agg["library_age_buckets"]
-    bucket_order = [
-        "Under 1 month", "1 to 3 months", "3 to 6 months",
-        "6 to 12 months", "12+ months", "Unknown"
-    ]
-    age_buckets = []
-    unknown_count = 0
-    for label in bucket_order:
-        data = age_buckets_raw.get(label, {"total": 0, "imported": 0})
-        if label == "Unknown":
-            unknown_count = data.get("total", 0)
-        age_buckets.append({
-            "label": label,
-            "total": data.get("total", 0),
-            "imported": data.get("imported", 0),
-        })
-
-    unknown_note = ""
-    if unknown_count > 0:
-        unknown_note = (
-            f"{unknown_count} item{'s' if unknown_count != 1 else ''} could not be "
-            f"bucketed \u2014 library added date unavailable."
-        )
-
-    library_age = {
-        "buckets": age_buckets,
-        "unknown_count": unknown_count,
-        "unknown_note": unknown_note,
-    }
-
-    # ── 10. Quality Iteration ─────────────────────────────────────────
-    logger.debug("[Intel] fetching upgrade paths")
-    upgrade_path_radarr = _most_common_upgrade_path(conn, "radarr")
-    upgrade_path_sonarr = _most_common_upgrade_path(conn, "sonarr")
-
-    quality_iteration = {
-        "imported_once": agg["imported_once_count"],
-        "upgraded": agg["upgraded_count"],
-        "upgrade_path_radarr": upgrade_path_radarr,
-        "upgrade_path_sonarr": upgrade_path_sonarr,
-    }
-
-    logger.debug("[Intel] payload assembled successfully")
-    return jsonify({
-        "cold_start": cold_start,
-        "total_runs": total_runs,
-        "library_score": library_score,
-        "search_health": search_health,
-        "instance_performance": instance_performance,
-        "stuck_items": stuck_items,
-        "exclusion_intel": exclusion_intel,
-        "sweep_efficiency": sweep_efficiency,
-        "library_age": library_age,
-        "quality_iteration": quality_iteration,
-    })
-
-
-# ── POST /api/intel/reset ─────────────────────────────────────────────
-
-@bp.post("/api/intel/reset")
-@requires_auth
-def api_intel_reset():
-    """Reset all Intel data to a clean slate.
-
-    Clears intel_aggregate back to zero defaults and deletes all rows from
-    exclusion_events. Called exclusively by the Reset Intel button in the
-    Danger Zone. Clear History and Clear Stats do not call this endpoint.
-    """
-    db.reset_intel()
-    logger.info("[Intel] Intel data reset via Danger Zone")
-    return jsonify({"ok": True})
-
-
-# ── Helpers ───────────────────────────────────────────────────────────
-
-def _compute_library_score(agg, cfg):
-    """Compute a 0-100 Library Score from four weighted sub-scores.
-
-    Weights: success rate 40%, turnaround 25%, stuck items 20%,
-    sweep efficiency 15%. Each sub-score is normalised to 0-100 before
-    weighting. Returns an integer.
-    """
-    success_score = (
-        round((agg["success_total_imported"] / agg["success_total_worked"]) * 100)
-        if agg["success_total_worked"] > 0 else 0
-    )
-
-    avg_days = (
-        agg["turnaround_sum_days"] / agg["turnaround_count"]
-        if agg["turnaround_count"] > 0 else 30
-    )
-    turnaround_score = max(0, round(100 - (avg_days / 30) * 100))
-
-    movies_threshold = int(cfg.get("auto_exclude_movies_threshold", 0))
-    shows_threshold = int(cfg.get("auto_exclude_shows_threshold", 0))
-    stuck_rows = db.get_high_search_count_unconfirmed(movies_threshold, shows_threshold)
-    stuck_count = len(stuck_rows)
-    stuck_score = max(0, 100 - stuck_count * 5)
-
-    from nudgarr.db.connection import get_connection
-    conn = get_connection()
-    eff_rows = conn.execute(
-        "SELECT SUM(searched) as s, SUM(eligible) as e FROM sweep_lifetime"
-    ).fetchone()
-    if eff_rows and eff_rows["e"] and eff_rows["e"] > 0:
-        efficiency_score = round((eff_rows["s"] / eff_rows["e"]) * 100)
-    else:
-        efficiency_score = 50
-
-    score = round(
-        success_score * 0.40
-        + turnaround_score * 0.25
-        + stuck_score * 0.20
-        + efficiency_score * 0.15
-    )
-    return min(100, max(0, score))
-
-
-def _compute_calibration(conn):
-    """Run the calibration signal query and return recommendation text."""
-    row = conn.execute(
+    # Titles cycled through exclusions (excluded then unexcluded at least once).
+    # Counts all sources -- manual and auto exclusion cycling both count.
+    cycles_row = conn.execute(
         """
-        SELECT
-            COUNT(DISTINCT ee_ex.title) AS total_unexcluded,
-            COUNT(DISTINCT se.title)    AS later_imported
+        SELECT COUNT(DISTINCT ee_ex.title) AS cycled
+        FROM exclusion_events ee_ex
+        JOIN exclusion_events ee_un
+            ON ee_un.title = ee_ex.title COLLATE NOCASE
+           AND ee_un.event_type = 'unexcluded'
+           AND ee_un.event_ts > ee_ex.event_ts
+        WHERE ee_ex.event_type = 'excluded'
+        """
+    ).fetchone()
+    titles_cycled = cycles_row["cycled"] if cycles_row else 0
+
+    # Titles that were unexcluded and later confirmed imported.
+    later_row = conn.execute(
+        """
+        SELECT COUNT(DISTINCT ee_ex.title) AS later_imported
         FROM exclusion_events ee_ex
         JOIN exclusion_events ee_un
             ON ee_un.title = ee_ex.title COLLATE NOCASE
@@ -382,79 +230,76 @@ def _compute_calibration(conn):
            AND se.imported = 1
            AND se.imported_ts > ee_un.event_ts
         WHERE ee_ex.event_type = 'excluded'
-          AND ee_ex.source = 'auto'
+          AND se.id IS NOT NULL
         """
     ).fetchone()
+    unexcluded_later_imported = later_row["later_imported"] if later_row else 0
 
-    total = row["total_unexcluded"] if row else 0
-    imported = row["later_imported"] if row else 0
-    cold_start = total < 5
+    auto_exclusions_enabled = (
+        cfg.get("radarr_auto_exclude_enabled", False)
+        or cfg.get("sonarr_auto_exclude_enabled", False)
+    )
 
-    if cold_start:
-        recommendation = (
-            "Not enough auto-unexclude cycles to draw conclusions yet. "
-            "This signal will improve over time."
-        )
-    else:
-        ratio = imported / total
-        if ratio > _CALIBRATION_HIGH:
-            recommendation = (
-                "More than 1 in 5 auto-excluded titles eventually imported after "
-                "being given another chance. Your threshold may be excluding titles "
-                "too early. Consider raising it."
-            )
-        elif ratio >= _CALIBRATION_LOW:
-            recommendation = (
-                "Your threshold appears well-calibrated. A small number of "
-                "auto-excluded titles imported after unexclusion, which is expected."
-            )
-        else:
-            recommendation = (
-                "Very few auto-excluded titles have imported after unexclusion. "
-                "Your threshold appears to be working as intended."
-            )
-
-    return {
-        "total_unexcluded": total,
-        "later_imported": imported,
-        "recommendation": recommendation,
-        "cold_start": cold_start,
+    exclusion_intel = {
+        "total": manual_count + auto_count,
+        "manual_count": manual_count,
+        "auto_count": auto_count,
+        "auto_exclusions_this_month": auto_this_month,
+        "titles_cycled": titles_cycled,
+        "unexcluded_later_imported": unexcluded_later_imported,
+        "auto_enabled": auto_exclusions_enabled,
     }
 
+    logger.debug("[Intel] payload assembled successfully")
+    return jsonify({
+        "cold_start": cold_start,
+        "total_runs": total_runs,
+        "import_summary": import_summary,
+        "instance_performance": instance_performance,
+        "upgrade_history": upgrade_history,
+        "cf_score_health": cf_score_health,
+        "exclusion_intel": exclusion_intel,
+    })
 
-def _most_common_upgrade_path(conn, app):
-    """Return the most common quality_from -> quality_to upgrade path for an app."""
-    row = conn.execute(
+
+# ── POST /api/intel/reset ─────────────────────────────────────────────
+
+@bp.post("/api/intel/reset")
+@requires_auth
+def api_intel_reset():
+    """Reset all Intel aggregate data to a clean slate.
+
+    Clears intel_aggregate back to zero defaults and deletes all rows from
+    exclusion_events. Called exclusively by the Reset Intel button in the
+    Danger Zone. Clear History, Clear Imports, and Clear Log do not call
+    this endpoint -- all four destructive operations are fully independent.
+    CF Score Health is not affected as it reads live from cf_score_entries.
+    """
+    db.reset_intel()
+    logger.info("[Intel] Intel data reset via Danger Zone")
+    return jsonify({"ok": True})
+
+
+# ── Helpers ───────────────────────────────────────────────────────────
+
+def _top_upgrade_paths(conn, limit: int = 5):
+    """Return the top N quality upgrade paths across all apps by count."""
+    rows = conn.execute(
         """
         SELECT qh.quality_from, qh.quality_to, COUNT(*) as count
         FROM quality_history qh
-        JOIN stat_entries se ON se.id = qh.entry_id
         WHERE qh.quality_from IS NOT NULL
           AND qh.quality_from != ''
-          AND se.app = ?
         GROUP BY qh.quality_from, qh.quality_to
         ORDER BY count DESC
-        LIMIT 1
+        LIMIT ?
         """,
-        (app,)
-    ).fetchone()
-    if not row:
-        return {"from": None, "to": None, "count": 0}
-    return {
-        "from": row["quality_from"],
-        "to": row["quality_to"],
-        "count": row["count"],
-    }
-
-
-def _sh_field(conn, app, instance_url, item_id, field):
-    """Read a single field from search_history for a specific item."""
-    row = conn.execute(
-        f"SELECT {field} FROM search_history"
-        f" WHERE app = ? AND instance_url = ? AND item_id = ? LIMIT 1",
-        (app, instance_url, item_id)
-    ).fetchone()
-    return row[field] if row else ""
+        (limit,)
+    ).fetchall()
+    return [
+        {"from": r["quality_from"], "to": r["quality_to"], "count": r["count"]}
+        for r in rows
+    ]
 
 
 def _parse_instance_key(instance_key, url_to_name, url_to_app):
@@ -467,12 +312,10 @@ def _parse_instance_key(instance_key, url_to_name, url_to_app):
     """
     parts = instance_key.split("|", 2)
     if len(parts) == 3:
-        # Current format: app|name|url
         app_from_key = parts[0]
         name_from_key = parts[1]
         inst_url = parts[2].rstrip("/")
     elif len(parts) == 2:
-        # Legacy format: name|url
         app_from_key = None
         name_from_key = parts[0]
         inst_url = parts[1].rstrip("/")

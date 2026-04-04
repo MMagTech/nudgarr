@@ -178,7 +178,7 @@ function cfRenderCoverage(status) {
           ${escapeHtml(inst.instance_name || inst.arr_instance_id)}
           <span style="font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px;border:1px solid;${pillColor}">${pctLabel}</span>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${total.toLocaleString()} indexed · ${below.toLocaleString()} below cutoff</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${formatCompact(total)} indexed · ${formatCompact(below)} below cutoff</div>
       </div>
     </div>`;
   }).join('');
@@ -303,7 +303,7 @@ function _cfRenderPage() {
 
   const end = Math.min(start + CF_PAGE_SIZE, total);
   const totalPages = Math.max(1, Math.ceil(total / CF_PAGE_SIZE));
-  if (pageInfo) pageInfo.textContent = `Page ${CF_PAGE + 1} of ${totalPages} · ${total} item${total !== 1 ? 's' : ''}`;
+  if (pageInfo) pageInfo.textContent = `Page ${CF_PAGE + 1} of ${totalPages} · ${formatCompact(total)} item${total !== 1 ? 's' : ''}`;
 
   const btnPrev = el('cfPagination')?.querySelector('button:first-child');
   const btnNext = el('cfPagination')?.querySelector('button:nth-child(2)');
@@ -335,12 +335,16 @@ function cfSyncConfigFields() {
   const cronInput = el('cfSyncCron');
   const rMax = el('cfRadarrMax');
   const sMax = el('cfSonarrMax');
+  const rMode = el('cfRadarrSampleMode');
+  const sMode = el('cfSonarrSampleMode');
   if (cronInput) {
     cronInput.value = CFG.cf_score_sync_cron ?? '0 0 * * *';
     validateCfCronExpr();
   }
   if (rMax) rMax.value = CFG.radarr_cf_max_per_run ?? 1;
   if (sMax) sMax.value = CFG.sonarr_cf_max_per_run ?? 1;
+  if (rMode) rMode.value = CFG.radarr_cf_sample_mode ?? 'largest_gap_first';
+  if (sMode) sMode.value = CFG.sonarr_cf_sample_mode ?? 'largest_gap_first';
   const msg = el('cfMsg');
   if (msg) { msg.textContent = ''; msg.className = 'msg'; }
 }
@@ -350,13 +354,17 @@ function cfSyncConfigFields() {
 async function saveCfScores() {
   if (!CFG) return;
   try {
-    const cronVal = (el('cfSyncCron')?.value || '0 0 * * *').trim();
+    const cronVal  = (el('cfSyncCron')?.value || '0 0 * * *').trim();
     const rMaxVal  = parseInt(el('cfRadarrMax')?.value || '1', 10);
     const sMaxVal  = parseInt(el('cfSonarrMax')?.value || '1', 10);
+    const rModeVal = el('cfRadarrSampleMode')?.value || 'largest_gap_first';
+    const sModeVal = el('cfSonarrSampleMode')?.value || 'largest_gap_first';
     const cronParts = cronVal.split(/\s+/);
-    CFG.cf_score_sync_cron     = cronParts.length === 5 ? cronVal : '0 0 * * *';
-    CFG.radarr_cf_max_per_run  = isNaN(rMaxVal)  || rMaxVal  < 1 ? 1  : rMaxVal;
-    CFG.sonarr_cf_max_per_run  = isNaN(sMaxVal)  || sMaxVal  < 1 ? 1  : sMaxVal;
+    CFG.cf_score_sync_cron      = cronParts.length === 5 ? cronVal : '0 0 * * *';
+    CFG.radarr_cf_max_per_run   = isNaN(rMaxVal)  || rMaxVal  < 1 ? 1  : rMaxVal;
+    CFG.sonarr_cf_max_per_run   = isNaN(sMaxVal)  || sMaxVal  < 1 ? 1  : sMaxVal;
+    CFG.radarr_cf_sample_mode   = rModeVal;
+    CFG.sonarr_cf_sample_mode   = sModeVal;
     await api('/api/config', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},

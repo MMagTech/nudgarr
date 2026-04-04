@@ -66,6 +66,7 @@ function _getGlobal(kind, field) {
     notifications_enabled: !!CFG.notify_enabled,
     // Backlog sample mode — independent of cutoff sample mode (v4.2.0)
     backlog_sample_mode:   kind === 'radarr' ? (CFG.radarr_backlog_sample_mode || 'random') : (CFG.sonarr_backlog_sample_mode || 'random'),
+    cf_sample_mode:        kind === 'radarr' ? (CFG.radarr_cf_sample_mode || 'largest_gap_first') : (CFG.sonarr_cf_sample_mode || 'largest_gap_first'),
     // Grace period — applied after availability date before first missing search (v4.2.0)
     missing_grace_hours:   kind === 'radarr' ? (CFG.radarr_missing_grace_hours ?? 0) : (CFG.sonarr_missing_grace_hours ?? 0),
     // CF Score max per run — only relevant when cf_score_enabled is True (v4.2.0)
@@ -95,8 +96,23 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const dotClass = kind === 'sonarr' ? 'ov-dot ov-sonarr' : 'ov-dot';
   const badgeStyle = isDisabled ? 'opacity:0.4;filter:saturate(0)' : '';
   const dotStyle = isDisabled ? 'opacity:0.4' : '';
-  const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added'];
-  const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
+  const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added', 'round_robin'];
+  const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added', round_robin: 'Round Robin'};
+  const VALID_CF_MODES = ['largest_gap_first', 'round_robin', 'random', 'alphabetical', 'oldest_added', 'newest_added'];
+  const CF_MODE_LABELS = {largest_gap_first: 'Largest Gap First', round_robin: 'Round Robin', random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
+
+  // CF Score sample mode — __global__ sentinel pattern matching backlog_sample_mode (v4.2.1)
+  const globalCfMode = _getGlobal(kind, 'cf_sample_mode');
+  const hasOvCfMode = 'cf_sample_mode' in ov;
+  const cfModeVal = hasOvCfMode ? ov.cf_sample_mode : '__global__';
+  const cfModeField = `<div class="field">
+    <label>Sample Mode</label>
+    <select id="${cardId}-cf_sample_mode" class="${hasOvCfMode ? 'ov-active' : ''}"
+      onchange="markCardDirty('${kind}',${idx})">
+      <option value="__global__"${!hasOvCfMode ? ' selected' : ''}>Use Global (${CF_MODE_LABELS[globalCfMode] || globalCfMode})</option>
+      ${VALID_CF_MODES.map(m => `<option value="${m}"${cfModeVal === m ? ' selected' : ''}>${CF_MODE_LABELS[m]}</option>`).join('')}
+    </select>
+  </div>`;
 
   const statusHtml = ovCount
     ? `<span class="help" style="font-size:11px">${ovCount} Override${ovCount !== 1 ? 's' : ''}</span>`
@@ -212,7 +228,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
        ${grpHead('CF Score')}
        <div class="ov-fields" style="margin-bottom:10px">
          <div style="grid-column:1/2">${numField('cf_max', 'Max (Per Run)', gCfMax)}</div>
-         <div></div>
+         <div>${cfModeField}</div>
        </div>`
     : '';
 
@@ -396,6 +412,20 @@ async function applyOverrides(kind, idx) {
     }
   }
 
+  // CF Score sample mode — same __global__ sentinel pattern; only present when cf_score_enabled (v4.2.1)
+  if (CFG && CFG.cf_score_enabled) {
+    const cfModeEl = el(cardId + '-cf_sample_mode');
+    if (cfModeEl) {
+      if (cfModeEl.value === '__global__' || cfModeEl.value === '') {
+        delete newOv.cf_sample_mode;
+        cfModeEl.classList.remove('ov-active');
+      } else {
+        newOv.cf_sample_mode = cfModeEl.value;
+        cfModeEl.classList.add('ov-active');
+      }
+    }
+  }
+
   // Backlog enabled — always store current value if input has been interacted with
   const blInput = el(cardId + '-backlog_enabled');
   if (blInput) {
@@ -449,8 +479,8 @@ async function resetCardOverrides(kind, idx) {
 
 function resetFieldOverride(kind, idx, field) {
   const cardId = _ovCardId(kind, idx);
-  if (field === 'sample_mode' || field === 'backlog_sample_mode') {
-    // Both mode selects use the __global__ sentinel to indicate no override
+  if (field === 'sample_mode' || field === 'backlog_sample_mode' || field === 'cf_sample_mode') {
+    // Mode selects use the __global__ sentinel to indicate no override
     const sel = el(cardId + '-' + field);
     if (sel) { sel.value = '__global__'; sel.classList.remove('ov-active'); }
   } else {

@@ -712,6 +712,24 @@
     /* ── Intel tab ── */
     .intel-row { margin-bottom: 12px; }
     .intel-row:last-child { margin-bottom: 0; }
+    /* Intel Import Summary headline numbers (v4.3.0) */
+    .intel-headlines { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-radius: var(--radius-sm); overflow: visible; margin-bottom: 16px; position: relative; }
+    .intel-headline-cell { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+    .intel-headline-cell:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .intel-headline-cell:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    .intel-headline-num { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+    .intel-headline-num.accent { color: var(--accent-lt); }
+    .intel-headline-num.ok { color: var(--ok); }
+    .intel-headline-lbl { font-size: 11px; color: var(--muted); font-weight: 500; }
+    /* Intel pipeline breakdown table (v4.3.0) */
+    .intel-pipeline-table { width: 100%; border-collapse: collapse; }
+    .intel-pipeline-table thead tr { border-top: 1px solid var(--border); }
+    .intel-pipeline-table th { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .intel-pipeline-table td { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .intel-pipeline-table tr:last-child td { border-bottom: none; }
+    .pipeline-label { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-dim); }
+    .pip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .conv-rate { font-size: 11px; color: var(--muted); font-weight: 500; }
     .intel-grid-score { display: grid; grid-template-columns: 270px 1fr; gap: 12px; }
     .intel-score-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22px 18px; gap: 12px; }
     .intel-score-ring-wrap { position: relative; width: 130px; height: 130px; }

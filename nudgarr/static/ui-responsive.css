@@ -231,6 +231,16 @@
       .import-stat-card.shows  { order: 3; flex: 1 1 calc(50% - 4px); min-width: 0; }
       .import-stats > .import-stat-card:not(.movies):not(.shows) { order: 1; flex: 1 1 100%; }
 
+      /* Intel Import Summary headlines: 3-col → 2+1 layout.
+         Turnaround and Searches side by side, Upgrades full width below. */
+      .intel-headlines { grid-template-columns: 1fr 1fr; }
+      .intel-headline-cell:last-child {
+        grid-column: 1 / -1;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+      }
+      .intel-headline-cell:first-child { border-radius: var(--radius-sm) 0 0 0; }
+      .intel-headline-cell:nth-child(2) { border-radius: 0 var(--radius-sm) 0 0; }
+
       /* On mobile portrait all cards stack full-width so left/right tooltip
          directions are unreliable. Force all tooltips to open downward —
          the page scrolls vertically so there is always room below. */

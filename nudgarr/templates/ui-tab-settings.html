@@ -50,7 +50,7 @@
       <div class="sched-row" style="display:flex;gap:20px;flex-wrap:nowrap;align-items:flex-start">
         <div class="field" style="flex:1">
           <div class="tooltip-wrap">
-            <label>Maintenance Window</label>
+            <label>Maintenance</label>
             <span class="tooltip-icon">i<div class="tooltip-box">Suppresses scheduled sweeps and CF Score syncs during the configured time window. Manual runs always bypass it. Import checking continues during the window as it only contacts your local Radarr and Sonarr instances, not indexers.</div></span>
           </div>
           <div class="toggle-wrap" style="height:34px;">
@@ -61,10 +61,11 @@
             </label>
             <span class="help" id="maint_label">Disabled</span>
           </div>
+          <div class="help">Quiet Hours</div>
         </div>
         <!-- Time inputs and day pills — greyed when toggle is off -->
         <div class="field" id="maint_controls" style="max-width:340px;opacity:0.35;pointer-events:none">
-          <label style="margin-bottom:6px">Suppress Between</label>
+          <label style="margin-bottom:6px">Suppression Window</label>
           <div style="display:flex;align-items:flex-start;gap:10px">
             <input type="text" id="maintenance_window_start"
               placeholder="23:00" maxlength="5"

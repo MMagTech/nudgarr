@@ -20,6 +20,25 @@ function fillAdvanced() {
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
   el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
   if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
+  if (el('default_tab')) {
+    el('default_tab').value = CFG.default_tab || 'sweep';
+    // Grey out conditional tabs when their feature is currently disabled.
+    const sel = el('default_tab');
+    Array.from(sel.options).forEach(opt => {
+      const disabled =
+        (opt.value === 'overrides'  && !CFG.per_instance_overrides_enabled) ||
+        (opt.value === 'cf-scores'  && !CFG.cf_score_enabled) ||
+        (opt.value === 'filters'    && !((CFG.instances?.radarr?.length || 0) + (CFG.instances?.sonarr?.length || 0)));
+      opt.disabled = disabled;
+      opt.style.color = disabled ? 'var(--muted)' : '';
+    });
+    // If the saved default is a conditional tab that is now disabled, show sweep
+    // in the dropdown without overwriting the saved config value — so it restores
+    // automatically if the feature is re-enabled later.
+    const saved = CFG.default_tab || 'sweep';
+    const savedOpt = sel.querySelector(`option[value="${saved}"]`);
+    if (savedOpt && savedOpt.disabled) sel.value = 'sweep';
+  }
   if (el('log_level')) el('log_level').value = CFG.log_level || 'INFO';
   if (el('per_instance_overrides_enabled')) {
     el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
@@ -118,6 +137,7 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
+    if (el('default_tab')) CFG.default_tab = el('default_tab').value;
     if (el('log_level')) CFG.log_level = el('log_level').value || 'INFO';
 
     // Auto-exclusion fields — capture previous state before updating so we can

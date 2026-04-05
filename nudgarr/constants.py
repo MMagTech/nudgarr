@@ -80,6 +80,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # UI Preferences (v2.5.0)
     "last_seen_version": "",
     "show_support_link": True,
+    "default_tab": "sweep",            # tab shown on fresh browser/device (v4.3.0); localStorage overrides within same browser
 
     # Per-Instance Overrides (v3.2.0)
     "per_instance_overrides_enabled": False,
@@ -147,3 +148,12 @@ VALID_BACKLOG_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_
 # is specific to gap-based scoring and does not apply to the other pipelines.
 # Do not merge with VALID_SAMPLE_MODES or VALID_BACKLOG_SAMPLE_MODES.
 VALID_CF_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added", "round_robin", "largest_gap_first")
+
+# Valid tab names for the default_tab config key (v4.4.0).
+# All navigable tabs are included — conditional tabs (overrides, cf-scores, filters)
+# are in the list since a user may deliberately set one as their default.
+# The frontend falls back to "sweep" if the saved tab is not currently visible.
+VALID_TABS = (
+    "instances", "overrides", "settings", "cf-scores", "filters",
+    "sweep", "history", "imports", "intel", "notifications", "advanced",
+)

@@ -6,7 +6,7 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.3.0
 
-**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting.**
+**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab.**
 
 This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
 
@@ -37,6 +37,16 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - `formatCompact(n)` utility function added to `ui-core.js`. Numbers below 10,000 display as-is; 10,000 and above display as compact format (10k, 1.2M etc).
 - Applied at five locations where large counts would overflow constrained mobile layouts: History page info line, History KPI pills, Imports page info line, Imports Movies/Episodes stat cards, CF Score page info line and coverage inline text.
 - Also applied to Intel tab pipeline breakdown and Instance Performance table columns.
+
+**Default Tab (v4.3.0)**
+
+- `default_tab` config key added to `DEFAULT_CONFIG`, defaulting to `sweep`. Existing installs receive this key on first boot via `fill_missing_keys`.
+- `VALID_TABS` constant added to `constants.py` covering all navigable tab names including conditional tabs.
+- Default Tab dropdown added to UI Preferences in the Advanced tab, above Show Support Link. Includes all tabs. Falls back to Sweep if the selected tab is not currently visible.
+- localStorage: every tab switch writes `nudgarr_last_tab` to browser storage after onboarding is complete. On load: localStorage first, then configured `default_tab`, then Sweep. New installs always start on Instances through onboarding.
+- Onboarding Replay button removed from UI Preferences.
+- Documentation link added to the Support and Diagnostics card header.
+- Onboarding walkthrough updated to 8 steps: stale mobile note removed, Round Robin added to Sample Mode, exclusion wording fixed, auto-exclusion updated for toggle-first flow with Unexclude Days, Intel description updated for v4.3.0 redesign, Default Tab added as step 8.
 
 **Auto-Exclusion Queue Check Fix (from v4.2.1)**
 

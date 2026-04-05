@@ -298,9 +298,23 @@
           <div class="adv-cfg-cell adv-cfg-cell--right" style="padding-left:20px">
             <p class="section-label">UI Preferences</p>
             <div class="field">
-              <label>Onboarding</label>
-              <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
-              <div class="help" style="margin-top:6px">View the initial walkthrough.</div>
+              <div class="tooltip-wrap">
+                <label>Default Tab</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Tab shown when opening Nudgarr on a new browser or device. Within the same browser Nudgarr always remembers the last tab you visited. If the selected tab is not currently visible, Nudgarr falls back to Sweep.</div></span>
+              </div>
+              <select id="default_tab" onchange="markUnsaved('advMsg')">
+                <option value="instances">Instances</option>
+                <option value="overrides">Overrides</option>
+                <option value="settings">Settings</option>
+                <option value="cf-scores">CF Score</option>
+                <option value="filters">Filters</option>
+                <option value="sweep">Sweep</option>
+                <option value="history">History</option>
+                <option value="imports">Imports</option>
+                <option value="intel">Intel</option>
+                <option value="notifications">Notifications</option>
+                <option value="advanced">Advanced</option>
+              </select>
             </div>
             <div class="field" style="margin-top:12px;margin-bottom:0">
               <label>Show Support Link</label>
@@ -326,7 +340,10 @@
       <div class="grid cols2" style="align-items:stretch;">
 
         <div class="card">
-          <p class="section-label" style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
+          <p class="section-label" style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+            <span style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></span>
+            <a href="https://mmagtech.github.io/nudgarr/" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-lt);opacity:0.7;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;font-weight:400;letter-spacing:0">Documentation ↗</a>
+          </p>
           <p class="help" style="margin:0 0 14px;">Data backup and diagnostic tools.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <button class="btn sm" style="width:100%;" onclick="backupAll()">Backup All</button>

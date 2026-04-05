@@ -17,7 +17,7 @@ import logging
 import re
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES, VALID_TABS
 from nudgarr.utils import load_json, save_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,11 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     for mode_key in ("radarr_cf_sample_mode", "sonarr_cf_sample_mode"):
         if cfg.get(mode_key) not in VALID_CF_SAMPLE_MODES:
             errs.append(f"{mode_key} must be one of {VALID_CF_SAMPLE_MODES}")
+
+    # Default tab (v4.4.0)
+    default_tab = cfg.get("default_tab", "sweep")
+    if default_tab not in VALID_TABS:
+        errs.append(f"default_tab must be one of {VALID_TABS}")
 
     for k in (
         "radarr_max_movies_per_run",

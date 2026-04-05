@@ -18,24 +18,25 @@
         <p class="help" style="margin:4px 0">Loading&hellip;</p>
       </div>
 
-      <div class="card" style="grid-column:span 2">
+      <div class="card">
+        <span class="sum-title">Imports Confirmed</span>
+        <div id="sweepImportsCard">
+          <p class="help" style="margin:4px 0">Loading&hellip;</p>
+        </div>
+      </div>
+
+      <div class="card">
         <span class="sum-title">Last Sweep</span>
-        <div class="last-sweep-merged">
-          <div class="last-sweep-left">
-            <div>
-              <div class="stat-lbl">Completed</div>
-              <div class="ls-val normal" id="sweepLastCompletedVal">&mdash;</div>
-              <div class="ls-sub" id="sweepLastCompletedSub">&nbsp;</div>
-            </div>
-            <div>
-              <div class="stat-lbl">Next Run</div>
-              <div class="ls-val ok" id="sweepNextRunVal">&mdash;</div>
-              <div class="ls-sub" id="sweepNextRunSub">&nbsp;</div>
-            </div>
+        <div class="last-sweep-cols">
+          <div>
+            <div class="stat-lbl">Completed</div>
+            <div class="ls-val normal" id="sweepLastCompletedVal">&mdash;</div>
+            <div class="ls-sub" id="sweepLastCompletedSub">&nbsp;</div>
           </div>
-          <div class="last-sweep-divider"></div>
-          <div id="sweepImportsCard" class="last-sweep-right">
-            <p class="help" style="margin:4px 0">Loading&hellip;</p>
+          <div>
+            <div class="stat-lbl">Next Run</div>
+            <div class="ls-val ok" id="sweepNextRunVal">&mdash;</div>
+            <div class="ls-sub" id="sweepNextRunSub">&nbsp;</div>
           </div>
         </div>
       </div>

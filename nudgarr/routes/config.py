@@ -159,7 +159,8 @@ def api_reset_config():
     db.reset_intel()
 
     # Remove persisted sweep state keys so the scheduler starts clean
-    for key in ("last_run_utc", "last_sweep_start_utc", "last_summary"):
+    for key in ("last_run_utc", "last_sweep_start_utc", "last_summary", "last_skipped_queue_depth_utc",
+                "last_run_cutoff_utc", "last_run_backlog_utc", "last_run_cfscore_utc"):
         db.delete_state(key)
 
     # Reset in-memory STATUS so the UI reflects a clean slate immediately
@@ -168,6 +169,10 @@ def api_reset_config():
     STATUS["last_summary"] = {}
     STATUS["last_error"] = None
     STATUS["imports_confirmed_sweep"] = {"movies": 0, "shows": 0}
+    STATUS["last_skipped_queue_depth_utc"] = None
+    STATUS["last_run_cutoff_utc"] = None
+    STATUS["last_run_backlog_utc"] = None
+    STATUS["last_run_cfscore_utc"] = None
 
     logger.info("Factory reset complete — config, history, imports, exclusions, CF index, and Intel cleared.")
     return jsonify({"ok": True})

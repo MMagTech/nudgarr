@@ -74,6 +74,15 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if default_tab not in VALID_TABS:
         errs.append(f"default_tab must be one of {VALID_TABS}")
 
+<<<<<<< Updated upstream
+=======
+    # Queue depth (v4.3.0)
+    if cfg.get("queue_depth_enabled", False):
+        threshold = cfg.get("queue_depth_threshold", 10)
+        if not isinstance(threshold, int) or threshold < 1:
+            errs.append("queue_depth_threshold must be an integer >= 1 when queue_depth_enabled is True")
+
+>>>>>>> Stashed changes
     for k in (
         "radarr_max_movies_per_run",
         "sonarr_max_episodes_per_run",

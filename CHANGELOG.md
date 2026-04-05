@@ -6,10 +6,36 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.3.0
 
+<<<<<<< Updated upstream
 **Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab.**
 
 This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
 
+=======
+**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency.**
+
+This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
+
+**Label Consistency (v4.3.0)**
+
+- `Missing Max (Per Instance)` renamed to `Max (Per Instance)` in Advanced Backlog section (Radarr and Sonarr).
+- `Backlog Sample Mode` renamed to `Sample Mode` in Advanced and Overrides -- the pipeline context makes the prefix redundant.
+- `Max Backlog` renamed to `Max (Per Run)` in Overrides -- more accurate since the value governs searches per run, not per instance.
+- `Max Missing Days` renamed to `Missing Added Days` in Overrides to match Advanced.
+- `Cooldown Hours` renamed to `Cooldown (Hours)` in Overrides to match Settings.
+- Per-instance override pipeline group headers (Cutoff Unmet, Backlog, CF Score) upgraded to pipeline colour with underline for better visual separation.
+
+**Queue Depth Awareness (v4.3.0)**
+
+- New `queue_depth_enabled` toggle and `queue_depth_threshold` (min 1) in Advanced Sweep Controls card.
+- At sweep start, after the maintenance window check and before the auto-unexclude pass, Nudgarr fetches `/api/v3/queue/status` from each enabled instance and sums the total queue count. If the sum meets or exceeds the threshold the entire sweep is skipped.
+- Failed instance queue checks contribute 0 to the sum and log a warning -- fail-open so a temporarily unreachable instance does not block the sweep.
+- Status bar Last segment replaced with amber "Skipped -- Queue Depth" when the last scheduled sweep was skipped. Next continues to show the next cron fire as normal. Clears on the next successful sweep.
+- Pipeline cards in the Sweep tab now show the last run timestamp for each pipeline (Cutoff Unmet, Backlog, CF Score) top-right of the card header. Blank if the pipeline has never run. Persists across container restarts.
+- New `notify_on_queue_depth_skip` notification event fires every time a sweep is skipped due to queue depth. Configurable in the Notifications tab. Existing Sweep Complete notification handles recovery.
+- Advanced Pipelines card renamed to Sweep Controls to reflect its broader scope.
+
+>>>>>>> Stashed changes
 **Intel Tab Redesign (v4.3.0)**
 
 - Library Score ring, Stuck Items card, Sweep Efficiency card, and Library Age vs Success card removed. The scoring system and assumption-based metrics have been replaced with hard facts drawn directly from the database.

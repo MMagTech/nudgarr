@@ -15,7 +15,7 @@
 
 // ── Pipeline card builder ─────────────────────────────────────────────────
 
-function _pipelineCardHtml(type, insts, summary, health) {
+function _pipelineCardHtml(type, insts, summary, health, lastRunUtc) {
   // type: 'cutoff' | 'backlog' | 'cfscore'
   // Aggregate totals across all instances for this pipeline.
   let agg = {};
@@ -138,6 +138,10 @@ function _pipelineCardHtml(type, insts, summary, health) {
     ? 'Finds missing movies and episodes that have never been grabbed and tells the Arr to search for them.'
     : 'Finds monitored files where the custom format score is below the quality profile cutoff and tells the Arr to search for a better-scored release.';
 
+  const lastRunHtml = lastRunUtc
+    ? `<span style="font-size:11px;color:var(--muted)">${fmtTimePadded(lastRunUtc)}</span>`
+    : '';
+
   return `<div id="${slotId}" class="p-card ${type}">
     <div class="p-hdr">
       <div class="p-hdr-left">
@@ -146,6 +150,7 @@ function _pipelineCardHtml(type, insts, summary, health) {
           <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">${tooltipText}</div></span>
         </div>
       </div>
+      ${lastRunHtml}
     </div>
     ${totalsHtml}
     <div class="p-divider"></div>
@@ -163,6 +168,9 @@ async function refreshSweep() {
   const health    = status.instance_health || {};
   const lifetime  = status.sweep_lifetime || {};
   const cfEnabled = !!cfg.cf_score_enabled;
+  const lastCutoff  = status.last_run_cutoff_utc  || null;
+  const lastBacklog = status.last_run_backlog_utc  || null;
+  const lastCf      = status.last_run_cfscore_utc  || null;
 
   // Build flat instance lists tagged with their kind ('radarr'/'sonarr')
   const allInsts = [];
@@ -187,11 +195,11 @@ async function refreshSweep() {
     if (backlogSlot) backlogSlot.innerHTML = msg;
     if (cfSlot)      cfSlot.innerHTML      = msg;
   } else {
-    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  allInsts, allSummary, health);
-    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog', allInsts, allSummary, health);
+    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  allInsts, allSummary, health, lastCutoff);
+    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog', allInsts, allSummary, health, lastBacklog);
     if (cfSlot)      cfSlot.outerHTML      = cfEnabled
-      ? _pipelineCardHtml('cfscore', allInsts, allSummary, health)
-      : _pipelineCardHtml('cfscore', allInsts, [],         health);
+      ? _pipelineCardHtml('cfscore', allInsts, allSummary, health, lastCf)
+      : _pipelineCardHtml('cfscore', allInsts, [],         health, lastCf);
   }
 
   // ── Health card ───────────────────────────────────────────────────────

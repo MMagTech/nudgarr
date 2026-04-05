@@ -11,6 +11,7 @@ function fillNotifications() {
   el('notify_on_import').checked = CFG.notify_on_import !== false;
   if (el('notify_on_auto_exclusion')) el('notify_on_auto_exclusion').checked = CFG.notify_on_auto_exclusion !== false;
   el('notify_on_error').checked = CFG.notify_on_error !== false;
+  if (el('notify_on_queue_depth_skip')) el('notify_on_queue_depth_skip').checked = CFG.notify_on_queue_depth_skip !== false;
   syncNotifyUi();
 }
 
@@ -63,6 +64,7 @@ async function saveNotifications() {
   CFG.notify_on_import = el('notify_on_import').checked;
   if (el('notify_on_auto_exclusion')) CFG.notify_on_auto_exclusion = el('notify_on_auto_exclusion').checked;
   CFG.notify_on_error = el('notify_on_error').checked;
+  if (el('notify_on_queue_depth_skip')) CFG.notify_on_queue_depth_skip = el('notify_on_queue_depth_skip').checked;
   const r = await api('/api/config', {method: 'POST', body: JSON.stringify(CFG)});
   if (r && r.ok) {
     await loadAll();

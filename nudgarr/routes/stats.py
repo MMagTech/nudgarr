@@ -12,6 +12,7 @@ Lifetime returns the persistent lifetime totals; 30 and 7 return rolling window
 counts calculated from imported_ts in stat_entries.
 """
 
+import json
 import requests as req_lib
 
 from flask import Blueprint, jsonify, request
@@ -101,6 +102,7 @@ def api_check_imports_now():
         sweep_start = STATUS.get("last_sweep_start_utc")
         if sweep_start:
             STATUS["imports_confirmed_sweep"] = db.get_imports_since(sweep_start)
+            db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
     except Exception:
         logger.exception("Manual import check failed")
         return jsonify({"ok": False, "error": "Import check failed — check logs for details"}), 500

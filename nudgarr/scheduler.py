@@ -112,6 +112,7 @@ def import_check_loop(shutdown: threading.Event) -> None:
                     sweep_start = STATUS.get("last_sweep_start_utc")
                     if sweep_start:
                         STATUS["imports_confirmed_sweep"] = db.get_imports_since(sweep_start)
+                        db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
                 except Exception:
                     logger.exception("[Stats] Import check failed in background loop")
                 # Auto-exclusion check runs after every import check cycle,
@@ -560,6 +561,13 @@ def scheduler_loop(shutdown: threading.Event) -> None:
     if persisted_skip:
         STATUS["last_skipped_queue_depth_utc"] = persisted_skip
 
+    persisted_imports = db.get_state("imports_confirmed_sweep")
+    if persisted_imports:
+        try:
+            STATUS["imports_confirmed_sweep"] = json.loads(persisted_imports)
+        except (ValueError, TypeError):
+            pass
+
     for pipeline_key in ("last_run_cutoff_utc", "last_run_backlog_utc", "last_run_cfscore_utc"):
         persisted = db.get_state(pipeline_key)
         if persisted:
@@ -651,6 +659,7 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                                 STATUS["imports_confirmed_sweep"] = db.get_imports_since(
                                     STATUS["last_sweep_start_utc"]
                                 )
+                                db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
                             notify_sweep_complete(summary, cfg)
                             for app_name in ("radarr", "sonarr"):
                                 for inst in summary.get(app_name, []):

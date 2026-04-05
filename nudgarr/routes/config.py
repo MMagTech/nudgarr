@@ -160,7 +160,8 @@ def api_reset_config():
 
     # Remove persisted sweep state keys so the scheduler starts clean
     for key in ("last_run_utc", "last_sweep_start_utc", "last_summary", "last_skipped_queue_depth_utc",
-                "last_run_cutoff_utc", "last_run_backlog_utc", "last_run_cfscore_utc"):
+                "last_run_cutoff_utc", "last_run_backlog_utc", "last_run_cfscore_utc",
+                "imports_confirmed_sweep"):
         db.delete_state(key)
 
     # Reset in-memory STATUS so the UI reflects a clean slate immediately

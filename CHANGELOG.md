@@ -95,6 +95,13 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - `tests/test_cooldown.py` (13 tests): `get_last_searched_ts_bulk` and `batch_upsert_search_history` with real temp SQLite DB. Covers cooldown boundary conditions, per-instance isolation, upsert behaviour, and bulk fetch edge cases.
 - Total test count: 116 → 176.
 
+**Bug Fixes (v4.3.0)**
+
+- `_check_queue_depth` was using `inst["api_key"]` to access the instance API key. The correct field name throughout sweep.py is `inst["key"]`. This caused a KeyError on every scheduled sweep when queue depth was enabled, crashing the sweep entirely.
+- Pipeline last run timestamps (Backlog, CF Score) were only recorded when `searched_missing > 0` or `searched_cf > 0`. Pipelines that ran but found nothing to search (e.g. all items on cooldown) never got a timestamp written. Fixed to use key existence check -- all three pipeline timestamps now record when the pipeline ran regardless of search count.
+- Manual import check route (`POST /api/stats/check-imports`) confirmed imports in the DB but did not update `STATUS["imports_confirmed_sweep"]`. The Sweep tab showed 0 imports after a manual Check Now even when imports were confirmed. Fixed by updating the STATUS key immediately after `check_imports()` succeeds.
+- `imports_confirmed_sweep` was in-memory only and reset to zero on every container restart. Now persisted to `nudgarr_state` at all three update points (post-sweep, background loop, manual Check Now) and restored on startup.
+
 **Auto-Exclusion Queue Check Fix (from v4.2.1)**
 
 - `_is_title_in_queue` in `scheduler.py` removed. It used `/api/v3/queue?movieId=X` to check if a candidate was actively downloading before writing an auto-exclusion. The per-item filtered endpoint does not work reliably across Radarr/Sonarr versions. On affected versions the filter is silently ignored and the full queue is returned for every request, causing every auto-exclusion candidate to be reported as in-queue and skipped indefinitely.

@@ -106,6 +106,12 @@ def import_check_loop(shutdown: threading.Event) -> None:
             if elapsed >= check_minutes:
                 try:
                     check_imports(session, cfg)
+                    # Refresh imports_confirmed_sweep so the Sweep tab stays
+                    # accurate between sweeps. Uses last_sweep_start_utc so
+                    # only imports from the current sweep window are counted.
+                    sweep_start = STATUS.get("last_sweep_start_utc")
+                    if sweep_start:
+                        STATUS["imports_confirmed_sweep"] = db.get_imports_since(sweep_start)
                 except Exception:
                     logger.exception("[Stats] Import check failed in background loop")
                 # Auto-exclusion check runs after every import check cycle,

@@ -95,6 +95,12 @@ def api_check_imports_now():
     cfg_override["import_check_minutes"] = 0
     try:
         check_imports(session, cfg_override)
+        # Update imports_confirmed_sweep so the Sweep tab reflects the
+        # confirmed imports immediately without waiting for the background loop.
+        from nudgarr.globals import STATUS
+        sweep_start = STATUS.get("last_sweep_start_utc")
+        if sweep_start:
+            STATUS["imports_confirmed_sweep"] = db.get_imports_since(sweep_start)
     except Exception:
         logger.exception("Manual import check failed")
         return jsonify({"ok": False, "error": "Import check failed — check logs for details"}), 500

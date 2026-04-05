@@ -635,10 +635,10 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                             if any("searched" in i for i in all_inst):
                                 STATUS["last_run_cutoff_utc"] = _now
                                 db.set_state("last_run_cutoff_utc", _now)
-                            if any(i.get("searched_missing", 0) > 0 for i in all_inst):
+                            if any("searched_missing" in i for i in all_inst):
                                 STATUS["last_run_backlog_utc"] = _now
                                 db.set_state("last_run_backlog_utc", _now)
-                            if any(i.get("searched_cf", 0) > 0 for i in all_inst):
+                            if any("searched_cf" in i for i in all_inst):
                                 STATUS["last_run_cfscore_utc"] = _now
                                 db.set_state("last_run_cfscore_utc", _now)
                             if STATUS["last_sweep_start_utc"]:

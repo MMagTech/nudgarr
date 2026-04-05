@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.7.0">
 <title data-rh="true">Exclusions | Nudgarr</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://mmagtech.github.io/nudgarr/docs/exclusions"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Exclusions | Nudgarr"><meta data-rh="true" name="description" content="The Exclusions list lets you permanently prevent specific titles from being searched by Nudgarr. Excluded titles are silently skipped in every future sweep — across all three pipelines and all instances."><meta data-rh="true" property="og:description" content="The Exclusions list lets you permanently prevent specific titles from being searched by Nudgarr. Excluded titles are silently skipped in every future sweep — across all three pipelines and all instances."><link data-rh="true" rel="icon" href="/nudgarr/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://mmagtech.github.io/nudgarr/docs/exclusions"><link data-rh="true" rel="alternate" href="https://mmagtech.github.io/nudgarr/docs/exclusions" hreflang="en"><link data-rh="true" rel="alternate" href="https://mmagtech.github.io/nudgarr/docs/exclusions" hreflang="x-default"><link rel="stylesheet" href="/nudgarr/assets/css/styles.7c9a9976.css">
-<script src="/nudgarr/assets/js/runtime~main.c73e7009.js" defer="defer"></script>
+<script src="/nudgarr/assets/js/runtime~main.839c64da.js" defer="defer"></script>
 <script src="/nudgarr/assets/js/main.e841632e.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -36,8 +36,7 @@
 <p>Exclusions are not the right tool for temporarily pausing a title — that is what the cooldown handles naturally. If you just searched something and do not want it re-searched soon, the cooldown already prevents that without an explicit exclusion.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="exclusions-and-sonarr-show-level-management">Exclusions and Sonarr show-level management<a href="#exclusions-and-sonarr-show-level-management" class="hash-link" aria-label="Direct link to Exclusions and Sonarr show-level management" title="Direct link to Exclusions and Sonarr show-level management">​</a></h2>
-<p>Nudgarr excludes by title only. For Sonarr, excluding a show title will skip all episode searches for that show — but it will not remove it from your Sonarr library or un-monitor it.</p>
-<p>If you want to stop Nudgarr from ever touching a show again and stop Sonarr from looking for it in RSS, the right approach is to un-monitor the show (or specific seasons/episodes) in Sonarr directly. Nudgarr only searches monitored content.</p>
+<p>For Sonarr, excluding a title removes that specific episode from future searches. Other episodes in the same show are unaffected.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="storage">Storage<a href="#storage" class="hash-link" aria-label="Direct link to Storage" title="Direct link to Storage">​</a></h2>
 <p>Exclusions are stored in the SQLite database at <code>/config/nudgarr.db</code>. They are persisted across restarts and container upgrades.</p>

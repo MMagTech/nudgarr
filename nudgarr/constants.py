@@ -73,6 +73,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "notify_on_import": True,
     "notify_on_auto_exclusion": True,
     "notify_on_error": True,
+    "notify_on_queue_depth_skip": True,
 
     # Onboarding
     "onboarding_complete": False,
@@ -101,6 +102,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # making them eligible again. 0 means they stay excluded until manually removed.
     "auto_unexclude_movies_days": 0,      # days before a movie auto-exclusion expires
     "auto_unexclude_shows_days": 0,       # days before a show auto-exclusion expires
+
+    # Sweep Controls (v4.3.0)
+    # Queue depth threshold — when enabled, the total download queue count
+    # across all enabled instances is fetched before each sweep. If the sum
+    # meets or exceeds the threshold the sweep is skipped entirely.
+    # Failed instance queue checks contribute 0 to the sum (fail-open).
+    "queue_depth_enabled": False,
+    "queue_depth_threshold": 10,   # minimum 1 when enabled
 
     # CF Score Scan (v4.2.0)
     # Library-wide audit that finds movies/episodes where customFormatScore is

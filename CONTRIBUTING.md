@@ -68,6 +68,10 @@ nudgarr/                    ← Python package
   scheduler.py              ← cron scheduler, import check loop, auto-exclusion check; auto-exclusion queue
                               check fetches the full queue once per instance via radarr_get_queued_movie_ids /
                               sonarr_get_queued_episode_ids (same as sweep pipeline) rather than per-candidate
+                              API calls. Queue depth pre-sweep check uses radarr_get_queue_total /
+                              sonarr_get_queue_total (lightweight /api/v3/queue/status endpoint). Per-pipeline
+                              last run timestamps (last_run_cutoff_utc, last_run_backlog_utc,
+                              last_run_cfscore_utc) persisted to nudgarr_state after each successful sweep.
                               filtered API calls which do not work reliably across arr versions
   scheduler.py              ← scheduler loop, import check loop, cf_score_sync_loop, banner, WSGI server
                               starter; writes STATUS["last_sweep_start_utc"] before run_sweep() and
@@ -100,12 +104,15 @@ nudgarr/                    ← Python package
     ui-core.js              ← bootstrap, shared state, cron helper, status polling, tab switching, shared sort helpers, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
     ui-sweep.js             ← sweep tab rendering (v4.3.0 redesign), Run Now; refreshSweep() builds three
-                              pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and
-                              per-instance rows, three summary cards (Sweep Health, Last Sweep, Imports
-                              Confirmed), and a paginated sweep feed (items searched in the current sweep
-                              via /api/state/items?since=last_sweep_start_utc). Feed pagination uses
+                              pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals,
+                              per-instance rows, and last run timestamp per pipeline. Three summary cards:
+                              Sweep Health (banner with All Instances Healthy/Instance Unreachable/Sweep Failed
+                              states, fixed height to prevent layout shift, Lifetime Runs + Avg/Run stats),
+                              Imports Confirmed (This Sweep total, Per Instance breakdown with Radarr/Sonarr
+                              colour coding), Last Sweep (Completed, Next Run). Paginated sweep feed via
+                              /api/state/items?since=last_sweep_start_utc. Feed pagination uses
                               SWEEP_FEED_PAGE / SWEEP_FEED_TOTAL state vars and syncs page size with
-                              History and Imports via syncPageSize('sweep'). SWEEP_DATA_CACHE removed.
+                              History and Imports via syncPageSize('sweep').
     ui-history.js           ← history tab, exclusions, shared sort/pagination helpers; jumpHistoryPage() for direct page navigation
     ui-imports.js           ← imports/stats tab; jumpImportsPage() for direct page navigation
     ui-intel.js             ← Intel tab — fillIntel, renderIntel, resetIntel and all render helpers
@@ -222,11 +229,12 @@ main.py  ←─ imports from routes, scheduler, globals, log_setup
 1. `scheduler_loop` in `scheduler.py` runs on a timer (or responds to `run_requested`)
 2. It calls `run_sweep(cfg, session)` in `sweep.py`
 3. `run_sweep` runs the auto-unexclude pass first — any auto-excluded titles older than the configured threshold are removed from the exclusions table and their search_count reset to 0 in search_history, making them eligible immediately in this sweep
-4. `run_sweep` iterates over configured Radarr and Sonarr instances in a unified loop, calling `_sweep_instance(app=...)` for each
-5. Each instance helper calls `arr_clients.py` to fetch eligible items — pagination is handled internally with no item cap, callers receive a flat list of all eligible items regardless of library size. The helper then applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
-6. `run_sweep` returns a summary dict
-7. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` to `nudgarr_state`, triggers notifications, and runs import checks
-8. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep. After each import check cycle it also runs the auto-exclusion evaluation — titles that meet the configured threshold, have no confirmed import, are not in the download queue, and are not already excluded are written to the exclusions table and a notification fires
+4. `run_sweep` first runs `_check_queue_depth` -- if queue depth is enabled, one `GET /api/v3/queue/status` call is made per enabled instance, totals are summed, and the sweep is skipped entirely if the sum meets or exceeds the threshold (fail-open on instance errors). If skipped, `STATUS["last_skipped_queue_depth_utc"]` is set and persisted so the status bar can show the amber skip indicator
+5. `run_sweep` then runs `_run_auto_unexclude` and iterates over configured Radarr and Sonarr instances in a unified loop, calling `_sweep_instance(app=...)` for each
+6. Each instance helper calls `arr_clients.py` to fetch eligible items — pagination is handled internally with no item cap, callers receive a flat list of all eligible items regardless of library size. The helper then applies exclusions, tag/profile filters, and queue filtering, applies cooldown logic from `stats.py`, calls the search API, then records results in a single batched transaction via `nudgarr/db/` — `batch_upsert_search_history` and `batch_upsert_stat_entries` commit the entire batch at once rather than per-item
+7. `run_sweep` returns a summary dict
+8. `scheduler_loop` stores the summary in `STATUS["last_summary"]`, persists `last_run_utc` and per-pipeline timestamps (`last_run_cutoff_utc`, `last_run_backlog_utc`, `last_run_cfscore_utc`) to `nudgarr_state`, triggers notifications, and runs import checks. Pipeline timestamps are recorded when the pipeline ran (key exists in summary), not just when items were searched
+9. A separate `import_check_loop` thread runs independently on its own timer, polling for confirmed imports without waiting for a sweep. After each import check cycle it also runs the auto-exclusion evaluation — titles that meet the configured threshold, have no confirmed import, are not in the download queue, and are not already excluded are written to the exclusions table and a notification fires
 
 ---
 

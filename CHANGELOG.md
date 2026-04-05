@@ -6,9 +6,28 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.3.0
 
-**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab.**
+**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency, Sweep Tab Redesign, Logic Unit Tests.**
 
 This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
+
+**Label Consistency (v4.3.0)**
+
+- `Missing Max (Per Instance)` renamed to `Max (Per Instance)` in Advanced Backlog section (Radarr and Sonarr).
+- `Backlog Sample Mode` renamed to `Sample Mode` in Advanced and Overrides -- the pipeline context makes the prefix redundant.
+- `Max Backlog` renamed to `Max (Per Run)` in Overrides -- more accurate since the value governs searches per run, not per instance.
+- `Max Missing Days` renamed to `Missing Added Days` in Overrides to match Advanced.
+- `Cooldown Hours` renamed to `Cooldown (Hours)` in Overrides to match Settings.
+- Per-instance override pipeline group headers (Cutoff Unmet, Backlog, CF Score) upgraded to pipeline colour with underline for better visual separation.
+
+**Queue Depth Awareness (v4.3.0)**
+
+- New `queue_depth_enabled` toggle and `queue_depth_threshold` (min 1) in Advanced Sweep Controls card.
+- At sweep start, after the maintenance window check and before the auto-unexclude pass, Nudgarr fetches `/api/v3/queue/status` from each enabled instance and sums the total queue count. If the sum meets or exceeds the threshold the entire sweep is skipped.
+- Failed instance queue checks contribute 0 to the sum and log a warning -- fail-open so a temporarily unreachable instance does not block the sweep.
+- Status bar Last segment replaced with amber "Skipped -- Queue Depth" when the last scheduled sweep was skipped. Next continues to show the next cron fire as normal. Clears on the next successful sweep.
+- Pipeline cards in the Sweep tab now show the last run timestamp for each pipeline (Cutoff Unmet, Backlog, CF Score) top-right of the card header. Blank if the pipeline has never run. Persists across container restarts.
+- New `notify_on_queue_depth_skip` notification event fires every time a sweep is skipped due to queue depth. Configurable in the Notifications tab. Existing Sweep Complete notification handles recovery.
+- Advanced Pipelines card renamed to Sweep Controls to reflect its broader scope.
 
 **Intel Tab Redesign (v4.3.0)**
 
@@ -47,6 +66,41 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - Onboarding Replay button removed from UI Preferences.
 - Documentation link added to the Support and Diagnostics card header.
 - Onboarding walkthrough updated to 8 steps: stale mobile note removed, Round Robin added to Sample Mode, exclusion wording fixed, auto-exclusion updated for toggle-first flow with Unexclude Days, Intel description updated for v4.3.0 redesign, Default Tab added as step 8.
+
+**Sweep Tab Summary Cards Redesign (v4.3.0)**
+
+- Three-card layout: Sweep Health, Imports Confirmed, Last Sweep (in that order).
+- Sweep Health: fixed-height banner section shows All Instances Healthy (green), Instance(s) Unreachable (amber, count in subtitle), or Sweep Failed (red, see logs). Below a divider, a Stats section shows Lifetime Runs and Avg / Run only. Last Error and Instances count cells removed -- instance health is visible in the pipeline cards above. Tooltip on the card title explains both stats. Banner height is fixed so the card never shifts size between states.
+- Imports Confirmed: This Sweep total above a divider, Per Instance section below with Movies (Radarr purple) and Episodes (Sonarr green) coloured cells. Zero state shows muted 0 with "Nothing Imported This Sweep" below the divider.
+- Last Sweep: Completed and Next Run only. Lifetime Runs and Lifetime Searched removed -- lifetime stats belong in Intel.
+- Lifetime Imports removed from Imports Confirmed -- it was incorrectly sourcing from `sweep_lifetime.searched` causing it to match Lifetime Searched exactly.
+
+**Intel Tab Label Improvements (v4.3.0)**
+
+- "Quality Upgrades Confirmed" renamed to "Quality Upgrades" with subtitle "Existing files replaced with a better version". Tooltip rewritten to be explicit about what qualifies.
+- "Imported Once" renamed to "Acquired" with subtitle "First-time grab".
+- "Upgraded" renamed to "Acquired then Upgraded" with subtitle "Missing → grabbed → quality improved".
+- Upgrade History card tooltip rewritten to match new labels.
+- `intel-headline-sub` and `intel-qi-sub` CSS classes added for subtitles.
+
+**Exclusions Wording Fix (v4.3.0)**
+
+- Wiki and site docs Exclusions page corrected: for Sonarr, excluding a title removes that specific episode from future searches. Other episodes in the same show are unaffected. Previous wording incorrectly implied that excluding a show title would skip all episodes for that show.
+
+**Logic Unit Tests (v4.3.0)**
+
+- Three new pytest test files added covering real application logic. Zero nudgarr code changes required.
+- `tests/test_config_validation.py` (37 tests): `validate_config()` with valid and invalid inputs across scheduler, cron, sample modes, queue depth threshold, numeric bounds, default tab, instance structure, and override fields.
+- `tests/test_queue_depth.py` (15 tests): `_check_queue_depth()` boundary conditions, fail-open behaviour on exception/HTTP error/missing field, multi-instance summing, disabled instance handling. Uses `unittest.mock.patch` on `arr_clients.req`.
+- `tests/test_cooldown.py` (13 tests): `get_last_searched_ts_bulk` and `batch_upsert_search_history` with real temp SQLite DB. Covers cooldown boundary conditions, per-instance isolation, upsert behaviour, and bulk fetch edge cases.
+- Total test count: 116 → 176.
+
+**Bug Fixes (v4.3.0)**
+
+- `_check_queue_depth` was using `inst["api_key"]` to access the instance API key. The correct field name throughout sweep.py is `inst["key"]`. This caused a KeyError on every scheduled sweep when queue depth was enabled, crashing the sweep entirely.
+- Pipeline last run timestamps (Backlog, CF Score) were only recorded when `searched_missing > 0` or `searched_cf > 0`. Pipelines that ran but found nothing to search (e.g. all items on cooldown) never got a timestamp written. Fixed to use key existence check -- all three pipeline timestamps now record when the pipeline ran regardless of search count.
+- Manual import check route (`POST /api/stats/check-imports`) confirmed imports in the DB but did not update `STATUS["imports_confirmed_sweep"]`. The Sweep tab showed 0 imports after a manual Check Now even when imports were confirmed. Fixed by updating the STATUS key immediately after `check_imports()` succeeds.
+- `imports_confirmed_sweep` was in-memory only and reset to zero on every container restart. Now persisted to `nudgarr_state` at all three update points (post-sweep, background loop, manual Check Now) and restored on startup.
 
 **Auto-Exclusion Queue Check Fix (from v4.2.1)**
 

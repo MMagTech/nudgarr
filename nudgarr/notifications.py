@@ -141,3 +141,15 @@ def notify_error(message: str, cfg: Optional[Dict[str, Any]] = None) -> None:
         body=message,
         cfg=cfg
     )
+
+
+def notify_queue_depth_skip(cfg: Optional[Dict[str, Any]] = None) -> None:
+    if cfg is None:
+        cfg = load_or_init_config()
+    if not cfg.get("notify_on_queue_depth_skip", True):
+        return
+    send_notification(
+        title="Nudgarr — Sweep Skipped",
+        body="Sweep skipped — download queue depth limit reached.",
+        cfg=cfg
+    )

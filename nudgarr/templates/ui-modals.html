@@ -61,14 +61,20 @@
            <div class="help">The Intel tab launched just a few days ago in v4.2.0 and has already been rebuilt. My apologies for the quick turnaround. After stepping back and looking at what it was, it became clear the scoring and assumptions probably weren't ideal for what Intel should represent. The new design strips it back to hard facts only. Five focused cards showing exactly what Nudgarr has done with no scoring, no judgments, and nothing that depends on how you have the app configured. Just straight facts derived from information that resides in the database.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sample Mode Overhaul</div>
-           <div class="help">Round Robin added to Cutoff Unmet and Backlog. Searches whoever has been waiting longest, with never-searched items going first. CF Score gains full mode control: Largest Gap First (default), Round Robin, Random, Alphabetical, Oldest Added, Newest Added. CF Score sample mode is also available in per-instance Overrides.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Queue Depth Awareness</div>
+           <div class="help">Nudgarr can now skip sweeps automatically when your download queue is too busy. Set a threshold in Advanced &rarr; Sweep Controls &mdash; if the total queue across all your instances meets or exceeds it, the sweep is skipped and the status bar shows the skip in amber. A notification fires each time. The next scheduled sweep checks again from scratch.</div>
+         </div>
+         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweep Tab Redesign</div>
+           <div class="help">The three summary cards have been rebuilt. Sweep Health shows instance status with a fixed-height banner so the card never shifts size between states. Imports Confirmed shows Movies and Episodes in Radarr purple and Sonarr green, and the count now persists across container restarts. Last Sweep shows Completed and Next Run separated by a divider. Each pipeline card also shows when it last ran.</div>
          </div>
          <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px">
            <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Also in this release</div>
-           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Fix:</strong> titles that reached your threshold were being silently blocked from exclusion by a Radarr/Sonarr queue API inconsistency. Fixed. Affected titles will be correctly excluded on the next import check cycle after upgrading.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Largest Gap First Starvation Fix:</strong> items with equal gap values now rotate fairly so the same titles do not monopolize every cooldown cycle.</div>
-           <div class="help"><strong>CF Score sample mode in Overrides:</strong> per-instance override for CF Score pick order, using the same pattern as the existing Backlog sample mode override.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Sample Mode Overhaul:</strong> Round Robin added to Cutoff Unmet and Backlog. CF Score gains full mode control with Largest Gap First as default. CF Score sample mode available in per-instance Overrides.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Default Tab:</strong> choose which tab Nudgarr opens on in Advanced &rarr; UI Preferences. Your last visited tab is always remembered within the same browser.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Label consistency:</strong> Backlog Sample Mode &rarr; Sample Mode, Max Backlog &rarr; Max (Per Run), Max Missing Days &rarr; Missing Added Days. Pipeline headers in Overrides now use pipeline colours.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Fix:</strong> titles that reached your threshold were being silently blocked from exclusion by a Radarr/Sonarr queue API inconsistency. Fixed.</div>
+           <div class="help"><strong>Bug fix:</strong> manual Check Now now immediately updates the Imports Confirmed count on the Sweep tab.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">

@@ -69,7 +69,7 @@ LINE_COUNT_CEILINGS = {
     'ui-cf-scores.js':                 495,  # v4.2.0: cron sync, pill colors, next sync display
     'ui-settings.js':                  660,  # raised v4.2.0: +syncMaintUi/validateMaintTime/toggleMaintDay + load/save
     'ui-notifications.js':             120,
-    'ui-advanced.js':                  310,  # raised v4.3.0: +Default Tab dropdown greying
+    'ui-advanced.js':                  335,  # raised v4.3.0: +Queue Depth fields and sync function
     'ui-filters.js':                   470,  # raised v4.2.0: CF filter sync modal handlers
 }
 
@@ -525,7 +525,7 @@ class TestValidatePy:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 334  # raised v4.4.0: +7 Default Tab checks
+        EXPECTED_CHECK_COUNT = 346  # raised v4.3.0: +12 Queue Depth checks
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

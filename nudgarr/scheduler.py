@@ -26,7 +26,7 @@ from nudgarr.cf_score_syncer import CustomFormatScoreSyncer
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import RUN_LOCK, STATUS, app
-from nudgarr.notifications import notify_error, notify_auto_exclusion, notify_sweep_complete
+from nudgarr.notifications import notify_error, notify_auto_exclusion, notify_sweep_complete, notify_queue_depth_skip
 from nudgarr.stats import check_imports
 from nudgarr.sweep import run_sweep
 from nudgarr.utils import iso_z, utcnow
@@ -106,6 +106,13 @@ def import_check_loop(shutdown: threading.Event) -> None:
             if elapsed >= check_minutes:
                 try:
                     check_imports(session, cfg)
+                    # Refresh imports_confirmed_sweep so the Sweep tab stays
+                    # accurate between sweeps. Uses last_sweep_start_utc so
+                    # only imports from the current sweep window are counted.
+                    sweep_start = STATUS.get("last_sweep_start_utc")
+                    if sweep_start:
+                        STATUS["imports_confirmed_sweep"] = db.get_imports_since(sweep_start)
+                        db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
                 except Exception:
                     logger.exception("[Stats] Import check failed in background loop")
                 # Auto-exclusion check runs after every import check cycle,
@@ -550,6 +557,22 @@ def scheduler_loop(shutdown: threading.Event) -> None:
         except (ValueError, TypeError):
             logger.warning("Could not restore last_summary from state — will repopulate after next sweep")
 
+    persisted_skip = db.get_state("last_skipped_queue_depth_utc")
+    if persisted_skip:
+        STATUS["last_skipped_queue_depth_utc"] = persisted_skip
+
+    persisted_imports = db.get_state("imports_confirmed_sweep")
+    if persisted_imports:
+        try:
+            STATUS["imports_confirmed_sweep"] = json.loads(persisted_imports)
+        except (ValueError, TypeError):
+            pass
+
+    for pipeline_key in ("last_run_cutoff_utc", "last_run_backlog_utc", "last_run_cfscore_utc"):
+        persisted = db.get_state(pipeline_key)
+        if persisted:
+            STATUS[pipeline_key] = persisted
+
     # Set initial next_run_utc
     if scheduler_enabled and cron_expression:
         STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
@@ -607,21 +630,41 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                         logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))
                         STATUS["last_sweep_start_utc"] = iso_z(utcnow())
                         summary = run_sweep(cfg, session)
-                        STATUS["last_summary"] = summary
-                        STATUS["last_run_utc"] = iso_z(utcnow())
-                        db.set_state("last_run_utc", STATUS["last_run_utc"])
-                        db.set_state("last_sweep_start_utc", STATUS["last_sweep_start_utc"])
-                        db.set_state("last_summary", json.dumps(summary))
-                        STATUS["last_error"] = None
-                        if STATUS["last_sweep_start_utc"]:
-                            STATUS["imports_confirmed_sweep"] = db.get_imports_since(
-                                STATUS["last_sweep_start_utc"]
-                            )
-                        notify_sweep_complete(summary, cfg)
-                        for app_name in ("radarr", "sonarr"):
-                            for inst in summary.get(app_name, []):
-                                if "error" in inst and inst.get("notifications_enabled", True):
-                                    notify_error(f"'{inst['name']}' is unreachable.", cfg)
+                        if summary.get("skipped_queue_depth"):
+                            STATUS["last_skipped_queue_depth_utc"] = iso_z(utcnow())
+                            db.set_state("last_skipped_queue_depth_utc", STATUS["last_skipped_queue_depth_utc"])
+                            notify_queue_depth_skip(cfg)
+                        else:
+                            STATUS["last_skipped_queue_depth_utc"] = None
+                            db.set_state("last_skipped_queue_depth_utc", "")
+                            STATUS["last_summary"] = summary
+                            STATUS["last_run_utc"] = iso_z(utcnow())
+                            db.set_state("last_run_utc", STATUS["last_run_utc"])
+                            db.set_state("last_sweep_start_utc", STATUS["last_sweep_start_utc"])
+                            db.set_state("last_summary", json.dumps(summary))
+                            STATUS["last_error"] = None
+                            # Record per-pipeline last run timestamps
+                            _now = iso_z(utcnow())
+                            all_inst = summary.get("radarr", []) + summary.get("sonarr", [])
+                            if any("searched" in i for i in all_inst):
+                                STATUS["last_run_cutoff_utc"] = _now
+                                db.set_state("last_run_cutoff_utc", _now)
+                            if any("searched_missing" in i for i in all_inst):
+                                STATUS["last_run_backlog_utc"] = _now
+                                db.set_state("last_run_backlog_utc", _now)
+                            if any("searched_cf" in i for i in all_inst):
+                                STATUS["last_run_cfscore_utc"] = _now
+                                db.set_state("last_run_cfscore_utc", _now)
+                            if STATUS["last_sweep_start_utc"]:
+                                STATUS["imports_confirmed_sweep"] = db.get_imports_since(
+                                    STATUS["last_sweep_start_utc"]
+                                )
+                                db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
+                            notify_sweep_complete(summary, cfg)
+                            for app_name in ("radarr", "sonarr"):
+                                for inst in summary.get(app_name, []):
+                                    if "error" in inst and inst.get("notifications_enabled", True):
+                                        notify_error(f"'{inst['name']}' is unreachable.", cfg)
                     except Exception:
                         STATUS["last_error"] = "Sweep failed — see logs for details"
                         logger.exception("Sweep failed")

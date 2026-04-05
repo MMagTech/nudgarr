@@ -716,6 +716,61 @@ else:
     fail("nudgarr_last_tab localStorage key missing from ui-core.js")
 
 
+# ── Queue Depth (v4.3.0) ──────────────────────────────────────────────────────
+section("Queue Depth")
+_qd_constants = open('nudgarr/constants.py').read()
+if '"queue_depth_enabled": False' in _qd_constants:
+    ok("queue_depth_enabled present in DEFAULT_CONFIG")
+else:
+    fail("queue_depth_enabled missing from DEFAULT_CONFIG")
+if '"queue_depth_threshold"' in _qd_constants:
+    ok("queue_depth_threshold present in DEFAULT_CONFIG")
+else:
+    fail("queue_depth_threshold missing from DEFAULT_CONFIG")
+if '"notify_on_queue_depth_skip"' in _qd_constants:
+    ok("notify_on_queue_depth_skip present in DEFAULT_CONFIG")
+else:
+    fail("notify_on_queue_depth_skip missing from DEFAULT_CONFIG")
+if '_check_queue_depth' in open('nudgarr/sweep.py').read():
+    ok("_check_queue_depth present in sweep.py")
+else:
+    fail("_check_queue_depth missing from sweep.py")
+_qd_clients = open('nudgarr/arr_clients.py').read()
+if 'radarr_get_queue_total' in _qd_clients:
+    ok("radarr_get_queue_total present in arr_clients.py")
+else:
+    fail("radarr_get_queue_total missing from arr_clients.py")
+if 'sonarr_get_queue_total' in _qd_clients:
+    ok("sonarr_get_queue_total present in arr_clients.py")
+else:
+    fail("sonarr_get_queue_total missing from arr_clients.py")
+_qd_adv = open('nudgarr/templates/ui-tab-advanced.html').read()
+if 'Sweep Controls' in _qd_adv:
+    ok("Sweep Controls section label present in Advanced tab")
+else:
+    fail("Sweep Controls section label missing from Advanced tab")
+if 'queue_depth_enabled' in _qd_adv:
+    ok("queue_depth_enabled toggle present in Advanced tab")
+else:
+    fail("queue_depth_enabled toggle missing from Advanced tab")
+if 'queue_depth_threshold' in _qd_adv:
+    ok("queue_depth_threshold input present in Advanced tab")
+else:
+    fail("queue_depth_threshold input missing from Advanced tab")
+if 'notify_on_queue_depth_skip' in open('nudgarr/templates/ui-tab-notifications.html').read():
+    ok("notify_on_queue_depth_skip toggle present in Notifications tab")
+else:
+    fail("notify_on_queue_depth_skip toggle missing from Notifications tab")
+if 'last_skipped_queue_depth_utc' in open('nudgarr/static/ui-core.js').read():
+    ok("last_skipped_queue_depth_utc handled in ui-core.js")
+else:
+    fail("last_skipped_queue_depth_utc missing from ui-core.js")
+if 'lastRunUtc' in open('nudgarr/static/ui-sweep.js').read():
+    ok("pipeline card last run timestamp present in ui-sweep.js")
+else:
+    fail("pipeline card last run timestamp missing from ui-sweep.js")
+
+
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):

@@ -57,6 +57,19 @@ function fmtTime(s) {
   try { return new Date(s).toLocaleString(); } catch(e) { return s; }
 }
 
+function _updateLastRunDisplay(st) {
+  const el_last = el('lastRun');
+  const el_seg = el_last ? el_last.closest('.status-seg-last') : null;
+  if (!el_last) return;
+  if (st.last_skipped_queue_depth_utc) {
+    el_last.innerHTML = '<span style="color:var(--warn);font-weight:500">Skipped \u2014 Queue Depth</span>';
+    if (el_seg) { el_seg.dataset.skipActive = '1'; el_seg.style.background = 'rgba(251,191,36,.06)'; }
+  } else {
+    el_last.textContent = fmtTime(st.last_run_utc);
+    if (el_seg) { delete el_seg.dataset.skipActive; el_seg.style.background = ''; }
+  }
+}
+
 function fmtTimePadded(s) {
   if (!s) return '—';
   try {
@@ -107,7 +120,7 @@ async function loadAll() {
   CFG = await api('/api/config');
   const st = await api('/api/status');
   el('ver').textContent = st.version;
-  el('lastRun').textContent = fmtTime(st.last_run_utc);
+  _updateLastRunDisplay(st);
   el('nextRun').textContent = (CFG && (CFG.scheduler_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
   updateStatusPill(CFG.scheduler_enabled);
   updateContainerTime(st.container_time);
@@ -180,7 +193,7 @@ async function refreshStatus() {
     const st = await api('/api/status');
     el('ver').textContent = st.version;
     const isRunning = !!st.run_in_progress;
-    if (!isRunning) el('lastRun').textContent = fmtTime(st.last_run_utc);
+    if (!isRunning) _updateLastRunDisplay(st);
     if (isRunning) {
       el('dot-scheduler').classList.add('running');
       el('wordmark').classList.add('sweeping');

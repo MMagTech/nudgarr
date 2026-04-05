@@ -661,11 +661,11 @@ def _check_queue_depth(cfg: Dict[str, Any], session: requests.Session) -> bool:
     for inst in (cfg.get("instances") or {}).get("radarr", []):
         if inst.get("enabled", True) is False:
             continue
-        total += radarr_get_queue_total(session, inst["url"], inst["api_key"])
+        total += radarr_get_queue_total(session, inst["url"], inst["key"])
     for inst in (cfg.get("instances") or {}).get("sonarr", []):
         if inst.get("enabled", True) is False:
             continue
-        total += sonarr_get_queue_total(session, inst["url"], inst["api_key"])
+        total += sonarr_get_queue_total(session, inst["url"], inst["key"])
 
     if total >= threshold:
         logger.info(

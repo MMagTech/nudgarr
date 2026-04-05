@@ -53,8 +53,7 @@ function fillAdvanced() {
     el('queue_depth_enabled').checked = !!CFG.queue_depth_enabled;
     if (el('queue_depth_threshold')) el('queue_depth_threshold').value = CFG.queue_depth_threshold ?? 10;
     syncQueueDepthUi();
-  }
-  // Auto-exclusion fields (page 2)
+  }  // Auto-exclusion fields (page 2)
   if (el('auto_exclude_movies_threshold')) el('auto_exclude_movies_threshold').value = CFG.auto_exclude_movies_threshold ?? 0;
   if (el('auto_exclude_shows_threshold')) el('auto_exclude_shows_threshold').value = CFG.auto_exclude_shows_threshold ?? 0;
   if (el('auto_unexclude_movies_days')) el('auto_unexclude_movies_days').value = CFG.auto_unexclude_movies_days ?? 0;
@@ -294,9 +293,9 @@ function syncCfScoreToggleLabel() {
 function syncQueueDepthUi() {
   const enabled = el('queue_depth_enabled') && el('queue_depth_enabled').checked;
   const lbl = el('queue_depth_label');
-  const fields = el('queue_depth_fields');
+  const input = el('queue_depth_threshold');
   if (lbl) lbl.textContent = enabled ? 'Enabled' : 'Disabled';
-  if (fields) { fields.style.opacity = enabled ? '1' : '0.35'; fields.style.pointerEvents = enabled ? '' : 'none'; }
+  if (input) { input.style.opacity = enabled ? '1' : '0.35'; input.style.pointerEvents = enabled ? '' : 'none'; }
 }
 
 async function toggleCfScoreFeature(enabled) {

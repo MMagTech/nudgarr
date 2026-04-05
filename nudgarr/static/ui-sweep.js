@@ -266,20 +266,18 @@ async function refreshSweep() {
 
   const impEl = el('sweepImportsCard');
   if (total > 0) {
-    impEl.innerHTML = `<div class="stat-lbl" style="margin-bottom:4px;margin-top:2px">This Sweep</div>`
-      + `<div class="ls-val" style="font-size:28px;margin-top:2px">${total}</div>`
+    impEl.innerHTML = `<div class="sh-top"><div class="stat-lbl">This Sweep</div>`
+      + `<div class="ls-val" style="font-size:28px;margin-top:2px">${total}</div></div>`
       + `<div class="hr"></div>`
       + `<div class="stat-lbl" style="margin-bottom:8px">Per Instance</div>`
       + `<div class="import-breakdown">`
       + `<div class="import-cell radarr"><div class="import-cell-lbl radarr">Movies</div>`
-      + `<div class="import-cell-val radarr">${movies}</div>`
-      + `<div class="import-cell-sub radarr">Radarr</div></div>`
+      + `<div class="import-cell-val radarr">${movies}</div></div>`
       + `<div class="import-cell sonarr"><div class="import-cell-lbl sonarr">Episodes</div>`
-      + `<div class="import-cell-val sonarr">${shows}</div>`
-      + `<div class="import-cell-sub sonarr">Sonarr</div></div></div>`;
+      + `<div class="import-cell-val sonarr">${shows}</div></div></div>`;
   } else {
-    impEl.innerHTML = `<div class="stat-lbl" style="margin-bottom:4px;margin-top:2px">This Sweep</div>`
-      + `<div class="ls-val muted" style="font-size:28px;margin-top:2px">0</div>`
+    impEl.innerHTML = `<div class="sh-top"><div class="stat-lbl">This Sweep</div>`
+      + `<div class="ls-val muted" style="font-size:28px;margin-top:2px">0</div></div>`
       + `<div class="hr"></div>`
       + `<div class="ls-sub">Nothing Imported This Sweep</div>`;
   }

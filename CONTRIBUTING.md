@@ -104,12 +104,15 @@ nudgarr/                    ← Python package
     ui-core.js              ← bootstrap, shared state, cron helper, status polling, tab switching, shared sort helpers, desktop run
     ui-instances.js         ← instances tab, instance modal, connection tests
     ui-sweep.js             ← sweep tab rendering (v4.3.0 redesign), Run Now; refreshSweep() builds three
-                              pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and
-                              per-instance rows, three summary cards (Sweep Health, Last Sweep, Imports
-                              Confirmed), and a paginated sweep feed (items searched in the current sweep
-                              via /api/state/items?since=last_sweep_start_utc). Feed pagination uses
+                              pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals,
+                              per-instance rows, and last run timestamp per pipeline. Three summary cards:
+                              Sweep Health (banner with All Instances Healthy/Instance Unreachable/Sweep Failed
+                              states, fixed height to prevent layout shift, Lifetime Runs + Avg/Run stats),
+                              Imports Confirmed (This Sweep total, Per Instance breakdown with Radarr/Sonarr
+                              colour coding), Last Sweep (Completed, Next Run). Paginated sweep feed via
+                              /api/state/items?since=last_sweep_start_utc. Feed pagination uses
                               SWEEP_FEED_PAGE / SWEEP_FEED_TOTAL state vars and syncs page size with
-                              History and Imports via syncPageSize('sweep'). SWEEP_DATA_CACHE removed.
+                              History and Imports via syncPageSize('sweep').
     ui-history.js           ← history tab, exclusions, shared sort/pagination helpers; jumpHistoryPage() for direct page navigation
     ui-imports.js           ← imports/stats tab; jumpImportsPage() for direct page navigation
     ui-intel.js             ← Intel tab — fillIntel, renderIntel, resetIntel and all render helpers

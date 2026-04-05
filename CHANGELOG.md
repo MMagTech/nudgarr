@@ -6,7 +6,7 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.3.0
 
-**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency.**
+**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency, Sweep Tab Redesign, Logic Unit Tests.**
 
 This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
 
@@ -66,6 +66,34 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - Onboarding Replay button removed from UI Preferences.
 - Documentation link added to the Support and Diagnostics card header.
 - Onboarding walkthrough updated to 8 steps: stale mobile note removed, Round Robin added to Sample Mode, exclusion wording fixed, auto-exclusion updated for toggle-first flow with Unexclude Days, Intel description updated for v4.3.0 redesign, Default Tab added as step 8.
+
+**Sweep Tab Summary Cards Redesign (v4.3.0)**
+
+- Three-card layout: Sweep Health, Imports Confirmed, Last Sweep (in that order).
+- Sweep Health: fixed-height banner section shows All Instances Healthy (green), Instance(s) Unreachable (amber, count in subtitle), or Sweep Failed (red, see logs). Below a divider, a Stats section shows Lifetime Runs and Avg / Run only. Last Error and Instances count cells removed -- instance health is visible in the pipeline cards above. Tooltip on the card title explains both stats. Banner height is fixed so the card never shifts size between states.
+- Imports Confirmed: This Sweep total above a divider, Per Instance section below with Movies (Radarr purple) and Episodes (Sonarr green) coloured cells. Zero state shows muted 0 with "Nothing Imported This Sweep" below the divider.
+- Last Sweep: Completed and Next Run only. Lifetime Runs and Lifetime Searched removed -- lifetime stats belong in Intel.
+- Lifetime Imports removed from Imports Confirmed -- it was incorrectly sourcing from `sweep_lifetime.searched` causing it to match Lifetime Searched exactly.
+
+**Intel Tab Label Improvements (v4.3.0)**
+
+- "Quality Upgrades Confirmed" renamed to "Quality Upgrades" with subtitle "Existing files replaced with a better version". Tooltip rewritten to be explicit about what qualifies.
+- "Imported Once" renamed to "Acquired" with subtitle "First-time grab".
+- "Upgraded" renamed to "Acquired then Upgraded" with subtitle "Missing → grabbed → quality improved".
+- Upgrade History card tooltip rewritten to match new labels.
+- `intel-headline-sub` and `intel-qi-sub` CSS classes added for subtitles.
+
+**Exclusions Wording Fix (v4.3.0)**
+
+- Wiki and site docs Exclusions page corrected: for Sonarr, excluding a title removes that specific episode from future searches. Other episodes in the same show are unaffected. Previous wording incorrectly implied that excluding a show title would skip all episodes for that show.
+
+**Logic Unit Tests (v4.3.0)**
+
+- Three new pytest test files added covering real application logic. Zero nudgarr code changes required.
+- `tests/test_config_validation.py` (37 tests): `validate_config()` with valid and invalid inputs across scheduler, cron, sample modes, queue depth threshold, numeric bounds, default tab, instance structure, and override fields.
+- `tests/test_queue_depth.py` (15 tests): `_check_queue_depth()` boundary conditions, fail-open behaviour on exception/HTTP error/missing field, multi-instance summing, disabled instance handling. Uses `unittest.mock.patch` on `arr_clients.req`.
+- `tests/test_cooldown.py` (13 tests): `get_last_searched_ts_bulk` and `batch_upsert_search_history` with real temp SQLite DB. Covers cooldown boundary conditions, per-instance isolation, upsert behaviour, and bulk fetch edge cases.
+- Total test count: 116 → 176.
 
 **Auto-Exclusion Queue Check Fix (from v4.2.1)**
 

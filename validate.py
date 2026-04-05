@@ -716,8 +716,6 @@ else:
     fail("nudgarr_last_tab localStorage key missing from ui-core.js")
 
 
-<<<<<<< Updated upstream
-=======
 # ── Queue Depth (v4.3.0) ──────────────────────────────────────────────────────
 section("Queue Depth")
 _qd_constants = open('nudgarr/constants.py').read()
@@ -773,7 +771,6 @@ else:
     fail("pipeline card last run timestamp missing from ui-sweep.js")
 
 
->>>>>>> Stashed changes
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):

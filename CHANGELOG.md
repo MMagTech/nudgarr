@@ -6,12 +6,6 @@ All notable changes to Nudgarr are documented here.
 
 ## v4.3.0
 
-<<<<<<< Updated upstream
-**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab.**
-
-This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
-
-=======
 **Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency.**
 
 This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
@@ -35,7 +29,6 @@ This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from
 - New `notify_on_queue_depth_skip` notification event fires every time a sweep is skipped due to queue depth. Configurable in the Notifications tab. Existing Sweep Complete notification handles recovery.
 - Advanced Pipelines card renamed to Sweep Controls to reflect its broader scope.
 
->>>>>>> Stashed changes
 **Intel Tab Redesign (v4.3.0)**
 
 - Library Score ring, Stuck Items card, Sweep Efficiency card, and Library Age vs Success card removed. The scoring system and assumption-based metrics have been replaced with hard facts drawn directly from the database.

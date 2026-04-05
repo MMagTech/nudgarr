@@ -252,40 +252,30 @@ async function refreshSweep() {
   el('sweepLastCompletedSub').textContent = lastRun ? fmtTimePadded(lastRun) : '';
   el('sweepNextRunVal').textContent = nextRun ? _relTime(nextRun) : 'Off';
   el('sweepNextRunSub').textContent = nextRun ? fmtTimePadded(nextRun) : '';
-  el('sweepLifetimeRuns').textContent     = ltRuns.toLocaleString();
-  el('sweepLifetimeSearched').textContent = ltSearched.toLocaleString();
-
   // ── Imports Confirmed card ────────────────────────────────────────────
   const imp   = status.imports_confirmed_sweep || {};
   const movies = imp.movies || 0;
   const shows  = imp.shows  || 0;
   const total  = movies + shows;
 
-  let ltImports = 0;
-  for (const row of Object.values(lifetime)) ltImports += row.searched || 0;
-
   const impEl = el('sweepImportsCard');
   if (total > 0) {
-    impEl.innerHTML = `<span class="sum-title">Imports Confirmed</span>`
+    impEl.innerHTML = `<div class="stat-lbl" style="margin-bottom:10px">Imports Confirmed</div>`
       + `<div class="import-total-row">`
       + `<div class="import-total-val">${total}</div>`
-      + `<div class="import-total-sub">Imports Confirmed</div></div>`
+      + `<div class="import-total-sub">This Sweep</div></div>`
       + `<div class="import-breakdown">`
       + `<div class="import-cell"><div class="import-cell-lbl">Movies</div>`
       + `<div class="import-cell-val">${movies}</div>`
       + `<div class="import-cell-sub">Radarr</div></div>`
       + `<div class="import-cell"><div class="import-cell-lbl">Episodes</div>`
       + `<div class="import-cell-val">${shows}</div>`
-      + `<div class="import-cell-sub">Sonarr</div></div></div>`
-      + `<div class="import-lifetime"><span class="import-lifetime-lbl">Lifetime Imports</span>`
-      + `<span class="import-lifetime-val">${ltImports.toLocaleString()}</span></div>`;
+      + `<div class="import-cell-sub">Sonarr</div></div></div>`;
   } else {
-    impEl.innerHTML = `<span class="sum-title">Imports Confirmed</span>`
+    impEl.innerHTML = `<div class="stat-lbl" style="margin-bottom:10px">Imports Confirmed</div>`
       + `<div class="import-empty">`
       + `<div class="import-empty-val">0</div>`
-      + `<div class="import-empty-sub">Nothing Imported This Sweep</div></div>`
-      + `<div class="import-lifetime"><span class="import-lifetime-lbl">Lifetime Imports</span>`
-      + `<span class="import-lifetime-val">${ltImports.toLocaleString()}</span></div>`;
+      + `<div class="import-empty-sub">Nothing Imported This Sweep</div></div>`;
   }
 
   // ── Feed ──────────────────────────────────────────────────────────────

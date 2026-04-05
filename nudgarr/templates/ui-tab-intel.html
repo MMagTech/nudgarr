@@ -57,7 +57,8 @@
         </div>
         <div class="intel-headline-cell">
           <div class="intel-headline-num" id="intelUpgradesCount">—</div>
-          <div class="intel-headline-lbl">Quality Upgrades Confirmed <span class="tooltip-wrap"><span class="tooltip-icon tip-left">i<div class="tooltip-box">Total confirmed quality upgrade events. Items that were already imported and later found at a higher quality. Excludes first-time acquisitions.</div></span></span></div>
+          <div class="intel-headline-lbl">Quality Upgrades <span class="tooltip-wrap"><span class="tooltip-icon tip-left">i<div class="tooltip-box">Files that already existed in your library and were later replaced with a better quality version. Increments on each confirmed quality upgrade event — excludes first-time acquisitions where no previous file existed.</div></span></span></div>
+          <div class="intel-headline-sub">Existing files replaced with a better version</div>
         </div>
       </div>
 
@@ -77,17 +78,19 @@
 
     <!-- ROW 3 — Upgrade History -->
     <div class="card intel-row">
-      <div class="card-title">Upgrade History <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Imported Once is any title Nudgarr confirmed imported for the first time regardless of how many searches it took. Upgraded is any title that later received a second confirmed import at a higher quality. Upgraded reflects Cutoff Unmet and CF Score activity only since Backlog handles missing content and cannot produce upgrades. Upgrade paths show the most common quality transitions across your library.</div></span></span></div>
+      <div class="card-title">Upgrade History <span class="tooltip-wrap"><span class="tooltip-icon tip-down">i<div class="tooltip-box">Acquired is any title Nudgarr confirmed imported for the first time, regardless of how many searches it took. Acquired then Upgraded is any title that was first grabbed via Backlog and later received a confirmed quality upgrade via Cutoff Unmet or CF Score. Upgrade paths show the most common quality transitions across your library.</div></span></span></div>
       <p class="card-sub">How many titles were found once vs improved after initial import</p>
 
       <div class="intel-qi-split">
         <div class="intel-qi-cell">
           <div class="intel-qi-num" id="intelImportedOnce">—</div>
-          <div class="intel-qi-label">Imported Once</div>
+          <div class="intel-qi-label">Acquired</div>
+          <div class="intel-qi-sub">First-time grab</div>
         </div>
         <div class="intel-qi-cell">
           <div class="intel-qi-num accent" id="intelUpgraded">—</div>
-          <div class="intel-qi-label">Upgraded</div>
+          <div class="intel-qi-label">Acquired then Upgraded</div>
+          <div class="intel-qi-sub">Missing → grabbed → quality improved</div>
         </div>
       </div>
 

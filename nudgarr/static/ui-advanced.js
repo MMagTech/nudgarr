@@ -20,6 +20,25 @@ function fillAdvanced() {
   el('auth_session_minutes').value = CFG.auth_session_minutes ?? 30;
   el('import_check_minutes').value = CFG.import_check_minutes ?? 120;
   if (el('show_support_link')) el('show_support_link').checked = CFG.show_support_link !== false;
+  if (el('default_tab')) {
+    el('default_tab').value = CFG.default_tab || 'sweep';
+    // Grey out conditional tabs when their feature is currently disabled.
+    const sel = el('default_tab');
+    Array.from(sel.options).forEach(opt => {
+      const disabled =
+        (opt.value === 'overrides'  && !CFG.per_instance_overrides_enabled) ||
+        (opt.value === 'cf-scores'  && !CFG.cf_score_enabled) ||
+        (opt.value === 'filters'    && !((CFG.instances?.radarr?.length || 0) + (CFG.instances?.sonarr?.length || 0)));
+      opt.disabled = disabled;
+      opt.style.color = disabled ? 'var(--muted)' : '';
+    });
+    // If the saved default is a conditional tab that is now disabled, show sweep
+    // in the dropdown without overwriting the saved config value — so it restores
+    // automatically if the feature is re-enabled later.
+    const saved = CFG.default_tab || 'sweep';
+    const savedOpt = sel.querySelector(`option[value="${saved}"]`);
+    if (savedOpt && savedOpt.disabled) sel.value = 'sweep';
+  }
   if (el('log_level')) el('log_level').value = CFG.log_level || 'INFO';
   if (el('per_instance_overrides_enabled')) {
     el('per_instance_overrides_enabled').checked = !!CFG.per_instance_overrides_enabled;
@@ -30,7 +49,11 @@ function fillAdvanced() {
     el('cf_score_enabled').checked = !!CFG.cf_score_enabled;
     syncCfScoreToggleLabel();
   }
-  // Auto-exclusion fields (page 2)
+  if (el('queue_depth_enabled')) {
+    el('queue_depth_enabled').checked = !!CFG.queue_depth_enabled;
+    if (el('queue_depth_threshold')) el('queue_depth_threshold').value = CFG.queue_depth_threshold ?? 10;
+    syncQueueDepthUi();
+  }  // Auto-exclusion fields (page 2)
   if (el('auto_exclude_movies_threshold')) el('auto_exclude_movies_threshold').value = CFG.auto_exclude_movies_threshold ?? 0;
   if (el('auto_exclude_shows_threshold')) el('auto_exclude_shows_threshold').value = CFG.auto_exclude_shows_threshold ?? 0;
   if (el('auto_unexclude_movies_days')) el('auto_unexclude_movies_days').value = CFG.auto_unexclude_movies_days ?? 0;
@@ -118,7 +141,12 @@ async function saveAdvanced() {
     CFG.auth_session_minutes = parseInt(el('auth_session_minutes').value !== '' ? el('auth_session_minutes').value : '30', 10);
     CFG.import_check_minutes = parseInt(el('import_check_minutes').value !== '' ? el('import_check_minutes').value : '120', 10);
     if (el('show_support_link')) CFG.show_support_link = el('show_support_link').checked;
+    if (el('default_tab')) CFG.default_tab = el('default_tab').value;
     if (el('log_level')) CFG.log_level = el('log_level').value || 'INFO';
+    if (el('queue_depth_enabled')) {
+      CFG.queue_depth_enabled = el('queue_depth_enabled').checked;
+      CFG.queue_depth_threshold = Math.max(1, parseInt(el('queue_depth_threshold').value || '10', 10));
+    }
 
     // Auto-exclusion fields — capture previous state before updating so we can
     // detect a disabling transition and show the popup if auto-exclusions exist.
@@ -260,6 +288,14 @@ function syncCfScoreToggleLabel() {
   const enabled = el('cf_score_enabled') && el('cf_score_enabled').checked;
   const lbl = el('cf_score_label');
   if (lbl) lbl.textContent = enabled ? 'Enabled' : 'Disabled';
+}
+
+function syncQueueDepthUi() {
+  const enabled = el('queue_depth_enabled') && el('queue_depth_enabled').checked;
+  const lbl = el('queue_depth_label');
+  const input = el('queue_depth_threshold');
+  if (lbl) lbl.textContent = enabled ? 'Enabled' : 'Disabled';
+  if (input) { input.style.opacity = enabled ? '1' : '0.35'; input.style.pointerEvents = enabled ? '' : 'none'; }
 }
 
 async function toggleCfScoreFeature(enabled) {

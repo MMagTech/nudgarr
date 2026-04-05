@@ -56,8 +56,8 @@
          stacking covers all six cards (3 pipeline + 3 summary). */
       .sweep-grid              { grid-template-columns: minmax(0, 1fr); }
 
-      /* Intel Library Score + Search Health: fixed 270px 1fr → stack */
-      .intel-grid-score        { grid-template-columns: 1fr; }
+      /* Intel Library Score + Search Health grid removed in v4.3.0.
+         Intel tab now uses standard full-width cards. */
 
       /* Tables rendered dynamically into these wrapper divs scroll horizontally.
          A minimum width forces scroll before content overflows.
@@ -85,16 +85,16 @@
         min-width: 760px;
       }
 
-      /* position:sticky inside overflow-x:auto causes Safari to add phantom
-         scroll space equal to the viewport width after the last column.
-         Removing sticky on the imports table first column fixes blank scroll. */
+      /* Imports table first column: sticky. The Safari phantom scroll issue
+         that previously required position:static here was caused by a tooltip
+         on the first column — that tooltip has since been removed so sticky
+         is safe to use. */
       #importsTableWrap td:first-child,
       #importsTableWrap th:first-child {
-        position: static;
-        white-space: normal;
-        word-break: break-word;
-        min-width: 130px;
-        max-width: 160px;
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 1;
       }
 
       #historyTableWrap td:first-child,
@@ -230,6 +230,33 @@
       .import-stat-card.movies { order: 2; flex: 1 1 calc(50% - 4px); min-width: 0; }
       .import-stat-card.shows  { order: 3; flex: 1 1 calc(50% - 4px); min-width: 0; }
       .import-stats > .import-stat-card:not(.movies):not(.shows) { order: 1; flex: 1 1 100%; }
+
+      /* Intel Instance Performance table: horizontal scroll with sticky
+         first column on portrait mobile. No tooltip on first column so
+         no Safari phantom scroll workaround needed. */
+      #intelInstanceTable {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      #intelInstanceTable table {
+        width: auto;
+        min-width: 100%;
+      }
+      #intelInstanceTable td:first-child,
+      #intelInstanceTable th:first-child {
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 1;
+      }
+
+      .intel-headlines { grid-template-columns: 1fr 1fr; }
+      .intel-headline-cell:last-child {
+        grid-column: 1 / -1;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+      }
+      .intel-headline-cell:first-child { border-radius: var(--radius-sm) 0 0 0; }
+      .intel-headline-cell:nth-child(2) { border-radius: 0 var(--radius-sm) 0 0; }
 
       /* On mobile portrait all cards stack full-width so left/right tooltip
          directions are unreliable. Force all tooltips to open downward —

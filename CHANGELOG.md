@@ -4,6 +4,168 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v4.3.0
+
+**Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency, Sweep Tab Redesign, Logic Unit Tests.**
+
+This release folds v4.2.1 (never publicly shipped) into v4.3.0. All changes from v4.2.1 are included below.
+
+**Label Consistency (v4.3.0)**
+
+- `Missing Max (Per Instance)` renamed to `Max (Per Instance)` in Advanced Backlog section (Radarr and Sonarr).
+- `Backlog Sample Mode` renamed to `Sample Mode` in Advanced and Overrides -- the pipeline context makes the prefix redundant.
+- `Max Backlog` renamed to `Max (Per Run)` in Overrides -- more accurate since the value governs searches per run, not per instance.
+- `Max Missing Days` renamed to `Missing Added Days` in Overrides to match Advanced.
+- `Cooldown Hours` renamed to `Cooldown (Hours)` in Overrides to match Settings.
+- Per-instance override pipeline group headers (Cutoff Unmet, Backlog, CF Score) upgraded to pipeline colour with underline for better visual separation.
+
+**Queue Depth Awareness (v4.3.0)**
+
+- New `queue_depth_enabled` toggle and `queue_depth_threshold` (min 1) in Advanced Sweep Controls card.
+- At sweep start, after the maintenance window check and before the auto-unexclude pass, Nudgarr fetches `/api/v3/queue/status` from each enabled instance and sums the total queue count. If the sum meets or exceeds the threshold the entire sweep is skipped.
+- Failed instance queue checks contribute 0 to the sum and log a warning -- fail-open so a temporarily unreachable instance does not block the sweep.
+- Status bar Last segment replaced with amber "Skipped -- Queue Depth" when the last scheduled sweep was skipped. Next continues to show the next cron fire as normal. Clears on the next successful sweep.
+- Pipeline cards in the Sweep tab now show the last run timestamp for each pipeline (Cutoff Unmet, Backlog, CF Score) top-right of the card header. Blank if the pipeline has never run. Persists across container restarts.
+- New `notify_on_queue_depth_skip` notification event fires every time a sweep is skipped due to queue depth. Configurable in the Notifications tab. Existing Sweep Complete notification handles recovery.
+- Advanced Pipelines card renamed to Sweep Controls to reflect its broader scope.
+
+**Intel Tab Redesign (v4.3.0)**
+
+- Library Score ring, Stuck Items card, Sweep Efficiency card, and Library Age vs Success card removed. The scoring system and assumption-based metrics have been replaced with hard facts drawn directly from the database.
+- Five new cards: Import Summary, Instance Performance, Upgrade History, CF Score Health, and Exclusion Intel.
+- Import Summary shows average turnaround, searches per import, quality upgrades confirmed, and a pipeline breakdown table with import counts, search counts, and conversion rate per pipeline. Disabled pipelines show their historic data dimmed with a Disabled pill.
+- Instance Performance shows sweep runs, total searched, confirmed imports, and average turnaround per instance. Disabled instances show historic data dimmed.
+- Upgrade History replaces Quality Iteration. Shows Imported Once and Upgraded counts alongside the top 3 upgrade paths across all apps.
+- CF Score Health is a new card showing total indexed, below cutoff count, percentage, average gap, worst gap, Radarr/Sonarr split, and last synced time. Reads live from `cf_score_entries` and is not stored in `intel_aggregate`. Not affected by Reset Intel. Card is hidden when CF Score is disabled.
+- Exclusion Intel simplified to total exclusions, auto this month, manual/auto split, titles cycled through exclusions, and unexcluded titles later imported. Calibration Signal and avg searches at exclusion removed. Auto-exclusions disabled notice added when auto-exclusion is off.
+- `get_pipeline_search_counts()` and `get_cf_score_health()` added to `db/intel.py` as named functions following the existing DB module pattern.
+- Dead code removed: `_compute_library_score()`, `_compute_calibration()`, `_sh_field()`, `_CALIBRATION_HIGH`, `_CALIBRATION_LOW` from `routes/intel.py`. `_get_library_age_bucket()` from `db/entries.py`. `_get_library_age_bucket_for_history()` from `db/history.py`.
+- Dead writes removed: `library_age_buckets` and `success_total_worked` no longer written to `intel_aggregate` on every search/import. The columns remain in the table as unused but removing them would require a migration.
+- `ui-responsive.css` dead `.intel-grid-score` stacking rule removed.
+- Cold start screen unchanged: 25 confirmed imports or 50 sweep runs threshold preserved.
+- Reset Intel, Clear History, Clear Imports, and Clear Log are fully independent operations with no overlap.
+- Average turnaround displays in smart units matching the Imports tab format (30m, 3h, 1d 12h, 8d etc) rather than a raw decimal days value. Instances with no confirmed imports show a dash.
+- Import Summary headline grid reflows to a 2+1 layout at phone width so the three headline numbers no longer overflow.
+- Pipeline breakdown section label renamed from Pipeline Breakdown to Breakdown to avoid repeating the word alongside the Pipeline column header.
+- Quality Upgrades Confirmed tooltip opens leftward to stay within the card on narrow viewports.
+- Instance Performance tooltip reworded to plain language with an explanation of what Avg Turnaround measures.
+- `formatCompact` applied to pipeline breakdown Imports and Searches columns and Instance Performance Sweep Runs, Total Searched, and Confirmed Imports columns.
+
+**KPI Number Formatting (v4.3.0)**
+
+- `formatCompact(n)` utility function added to `ui-core.js`. Numbers below 10,000 display as-is; 10,000 and above display as compact format (10k, 1.2M etc).
+- Applied at five locations where large counts would overflow constrained mobile layouts: History page info line, History KPI pills, Imports page info line, Imports Movies/Episodes stat cards, CF Score page info line and coverage inline text.
+- Also applied to Intel tab pipeline breakdown and Instance Performance table columns.
+
+**Default Tab (v4.3.0)**
+
+- `default_tab` config key added to `DEFAULT_CONFIG`, defaulting to `sweep`. Existing installs receive this key on first boot via `fill_missing_keys`.
+- `VALID_TABS` constant added to `constants.py` covering all navigable tab names including conditional tabs.
+- Default Tab dropdown added to UI Preferences in the Advanced tab, above Show Support Link. Includes all tabs. Falls back to Sweep if the selected tab is not currently visible.
+- localStorage: every tab switch writes `nudgarr_last_tab` to browser storage after onboarding is complete. On load: localStorage first, then configured `default_tab`, then Sweep. New installs always start on Instances through onboarding.
+- Onboarding Replay button removed from UI Preferences.
+- Documentation link added to the Support and Diagnostics card header.
+- Onboarding walkthrough updated to 8 steps: stale mobile note removed, Round Robin added to Sample Mode, exclusion wording fixed, auto-exclusion updated for toggle-first flow with Unexclude Days, Intel description updated for v4.3.0 redesign, Default Tab added as step 8.
+
+**Sweep Tab Summary Cards Redesign (v4.3.0)**
+
+- Three-card layout: Sweep Health, Imports Confirmed, Last Sweep (in that order).
+- Sweep Health: fixed-height banner section shows All Instances Healthy (green), Instance(s) Unreachable (amber, count in subtitle), or Sweep Failed (red, see logs). Below a divider, a Stats section shows Lifetime Runs and Avg / Run only. Last Error and Instances count cells removed -- instance health is visible in the pipeline cards above. Tooltip on the card title explains both stats. Banner height is fixed so the card never shifts size between states.
+- Imports Confirmed: This Sweep total above a divider, Per Instance section below with Movies (Radarr purple) and Episodes (Sonarr green) coloured cells. Zero state shows muted 0 with "Nothing Imported This Sweep" below the divider.
+- Last Sweep: Completed and Next Run only. Lifetime Runs and Lifetime Searched removed -- lifetime stats belong in Intel.
+- Lifetime Imports removed from Imports Confirmed -- it was incorrectly sourcing from `sweep_lifetime.searched` causing it to match Lifetime Searched exactly.
+
+**Intel Tab Label Improvements (v4.3.0)**
+
+- "Quality Upgrades Confirmed" renamed to "Quality Upgrades" with subtitle "Existing files replaced with a better version". Tooltip rewritten to be explicit about what qualifies.
+- "Imported Once" renamed to "Acquired" with subtitle "First-time grab".
+- "Upgraded" renamed to "Acquired then Upgraded" with subtitle "Missing → grabbed → quality improved".
+- Upgrade History card tooltip rewritten to match new labels.
+- `intel-headline-sub` and `intel-qi-sub` CSS classes added for subtitles.
+
+**Exclusions Wording Fix (v4.3.0)**
+
+- Wiki and site docs Exclusions page corrected: for Sonarr, excluding a title removes that specific episode from future searches. Other episodes in the same show are unaffected. Previous wording incorrectly implied that excluding a show title would skip all episodes for that show.
+
+**Logic Unit Tests (v4.3.0)**
+
+- Three new pytest test files added covering real application logic. Zero nudgarr code changes required.
+- `tests/test_config_validation.py` (37 tests): `validate_config()` with valid and invalid inputs across scheduler, cron, sample modes, queue depth threshold, numeric bounds, default tab, instance structure, and override fields.
+- `tests/test_queue_depth.py` (15 tests): `_check_queue_depth()` boundary conditions, fail-open behaviour on exception/HTTP error/missing field, multi-instance summing, disabled instance handling. Uses `unittest.mock.patch` on `arr_clients.req`.
+- `tests/test_cooldown.py` (13 tests): `get_last_searched_ts_bulk` and `batch_upsert_search_history` with real temp SQLite DB. Covers cooldown boundary conditions, per-instance isolation, upsert behaviour, and bulk fetch edge cases.
+- Total test count: 116 → 176.
+
+**Bug Fixes (v4.3.0)**
+
+- `_check_queue_depth` was using `inst["api_key"]` to access the instance API key. The correct field name throughout sweep.py is `inst["key"]`. This caused a KeyError on every scheduled sweep when queue depth was enabled, crashing the sweep entirely.
+- Pipeline last run timestamps (Backlog, CF Score) were only recorded when `searched_missing > 0` or `searched_cf > 0`. Pipelines that ran but found nothing to search (e.g. all items on cooldown) never got a timestamp written. Fixed to use key existence check -- all three pipeline timestamps now record when the pipeline ran regardless of search count.
+- Manual import check route (`POST /api/stats/check-imports`) confirmed imports in the DB but did not update `STATUS["imports_confirmed_sweep"]`. The Sweep tab showed 0 imports after a manual Check Now even when imports were confirmed. Fixed by updating the STATUS key immediately after `check_imports()` succeeds.
+- `imports_confirmed_sweep` was in-memory only and reset to zero on every container restart. Now persisted to `nudgarr_state` at all three update points (post-sweep, background loop, manual Check Now) and restored on startup.
+
+**Auto-Exclusion Queue Check Fix (from v4.2.1)**
+
+- `_is_title_in_queue` in `scheduler.py` removed. It used `/api/v3/queue?movieId=X` to check if a candidate was actively downloading before writing an auto-exclusion. The per-item filtered endpoint does not work reliably across Radarr/Sonarr versions. On affected versions the filter is silently ignored and the full queue is returned for every request, causing every auto-exclusion candidate to be reported as in-queue and skipped indefinitely.
+- Auto-exclusion queue check now fetches the full queue once per instance upfront using `radarr_get_queued_movie_ids` and `sonarr_get_queued_episode_ids`. Reduces API calls from one per candidate to one per instance per cycle.
+- Users with auto-exclusion enabled who had stuck items that never got excluded despite reaching the threshold will see correct exclusions on the next import check cycle after upgrading.
+
+**Sample Mode Overhaul (from v4.2.1)**
+
+- `round_robin` added to `VALID_SAMPLE_MODES` and `VALID_BACKLOG_SAMPLE_MODES`.
+- `VALID_CF_SAMPLE_MODES` constant added: `random`, `alphabetical`, `oldest_added`, `newest_added`, `round_robin`, `largest_gap_first`. Independent of the other two constants.
+- `radarr_cf_sample_mode` and `sonarr_cf_sample_mode` added to `DEFAULT_CONFIG`, both defaulting to `largest_gap_first`. Existing installs receive these keys on first boot via `fill_missing_keys`.
+- Round Robin sorts NULL items (never searched) first in random order, then searched items ascending by `last_searched_ts`.
+- `largest_gap_first` uses a unified sort key `(-gap, null_flag, tiebreaker)` so gap group boundaries are never violated. Previous split-list implementation incorrectly placed low-gap NULL items above high-gap searched items.
+- CF Score sample mode added to Overrides tab per-instance override field.
+- Round Robin option added to Settings tab (Cutoff Unmet) and Advanced tab (Backlog). All four tooltips updated.
+- CF Score tab Sample Mode selects added below each max input (Radarr then Sonarr).
+- 14 unit tests added covering both new sort modes including NULL handling, tiebreakers, and cross-group ordering.
+
+---
+
+## v4.2.1
+
+Folded into v4.3.0. Never publicly shipped.
+
+---
+
+## v4.2.0
+
+**Sample Mode Overhaul — Round Robin across all pipelines, CF Score gets full mode control, starvation fix. Auto-exclusion queue check fix.**
+
+**Auto-Exclusion Queue Check Fix**
+
+- `_is_title_in_queue` in `scheduler.py` has been removed. It used `/api/v3/queue?movieId=X` and `/api/v3/queue?seriesId=X` to check if a candidate title was actively downloading before writing an auto-exclusion. The per-item filtered endpoint does not work reliably across Radarr/Sonarr versions — on affected versions the filter is silently ignored and the full queue is returned for every request, causing every auto-exclusion candidate to be reported as in-queue and skipped indefinitely regardless of actual queue state.
+- Auto-exclusion queue check now fetches the full queue once per instance upfront using `radarr_get_queued_movie_ids` and `sonarr_get_queued_episode_ids` — the same functions the sweep pipeline already uses. Candidate item IDs are checked against the resulting set in memory. This reduces API calls from one per candidate to one per instance per cycle and produces correct results regardless of Radarr/Sonarr version.
+- Users with auto-exclusion enabled who had stuck items that never got excluded despite reaching the threshold will see those titles correctly excluded on the next import check cycle after upgrading.
+
+**Round Robin — Cutoff Unmet and Backlog**
+
+- `round_robin` added to `VALID_SAMPLE_MODES` and `VALID_BACKLOG_SAMPLE_MODES`. Both constants remain independent — adding a mode to one does not automatically add it to the other.
+- Round Robin primary sort: oldest `last_searched_ts` ascending so the longest-waiting eligible item goes first.
+- NULL handling: items with no record in `search_history` (never searched) are treated as highest priority. Among NULL items the tiebreaker is random so new additions do not always queue in the same insertion order.
+- Tiebreaker for equal timestamps on Cutoff Unmet and Backlog: random (consistent with the shuffle step that precedes the sort).
+- Round Robin option added to the Radarr and Sonarr Sample Mode selects in the Settings tab (Cutoff Unmet) and Advanced tab (Backlog). All four tooltips updated to document the new mode.
+
+**CF Score Sample Modes (new)**
+
+- CF Score pipeline previously had no user-selectable sample mode — pick order was hardcoded worst-gap-first with no tiebreaker.
+- `VALID_CF_SAMPLE_MODES` constant added: `random`, `alphabetical`, `oldest_added`, `newest_added`, `round_robin`, `largest_gap_first`. Kept as a third independent constant — do not merge with `VALID_SAMPLE_MODES` or `VALID_BACKLOG_SAMPLE_MODES`.
+- `radarr_cf_sample_mode` and `sonarr_cf_sample_mode` added to `DEFAULT_CONFIG`, both defaulting to `largest_gap_first`. Existing installs receive these keys silently on first boot via `fill_missing_keys()` — no manual migration required.
+- `largest_gap_first` formalizes the previous hardcoded behavior: primary sort gap descending, with a Round Robin tiebreaker added to fix the starvation bug (see below).
+- CF Score Sample Mode selects added to the CF Score tab config card, stacked below each respective max input (Radarr then Sonarr). Tooltips cover all six modes with CF-specific descriptions for Largest Gap First and Round Robin.
+- Existing max input tooltips updated to remove the stale "picks worst gap items first" wording now that sample mode is user-controlled.
+- `cf_sample_mode` override field added to the CF Score section of each instance card in the Overrides tab. Uses the `__global__` sentinel pattern matching `backlog_sample_mode` — shows "Use Global (Largest Gap First)" when no override is set, highlights with `ov-active` blue ring when overridden. Hidden when CF Score is disabled globally, consistent with existing CF Score section behavior.
+- Per-instance `cf_sample_mode` resolved via `_resolve()` in `sweep.py`, falling back to the global `radarr_cf_sample_mode` or `sonarr_cf_sample_mode` when no override is set. Invalid resolved values fall back to `largest_gap_first`.
+- `config.py` validates `radarr_cf_sample_mode` and `sonarr_cf_sample_mode` at the top level and `cf_sample_mode` in the per-instance overrides block against `VALID_CF_SAMPLE_MODES`.
+
+**Starvation Fix — Largest Gap First**
+
+- Previous hardcoded worst-gap-first had no tiebreaker: items with equal gap values were returned in arbitrary DB order, causing the same small group of titles to be searched every cooldown cycle while other equal-gap items were never reached.
+- `largest_gap_first` now uses a Round Robin tiebreaker within tied gap groups: among items sharing the same gap value, whoever has been waiting longest goes first. NULL items within a tied group are shuffled randomly.
+- Effect: every eligible item in a tied gap group is eventually searched before any item in that group gets a second turn.
+
+---
+
 ## v4.2.0
 
 **CF Score Scan, Intel Tab, Sweep Tab Redesign, Responsive UI, Backlog Sample Mode Split, Maintenance Window, Grace Period, Auto-Exclusion Toggles, Cutoff Unmet Toggles, Advanced Tab Restructure, and Sticky Header.**

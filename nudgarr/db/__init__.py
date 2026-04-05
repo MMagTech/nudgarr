@@ -79,6 +79,8 @@ from nudgarr.db.intel import (
     get_intel_aggregate,
     update_intel_aggregate,
     reset_intel,
+    get_pipeline_search_counts,
+    get_cf_score_health,
 )
 
 from nudgarr.db.cf_scores import (
@@ -145,6 +147,8 @@ __all__ = [
     "get_intel_aggregate",
     "update_intel_aggregate",
     "reset_intel",
+    "get_pipeline_search_counts",
+    "get_cf_score_health",
     # cf_scores (v4.2.0)
     "delete_cf_scores_for_instance",
     "prune_stale_cf_scores",

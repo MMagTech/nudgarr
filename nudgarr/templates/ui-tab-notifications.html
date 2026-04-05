@@ -75,6 +75,17 @@
           </div>
           <div class="help">Fires when a sweep fails or an instance becomes unreachable</div>
         </div>
+        <div class="field" style="margin-top:12px">
+          <label>Queue Depth</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="notify_on_queue_depth_skip" onchange="markUnsaved('notifyMsg')"/>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="help">Fires when a sweep is skipped due to queue depth limit</div>
+        </div>
       </div>
 
       <div class="save-bar full">

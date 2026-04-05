@@ -15,7 +15,7 @@
 
 // ── Pipeline card builder ─────────────────────────────────────────────────
 
-function _pipelineCardHtml(type, insts, summary, health) {
+function _pipelineCardHtml(type, insts, summary, health, lastRunUtc) {
   // type: 'cutoff' | 'backlog' | 'cfscore'
   // Aggregate totals across all instances for this pipeline.
   let agg = {};
@@ -138,6 +138,10 @@ function _pipelineCardHtml(type, insts, summary, health) {
     ? 'Finds missing movies and episodes that have never been grabbed and tells the Arr to search for them.'
     : 'Finds monitored files where the custom format score is below the quality profile cutoff and tells the Arr to search for a better-scored release.';
 
+  const lastRunHtml = lastRunUtc
+    ? `<span style="font-size:11px;color:var(--muted)">${fmtTimePadded(lastRunUtc)}</span>`
+    : '';
+
   return `<div id="${slotId}" class="p-card ${type}">
     <div class="p-hdr">
       <div class="p-hdr-left">
@@ -146,6 +150,7 @@ function _pipelineCardHtml(type, insts, summary, health) {
           <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">${tooltipText}</div></span>
         </div>
       </div>
+      ${lastRunHtml}
     </div>
     ${totalsHtml}
     <div class="p-divider"></div>
@@ -163,6 +168,9 @@ async function refreshSweep() {
   const health    = status.instance_health || {};
   const lifetime  = status.sweep_lifetime || {};
   const cfEnabled = !!cfg.cf_score_enabled;
+  const lastCutoff  = status.last_run_cutoff_utc  || null;
+  const lastBacklog = status.last_run_backlog_utc  || null;
+  const lastCf      = status.last_run_cfscore_utc  || null;
 
   // Build flat instance lists tagged with their kind ('radarr'/'sonarr')
   const allInsts = [];
@@ -187,11 +195,11 @@ async function refreshSweep() {
     if (backlogSlot) backlogSlot.innerHTML = msg;
     if (cfSlot)      cfSlot.innerHTML      = msg;
   } else {
-    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  allInsts, allSummary, health);
-    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog', allInsts, allSummary, health);
+    if (cutoffSlot)  cutoffSlot.outerHTML  = _pipelineCardHtml('cutoff',  allInsts, allSummary, health, lastCutoff);
+    if (backlogSlot) backlogSlot.outerHTML = _pipelineCardHtml('backlog', allInsts, allSummary, health, lastBacklog);
     if (cfSlot)      cfSlot.outerHTML      = cfEnabled
-      ? _pipelineCardHtml('cfscore', allInsts, allSummary, health)
-      : _pipelineCardHtml('cfscore', allInsts, [],         health);
+      ? _pipelineCardHtml('cfscore', allInsts, allSummary, health, lastCf)
+      : _pipelineCardHtml('cfscore', allInsts, [],         health, lastCf);
   }
 
   // ── Health card ───────────────────────────────────────────────────────
@@ -206,36 +214,42 @@ async function refreshSweep() {
     ltSearched += row.searched || 0;
   }
   const avgPerRun = ltRuns > 0 ? (ltSearched / ltRuns).toFixed(1) : '0';
-  const lastErr   = status.last_error ? 'See Logs' : 'Never';
-  const lastErrCls = status.last_error ? 'bad' : 'none';
-
-  const healthCell = (lbl, val, cls) =>
-    `<div class="health-stat-cell"><div class="health-stat-lbl">${lbl}</div>`
-    + `<div class="health-stat-val ${cls}">${val}</div></div>`;
 
   const statsGrid = `<div class="health-stats">`
-    + healthCell('Lifetime Runs',     ltRuns.toLocaleString(), '')
-    + healthCell('Avg / Run',         avgPerRun, '')
-    + healthCell('Last Error',        lastErr, lastErrCls)
-    + healthCell('Instances',         `${okCount} / ${enabledCount}`, '')
+    + `<div class="health-stat-cell"><div class="health-stat-lbl">Lifetime Runs</div><div class="health-stat-val">${ltRuns.toLocaleString()}</div></div>`
+    + `<div class="health-stat-cell"><div class="health-stat-lbl">Avg / Run</div><div class="health-stat-val">${avgPerRun}</div></div>`
     + `</div>`;
 
   const healthEl = el('sweepHealthCard');
-  if (badInstances.length) {
+
+  let bannerHtml;
+  if (status.last_error) {
+    healthEl.className = 'card';
+    bannerHtml = `<div class="sh-banner sh-banner--err">`
+      + `<div class="sh-dot sh-dot--err"></div>`
+      + `<div class="sh-banner-body"><div class="sh-banner-title sh-title--err">Sweep Failed</div>`
+      + `<div class="sh-banner-sub">See logs for details</div></div></div>`;
+  } else if (badInstances.length) {
     const n = badInstances.length;
-    healthEl.className = 'card health-err-card';
-    healthEl.innerHTML = `<span class="sum-title">Sweep Health</span>`
-      + `<div class="health-err-banner"><div class="health-err-dot"></div>`
-      + `<span class="health-err-text">${n} Instance${n > 1 ? 's' : ''} Failed Last Sweep</span></div>`
-      + `<p class="health-err-hint">Check logs for details.</p>`
-      + statsGrid;
+    healthEl.className = 'card';
+    bannerHtml = `<div class="sh-banner sh-banner--warn">`
+      + `<div class="sh-dot sh-dot--warn"></div>`
+      + `<div class="sh-banner-body"><div class="sh-banner-title sh-title--warn">Instance${n > 1 ? 's' : ''} Unreachable</div>`
+      + `<div class="sh-banner-sub">${n} instance${n > 1 ? 's' : ''} unreachable</div></div></div>`;
   } else {
     healthEl.className = 'card';
-    healthEl.innerHTML = `<span class="sum-title">Sweep Health</span>`
-      + `<div class="health-ok-banner"><div class="health-ok-dot"></div>`
-      + `<span class="health-ok-text">All Instances Healthy</span></div>`
-      + statsGrid;
+    bannerHtml = `<div class="sh-banner sh-banner--ok">`
+      + `<div class="sh-dot sh-dot--ok"></div>`
+      + `<div class="sh-banner-title sh-title--ok">All Instances Healthy</div></div>`;
   }
+
+  healthEl.innerHTML = `<span class="sum-title">Sweep Health`
+    + `<span class="tooltip-wrap" style="margin-left:5px;vertical-align:middle">`
+    + `<span class="tooltip-icon tip-right">i<div class="tooltip-box">Lifetime Runs is the total number of sweeps completed since install. Avg / Run is the average number of items searched per sweep across all time.</div></span></span></span>`
+    + `<div class="sh-top">${bannerHtml}</div>`
+    + `<div class="hr"></div>`
+    + `<div class="stat-lbl" style="margin-bottom:8px">Stats</div>`
+    + statsGrid;
 
   // ── Last Sweep card ───────────────────────────────────────────────────
   const lastRun  = status.last_run_utc;
@@ -244,40 +258,28 @@ async function refreshSweep() {
   el('sweepLastCompletedSub').textContent = lastRun ? fmtTimePadded(lastRun) : '';
   el('sweepNextRunVal').textContent = nextRun ? _relTime(nextRun) : 'Off';
   el('sweepNextRunSub').textContent = nextRun ? fmtTimePadded(nextRun) : '';
-  el('sweepLifetimeRuns').textContent     = ltRuns.toLocaleString();
-  el('sweepLifetimeSearched').textContent = ltSearched.toLocaleString();
-
   // ── Imports Confirmed card ────────────────────────────────────────────
   const imp   = status.imports_confirmed_sweep || {};
   const movies = imp.movies || 0;
   const shows  = imp.shows  || 0;
   const total  = movies + shows;
 
-  let ltImports = 0;
-  for (const row of Object.values(lifetime)) ltImports += row.searched || 0;
-
   const impEl = el('sweepImportsCard');
   if (total > 0) {
-    impEl.innerHTML = `<span class="sum-title">Imports Confirmed</span>`
-      + `<div class="import-total-row">`
-      + `<div class="import-total-val">${total}</div>`
-      + `<div class="import-total-sub">Imports Confirmed</div></div>`
+    impEl.innerHTML = `<div class="sh-top"><div class="stat-lbl">This Sweep</div>`
+      + `<div class="ls-val" style="font-size:28px;margin-top:2px">${total}</div></div>`
+      + `<div class="hr"></div>`
+      + `<div class="stat-lbl" style="margin-bottom:8px">Per Instance</div>`
       + `<div class="import-breakdown">`
-      + `<div class="import-cell"><div class="import-cell-lbl">Movies</div>`
-      + `<div class="import-cell-val">${movies}</div>`
-      + `<div class="import-cell-sub">Radarr</div></div>`
-      + `<div class="import-cell"><div class="import-cell-lbl">Episodes</div>`
-      + `<div class="import-cell-val">${shows}</div>`
-      + `<div class="import-cell-sub">Sonarr</div></div></div>`
-      + `<div class="import-lifetime"><span class="import-lifetime-lbl">Lifetime Imports</span>`
-      + `<span class="import-lifetime-val">${ltImports.toLocaleString()}</span></div>`;
+      + `<div class="import-cell radarr"><div class="import-cell-lbl radarr">Movies</div>`
+      + `<div class="import-cell-val radarr">${movies}</div></div>`
+      + `<div class="import-cell sonarr"><div class="import-cell-lbl sonarr">Episodes</div>`
+      + `<div class="import-cell-val sonarr">${shows}</div></div></div>`;
   } else {
-    impEl.innerHTML = `<span class="sum-title">Imports Confirmed</span>`
-      + `<div class="import-empty">`
-      + `<div class="import-empty-val">0</div>`
-      + `<div class="import-empty-sub">Nothing Imported This Sweep</div></div>`
-      + `<div class="import-lifetime"><span class="import-lifetime-lbl">Lifetime Imports</span>`
-      + `<span class="import-lifetime-val">${ltImports.toLocaleString()}</span></div>`;
+    impEl.innerHTML = `<div class="sh-top"><div class="stat-lbl">This Sweep</div>`
+      + `<div class="ls-val muted" style="font-size:28px;margin-top:2px">0</div></div>`
+      + `<div class="hr"></div>`
+      + `<div class="ls-sub">Nothing Imported This Sweep</div>`;
   }
 
   // ── Feed ──────────────────────────────────────────────────────────────

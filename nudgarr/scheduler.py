@@ -21,11 +21,12 @@ import requests
 from croniter import croniter
 
 from nudgarr import db
+from nudgarr.arr_clients import radarr_get_queued_movie_ids, sonarr_get_queued_episode_ids
 from nudgarr.cf_score_syncer import CustomFormatScoreSyncer
 from nudgarr.config import load_or_init_config
 from nudgarr.constants import CONFIG_FILE, DB_FILE, PORT, VERSION
 from nudgarr.globals import RUN_LOCK, STATUS, app
-from nudgarr.notifications import notify_error, notify_auto_exclusion, notify_sweep_complete
+from nudgarr.notifications import notify_error, notify_auto_exclusion, notify_sweep_complete, notify_queue_depth_skip
 from nudgarr.stats import check_imports
 from nudgarr.sweep import run_sweep
 from nudgarr.utils import iso_z, utcnow
@@ -105,6 +106,13 @@ def import_check_loop(shutdown: threading.Event) -> None:
             if elapsed >= check_minutes:
                 try:
                     check_imports(session, cfg)
+                    # Refresh imports_confirmed_sweep so the Sweep tab stays
+                    # accurate between sweeps. Uses last_sweep_start_utc so
+                    # only imports from the current sweep window are counted.
+                    sweep_start = STATUS.get("last_sweep_start_utc")
+                    if sweep_start:
+                        STATUS["imports_confirmed_sweep"] = db.get_imports_since(sweep_start)
+                        db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
                 except Exception:
                     logger.exception("[Stats] Import check failed in background loop")
                 # Auto-exclusion check runs after every import check cycle,
@@ -134,6 +142,13 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
          downloading, regardless of how aggressive the import check interval is
       4. Title not already in the exclusions table -- prevents duplicate rows
 
+    Queue check fetches the full queue once per instance upfront (same pattern
+    as the sweep pipeline) rather than one API call per candidate. The
+    per-movie/episode filtered endpoint on /api/v3/queue does not work reliably
+    across Radarr/Sonarr versions -- the filter is silently ignored on some
+    versions, returning the full queue for every request and causing all
+    candidates to be incorrectly blocked from exclusion indefinitely.
+
     When all conditions are met the exclusion row is written with source=auto
     and the search count at the time of exclusion. A notification fires if the
     Auto-Exclusion trigger is enabled in Notifications.
@@ -157,12 +172,31 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
     if movies_threshold <= 0 and shows_threshold <= 0:
         return
 
-    # Build instance lookup map for queue API calls
+    # Build instance lookup map
     instance_map: Dict[tuple, Dict] = {}
     for inst in cfg.get("instances", {}).get("radarr", []):
         instance_map[("radarr", inst["name"])] = inst
     for inst in cfg.get("instances", {}).get("sonarr", []):
         instance_map[("sonarr", inst["name"])] = inst
+
+    # Fetch the active queue once per instance upfront — one API call per
+    # instance total, regardless of how many candidates need checking.
+    # Results stored as a set of integer item IDs keyed by (app, instance_name).
+    queue_sets: Dict[tuple, set] = {}
+    for (app_key, name), inst in instance_map.items():
+        url = inst["url"].rstrip("/")
+        key = inst["key"]
+        try:
+            if app_key == "radarr":
+                queue_sets[(app_key, name)] = radarr_get_queued_movie_ids(session, url, key)
+            else:
+                queue_sets[(app_key, name)] = sonarr_get_queued_episode_ids(session, url, key)
+            logger.debug("[Auto-Exclude] queue fetch %s:%s — %d item(s) in queue",
+                         app_key, name, len(queue_sets[(app_key, name)]))
+        except Exception:
+            logger.warning("[Auto-Exclude] queue fetch failed for %s:%s — treating as empty",
+                           app_key, name, exc_info=True)
+            queue_sets[(app_key, name)] = set()
 
     # Load current exclusion titles once for condition 4
     existing_exclusions = {
@@ -192,19 +226,18 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
             logger.debug("[Auto-Exclude] %s -- already excluded", title)
             continue
 
-        # Condition 3: not currently in the download queue.
-        # For Sonarr use series_id for the queue check since the queue API
-        # filters by seriesId not episodeId. item_id in search_history stores
-        # the episode ID for Sonarr entries.
-        inst = instance_map.get((app, instance_name))
-        if inst:
-            queue_id = entry.get("series_id") if app == "sonarr" else entry.get("item_id", "")
-            if not queue_id:
-                queue_id = entry.get("item_id", "")
-            in_queue = _is_title_in_queue(session, app, inst, queue_id)
-            if in_queue:
-                logger.debug("[Auto-Exclude] %s -- skipped (in queue)", title)
-                continue
+        # Condition 3: not currently in the active download queue.
+        # Check membership against the pre-fetched set for this instance.
+        # item_id in search_history is the movie ID for Radarr and episode ID
+        # for Sonarr -- both match the IDs returned by the queue fetch functions.
+        try:
+            check_id = int(entry.get("item_id", 0))
+        except (TypeError, ValueError):
+            check_id = 0
+        inst_queue = queue_sets.get((app, instance_name), set())
+        if check_id and check_id in inst_queue:
+            logger.debug("[Auto-Exclude] %s -- skipped (in queue)", title)
+            continue
 
         # All conditions met -- write the exclusion row
         db.add_auto_exclusion(title, search_count)
@@ -212,46 +245,6 @@ def _run_auto_exclusion_check(session: requests.Session, cfg: Dict[str, Any]) ->
                     title, search_count, app, instance_name)
         notify_auto_exclusion(title, search_count, instance_name, app, cfg)
         existing_exclusions.add(title.lower())
-
-
-def _is_title_in_queue(session: requests.Session, app: str,
-                       inst: Dict[str, Any], item_id: str) -> bool:
-    """Check whether an item is currently present in the Radarr or Sonarr queue.
-
-    Returns True if the item is found in the queue, False otherwise or on any
-    API error. Errors are logged at debug level — a failed queue check should
-    not block the auto-exclusion evaluation; the conservative outcome is to
-    return False and allow the other conditions to decide.
-
-    app     -- 'radarr' or 'sonarr'
-    inst    -- instance config dict with url and key
-    item_id -- the movie ID (Radarr) or series ID (Sonarr) to check
-    """
-    url = inst["url"].rstrip("/")
-    key = inst["key"]
-    try:
-        if app == "radarr":
-            r = session.get(
-                f"{url}/api/v3/queue",
-                params={"movieId": item_id},
-                headers={"X-Api-Key": key},
-                timeout=10,
-            )
-        else:
-            r = session.get(
-                f"{url}/api/v3/queue",
-                params={"seriesId": item_id},
-                headers={"X-Api-Key": key},
-                timeout=10,
-            )
-        if not r.ok:
-            return False
-        data = r.json()
-        records = data.get("records", []) if isinstance(data, dict) else data
-        return len(records) > 0
-    except Exception as e:
-        logger.debug("[Auto-Exclude] queue check failed for %s/%s: %s", app, item_id, e)
-        return False
 
 
 def _next_cron_utc(expression: str) -> str:
@@ -564,6 +557,22 @@ def scheduler_loop(shutdown: threading.Event) -> None:
         except (ValueError, TypeError):
             logger.warning("Could not restore last_summary from state — will repopulate after next sweep")
 
+    persisted_skip = db.get_state("last_skipped_queue_depth_utc")
+    if persisted_skip:
+        STATUS["last_skipped_queue_depth_utc"] = persisted_skip
+
+    persisted_imports = db.get_state("imports_confirmed_sweep")
+    if persisted_imports:
+        try:
+            STATUS["imports_confirmed_sweep"] = json.loads(persisted_imports)
+        except (ValueError, TypeError):
+            pass
+
+    for pipeline_key in ("last_run_cutoff_utc", "last_run_backlog_utc", "last_run_cfscore_utc"):
+        persisted = db.get_state(pipeline_key)
+        if persisted:
+            STATUS[pipeline_key] = persisted
+
     # Set initial next_run_utc
     if scheduler_enabled and cron_expression:
         STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
@@ -621,21 +630,41 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                         logger.info("--- Sweep %s UTC --- [log level: %s]", iso_z(utcnow())[:16].replace("T", " "), cfg.get("log_level", "INFO"))
                         STATUS["last_sweep_start_utc"] = iso_z(utcnow())
                         summary = run_sweep(cfg, session)
-                        STATUS["last_summary"] = summary
-                        STATUS["last_run_utc"] = iso_z(utcnow())
-                        db.set_state("last_run_utc", STATUS["last_run_utc"])
-                        db.set_state("last_sweep_start_utc", STATUS["last_sweep_start_utc"])
-                        db.set_state("last_summary", json.dumps(summary))
-                        STATUS["last_error"] = None
-                        if STATUS["last_sweep_start_utc"]:
-                            STATUS["imports_confirmed_sweep"] = db.get_imports_since(
-                                STATUS["last_sweep_start_utc"]
-                            )
-                        notify_sweep_complete(summary, cfg)
-                        for app_name in ("radarr", "sonarr"):
-                            for inst in summary.get(app_name, []):
-                                if "error" in inst and inst.get("notifications_enabled", True):
-                                    notify_error(f"'{inst['name']}' is unreachable.", cfg)
+                        if summary.get("skipped_queue_depth"):
+                            STATUS["last_skipped_queue_depth_utc"] = iso_z(utcnow())
+                            db.set_state("last_skipped_queue_depth_utc", STATUS["last_skipped_queue_depth_utc"])
+                            notify_queue_depth_skip(cfg)
+                        else:
+                            STATUS["last_skipped_queue_depth_utc"] = None
+                            db.set_state("last_skipped_queue_depth_utc", "")
+                            STATUS["last_summary"] = summary
+                            STATUS["last_run_utc"] = iso_z(utcnow())
+                            db.set_state("last_run_utc", STATUS["last_run_utc"])
+                            db.set_state("last_sweep_start_utc", STATUS["last_sweep_start_utc"])
+                            db.set_state("last_summary", json.dumps(summary))
+                            STATUS["last_error"] = None
+                            # Record per-pipeline last run timestamps
+                            _now = iso_z(utcnow())
+                            all_inst = summary.get("radarr", []) + summary.get("sonarr", [])
+                            if any("searched" in i for i in all_inst):
+                                STATUS["last_run_cutoff_utc"] = _now
+                                db.set_state("last_run_cutoff_utc", _now)
+                            if any("searched_missing" in i for i in all_inst):
+                                STATUS["last_run_backlog_utc"] = _now
+                                db.set_state("last_run_backlog_utc", _now)
+                            if any("searched_cf" in i for i in all_inst):
+                                STATUS["last_run_cfscore_utc"] = _now
+                                db.set_state("last_run_cfscore_utc", _now)
+                            if STATUS["last_sweep_start_utc"]:
+                                STATUS["imports_confirmed_sweep"] = db.get_imports_since(
+                                    STATUS["last_sweep_start_utc"]
+                                )
+                                db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
+                            notify_sweep_complete(summary, cfg)
+                            for app_name in ("radarr", "sonarr"):
+                                for inst in summary.get(app_name, []):
+                                    if "error" in inst and inst.get("notifications_enabled", True):
+                                        notify_error(f"'{inst['name']}' is unreachable.", cfg)
                     except Exception:
                         STATUS["last_error"] = "Sweep failed — see logs for details"
                         logger.exception("Sweep failed")

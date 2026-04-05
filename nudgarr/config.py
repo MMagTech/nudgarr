@@ -17,7 +17,7 @@ import logging
 import re
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES, VALID_TABS
 from nudgarr.utils import load_json, save_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,22 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     for mode_key in ("radarr_backlog_sample_mode", "sonarr_backlog_sample_mode"):
         if cfg.get(mode_key) not in VALID_BACKLOG_SAMPLE_MODES:
             errs.append(f"{mode_key} must be one of {VALID_BACKLOG_SAMPLE_MODES}")
+
+    # CF Score sample mode — independent pipeline, validated against VALID_CF_SAMPLE_MODES (v4.2.1)
+    for mode_key in ("radarr_cf_sample_mode", "sonarr_cf_sample_mode"):
+        if cfg.get(mode_key) not in VALID_CF_SAMPLE_MODES:
+            errs.append(f"{mode_key} must be one of {VALID_CF_SAMPLE_MODES}")
+
+    # Default tab (v4.4.0)
+    default_tab = cfg.get("default_tab", "sweep")
+    if default_tab not in VALID_TABS:
+        errs.append(f"default_tab must be one of {VALID_TABS}")
+
+    # Queue depth (v4.3.0)
+    if cfg.get("queue_depth_enabled", False):
+        threshold = cfg.get("queue_depth_threshold", 10)
+        if not isinstance(threshold, int) or threshold < 1:
+            errs.append("queue_depth_threshold must be an integer >= 1 when queue_depth_enabled is True")
 
     for k in (
         "radarr_max_movies_per_run",
@@ -124,6 +140,10 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         bsm = overrides.get("backlog_sample_mode")
                         if bsm is not None and bsm not in VALID_BACKLOG_SAMPLE_MODES:
                             errs.append(f"instances.{app}[{i}].overrides.backlog_sample_mode must be one of {VALID_BACKLOG_SAMPLE_MODES}")
+                        # CF Score sample mode override — validated against VALID_CF_SAMPLE_MODES (v4.2.1)
+                        cfsm = overrides.get("cf_sample_mode")
+                        if cfsm is not None and cfsm not in VALID_CF_SAMPLE_MODES:
+                            errs.append(f"instances.{app}[{i}].overrides.cf_sample_mode must be one of {VALID_CF_SAMPLE_MODES}")
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")

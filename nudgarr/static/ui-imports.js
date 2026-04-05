@@ -105,13 +105,13 @@ async function refreshImports() {
       if (prevType && (data.types || []).includes(prevType)) typeSel.value = prevType;
     }
 
-    el('importsPageInfo').textContent = `Page ${IMPORTS_PAGE+1} of ${Math.max(1, Math.ceil(data.total / limit))} · ${data.total} import${data.total !== 1 ? 's' : ''}`;
+    el('importsPageInfo').textContent = `Page ${IMPORTS_PAGE+1} of ${Math.max(1, Math.ceil(data.total / limit))} · ${formatCompact(data.total)} import${data.total !== 1 ? 's' : ''}`;
     IMPORTS_TOTAL = data.total;
     el('statsPagination').style.display = data.total > 0 ? 'flex' : 'none';
 
     // Update grand total cards
-    el('statMoviesTotal').textContent = data.movies_total ?? 0;
-    el('statShowsTotal').textContent = data.shows_total ?? 0;
+    el('statMoviesTotal').textContent = formatCompact(data.movies_total ?? 0);
+    el('statShowsTotal').textContent = formatCompact(data.shows_total ?? 0);
 
     if (!data.entries.length && IMPORTS_PAGE === 0) {
       el('importsTableWrap').innerHTML = '<p class="help" style="text-align:center;padding:20px">No confirmed imports yet. Nudgarr will check for imports ' + (CFG?.import_check_minutes || 120) + ' minutes after each search.</p>';

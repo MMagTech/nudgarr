@@ -181,33 +181,6 @@ def confirm_stat_entry(
     return True
 
 
-def _get_library_age_bucket(library_added: str, first_searched_ts: str) -> str:
-    """Return the library age bucket label for an item at the time of first search.
-
-    Age is the gap between library_added and first_searched_ts in days.
-    Returns an empty string if either timestamp is missing or unparseable,
-    which causes the item to fall into the 'Unknown' bucket at display time.
-    """
-    if not library_added or not first_searched_ts:
-        return ""
-    dt_added = parse_iso(library_added)
-    dt_searched = parse_iso(first_searched_ts)
-    if dt_added is None or dt_searched is None:
-        return ""
-    age_days = (dt_searched - dt_added).total_seconds() / 86400
-    if age_days < 0:
-        return ""
-    if age_days < 30:
-        return "Under 1 month"
-    if age_days < 90:
-        return "1 to 3 months"
-    if age_days < 180:
-        return "3 to 6 months"
-    if age_days < 365:
-        return "6 to 12 months"
-    return "12+ months"
-
-
 def _update_intel_on_confirm(
     conn,
     app: str,
@@ -241,7 +214,6 @@ def _update_intel_on_confirm(
         (app, url, item_id)
     ).fetchone()
     search_count = sh_row["search_count"] if sh_row else 0
-    library_added = sh_row["library_added"] if sh_row else ""
 
     # Turnaround in days.
     turnaround_days = 0.0
@@ -305,16 +277,6 @@ def _update_intel_on_confirm(
     inst_ta["count"] = inst_ta["count"] + 1
     per_ta[url] = inst_ta
     updates["per_instance_turnaround"] = per_ta
-
-    # Library age bucket imported count (JSON blob) — only on first import.
-    if final_iteration == 1:
-        bucket = _get_library_age_bucket(library_added, first_searched_ts)
-        age_buckets = agg["library_age_buckets"]
-        bucket_key = bucket if bucket else "Unknown"
-        bucket_data = age_buckets.get(bucket_key, {"total": 0, "imported": 0})
-        bucket_data["imported"] = bucket_data["imported"] + 1
-        age_buckets[bucket_key] = bucket_data
-        updates["library_age_buckets"] = age_buckets
 
     update_intel_aggregate(updates)
 

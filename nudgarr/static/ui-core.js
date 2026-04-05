@@ -41,9 +41,33 @@ function escapeHtml(s) {
     .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 }
 
+// formatCompact -- compact number display for narrow mobile viewports.
+// Numbers below 10,000 display as-is. 10,000+ display as 10k, 1.2M etc.
+// Applied only where large counts would overflow constrained mobile layouts:
+// History/Imports/CF Score page info lines, History KPI pills, Imports stat cards.
+function formatCompact(n) {
+  const v = Number(n) || 0;
+  if (v < 10000) return v.toLocaleString();
+  if (v < 1000000) return (v / 1000).toFixed(v < 100000 ? 1 : 0) + 'k';
+  return (v / 1000000).toFixed(1) + 'M';
+}
+
 function fmtTime(s) {
   if (!s) return '—';
   try { return new Date(s).toLocaleString(); } catch(e) { return s; }
+}
+
+function _updateLastRunDisplay(st) {
+  const el_last = el('lastRun');
+  const el_seg = el_last ? el_last.closest('.status-seg-last') : null;
+  if (!el_last) return;
+  if (st.last_skipped_queue_depth_utc) {
+    el_last.innerHTML = '<span style="color:var(--warn);font-weight:500">Skipped \u2014 Queue Depth</span>';
+    if (el_seg) { el_seg.dataset.skipActive = '1'; el_seg.style.background = 'rgba(251,191,36,.06)'; }
+  } else {
+    el_last.textContent = fmtTime(st.last_run_utc);
+    if (el_seg) { delete el_seg.dataset.skipActive; el_seg.style.background = ''; }
+  }
 }
 
 function fmtTimePadded(s) {
@@ -96,7 +120,7 @@ async function loadAll() {
   CFG = await api('/api/config');
   const st = await api('/api/status');
   el('ver').textContent = st.version;
-  el('lastRun').textContent = fmtTime(st.last_run_utc);
+  _updateLastRunDisplay(st);
   el('nextRun').textContent = (CFG && (CFG.scheduler_enabled)) ? fmtTime(st.next_run_utc) : 'Manual';
   updateStatusPill(CFG.scheduler_enabled);
   updateContainerTime(st.container_time);
@@ -169,7 +193,7 @@ async function refreshStatus() {
     const st = await api('/api/status');
     el('ver').textContent = st.version;
     const isRunning = !!st.run_in_progress;
-    if (!isRunning) el('lastRun').textContent = fmtTime(st.last_run_utc);
+    if (!isRunning) _updateLastRunDisplay(st);
     if (isRunning) {
       el('dot-scheduler').classList.add('running');
       el('wordmark').classList.add('sweeping');
@@ -266,6 +290,28 @@ loadAll().then(() => {
     });
     maybeShowOnboarding();
     if (!CFG || CFG.onboarding_complete) maybeShowWhatsNew();
+    // Navigate to the correct starting tab.
+    // New installs (onboarding not complete) always stay on Instances.
+    // Returning users: check localStorage for last visited tab, then fall back
+    // to the configured default_tab, then fall back to sweep.
+    if (CFG && CFG.onboarding_complete) {
+      let startTab = null;
+      try { startTab = localStorage.getItem('nudgarr_last_tab'); } catch (_) {}
+      if (!startTab) startTab = (CFG.default_tab || 'sweep');
+      // Validate the tab is actually accessible before navigating to it.
+      // Conditional tabs depend on feature flags — use CFG directly rather than
+      // checking DOM visibility which may not be reliable at load time.
+      const conditionalOk = {
+        'overrides':  () => !!CFG.per_instance_overrides_enabled,
+        'cf-scores':  () => !!CFG.cf_score_enabled,
+        'filters':    () => !!(CFG.instances?.radarr?.length || CFG.instances?.sonarr?.length),
+      };
+      const check = conditionalOk[startTab];
+      const tabVisible = !check || check();
+      if (startTab !== 'instances' && tabVisible) {
+        showTab(startTab);
+      }
+    }
   }).catch(e => showAlert('Failed to load — please refresh the page. (' + e.message + ')'));
 setInterval(pollCycle, 5000);
 

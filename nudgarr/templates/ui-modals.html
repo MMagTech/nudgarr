@@ -53,33 +53,28 @@
   <!-- ══ What's New Modal ══ -->
   <div class="modal-backdrop" id="whatsNewModal" style="display:none">
      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
-       <h2 style="margin:0 0 4px">What's New in v4.2.0</h2>
+       <h2 style="margin:0 0 4px">What's New in v4.3.0</h2>
        <p class="help" style="margin:0 0 18px;color:var(--muted)">Here's what changed since your last visit.</p>
        <div style="display:flex;flex-direction:column;gap:10px">
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">CF Score Scan</div>
-           <div class="help">A third independent search pipeline that finds monitored files where the custom format score is below the quality profile cutoff, regardless of quality tier. Radarr and Sonarr never surface these through their normal wanted system. Enable in Advanced and configure search limits in the new CF Score tab.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab Redesign</div>
+           <div class="help">The Intel tab launched just a few days ago in v4.2.0 and has already been rebuilt. My apologies for the quick turnaround. After stepping back and looking at what it was, it became clear the scoring and assumptions probably weren't ideal for what Intel should represent. The new design strips it back to hard facts only. Five focused cards showing exactly what Nudgarr has done with no scoring, no judgments, and nothing that depends on how you have the app configured. Just straight facts derived from information that resides in the database.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Intel Tab</div>
-           <div class="help">A lifetime performance dashboard tracking search health, instance efficiency, stuck items, exclusion calibration, library age vs success rate, and quality upgrade paths. Gets richer the longer Nudgarr runs. Reset from the bottom of the Intel tab if needed.</div>
+           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Queue Depth Awareness</div>
+           <div class="help">Nudgarr can now skip sweeps automatically when your download queue is too busy. Set a threshold in Advanced &rarr; Sweep Controls &mdash; if the total queue across all your instances meets or exceeds it, the sweep is skipped and the status bar shows the skip in amber. A notification fires each time. The next scheduled sweep checks again from scratch.</div>
          </div>
          <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweep Tab Redesign</div>
-           <div class="help">The Sweep tab is rebuilt around three pipeline cards (Cutoff Unmet, Backlog, CF Score), each showing aggregate totals and per-instance breakdowns. A summary row covers Sweep Health, Last Sweep timing, and Imports Confirmed. A full-width feed logs every item searched in the current sweep with its pipeline badge and pagination.</div>
-         </div>
-         <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-           <div style="font-weight:600;font-size:13px;margin-bottom:4px">Responsive UI</div>
-           <div class="help">The dedicated mobile UI has been replaced with a fully responsive desktop UI that works on any screen size — phone, tablet, or desktop. All features including CF Score, Intel, Overrides, and every configuration field are now accessible everywhere. No more rotating your device to reach a setting.</div>
+           <div class="help">The three summary cards have been rebuilt. Sweep Health shows instance status with a fixed-height banner so the card never shifts size between states. Imports Confirmed shows Movies and Episodes in Radarr purple and Sonarr green, and the count now persists across container restarts. Last Sweep shows Completed and Next Run separated by a divider. Each pipeline card also shows when it last ran.</div>
          </div>
          <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px">
            <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Also in this release</div>
-           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Toggles:</strong> Radarr and Sonarr auto-exclusion now each have an independent on/off toggle. The threshold field is the count, not the switch.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Advanced Tab Restructure:</strong> Backlog Nudges, Auto-Exclusion, and Configuration are now full-width horizontal cards — no more side-by-side cramming or paging.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Maintenance Window:</strong> suppress scheduled sweeps during a defined time window. Configure in Settings. Manual Run Now always bypasses it.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Cutoff Unmet Toggles:</strong> Radarr and Sonarr Cutoff Unmet can now be independently enabled or disabled in Settings.</div>
-           <div class="help" style="margin-bottom:4px"><strong>Backlog Sample Mode Split:</strong> Cutoff Unmet and Backlog now have independent sample modes. Grace Period also available in Advanced.</div>
-           <div class="help"><strong>Settings cleanup:</strong> Cooldown moved into the Scheduler card. Cutoff Unmet has the full right card to itself.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Sample Mode Overhaul:</strong> Round Robin added to Cutoff Unmet and Backlog. CF Score gains full mode control with Largest Gap First as default. CF Score sample mode available in per-instance Overrides.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Default Tab:</strong> choose which tab Nudgarr opens on in Advanced &rarr; UI Preferences. Your last visited tab is always remembered within the same browser.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Label consistency:</strong> Backlog Sample Mode &rarr; Sample Mode, Max Backlog &rarr; Max (Per Run), Max Missing Days &rarr; Missing Added Days. Pipeline headers in Overrides now use pipeline colours.</div>
+           <div class="help" style="margin-bottom:4px"><strong>Auto-Exclusion Fix:</strong> titles that reached your threshold were being silently blocked from exclusion by a Radarr/Sonarr queue API inconsistency. Fixed.</div>
+           <div class="help"><strong>Bug fix:</strong> manual Check Now now immediately updates the Imports Confirmed count on the Sweep tab.</div>
          </div>
        </div>
        <div class="row" style="justify-content:flex-end;margin-top:20px">

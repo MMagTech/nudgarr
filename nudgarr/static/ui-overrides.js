@@ -66,6 +66,7 @@ function _getGlobal(kind, field) {
     notifications_enabled: !!CFG.notify_enabled,
     // Backlog sample mode — independent of cutoff sample mode (v4.2.0)
     backlog_sample_mode:   kind === 'radarr' ? (CFG.radarr_backlog_sample_mode || 'random') : (CFG.sonarr_backlog_sample_mode || 'random'),
+    cf_sample_mode:        kind === 'radarr' ? (CFG.radarr_cf_sample_mode || 'largest_gap_first') : (CFG.sonarr_cf_sample_mode || 'largest_gap_first'),
     // Grace period — applied after availability date before first missing search (v4.2.0)
     missing_grace_hours:   kind === 'radarr' ? (CFG.radarr_missing_grace_hours ?? 0) : (CFG.sonarr_missing_grace_hours ?? 0),
     // CF Score max per run — only relevant when cf_score_enabled is True (v4.2.0)
@@ -80,8 +81,8 @@ function _ovCardId(kind, idx) { return `ov-card-${kind}-${idx}`; }
 // Layout (v4.2.0):
 //   Cooldown — spans full width, applies to both pipelines
 //   [Cutoff Unmet group] Max Cutoff Unmet / Sample Mode
-//   [Backlog group] toggle row, Max Backlog / Backlog Sample Mode,
-//                  Max Missing Days / empty (Radarr only)
+//   [Backlog group] toggle row, Max (Per Run) / Sample Mode,
+//                  Missing Added Days / empty (Radarr only)
 //   Notifications footer row
 // Fields with an active override get the ov-active class to highlight them visually.
 // Disabled instances are fully dimmed and pointer-events are removed.
@@ -95,8 +96,23 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const dotClass = kind === 'sonarr' ? 'ov-dot ov-sonarr' : 'ov-dot';
   const badgeStyle = isDisabled ? 'opacity:0.4;filter:saturate(0)' : '';
   const dotStyle = isDisabled ? 'opacity:0.4' : '';
-  const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added'];
-  const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
+  const VALID_MODES = ['random', 'alphabetical', 'oldest_added', 'newest_added', 'round_robin'];
+  const MODE_LABELS = {random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added', round_robin: 'Round Robin'};
+  const VALID_CF_MODES = ['largest_gap_first', 'round_robin', 'random', 'alphabetical', 'oldest_added', 'newest_added'];
+  const CF_MODE_LABELS = {largest_gap_first: 'Largest Gap First', round_robin: 'Round Robin', random: 'Random', alphabetical: 'Alphabetical', oldest_added: 'Oldest Added', newest_added: 'Newest Added'};
+
+  // CF Score sample mode — __global__ sentinel pattern matching backlog_sample_mode (v4.2.1)
+  const globalCfMode = _getGlobal(kind, 'cf_sample_mode');
+  const hasOvCfMode = 'cf_sample_mode' in ov;
+  const cfModeVal = hasOvCfMode ? ov.cf_sample_mode : '__global__';
+  const cfModeField = `<div class="field">
+    <label>Sample Mode</label>
+    <select id="${cardId}-cf_sample_mode" class="${hasOvCfMode ? 'ov-active' : ''}"
+      onchange="markCardDirty('${kind}',${idx})">
+      <option value="__global__"${!hasOvCfMode ? ' selected' : ''}>Use Global (${CF_MODE_LABELS[globalCfMode] || globalCfMode})</option>
+      ${VALID_CF_MODES.map(m => `<option value="${m}"${cfModeVal === m ? ' selected' : ''}>${CF_MODE_LABELS[m]}</option>`).join('')}
+    </select>
+  </div>`;
 
   const statusHtml = ovCount
     ? `<span class="help" style="font-size:11px">${ovCount} Override${ovCount !== 1 ? 's' : ''}</span>`
@@ -140,7 +156,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
   const hasOvBacklogMode = 'backlog_sample_mode' in ov;
   const backlogModeVal = hasOvBacklogMode ? ov.backlog_sample_mode : '__global__';
   const backlogModeField = `<div class="field">
-    <label>Backlog Sample Mode</label>
+    <label>Sample Mode</label>
     <select id="${cardId}-backlog_sample_mode" class="${hasOvBacklogMode ? 'ov-active' : ''}"
       onchange="markCardDirty('${kind}',${idx})">
       <option value="__global__"${!hasOvBacklogMode ? ' selected' : ''}>Use Global (${MODE_LABELS[globalBacklogMode] || globalBacklogMode})</option>
@@ -169,20 +185,20 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
     : true;
   const cutoffFieldsStyle = cutoffEnabledGlobal ? '' : 'opacity:0.38;pointer-events:none';
 
-  // Backlog fields: Max Backlog / Backlog Sample Mode (both apps)
-  // Radarr row 2: Max Missing Days / Grace Period (Hours)
+  // Backlog fields: Max (Per Run) / Sample Mode (both apps)
+  // Radarr row 2: Missing Added Days / Grace Period (Hours)
   // Sonarr row 2: Grace Period (Hours) / empty
   // Grey the entire fields block when backlog is effectively off (resolved value)
   const backlogFieldsStyle = backlogVal ? '' : 'opacity:0.38;pointer-events:none';
   const backlogFieldsHtml = kind === 'radarr'
     ? `<div class="ov-fields" id="${cardId}-backlog-fields" style="${backlogFieldsStyle}">
-        ${numField('max_backlog', 'Max Backlog', gBacklog)}
+        ${numField('max_backlog', 'Max (Per Run)', gBacklog)}
         ${backlogModeField}
-        ${numField('max_missing_days', 'Max Missing Days', gMissing)}
+        ${numField('max_missing_days', 'Missing Added Days', gMissing)}
         ${numField('missing_grace_hours', 'Grace Period (Hours)', gGrace)}
       </div>`
     : `<div class="ov-fields" id="${cardId}-backlog-fields" style="${backlogFieldsStyle}">
-        ${numField('max_backlog', 'Max Backlog', gBacklog)}
+        ${numField('max_backlog', 'Max (Per Run)', gBacklog)}
         ${backlogModeField}
         ${numField('missing_grace_hours', 'Grace Period (Hours)', gGrace)}
         <div></div>
@@ -202,7 +218,16 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
 
   // Inner divider + group label helpers (inline styles — no new CSS classes required)
   const innerDivider = `<div style="height:1px;background:var(--border);margin:10px 0"></div>`;
-  const grpHead = (text) => `<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">${text}</div>`;
+  const grpHeadColors = {
+    'Cutoff Unmet': { color: 'var(--accent-lt)',  border: 'rgba(91,114,245,.2)' },
+    'Backlog':      { color: 'var(--ok)',          border: 'rgba(34,197,94,.2)'  },
+    'CF Score':     { color: 'var(--warn)',         border: 'rgba(251,191,36,.2)' },
+    'Notifications':{ color: 'var(--muted)',        border: 'rgba(255,255,255,.07)' },
+  };
+  const grpHead = (text) => {
+    const c = grpHeadColors[text] || { color: 'var(--muted)', border: 'rgba(255,255,255,.07)' };
+    return `<div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${c.color};margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid ${c.border}">${text}</div>`;
+  };
 
   // CF Score group — only shown when cf_score_enabled is True globally.
   // Hides entirely when disabled so users aren't confused by a field
@@ -212,7 +237,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
        ${grpHead('CF Score')}
        <div class="ov-fields" style="margin-bottom:10px">
          <div style="grid-column:1/2">${numField('cf_max', 'Max (Per Run)', gCfMax)}</div>
-         <div></div>
+         <div>${cfModeField}</div>
        </div>`
     : '';
 
@@ -227,7 +252,7 @@ function _buildOverrideCard(kind, idx, inst, solo = false) {
       <!-- Cooldown — applies to both pipelines, sits above the cutoff/backlog split -->
       <div class="ov-fields" style="margin-bottom:10px">
         <div style="grid-column:1/-1;max-width:50%">
-          ${numField('cooldown_hours', 'Cooldown Hours', gCooldown)}
+          ${numField('cooldown_hours', 'Cooldown (Hours)', gCooldown)}
         </div>
       </div>
       ${innerDivider}
@@ -396,6 +421,20 @@ async function applyOverrides(kind, idx) {
     }
   }
 
+  // CF Score sample mode — same __global__ sentinel pattern; only present when cf_score_enabled (v4.2.1)
+  if (CFG && CFG.cf_score_enabled) {
+    const cfModeEl = el(cardId + '-cf_sample_mode');
+    if (cfModeEl) {
+      if (cfModeEl.value === '__global__' || cfModeEl.value === '') {
+        delete newOv.cf_sample_mode;
+        cfModeEl.classList.remove('ov-active');
+      } else {
+        newOv.cf_sample_mode = cfModeEl.value;
+        cfModeEl.classList.add('ov-active');
+      }
+    }
+  }
+
   // Backlog enabled — always store current value if input has been interacted with
   const blInput = el(cardId + '-backlog_enabled');
   if (blInput) {
@@ -449,8 +488,8 @@ async function resetCardOverrides(kind, idx) {
 
 function resetFieldOverride(kind, idx, field) {
   const cardId = _ovCardId(kind, idx);
-  if (field === 'sample_mode' || field === 'backlog_sample_mode') {
-    // Both mode selects use the __global__ sentinel to indicate no override
+  if (field === 'sample_mode' || field === 'backlog_sample_mode' || field === 'cf_sample_mode') {
+    // Mode selects use the __global__ sentinel to indicate no override
     const sel = el(cardId + '-' + field);
     if (sel) { sel.value = '__global__'; sel.classList.remove('ov-active'); }
   } else {

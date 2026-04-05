@@ -528,6 +528,53 @@ if 'resetIntelData' in content:
     ok("Reset Intel button present in HTML (Danger Zone)")
 else:
     fail("Reset Intel button missing from HTML (Danger Zone)")
+# v4.3.0 Intel redesign checks
+_intel_html = open('nudgarr/templates/ui-tab-intel.html').read()
+_intel_js = open('nudgarr/static/ui-intel.js').read()
+if 'intelPipelineTable' in _intel_html:
+    ok("intelPipelineTable present in Intel tab HTML (Import Summary)")
+else:
+    fail("intelPipelineTable missing from Intel tab HTML")
+if 'intelInstanceTable' in _intel_html:
+    ok("intelInstanceTable present in Intel tab HTML (Instance Performance)")
+else:
+    fail("intelInstanceTable missing from Intel tab HTML")
+if 'intelUpgradePaths' in _intel_html:
+    ok("intelUpgradePaths present in Intel tab HTML (Upgrade History)")
+else:
+    fail("intelUpgradePaths missing from Intel tab HTML")
+if 'intelCfScoreCard' in _intel_html:
+    ok("intelCfScoreCard present in Intel tab HTML (CF Score Health)")
+else:
+    fail("intelCfScoreCard missing from Intel tab HTML")
+if 'intelExclusionContent' in _intel_html:
+    ok("intelExclusionContent present in Intel tab HTML (Exclusion Intel)")
+else:
+    fail("intelExclusionContent missing from Intel tab HTML")
+if '_renderImportSummary' in _intel_js:
+    ok("_renderImportSummary present in ui-intel.js")
+else:
+    fail("_renderImportSummary missing from ui-intel.js")
+if '_renderCfScoreHealth' in _intel_js:
+    ok("_renderCfScoreHealth present in ui-intel.js")
+else:
+    fail("_renderCfScoreHealth missing from ui-intel.js")
+if '_renderUpgradeHistory' in _intel_js:
+    ok("_renderUpgradeHistory present in ui-intel.js")
+else:
+    fail("_renderUpgradeHistory missing from ui-intel.js")
+if 'get_pipeline_search_counts' in open('nudgarr/db/intel.py').read():
+    ok("get_pipeline_search_counts present in db/intel.py")
+else:
+    fail("get_pipeline_search_counts missing from db/intel.py")
+if 'get_cf_score_health' in open('nudgarr/db/intel.py').read():
+    ok("get_cf_score_health present in db/intel.py")
+else:
+    fail("get_cf_score_health missing from db/intel.py")
+if 'formatCompact' in open('nudgarr/static/ui-core.js').read():
+    ok("formatCompact utility present in ui-core.js")
+else:
+    fail("formatCompact utility missing from ui-core.js")
 
 # ── Grace Period structural checks ────────────────────────────────────────────
 section("Grace Period")
@@ -552,7 +599,178 @@ if '_release_date' in open('nudgarr/sweep.py').read():
 else:
     fail("_release_date() helper missing from sweep.py")
 
-# ── Cleanup — remove __pycache__ created by py_compile above ─────────────────
+section("Sample Mode Overhaul (v4.2.1)")
+# Round Robin — Settings tab (Cutoff Unmet selects)
+if 'round_robin' in open('nudgarr/templates/ui-tab-settings.html').read():
+    ok("round_robin present in Settings tab sample mode selects")
+else:
+    fail("round_robin missing from Settings tab sample mode selects")
+# Round Robin — Advanced tab (Backlog selects)
+if 'round_robin' in open('nudgarr/templates/ui-tab-advanced.html').read():
+    ok("round_robin present in Advanced tab backlog sample mode selects")
+else:
+    fail("round_robin missing from Advanced tab backlog sample mode selects")
+# CF Score sample mode selects in HTML
+_cf_html = open('nudgarr/templates/ui-tab-cf-scores.html').read()
+if 'cfRadarrSampleMode' in _cf_html:
+    ok("cfRadarrSampleMode select present in CF Score tab")
+else:
+    fail("cfRadarrSampleMode select missing from CF Score tab")
+if 'cfSonarrSampleMode' in _cf_html:
+    ok("cfSonarrSampleMode select present in CF Score tab")
+else:
+    fail("cfSonarrSampleMode select missing from CF Score tab")
+if 'largest_gap_first' in _cf_html:
+    ok("largest_gap_first option present in CF Score tab selects")
+else:
+    fail("largest_gap_first option missing from CF Score tab selects")
+# CF Score sample mode JS
+_cf_js = open('nudgarr/static/ui-cf-scores.js').read()
+if 'radarr_cf_sample_mode' in _cf_js:
+    ok("radarr_cf_sample_mode referenced in ui-cf-scores.js")
+else:
+    fail("radarr_cf_sample_mode missing from ui-cf-scores.js")
+if 'sonarr_cf_sample_mode' in _cf_js:
+    ok("sonarr_cf_sample_mode referenced in ui-cf-scores.js")
+else:
+    fail("sonarr_cf_sample_mode missing from ui-cf-scores.js")
+# CF Score sample mode in Overrides JS
+_ov_js = open('nudgarr/static/ui-overrides.js').read()
+if 'cf_sample_mode' in _ov_js:
+    ok("cf_sample_mode present in ui-overrides.js")
+else:
+    fail("cf_sample_mode missing from ui-overrides.js")
+if 'VALID_CF_MODES' in _ov_js:
+    ok("VALID_CF_MODES constant present in ui-overrides.js")
+else:
+    fail("VALID_CF_MODES constant missing from ui-overrides.js")
+# VALID_CF_SAMPLE_MODES in constants.py
+_const = open('nudgarr/constants.py').read()
+if 'VALID_CF_SAMPLE_MODES' in _const:
+    ok("VALID_CF_SAMPLE_MODES constant present in constants.py")
+else:
+    fail("VALID_CF_SAMPLE_MODES constant missing from constants.py")
+if 'radarr_cf_sample_mode' in _const:
+    ok("radarr_cf_sample_mode present in DEFAULT_CONFIG")
+else:
+    fail("radarr_cf_sample_mode missing from DEFAULT_CONFIG")
+# round_robin in VALID_SAMPLE_MODES and VALID_BACKLOG_SAMPLE_MODES
+if 'round_robin' in _const:
+    ok("round_robin present in constants.py mode tuples")
+else:
+    fail("round_robin missing from constants.py mode tuples")
+# cf_sample_mode in config.py validation
+_cfg_py = open('nudgarr/config.py').read()
+if 'VALID_CF_SAMPLE_MODES' in _cfg_py:
+    ok("VALID_CF_SAMPLE_MODES used in config.py validation")
+else:
+    fail("VALID_CF_SAMPLE_MODES missing from config.py validation")
+# largest_gap_first sort branch in stats.py
+_stats = open('nudgarr/stats.py').read()
+if 'largest_gap_first' in _stats:
+    ok("largest_gap_first sort branch present in stats.py")
+else:
+    fail("largest_gap_first sort branch missing from stats.py")
+if 'round_robin' in _stats:
+    ok("round_robin sort branch present in stats.py")
+else:
+    fail("round_robin sort branch missing from stats.py")
+# cf_sample_mode resolved in sweep.py
+_sweep = open('nudgarr/sweep.py').read()
+if 'cf_sample_mode' in _sweep:
+    ok("cf_sample_mode resolved in sweep.py")
+else:
+    fail("cf_sample_mode missing from sweep.py")
+
+# ── Default Tab (v4.3.0) ──────────────────────────────────────────────────────
+section("Default Tab")
+if 'VALID_TABS' in open('nudgarr/constants.py').read():
+    ok("VALID_TABS constant present in constants.py")
+else:
+    fail("VALID_TABS constant missing from constants.py")
+if '"default_tab": "sweep"' in open('nudgarr/constants.py').read():
+    ok("default_tab defaults to sweep in DEFAULT_CONFIG")
+else:
+    fail("default_tab default missing from DEFAULT_CONFIG")
+if 'VALID_TABS' in open('nudgarr/config.py').read():
+    ok("VALID_TABS imported and used in config.py validation")
+else:
+    fail("VALID_TABS not used in config.py")
+_adv_html = open('nudgarr/templates/ui-tab-advanced.html').read()
+if 'id="default_tab"' in _adv_html:
+    ok("default_tab select present in Advanced tab HTML")
+else:
+    fail("default_tab select missing from Advanced tab HTML")
+if 'Documentation' in _adv_html:
+    ok("Documentation link present in Advanced tab HTML")
+else:
+    fail("Documentation link missing from Advanced tab HTML")
+_adv_js = open('nudgarr/static/ui-advanced.js').read()
+if 'default_tab' in _adv_js:
+    ok("default_tab handled in ui-advanced.js")
+else:
+    fail("default_tab missing from ui-advanced.js")
+if 'nudgarr_last_tab' in open('nudgarr/static/ui-core.js').read():
+    ok("nudgarr_last_tab localStorage key present in ui-core.js")
+else:
+    fail("nudgarr_last_tab localStorage key missing from ui-core.js")
+
+
+# ── Queue Depth (v4.3.0) ──────────────────────────────────────────────────────
+section("Queue Depth")
+_qd_constants = open('nudgarr/constants.py').read()
+if '"queue_depth_enabled": False' in _qd_constants:
+    ok("queue_depth_enabled present in DEFAULT_CONFIG")
+else:
+    fail("queue_depth_enabled missing from DEFAULT_CONFIG")
+if '"queue_depth_threshold"' in _qd_constants:
+    ok("queue_depth_threshold present in DEFAULT_CONFIG")
+else:
+    fail("queue_depth_threshold missing from DEFAULT_CONFIG")
+if '"notify_on_queue_depth_skip"' in _qd_constants:
+    ok("notify_on_queue_depth_skip present in DEFAULT_CONFIG")
+else:
+    fail("notify_on_queue_depth_skip missing from DEFAULT_CONFIG")
+if '_check_queue_depth' in open('nudgarr/sweep.py').read():
+    ok("_check_queue_depth present in sweep.py")
+else:
+    fail("_check_queue_depth missing from sweep.py")
+_qd_clients = open('nudgarr/arr_clients.py').read()
+if 'radarr_get_queue_total' in _qd_clients:
+    ok("radarr_get_queue_total present in arr_clients.py")
+else:
+    fail("radarr_get_queue_total missing from arr_clients.py")
+if 'sonarr_get_queue_total' in _qd_clients:
+    ok("sonarr_get_queue_total present in arr_clients.py")
+else:
+    fail("sonarr_get_queue_total missing from arr_clients.py")
+_qd_adv = open('nudgarr/templates/ui-tab-advanced.html').read()
+if 'Sweep Controls' in _qd_adv:
+    ok("Sweep Controls section label present in Advanced tab")
+else:
+    fail("Sweep Controls section label missing from Advanced tab")
+if 'queue_depth_enabled' in _qd_adv:
+    ok("queue_depth_enabled toggle present in Advanced tab")
+else:
+    fail("queue_depth_enabled toggle missing from Advanced tab")
+if 'queue_depth_threshold' in _qd_adv:
+    ok("queue_depth_threshold input present in Advanced tab")
+else:
+    fail("queue_depth_threshold input missing from Advanced tab")
+if 'notify_on_queue_depth_skip' in open('nudgarr/templates/ui-tab-notifications.html').read():
+    ok("notify_on_queue_depth_skip toggle present in Notifications tab")
+else:
+    fail("notify_on_queue_depth_skip toggle missing from Notifications tab")
+if 'last_skipped_queue_depth_utc' in open('nudgarr/static/ui-core.js').read():
+    ok("last_skipped_queue_depth_utc handled in ui-core.js")
+else:
+    fail("last_skipped_queue_depth_utc missing from ui-core.js")
+if 'lastRunUtc' in open('nudgarr/static/ui-sweep.js').read():
+    ok("pipeline card last run timestamp present in ui-sweep.js")
+else:
+    fail("pipeline card last run timestamp missing from ui-sweep.js")
+
+
 import shutil
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):

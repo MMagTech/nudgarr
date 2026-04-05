@@ -31,9 +31,7 @@ As sweeps run over time these three pipelines work together. Backlog fills in wh
     title: "Step 1 — Add Your Instances",
     body: `Start on the <strong>Instances tab</strong>. Add each of your Radarr and Sonarr servers with their URL and API key. Use <strong>Test Connections</strong> to confirm everything is reachable before moving on.
 <br><br>
-You can add multiple instances of the same app. Nudgarr will nudge all of them each run. Keep in mind that settings like Max Per Run apply <strong>per instance</strong> — two Radarr instances set to 5 means up to 10 movie search commands per sweep.
-<br><br>
-<span style="display:block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.6">On mobile, instance management requires a desktop browser. Once configured you can monitor and enable/disable instances from the Home screen.</span>`
+You can add multiple instances of the same app. Nudgarr will nudge all of them each run. Keep in mind that settings like Max Per Run apply <strong>per instance</strong> — two Radarr instances set to 5 means up to 10 movie search commands per sweep.`
   },
   {
     title: "Step 2 — Scheduler and Run Now",
@@ -54,7 +52,7 @@ How many items Nudgarr nudges per instance per run. Start at 1 and increase slow
 How long before the same item is nudged again. Default is 48 hours. Do not lower this aggressively — triggering repeated searches for the same item in a short window is one of the fastest ways to get flagged by an indexer.
 <br><br>
 <strong>Sample Mode</strong><br>
-Controls which eligible items are picked each run. Random gives even coverage. Alphabetical works A to Z. Oldest Added prioritises items you have had longest. Newest Added targets recently added items.
+Controls which eligible items are picked each run. Random gives even coverage. Alphabetical works A to Z. Oldest Added prioritises items you have had longest. Newest Added targets recently added items. Round Robin searches whoever has been waiting longest, with never-searched items going first.
 <br><br>
 <strong>Batch, Sleep, and Jitter</strong><br>
 These control how fast Nudgarr sends commands to your instances. The defaults are safe. Only adjust these if you know what you are doing.`
@@ -64,12 +62,10 @@ These control how fast Nudgarr sends commands to your instances. The defaults ar
     body: `Some items will never be available on your indexers regardless of how many times they are searched. Excluding them keeps your eligible pool clean and avoids wasting search commands.
 <br><br>
 <strong>Manual Exclusions</strong><br>
-From the History tab, hover over any row and use the exclude button to remove a title from future runs. You can remove exclusions the same way.
+From the History tab, click the exclusion icon on any row to permanently remove that title from future searches. Click the same icon to remove the exclusion. Excluded titles appear under the Exclusions filter and can be cleared individually or in bulk using Clear Exclusions.
 <br><br>
 <strong>Auto-Exclusion</strong><br>
-In Advanced, set a search threshold. If an item is nudged that many times with no confirmed import, Nudgarr excludes it automatically. 0 disables it. Start with a conservative number like 10 and adjust based on your library.
-<br><br>
-Excluded titles appear in the History tab under the Exclusions filter. You can clear them individually or in bulk using the Clear Exclusions button.`
+In Advanced, enable the auto-exclusion toggle for Radarr, Sonarr, or both, then set a search threshold. If an item is nudged that many times with no confirmed import, Nudgarr excludes it automatically. You can also set an Unexclude Days value — after that many days the title is removed from exclusions and gets another chance. Start with a conservative threshold like 10 and adjust based on your library.`
   },
   {
     title: "Step 5 — Notifications and Intel",
@@ -77,9 +73,7 @@ Excluded titles appear in the History tab under the Exclusions filter. You can c
 Nudgarr can notify you when sweeps complete, imports are confirmed, items are auto-excluded, or an instance becomes unreachable. Add your Apprise-compatible URL in the Notifications tab, choose which events to be notified on, and use Send Test to confirm it is working. Supports Discord, Gotify, Ntfy, Pushover, Slack, and more.
 <br><br>
 <strong>Intel</strong><br>
-The Intel tab is a performance dashboard that builds up over time. It shows your Library Score, success rate, import turnaround, stuck items, and sweep efficiency per instance.
-<br><br>
-It needs a minimum of 25 confirmed imports or 50 sweep runs before scores appear. Give it time.`
+The Intel tab is a lifetime performance dashboard. It shows hard facts about what Nudgarr has actually done — import turnaround, searches per import, pipeline breakdown, upgrade history, and exclusion activity. It needs a minimum of 25 confirmed imports or 50 sweep runs before data appears. Give it time.`
   },
   {
     title: "You're Ready",
@@ -91,7 +85,10 @@ It needs a minimum of 25 confirmed imports or 50 sweep runs before scores appear
 4. Check the <strong>History tab</strong> to see what was nudged<br>
 5. Check the <strong>Imports tab</strong> after a day or two to see what was confirmed<br>
 6. If everything looks right, enable the scheduler<br>
-7. Gradually increase Max Per Run as you get comfortable
+7. Gradually increase Max Per Run as you get comfortable<br>
+8. Set your <strong>Default Tab</strong> in Advanced under UI Preferences to choose where Nudgarr opens on a new browser or device
+<br><br>
+Nudgarr remembers the last tab you visited within the same browser, so refreshing always brings you back to where you were.
 <br><br>
 Nudgarr is designed to work quietly in the background. Start slow, let it earn your trust, and tune from there.
 <br><br>
@@ -123,6 +120,9 @@ async function onboardingStep(dir) {
     el('onboardingModal').style.display = 'none';
     await api('/api/onboarding/complete', {method: 'POST'});
     if (CFG) { CFG.onboarding_complete = true; CFG.last_seen_version = el('ver').textContent; }
+    // Seed localStorage so the first post-onboarding load lands on Instances.
+    // From here on normal tab navigation takes over and updates this value.
+    try { localStorage.setItem('nudgarr_last_tab', 'instances'); } catch (_) {}
     return;
   }
   _obStep = Math.max(0, Math.min(total - 1, _obStep + dir));
@@ -143,6 +143,16 @@ function replayOnboarding() {
 }
 
 function showTab(name) {
+  // Guard: refuse to navigate to a conditional tab if its feature is currently disabled.
+  // Fall back to sweep so the user always lands somewhere visible.
+  const conditionalTabEnabled = {
+    'overrides': () => !!CFG?.per_instance_overrides_enabled,
+    'cf-scores': () => !!CFG?.cf_score_enabled,
+    'filters':   () => !!((CFG?.instances?.radarr?.length || 0) + (CFG?.instances?.sonarr?.length || 0)),
+  };
+  const tabCheck = conditionalTabEnabled[name];
+  if (tabCheck && !tabCheck()) { _doShowTab('sweep'); return; }
+
   // Overrides tab — check for pending (dirty) cards before navigating away
   if (ACTIVE_TAB === 'overrides' && name !== 'overrides') {
     const dirty = document.querySelectorAll('#overrides-grid .ov-card.ov-dirty');
@@ -181,6 +191,11 @@ function _doShowTab(name) {
     }
   }
   ACTIVE_TAB = name;
+  // Persist last visited tab so browser refresh returns to the same tab.
+  // Only written after onboarding is complete — new installs always start on Instances.
+  if (CFG && CFG.onboarding_complete) {
+    try { localStorage.setItem('nudgarr_last_tab', name); } catch (_) {}
+  }
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   const current = document.querySelector('.section.active');
   const next = document.getElementById('tab-' + name);

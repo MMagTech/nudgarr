@@ -49,7 +49,10 @@
       <div style="height:1px;background:rgba(255,255,255,.10);margin:20px 0"></div>
       <div class="sched-row" style="display:flex;gap:20px;flex-wrap:nowrap;align-items:flex-start">
         <div class="field" style="flex:1">
-          <label>Maintenance Window</label>
+          <div class="tooltip-wrap">
+            <label>Maintenance</label>
+            <span class="tooltip-icon">i<div class="tooltip-box">Suppresses scheduled sweeps and CF Score syncs during the configured time window. Manual runs always bypass it. Import checking continues during the window as it only contacts your local Radarr and Sonarr instances, not indexers.</div></span>
+          </div>
           <div class="toggle-wrap" style="height:34px;">
             <label class="toggle">
               <input type="checkbox" id="maintenance_window_enabled" onchange="syncMaintUi(); markUnsaved('setMsg')"/>
@@ -58,11 +61,11 @@
             </label>
             <span class="help" id="maint_label">Disabled</span>
           </div>
-          <div class="help">Suppresses scheduled sweeps and CF Score syncs. Manual runs are not affected.</div>
+          <div class="help">Quiet Hours</div>
         </div>
         <!-- Time inputs and day pills — greyed when toggle is off -->
         <div class="field" id="maint_controls" style="max-width:340px;opacity:0.35;pointer-events:none">
-          <label style="margin-bottom:6px">Suppress Between</label>
+          <label style="margin-bottom:6px">Suppression Window</label>
           <div style="display:flex;align-items:flex-start;gap:10px">
             <input type="text" id="maintenance_window_start"
               placeholder="23:00" maxlength="5"
@@ -133,13 +136,14 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Radarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.</div></span>
             </div>
             <select id="radarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
+              <option value="round_robin">Round Robin</option>
             </select>
             <div class="help">Pick order for Cutoff Unmet Radarr items</div>
           </div>
@@ -168,13 +172,14 @@
           <div class="field">
             <div class="tooltip-wrap">
               <label>Sample Mode</label>
-              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+              <span class="tooltip-icon tip-left">i<div class="tooltip-box">Controls which eligible Sonarr items are selected each run.<br><br><strong>Random</strong> — different items each run for even coverage.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.</div></span>
             </div>
             <select id="sonarr_sample_mode" onchange="markUnsaved('setMsg')">
               <option value="random">Random</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="oldest_added">Oldest Added</option>
               <option value="newest_added">Newest Added</option>
+              <option value="round_robin">Round Robin</option>
             </select>
             <div class="help">Pick order for Cutoff Unmet Sonarr items</div>
           </div>

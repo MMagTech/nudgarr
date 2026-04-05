@@ -26,7 +26,7 @@
               <div class="grid cols2" style="gap:12px">
                 <div class="field">
                   <div class="tooltip-wrap">
-                    <label>Missing Max (Per Instance)</label>
+                    <label>Max (Per Instance)</label>
                     <span class="tooltip-icon tip-down">i<div class="tooltip-box">How many missing movies are searched per Radarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target items you already have at a lower quality, missing searches target items you have never downloaded. These can add up fast — if you have hundreds of missing movies and set this high combined with a frequent cron schedule you can generate a very large number of searches in a short time. Start at 1 and increase slowly.</div></span>
                   </div>
                   <input id="radarr_missing_max" type="number" min="0" oninput="markUnsaved('advMsg')"/>
@@ -42,14 +42,15 @@
                 </div>
                 <div class="field">
                   <div class="tooltip-wrap">
-                    <label>Backlog Sample Mode</label>
-                    <span class="tooltip-icon tip-down">i<div class="tooltip-box">Controls which eligible missing Radarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+                    <label>Sample Mode</label>
+                    <span class="tooltip-icon tip-down">i<div class="tooltip-box">Controls which eligible missing Radarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.</div></span>
                   </div>
                   <select id="radarr_backlog_sample_mode" onchange="markUnsaved('advMsg')">
                     <option value="random">Random</option>
                     <option value="alphabetical">Alphabetical</option>
                     <option value="oldest_added">Oldest Added</option>
                     <option value="newest_added">Newest Added</option>
+                    <option value="round_robin">Round Robin</option>
                   </select>
                   <div class="help">Pick order for missing Radarr items</div>
                 </div>
@@ -82,7 +83,7 @@
               <div class="grid cols2" style="gap:12px">
                 <div class="field">
                   <div class="tooltip-wrap">
-                    <label>Missing Max (Per Instance)</label>
+                    <label>Max (Per Instance)</label>
                     <span class="tooltip-icon tip-down">i<div class="tooltip-box">How many missing episodes are searched per Sonarr instance each sweep when backlog nudges are enabled. Unlike Cutoff Unmet searches which target episodes you already have at a lower quality, missing searches target episodes you have never downloaded. TV libraries tend to have far more missing episodes than movies — a single incomplete series can have hundreds of missing entries. Start at 1 and increase very slowly while watching your indexer's rate limits carefully.</div></span>
                   </div>
                   <input id="sonarr_missing_max" type="number" min="0" oninput="markUnsaved('advMsg')"/>
@@ -90,14 +91,15 @@
                 </div>
                 <div class="field">
                   <div class="tooltip-wrap">
-                    <label>Backlog Sample Mode</label>
-                    <span class="tooltip-icon tip-down">i<div class="tooltip-box">Controls which eligible missing Sonarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.</div></span>
+                    <label>Sample Mode</label>
+                    <span class="tooltip-icon tip-down">i<div class="tooltip-box">Controls which eligible missing Sonarr items are selected each run. Independent of the Cutoff Unmet sample mode set in the Settings tab.<br><br><strong>Random</strong> — different items each run.<br><br><strong>Alphabetical</strong> — works through your library from A to Z.<br><br><strong>Oldest Added</strong> — picks from the oldest end of your eligible pool.<br><br><strong>Newest Added</strong> — picks from the newest end of your eligible pool.<br><br><strong>Round Robin</strong> — searches whoever has been waiting longest. Items never searched go first.</div></span>
                   </div>
                   <select id="sonarr_backlog_sample_mode" onchange="markUnsaved('advMsg')">
                     <option value="random">Random</option>
                     <option value="alphabetical">Alphabetical</option>
                     <option value="oldest_added">Oldest Added</option>
                     <option value="newest_added">Newest Added</option>
+                    <option value="round_robin">Round Robin</option>
                   </select>
                   <div class="help">Pick order for missing Sonarr items</div>
                 </div>
@@ -198,8 +200,43 @@
       <div class="card">
         <div class="grid cols3" style="gap:0">
 
-          <!-- Row 1, Cell 1: For the Arr-tists -->
+          <!-- Row 1, Cell 1: Sweep Controls -->
           <div class="adv-cfg-cell adv-cfg-cell--left" style="padding-right:20px;border-right:1px solid var(--border)">
+            <p class="section-label">Sweep Controls</p>
+            <div class="field">
+              <div class="tooltip-wrap">
+                <label>CF Score Scan</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff. Searches all monitored files regardless of quality tier — Radarr and Sonarr never surface these through their normal wanted system. Cutoff score and minimum increment are read directly from each quality profile. Enables the CF Score tab.</div></span>
+              </div>
+              <div class="toggle-wrap" style="margin-top:4px">
+                <label class="toggle">
+                  <input type="checkbox" id="cf_score_enabled" onchange="toggleCfScoreFeature(this.checked)"/>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+                <span class="help" id="cf_score_label">Disabled</span>
+              </div>
+            </div>
+            <div style="height:1px;background:var(--border);margin:14px 0"></div>
+            <div class="field" style="margin-bottom:0">
+              <div class="tooltip-wrap">
+                <label>Queue Depth</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Skip the sweep if the total download queue across all instances meets or exceeds the threshold. Useful when a large grab from a list or manual search is in progress. The queue count is fetched from each instance before the sweep starts. Instances that fail the check contribute 0 to the total.</div></span>
+              </div>
+              <div class="toggle-wrap" style="margin-top:4px">
+                <label class="toggle">
+                  <input type="checkbox" id="queue_depth_enabled" onchange="syncQueueDepthUi(); markUnsaved('advMsg')"/>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+                <span class="help" id="queue_depth_label">Disabled</span>
+                <input id="queue_depth_threshold" type="number" min="1" oninput="markUnsaved('advMsg')" style="max-width:80px;opacity:0.35;pointer-events:none"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 1, Cell 2: For the Arr-tists -->
+          <div class="adv-cfg-cell adv-cfg-cell--mid" style="padding:0 20px;border-right:1px solid var(--border)">
             <p class="section-label">For the Arr-tists</p>
             <div class="field" style="margin-bottom:0">
               <div class="tooltip-wrap">
@@ -213,25 +250,6 @@
                   <span class="toggle-thumb"></span>
                 </label>
                 <span class="help" id="overrides_enabled_label">Disabled</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Row 1, Cell 2: Pipelines -->
-          <div class="adv-cfg-cell adv-cfg-cell--mid" style="padding:0 20px;border-right:1px solid var(--border)">
-            <p class="section-label">Pipelines</p>
-            <div class="field" style="margin-bottom:0">
-              <div class="tooltip-wrap">
-                <label>CF Score Scan</label>
-                <span class="tooltip-icon">i<div class="tooltip-box">Finds monitored files where the custom format score is below the quality profile cutoff. Searches all monitored files regardless of quality tier — Radarr and Sonarr never surface these through their normal wanted system. Cutoff score and minimum increment are read directly from each quality profile. Enables the CF Score tab.</div></span>
-              </div>
-              <div class="toggle-wrap" style="margin-top:4px">
-                <label class="toggle">
-                  <input type="checkbox" id="cf_score_enabled" onchange="toggleCfScoreFeature(this.checked)"/>
-                  <span class="toggle-track"></span>
-                  <span class="toggle-thumb"></span>
-                </label>
-                <span class="help" id="cf_score_label">Disabled</span>
               </div>
             </div>
           </div>
@@ -296,9 +314,23 @@
           <div class="adv-cfg-cell adv-cfg-cell--right" style="padding-left:20px">
             <p class="section-label">UI Preferences</p>
             <div class="field">
-              <label>Onboarding</label>
-              <button class="btn sm" style="font-size:11px;padding:4px 9px" onclick="replayOnboarding()">Replay</button>
-              <div class="help" style="margin-top:6px">View the initial walkthrough.</div>
+              <div class="tooltip-wrap">
+                <label>Default Tab</label>
+                <span class="tooltip-icon">i<div class="tooltip-box">Tab shown when opening Nudgarr on a new browser or device. Within the same browser Nudgarr always remembers the last tab you visited. If the selected tab is not currently visible, Nudgarr falls back to Sweep.</div></span>
+              </div>
+              <select id="default_tab" onchange="markUnsaved('advMsg')">
+                <option value="instances">Instances</option>
+                <option value="overrides">Overrides</option>
+                <option value="settings">Settings</option>
+                <option value="cf-scores">CF Score</option>
+                <option value="filters">Filters</option>
+                <option value="sweep">Sweep</option>
+                <option value="history">History</option>
+                <option value="imports">Imports</option>
+                <option value="intel">Intel</option>
+                <option value="notifications">Notifications</option>
+                <option value="advanced">Advanced</option>
+              </select>
             </div>
             <div class="field" style="margin-top:12px;margin-bottom:0">
               <label>Show Support Link</label>
@@ -324,7 +356,10 @@
       <div class="grid cols2" style="align-items:stretch;">
 
         <div class="card">
-          <p class="section-label" style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></p>
+          <p class="section-label" style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+            <span style="display:flex;align-items:baseline;gap:8px;">Support &amp; Diagnostics <span style="font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0">v<span id="ver"></span></span></span>
+            <a href="https://mmagtech.github.io/nudgarr/" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-lt);opacity:0.7;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;font-weight:400;letter-spacing:0">Documentation ↗</a>
+          </p>
           <p class="help" style="margin:0 0 14px;">Data backup and diagnostic tools.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <button class="btn sm" style="width:100%;" onclick="backupAll()">Backup All</button>

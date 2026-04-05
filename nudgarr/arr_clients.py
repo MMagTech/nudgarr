@@ -96,6 +96,24 @@ def radarr_get_missing_movies(
     )
 
 
+def radarr_get_queue_total(
+    session: requests.Session,
+    url: str,
+    key: str,
+) -> int:
+    """Return the total count of items currently in the Radarr download queue.
+    Uses /api/v3/queue/status which is a single lightweight endpoint.
+    Returns 0 on failure so the caller can fail open."""
+    try:
+        endpoint = f"{url.rstrip('/')}/api/v3/queue/status"
+        data = req(session, "GET", endpoint, key)
+        if isinstance(data, dict):
+            return int(data.get("totalCount", 0))
+    except Exception:
+        logger.warning("[Radarr] radarr_get_queue_total failed -- contributing 0 to queue sum", exc_info=True)
+    return 0
+
+
 def radarr_get_queued_movie_ids(
     session: requests.Session,
     url: str,
@@ -304,6 +322,24 @@ def sonarr_get_missing_episodes(
     return _sonarr_episodes_from_wanted(
         session, url, key, "/api/v3/wanted/missing", series_meta, page_size
     )
+
+
+def sonarr_get_queue_total(
+    session: requests.Session,
+    url: str,
+    key: str,
+) -> int:
+    """Return the total count of items currently in the Sonarr download queue.
+    Uses /api/v3/queue/status which is a single lightweight endpoint.
+    Returns 0 on failure so the caller can fail open."""
+    try:
+        endpoint = f"{url.rstrip('/')}/api/v3/queue/status"
+        data = req(session, "GET", endpoint, key)
+        if isinstance(data, dict):
+            return int(data.get("totalCount", 0))
+    except Exception:
+        logger.warning("[Sonarr] sonarr_get_queue_total failed -- contributing 0 to queue sum", exc_info=True)
+    return 0
 
 
 def sonarr_get_queued_episode_ids(

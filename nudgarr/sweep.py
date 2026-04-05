@@ -28,17 +28,19 @@ from nudgarr.arr_clients import (
     radarr_get_cutoff_unmet_movies,
     radarr_get_missing_movies,
     radarr_get_queued_movie_ids,
+    radarr_get_queue_total,
     radarr_get_movie_quality,
     radarr_search_movies,
     sonarr_get_cutoff_unmet_episodes,
     sonarr_get_missing_episodes,
     sonarr_get_queued_episode_ids,
+    sonarr_get_queue_total,
     sonarr_get_episode_quality,
     sonarr_search_episodes,
     _sonarr_get_series_meta,
 )
 from nudgarr.cf_score_syncer import _make_instance_id
-from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES
+from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES
 from nudgarr.globals import STATUS
 from nudgarr.state import load_exclusions, prune_state_by_retention, state_key
 from nudgarr.stats import (
@@ -443,6 +445,20 @@ def _sweep_instance(
     _ov_enabled = bool(cfg.get("per_instance_overrides_enabled", False))
     cf_max = int(_resolve(inst, cfg, _ov_enabled, "cf_max", global_cf_max))
 
+    # Resolve CF Score sample mode — per-instance override falls back to global (v4.2.1)
+    global_cf_sample_mode = str(cfg.get(
+        "radarr_cf_sample_mode" if app == "radarr" else "sonarr_cf_sample_mode",
+        "largest_gap_first",
+    )).lower()
+    cf_sample_mode = str(_resolve(inst, cfg, _ov_enabled, "cf_sample_mode", global_cf_sample_mode)).lower()
+    if cf_sample_mode not in VALID_CF_SAMPLE_MODES:
+        cf_sample_mode = "largest_gap_first"
+    logger.debug(
+        "[%s:%s] cf_sample_mode resolved: %s%s",
+        APP, name, cf_sample_mode,
+        " (override)" if cf_sample_mode != global_cf_sample_mode else " (global)",
+    )
+
     if cfg.get("cf_score_enabled", False) and cf_max > 0:
         cf_instance_id = _make_instance_id(app, inst_url)
         cf_item_type = item_type  # 'movie' for Radarr, 'episode' for Sonarr
@@ -487,11 +503,12 @@ def _sweep_instance(
         ]
 
         # Cooldown filter + cap at cf_max.
-        # "worst_gap" is not a recognised sample_mode so the worst-gap-first
-        # ordering from the DB query is preserved through the filter.
+        # sample_mode is the resolved cf_sample_mode — largest_gap_first is the
+        # default and formalizes the previous hardcoded worst-gap-first ordering,
+        # now with a Round Robin tiebreaker to fix the starvation bug.
         chosen_cf, eligible_cf, skipped_cf = pick_items_with_cooldown(
             cf_sweep_items, app, name, inst_url, cf_item_type,
-            cooldown_hours, cf_max, "worst_gap"
+            cooldown_hours, cf_max, cf_sample_mode
         )
 
         if chosen_cf:
@@ -629,6 +646,38 @@ def _run_auto_unexclude(cfg: Dict[str, Any]) -> None:
 
 # ── Orchestrator ──────────────────────────────────────────────────────
 
+def _check_queue_depth(cfg: Dict[str, Any], session: requests.Session) -> bool:
+    """Check total download queue depth across all enabled instances.
+    Returns True if the sweep should be skipped, False if it should proceed.
+    Failed instance checks contribute 0 to the sum (fail-open).
+    Only runs when queue_depth_enabled is True and threshold >= 1."""
+    if not cfg.get("queue_depth_enabled", False):
+        return False
+    threshold = int(cfg.get("queue_depth_threshold", 10))
+    if threshold < 1:
+        return False
+
+    total = 0
+    for inst in (cfg.get("instances") or {}).get("radarr", []):
+        if inst.get("enabled", True) is False:
+            continue
+        total += radarr_get_queue_total(session, inst["url"], inst["key"])
+    for inst in (cfg.get("instances") or {}).get("sonarr", []):
+        if inst.get("enabled", True) is False:
+            continue
+        total += sonarr_get_queue_total(session, inst["url"], inst["key"])
+
+    if total >= threshold:
+        logger.info(
+            "[Sweep] Queue depth check: total=%d threshold=%d -- skipping sweep",
+            total, threshold,
+        )
+        return True
+
+    logger.debug("[Sweep] Queue depth check passed: total=%d threshold=%d", total, threshold)
+    return False
+
+
 def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     """
     Run one full sweep cycle across all configured Radarr and Sonarr instances.
@@ -656,6 +705,13 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
     sleep_seconds = float(cfg.get("sleep_seconds", 3))
     jitter_seconds = float(cfg.get("jitter_seconds", 2))
     retention_days = int(cfg.get("state_retention_days", 180))
+
+    # ── Queue depth check ─────────────────────────────────────────────
+    # Fires after maintenance window check (in scheduler) but before any
+    # pipeline work. If the total download queue across all instances meets
+    # or exceeds the configured threshold the sweep is skipped entirely.
+    if _check_queue_depth(cfg, session):
+        return {"skipped_queue_depth": True, "radarr": [], "sonarr": []}
 
     # ── Auto-unexclude pass ───────────────────────────────────────────
     # Runs before exclusions are loaded so any titles that aged out are

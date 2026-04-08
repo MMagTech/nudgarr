@@ -62,6 +62,34 @@ function nudgarr() {
     // ── Overrides info seen flag ─────────────────────────────────────────────
     overridesInfoSeen: false,
 
+    // ── Onboarding state ─────────────────────────────────────────────────────
+    onboardingStep: 0,
+    get onboardingTotal()   { return 8; },
+    get onboardingIsFirst() { return this.onboardingStep === 0; },
+    get onboardingIsLast()  { return this.onboardingStep === 7; },
+    onboardingNext() { if (this.onboardingStep < 7) this.onboardingStep++; else this.completeOnboarding(); },
+    onboardingPrev() { if (this.onboardingStep > 0) this.onboardingStep--; },
+    onboardingGoto(step) { if (step >= 0 && step <= 7) this.onboardingStep = step; },
+
+    async completeOnboarding() {
+      this.closeModal();
+      try { await this.api('/api/onboarding/complete', { method: 'POST' }); } catch (_) {}
+      if (this.CFG) this.CFG.onboarding_complete = true;
+      this.panel = 'instances';
+    },
+
+    // ── Day pills (Quiet Hours day-of-week selector) ──────────────────────────
+    isDayActive(i) { return (this.quietDays || []).includes(i); },
+    toggleDay(i) {
+      const days = [...(this.quietDays || [])];
+      const idx = days.indexOf(i);
+      if (idx >= 0) days.splice(idx, 1); else days.push(i);
+      this.quietDays = days.sort((a, b) => a - b);
+      this.unsaved.settings = true;
+    },
+
+
+
     // ── Library view state ───────────────────────────────────────────────────
     libView: 'history',
     exclBadge: 0,
@@ -110,15 +138,14 @@ function nudgarr() {
     intelColdStart: true,
 
     // ── Settings form state ──────────────────────────────────────────────────
-    schedulerEnabledForm: true,
     cronExpr: '0 */6 * * *',
-    maintEnabled: false,
-    maintStart: '02:00',
-    maintEnd: '06:00',
-    maintDays: [],
+    quietEnabled: false,
+    quietStart: '02:00',
+    quietEnd: '06:00',
+    quietDays: [],
     cooldown: 48,
-    queueDepthEnabled: false,
-    queueDepthThreshold: 10,
+    queueEnabled: false,
+    queueThreshold: 10,
     radarrCutoffEnabled: true,
     sonarrCutoffEnabled: true,
     radarrMax: 10,
@@ -126,10 +153,10 @@ function nudgarr() {
     radarrSampleMode: 'round_robin',
     sonarrSampleMode: 'round_robin',
     batchSize: 1,
-    sleepSeconds: 5,
-    jitterSeconds: 2,
-    radarrAutoExclEnabled: false,
-    sonarrAutoExclEnabled: false,
+    sleepSecs: 5,
+    jitterSecs: 2,
+    radarrExclEnabled: false,
+    sonarrExclEnabled: false,
     radarrExclThreshold: 10,
     radarrUnexcl: 0,
     sonarrExclThreshold: 10,
@@ -165,10 +192,10 @@ function nudgarr() {
 
     // ── Advanced form state ──────────────────────────────────────────────────
     requireLogin: false,
-    sessionMinutes: 60,
+    sessionTimeout: 60,
     defaultTab: 'sweep',
     showSupportLinkForm: false,
-    importCheckMinutes: 120,
+    importCheck: 120,
     logLevel: 'INFO',
     retentionDays: 90,
 
@@ -337,15 +364,14 @@ function nudgarr() {
       this.authEnabled      = !!c.auth_enabled;
       this.showSupportLink  = !!c.show_support_link;
       // Scheduler
-      this.schedulerEnabledForm = !!c.scheduler_enabled;
-      this.schedulerEnabled     = !!c.scheduler_enabled;
-      this.cronExpr             = c.cron_expression || '0 */6 * * *';
+      this.schedulerEnabled = !!c.scheduler_enabled;
+      this.cronExpr         = c.cron_expression || '0 */6 * * *';
       this.autoMode             = c.scheduler_enabled ? 'AUTO' : 'MANUAL';
       // Maintenance
-      this.maintEnabled = !!c.maintenance_window_enabled;
-      this.maintStart   = c.maintenance_window_start || '02:00';
-      this.maintEnd     = c.maintenance_window_end   || '06:00';
-      this.maintDays    = c.maintenance_window_days  || [];
+      this.quietEnabled = !!c.maintenance_window_enabled;
+      this.quietStart   = c.maintenance_window_start || '02:00';
+      this.quietEnd     = c.maintenance_window_end   || '06:00';
+      this.quietDays    = c.maintenance_window_days  || [];
       // Cutoff
       this.cooldown            = c.cooldown_hours            !== undefined ? c.cooldown_hours : 48;
       this.radarrCutoffEnabled = c.radarr_cutoff_enabled     !== false;
@@ -356,14 +382,14 @@ function nudgarr() {
       this.sonarrSampleMode    = c.sonarr_sample_mode        || 'round_robin';
       // Throttle
       this.batchSize    = c.batch_size    || 1;
-      this.sleepSeconds = c.sleep_seconds || 5;
-      this.jitterSeconds = c.jitter_seconds || 2;
+      this.sleepSecs = c.sleep_seconds || 5;
+      this.jitterSecs = c.jitter_seconds || 2;
       // Queue depth
-      this.queueDepthEnabled   = !!c.queue_depth_enabled;
-      this.queueDepthThreshold = c.queue_depth_threshold || 10;
+      this.queueEnabled   = !!c.queue_depth_enabled;
+      this.queueThreshold = c.queue_depth_threshold || 10;
       // Auto-exclusion
-      this.radarrAutoExclEnabled  = !!c.radarr_auto_exclude_enabled;
-      this.sonarrAutoExclEnabled  = !!c.sonarr_auto_exclude_enabled;
+      this.radarrExclEnabled  = !!c.radarr_auto_exclude_enabled;
+      this.sonarrExclEnabled  = !!c.sonarr_auto_exclude_enabled;
       this.radarrExclThreshold    = c.auto_exclude_movies_threshold || 10;
       this.radarrUnexcl           = c.auto_unexclude_movies_days    || 0;
       this.sonarrExclThreshold    = c.auto_exclude_shows_threshold  || 10;
@@ -394,10 +420,10 @@ function nudgarr() {
       this.notifyOnQueueDepth = !!c.notify_on_queue_depth_skip;
       // Advanced
       this.requireLogin      = !!c.auth_enabled;
-      this.sessionMinutes    = c.auth_session_minutes || 60;
+      this.sessionTimeout    = c.auth_session_minutes || 60;
       this.defaultTab        = c.default_tab          || 'sweep';
       this.showSupportLinkForm = !!c.show_support_link;
-      this.importCheckMinutes  = c.import_check_minutes || 120;
+      this.importCheck  = c.import_check_minutes || 120;
       this.logLevel            = c.log_level            || 'INFO';
       this.retentionDays       = c.state_retention_days !== undefined ? c.state_retention_days : 90;
     },
@@ -427,6 +453,10 @@ function nudgarr() {
     // ─────────────────────────────────────────────────────────────────────────
 
     loadPanel(p) {
+      // Guard: if CF Score disabled and on cfscores view, redirect to history
+      if (p === 'library' && this.libView === 'cfscores' && !this.cfScoreEnabled) {
+        this.libView = 'history';
+      }
       switch (p) {
         case 'sweep':         this.refreshSweep();    break;
         case 'library':       this.refreshLibrary();  break;
@@ -571,35 +601,638 @@ function nudgarr() {
       }
     },
 
-    // Sweep
-    refreshSweep(statusData) { /* Phase 3 */ },
+    // ── Filter data (loaded on demand) ─────────────────────────────────────────
+    radarrFilterTags:       [],
+    radarrFilterProfiles:   [],
+    sonarrFilterTags:       [],
+    sonarrFilterProfiles:   [],
+    radarrExcludedTags:     [],
+    radarrExcludedProfiles: [],
+    sonarrExcludedTags:     [],
+    sonarrExcludedProfiles: [],
+    filtersRadarrUnsaved:   false,
+    filtersSonarrUnsaved:   false,
 
-    // Library
-    refreshLibrary()  { /* Phase 3 */ },
-    refreshHistory()  { /* Phase 3 */ },
-    refreshImports()  { /* Phase 3 */ },
-    refreshCfScores() { /* Phase 3 */ },
-    loadExclusions()  { /* Phase 3 */ },
 
-    // Intel
-    refreshIntel() { /* Phase 3 */ },
 
-    // Instances
-    renderInstances() { /* Phase 3 */ },
+      // ── Sweep ─────────────────────────────────────────────────────────────────
+      async refreshSweep(statusData) {
+        try {
+          const status = statusData || await this.api('/api/status');
+          const summary  = status.last_summary || {};
+          const health   = status.instance_health || {};
+          const lifetime = status.sweep_lifetime || {};
+          const lastCutoff  = status.last_run_cutoff_utc  || null;
+          const lastBacklog = status.last_run_backlog_utc  || null;
+          const lastCf      = status.last_run_cfscore_utc  || null;
 
-    // Overrides
-    renderOverrides() { /* Phase 3 */ },
+          const allInsts = [];
+          for (const kind of ['radarr','sonarr']) {
+            for (const inst of (this.CFG?.instances?.[kind] || [])) {
+              allInsts.push({ ...inst, _kind: kind });
+            }
+          }
 
-    // Filters
-    loadFilters() { /* Phase 3 */ },
+          // Lifetime stats
+          let ltRuns = 0, ltSearched = 0;
+          for (const row of Object.values(lifetime)) {
+            ltRuns     += row.runs     || 0;
+            ltSearched += row.searched || 0;
+          }
+          this.lifetimeRuns = ltRuns;
+          this.avgPerRun    = ltRuns > 0 ? (ltSearched / ltRuns).toFixed(1) : '0';
 
-    // Save functions
-    async saveSettings()      { /* Phase 3 */ },
-    async savePipelines()     { /* Phase 3 */ },
-    async saveOverrides()     { /* Phase 3 */ },
-    async saveFilters()       { /* Phase 3 */ },
-    async saveNotifications() { /* Phase 3 */ },
-    async saveAdvanced()      { /* Phase 3 */ },
+          // Instance health
+          const badInsts   = Object.entries(health).filter(([,v]) => v === 'bad');
+          this.instanceStatus = Object.entries(health).map(([key, state]) => {
+            const [app, ...np] = key.split('|');
+            return { app, name: np.join('|'), state };
+          });
+
+          // Imports confirmed this sweep
+          const imp = status.imports_confirmed_sweep || { movies: 0, shows: 0 };
+          this.importsSweep = imp;
+          this.importsTotal_ = (imp.movies || 0) + (imp.shows || 0);
+
+          // Pipeline data
+          this.pipelineData = {
+            cutoff:  this._buildPipelineAgg('cutoff',  summary, allInsts),
+            backlog: this._buildPipelineAgg('backlog', summary, allInsts),
+            cfScore: this._buildPipelineAgg('cfscore', summary, allInsts),
+            health,
+            lastCutoff, lastBacklog, lastCf,
+            allInsts,
+          };
+        } catch(e) {
+          console.warn('[sweep] refreshSweep failed:', e.message);
+        }
+      },
+
+      _buildPipelineAgg(type, summary, allInsts) {
+        const radarr = summary.radarr || [];
+        const sonarr = summary.sonarr || [];
+        const all    = [...radarr, ...sonarr];
+        const agg = { searched: 0, cooldown: 0, excluded: 0, tag: 0, profile: 0, grace: 0 };
+        for (const s of all) {
+          if (type === 'cutoff') {
+            agg.searched  += s.searched                || 0;
+            agg.cooldown  += s.skipped_cooldown         || 0;
+            agg.excluded  += s.skipped_excluded_cutoff  || 0;
+            agg.tag       += s.skipped_tag_cutoff       || 0;
+            agg.profile   += s.skipped_profile_cutoff   || 0;
+          } else if (type === 'backlog') {
+            agg.searched  += s.searched_missing         || 0;
+            agg.cooldown  += s.skipped_missing_cooldown || 0;
+            agg.grace     += s.skipped_grace            || 0;
+            agg.tag       += s.skipped_tag_backlog      || 0;
+            agg.profile   += s.skipped_profile_backlog  || 0;
+          } else {
+            agg.searched  += s.searched_cf              || 0;
+            agg.cooldown  += s.skipped_cf_cooldown      || 0;
+            agg.excluded  += s.skipped_cf_excluded      || 0;
+          }
+        }
+        return agg;
+      },
+
+      // ── Library ───────────────────────────────────────────────────────────────
+      async refreshLibrary() {
+        if (this.libView === 'history')    await this.refreshHistory();
+        else if (this.libView === 'imports')   await this.refreshImports();
+        else if (this.libView === 'cf-score')  await this.refreshCfScores();
+        else if (this.libView === 'exclusions') await this.loadExclusions();
+      },
+
+      async refreshHistory() {
+        try {
+          const sum = await this.api('/api/state/summary');
+          // Badge
+          const count = await this.api('/api/exclusions/unacknowledged-count');
+          this.exclBadge = count.count || 0;
+
+          const allInsts = [];
+          for (const kind of ['radarr','sonarr']) {
+            for (const inst of (this.CFG?.instances?.[kind] || [])) {
+              allInsts.push({ ...inst, _kind: kind, key: inst.url + '|' + inst.name });
+            }
+          }
+
+          const selInst  = this.historyInstanceFilter;
+          const selType  = this.historyTypeFilter;
+          const limit    = this.pageSize;
+          const offset   = (this.historyPage - 1) * limit;
+
+          const url = `/api/state/items?offset=${offset}&limit=${limit}`
+            + (selInst ? `&instance=${encodeURIComponent(selInst)}` : '')
+            + (selType ? `&type=${encodeURIComponent(selType)}` : '')
+            + (this.historySearch ? `&search=${encodeURIComponent(this.historySearch)}` : '');
+
+          const data = await this.api(url);
+          this.historyItems = data.items  || [];
+          this.historyTotal = data.total  || 0;
+        } catch(e) {
+          console.warn('[library] refreshHistory failed:', e.message);
+        }
+      },
+
+      async refreshImports() {
+        try {
+          const limit  = this.pageSize;
+          const offset = (this.importsPage - 1) * limit;
+          let url = `/api/stats?offset=${offset}&limit=${limit}&period=${encodeURIComponent(this.importsPeriod)}`;
+          if (this.historyInstanceFilter) url += `&instance=${encodeURIComponent(this.historyInstanceFilter)}`;
+          const data = await this.api(url);
+          this.importsItems = data.items      || [];
+          this.importsTotal = data.total      || 0;
+          localStorage.setItem('nudgarr_imports_period', this.importsPeriod);
+        } catch(e) {
+          console.warn('[library] refreshImports failed:', e.message);
+        }
+      },
+
+      async refreshCfScores() {
+        try {
+          let url = '/api/cf-scores/entries';
+          if (this.cfInstanceFilter) url += '?instance_id=' + encodeURIComponent(this.cfInstanceFilter);
+          const [status, entries] = await Promise.all([
+            this.api('/api/cf-scores/status'),
+            this.api(url),
+          ]);
+          this.cfItems = entries.entries || entries.items || [];
+          this.cfTotal = entries.total   || this.cfItems.length;
+          this.cfLastSync = status?.last_sync_utc || null;
+
+          if (status?.scan_in_progress && !this.cfScanInProgress) {
+            this.cfScanInProgress = true;
+            this._cfWaitForScan();
+          }
+        } catch(e) {
+          console.warn('[library] refreshCfScores failed:', e.message);
+        }
+      },
+
+      async _cfWaitForScan() {
+        for (let i = 0; i < 120; i++) {
+          await new Promise(r => setTimeout(r, 3000));
+          try {
+            const s = await this.api('/api/cf-scores/status');
+            if (!s.scan_in_progress) { this.cfScanInProgress = false; await this.refreshCfScores(); return; }
+          } catch(_) {}
+        }
+        this.cfScanInProgress = false;
+      },
+
+      async cfScanLibrary() {
+        try {
+          await this.api('/api/cf-scores/scan');
+          this.cfScanInProgress = true;
+          this._cfWaitForScan();
+        } catch(e) {
+          this.showAlert('Scan could not be started: ' + e.message);
+        }
+      },
+
+      async cfResetIndex() {
+        try {
+          await this.api('/api/cf-scores/reset');
+          this.showAlert('CF Score index reset.', 'success');
+          await this.refreshCfScores();
+        } catch(e) {
+          this.showAlert('Reset failed: ' + e.message);
+        }
+      },
+
+      async loadExclusions() {
+        try {
+          const data = await this.api('/api/exclusions');
+          this.exclusions = data.exclusions || [];
+          this.exclBadge  = 0;
+          await this.api('/api/exclusions/acknowledge');
+        } catch(e) {
+          console.warn('[library] loadExclusions failed:', e.message);
+        }
+      },
+
+      async toggleExclusion(title, app) {
+        try {
+          const isExcluded = this.exclusions.some(e => e.title === title);
+          if (isExcluded) {
+            await this.api(`/api/exclusions/${encodeURIComponent(title)}`, { method: 'DELETE' });
+          } else {
+            await this.api('/api/exclusions', { method: 'POST', body: { title, app } });
+          }
+          await this.loadExclusions();
+        } catch(e) {
+          this.showAlert('Exclusion update failed: ' + e.message);
+        }
+      },
+
+      async confirmClearExclusions() {
+        if (!this.clearExclOpt) return;
+        try {
+          await this.api('/api/exclusions/clear-auto', { method: 'POST', body: { scope: this.clearExclOpt } });
+          this.closeModal();
+          this.showAlert('Exclusions cleared.', 'success');
+          await this.loadExclusions();
+        } catch(e) {
+          this.showAlert('Clear failed: ' + e.message);
+        }
+      },
+
+      async pruneHistory() {
+        try {
+          const out = await this.api('/api/state/prune', { method: 'POST' });
+          this.showAlert(`Pruned ${out.removed || 0} entries.`, 'success');
+          await this.refreshHistory();
+        } catch(e) {
+          this.showAlert('Prune failed: ' + e.message);
+        }
+      },
+
+      // ── Intel ─────────────────────────────────────────────────────────────────
+      async refreshIntel() {
+        try {
+          this.intelData = await this.api('/api/intel');
+          this.intelColdStart = !!(this.intelData && this.intelData.cold_start);
+        } catch(e) {
+          console.warn('[intel] refreshIntel failed:', e.message);
+        }
+      },
+
+      // ── Instances ─────────────────────────────────────────────────────────────
+      async renderInstances() {
+        // Instances are rendered reactively from this.radarrInstances / sonarrInstances
+        // No API call needed — config is already loaded in applyConfig()
+      },
+
+      openInstanceModal(kind, idx) {
+        this.modalMode = idx >= 0 ? 'edit' : 'add';
+        this.modalIdx  = idx;
+        window._modalKind = kind;
+        window._modalIdx  = idx;
+
+        const inst = idx >= 0 ? (this.CFG?.instances?.[kind]?.[idx] || {}) : {};
+        const nameEl = document.getElementById('modalName');
+        const urlEl  = document.getElementById('modalUrl');
+        const keyEl  = document.getElementById('modalKey');
+        if (nameEl) nameEl.value = inst.name || '';
+        if (urlEl)  urlEl.value  = inst.url  || '';
+        if (keyEl)  { keyEl.value = inst.key || ''; keyEl.type = 'password'; }
+        const lbl = document.getElementById('modalKeyLabel');
+        if (lbl) lbl.textContent = 'Show';
+
+        // Clear test result
+        const wr = document.getElementById('modalTestResult');
+        if (wr) wr.style.display = 'none';
+
+        this.modal = 'instance';
+        setTimeout(() => { if (nameEl) nameEl.focus(); }, 60);
+      },
+
+      async deleteInstance(kind, idx) {
+        if (!this.CFG) return;
+        this.CFG.instances[kind].splice(idx, 1);
+        this.radarrInstances = this.CFG.instances.radarr || [];
+        this.sonarrInstances = this.CFG.instances.sonarr || [];
+        this.unsaved.settings = true;
+      },
+
+      async toggleInstance(kind, idx) {
+        try {
+          const out = await this.api('/api/instance/toggle', { method: 'POST', body: { kind, idx } });
+          if (this.CFG) this.CFG.instances[kind][idx].enabled = out.enabled;
+          this.radarrInstances = [...(this.CFG?.instances?.radarr || [])];
+          this.sonarrInstances = [...(this.CFG?.instances?.sonarr || [])];
+        } catch(e) {
+          this.showAlert('Toggle failed: ' + e.message);
+        }
+      },
+
+      async saveInstances() {
+        try {
+          await this.api('/api/config', { method: 'POST', body: this.CFG });
+          await this.loadAll();
+          this.unsaved.settings = false;
+          this.showAlert('Saved.', 'success');
+        } catch(e) {
+          this.showAlert('Save failed: ' + e.message);
+        }
+      },
+
+      // ── Overrides ─────────────────────────────────────────────────────────────
+      async renderOverrides() {
+        try {
+          const data = await this.api('/api/instance/overrides');
+          this.overrideCards = data.overrides || [];
+        } catch(e) {
+          console.warn('[overrides] renderOverrides failed:', e.message);
+        }
+      },
+
+      async applyOverrides(kind, idx) {
+        try {
+          const inst = this.CFG?.instances?.[kind]?.[idx];
+          if (!inst) return;
+          const card = document.querySelector(`[data-ov-card="${kind}-${idx}"]`);
+          if (!card) return;
+
+          const newOv = Object.assign({}, inst.overrides || {});
+          const numFields = ['cooldown_hours', 'max_cutoff_unmet', 'max_backlog', 'missing_grace_hours'];
+          if (kind === 'radarr') numFields.push('max_missing_days');
+          if (this.cfScoreEnabled) numFields.push('cf_max');
+
+          numFields.forEach(field => {
+            const input = card.querySelector(`[data-ov-field="${field}"]`);
+            if (!input) return;
+            const raw = input.value.trim();
+            if (raw !== '') newOv[field] = parseInt(raw, 10);
+            else delete newOv[field];
+          });
+
+          ['sample_mode', 'backlog_sample_mode', 'cf_sample_mode'].forEach(field => {
+            const sel = card.querySelector(`[data-ov-field="${field}"]`);
+            if (!sel) return;
+            if (!sel.value || sel.value === '__global__') delete newOv[field];
+            else newOv[field] = sel.value;
+          });
+
+          const boolFields = ['backlog_enabled', 'notifications_enabled'];
+          boolFields.forEach(field => {
+            const chk = card.querySelector(`[data-ov-field="${field}"]`);
+            if (!chk) return;
+            newOv[field] = chk.checked;
+          });
+
+          await this.api('/api/instance/overrides', {
+            method: 'POST',
+            body: { kind, idx, overrides: newOv },
+          });
+          this.CFG.instances[kind][idx].overrides = newOv;
+          this.showAlert('Overrides applied.', 'success');
+        } catch(e) {
+          this.showAlert('Failed to save overrides: ' + e.message);
+        }
+      },
+
+      async resetCardOverrides(kind, idx) {
+        try {
+          await this.api('/api/instance/overrides', {
+            method: 'POST',
+            body: { kind, idx, overrides: {} },
+          });
+          if (this.CFG?.instances?.[kind]?.[idx]) this.CFG.instances[kind][idx].overrides = {};
+          this.showAlert('Overrides reset.', 'success');
+        } catch(e) {
+          this.showAlert('Failed to reset overrides: ' + e.message);
+        }
+      },
+
+      // ── Filters ───────────────────────────────────────────────────────────────
+      async loadFilters() {
+        // Filters are loaded on demand when "Load Tags & Profiles" is clicked
+        // Pre-populate instance selectors from config
+        const radarrInsts = this.CFG?.instances?.radarr || [];
+        const sonarrInsts = this.CFG?.instances?.sonarr || [];
+        if (radarrInsts.length) this.radarrFiltersInstance = '0';
+        if (sonarrInsts.length) this.sonarrFiltersInstance = '0';
+      },
+
+      async loadArrData(kind) {
+        const idx = parseInt(kind === 'radarr' ? this.radarrFiltersInstance : this.sonarrFiltersInstance) || 0;
+        try {
+          const [tagRes, profileRes] = await Promise.all([
+            this.api(`/api/arr/tags?kind=${kind}&idx=${idx}`),
+            this.api(`/api/arr/profiles?kind=${kind}&idx=${idx}`),
+          ]);
+          if (!tagRes?.ok || !profileRes?.ok) {
+            this.showAlert(tagRes?.error || profileRes?.error || 'Failed to load — check instance connectivity.');
+            return;
+          }
+          if (kind === 'radarr') {
+            this.radarrFilterTags     = tagRes.tags      || [];
+            this.radarrFilterProfiles = profileRes.profiles || [];
+            this.radarrFiltersLoaded  = true;
+          } else {
+            this.sonarrFilterTags     = tagRes.tags      || [];
+            this.sonarrFilterProfiles = profileRes.profiles || [];
+            this.sonarrFiltersLoaded  = true;
+          }
+        } catch(e) {
+          this.showAlert('Failed to load arr data: ' + e.message);
+        }
+      },
+
+      async saveFilters(kind) {
+        const idx = parseInt(kind === 'radarr' ? this.radarrFiltersInstance : this.sonarrFiltersInstance) || 0;
+        try {
+          const cfg = await this.api('/api/config');
+          const insts = cfg.instances?.[kind] || [];
+          if (idx >= insts.length) return;
+          insts[idx].sweep_filters = {
+            excluded_tags:     kind === 'radarr' ? (this.radarrExcludedTags     || []) : (this.sonarrExcludedTags     || []),
+            excluded_profiles: kind === 'radarr' ? (this.radarrExcludedProfiles || []) : (this.sonarrExcludedProfiles || []),
+          };
+          await this.api('/api/config', { method: 'POST', body: cfg });
+          this.CFG = cfg;
+          this.unsaved.filters = false;
+          this.showAlert('Filters saved.', 'success');
+        } catch(e) {
+          this.showAlert('Save failed: ' + e.message);
+        }
+      },
+
+      // ── Settings ──────────────────────────────────────────────────────────────
+      async saveSettings() {
+        try {
+          if (!this.CFG) return;
+          if (this.schedulerEnabled) {
+            const parts = (this.cronExpr || '').trim().split(/\s+/);
+            const valid = parts.length === 5 && parts.every(p => /^[\d*/,\-]+$/.test(p));
+            if (!valid) { this.showAlert('Enter a valid cron expression before saving.'); return; }
+          }
+          Object.assign(this.CFG, {
+            scheduler_enabled:         this.schedulerEnabled,
+            cron_expression:           this.cronExpr,
+            cooldown_hours:            parseInt(this.cooldown) || 48,
+            radarr_cutoff_enabled:     this.radarrCutoffEnabled,
+            sonarr_cutoff_enabled:     this.sonarrCutoffEnabled,
+            radarr_max_movies_per_run: parseInt(this.radarrMax)  || 10,
+            sonarr_max_episodes_per_run: parseInt(this.sonarrMax) || 10,
+            radarr_sample_mode:        this.radarrSampleMode,
+            sonarr_sample_mode:        this.sonarrSampleMode,
+            batch_size:                parseInt(this.batchSize)    || 1,
+            sleep_seconds:             parseFloat(this.sleepSecs) || 5,
+            jitter_seconds:            parseFloat(this.jitterSecs) || 2,
+            maintenance_window_enabled: this.quietEnabled,
+            maintenance_window_start:  this.quietStart,
+            maintenance_window_end:    this.quietEnd,
+            maintenance_window_days:   this.quietDays,
+            queue_depth_enabled:       this.queueEnabled,
+            queue_depth_threshold:     Math.max(1, parseInt(this.queueThreshold) || 10),
+            per_instance_overrides_enabled: this.overridesEnabled,
+            radarr_auto_exclude_enabled:    this.radarrExclEnabled,
+            sonarr_auto_exclude_enabled:    this.sonarrExclEnabled,
+            auto_exclude_movies_threshold:  parseInt(this.radarrExclThreshold) || 0,
+            auto_exclude_shows_threshold:   parseInt(this.sonarrExclThreshold) || 0,
+            auto_unexclude_movies_days:     parseInt(this.radarrUnexcl)        || 0,
+            auto_unexclude_shows_days:      parseInt(this.sonarrUnexcl)        || 0,
+          });
+          await this.api('/api/config', { method: 'POST', body: this.CFG });
+          await this.loadAll();
+          this.unsaved.settings = false;
+          this.showAlert('Settings saved.', 'success');
+        } catch(e) {
+          this.showAlert('Save failed: ' + e.message);
+        }
+      },
+
+      // ── Pipelines ─────────────────────────────────────────────────────────────
+      async savePipelines() {
+        try {
+          if (!this.CFG) return;
+          Object.assign(this.CFG, {
+            radarr_backlog_enabled:    this.radarrBacklogEnabled,
+            sonarr_backlog_enabled:    this.sonarrBacklogEnabled,
+            radarr_missing_max:        parseInt(this.radarrBacklogMax) || 0,
+            sonarr_missing_max:        parseInt(this.sonarrBacklogMax) || 0,
+            radarr_backlog_sample_mode: this.radarrBacklogSampleMode,
+            sonarr_backlog_sample_mode: this.sonarrBacklogSampleMode,
+            radarr_missing_added_days:  parseInt(this.radarrMissingAddedDays) || 0,
+            radarr_missing_grace_hours: parseInt(this.radarrGracePeriod)       || 0,
+            sonarr_missing_grace_hours: parseInt(this.sonarrGracePeriod)       || 0,
+            cf_score_enabled:           this.cfScoreEnabled,
+            cf_score_sync_cron:         this.cfSyncCron,
+            radarr_cf_score_max:        parseInt(this.radarrCfMax) || 0,
+            sonarr_cf_score_max:        parseInt(this.sonarrCfMax) || 0,
+            radarr_cf_sample_mode:      this.radarrCfSampleMode,
+            sonarr_cf_sample_mode:      this.sonarrCfSampleMode,
+          });
+          await this.api('/api/config', { method: 'POST', body: this.CFG });
+          await this.loadAll();
+          this.unsaved.pipelines = false;
+          this.showAlert('Pipelines saved.', 'success');
+        } catch(e) {
+          this.showAlert('Save failed: ' + e.message);
+        }
+      },
+
+      // ── Notifications ─────────────────────────────────────────────────────────
+      async saveNotifications() {
+        try {
+          if (!this.CFG) return;
+          Object.assign(this.CFG, {
+            notify_enabled:            this.notifyEnabled,
+            notify_url:                this.notifyUrl,
+            notify_on_sweep_complete:  this.notifyOnSweep,
+            notify_on_import:          this.notifyOnImport,
+            notify_on_auto_exclusion:  this.notifyOnAutoExcl,
+            notify_on_error:           this.notifyOnError,
+            notify_on_queue_depth_skip: this.notifyOnQueueDepth,
+          });
+          await this.api('/api/config', { method: 'POST', body: this.CFG });
+          this.unsaved.notifications = false;
+          this.showAlert('Saved.', 'success');
+        } catch(e) {
+          this.showAlert('Save failed: ' + e.message);
+        }
+      },
+
+      async testNotification() {
+        try {
+          await this.api('/api/notifications/test');
+          this.showAlert('Test notification sent.', 'success');
+        } catch(e) {
+          this.showAlert('Test failed: ' + e.message);
+        }
+      },
+
+      // ── Advanced ──────────────────────────────────────────────────────────────
+      async saveAdvanced() {
+        try {
+          if (!this.CFG) return;
+          Object.assign(this.CFG, {
+            auth_enabled:          this.requireLogin,
+            auth_session_minutes:  parseInt(this.sessionTimeout)    || 60,
+            default_tab:           this.defaultTab,
+            show_support_link:     this.showSupportLinkForm,
+            import_check_minutes:  parseInt(this.importCheck) || 120,
+            log_level:             this.logLevel,
+            state_retention_days:  parseInt(this.retentionDays)      || 0,
+          });
+          await this.api('/api/config', { method: 'POST', body: this.CFG });
+          await this.loadAll();
+          this.unsaved.advanced = false;
+          this.showAlert('Saved.', 'success');
+        } catch(e) {
+          this.showAlert('Save failed: ' + e.message);
+        }
+      },
+
+      // ── Danger zone ───────────────────────────────────────────────────────────
+      async executeConfirmAction() {
+        this.closeModal();
+        try {
+          switch (this.confirmAction) {
+            case 'clearHistory':
+              await this.api('/api/state/clear', { method: 'POST' });
+              this.showAlert('History cleared.', 'success');
+              if (this.panel === 'library') await this.refreshHistory();
+              break;
+            case 'clearImports':
+              await this.api('/api/stats/clear', { method: 'POST' });
+              this.showAlert('Imports cleared.', 'success');
+              if (this.panel === 'library') await this.refreshImports();
+              break;
+            case 'clearLog':
+              await this.api('/api/log/clear', { method: 'POST' });
+              this.showAlert('Log cleared.', 'success');
+              break;
+            case 'resetIntel':
+              await this.api('/api/intel/reset', { method: 'POST' });
+              this.showAlert('Intel reset.', 'success');
+              if (this.panel === 'intel') await this.refreshIntel();
+              break;
+          }
+        } catch(e) {
+          this.showAlert(e.message);
+        }
+      },
+
+      async doResetConfig() {
+        this.closeModal();
+        try {
+          await this.api('/api/config/reset', { method: 'POST' });
+          window.location.href = '/';
+        } catch(e) {
+          this.showAlert('Reset failed: ' + e.message);
+        }
+      },
+
+      async backupAll() {
+        try {
+          const res = await fetch('/api/diagnostic');
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'nudgarr-backup.json';
+          a.click();
+        } catch(e) {
+          this.showAlert('Backup failed: ' + e.message);
+        }
+      },
+
+      async downloadDiagnostic() {
+        try {
+          const res = await fetch('/api/diagnostic?mode=diag');
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'nudgarr-diagnostic.txt';
+          a.click();
+        } catch(e) {
+          this.showAlert('Diagnostic failed: ' + e.message);
+        }
+      },
 
   };
 }
@@ -683,677 +1316,3 @@ function executeConfirmAction() { const d = _alpine(); if (d) d.executeConfirmAc
 function doResetConfig()        { const d = _alpine(); if (d) d.doResetConfig(); }
 function confirmClearExclusions() { const d = _alpine(); if (d) d.confirmClearExclusions(); }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PANEL IMPLEMENTATIONS — Phase 3
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Shared utility ───────────────────────────────────────────────────────────
-function escapeHtml(s) {
-  return (s || '').toString()
-    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-    .replaceAll('"','&quot;').replaceAll("'",'&#39;');
-}
-
-function fmtDate(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function fmtTime(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d)) return s;
-  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SWEEP PANEL
-// ═══════════════════════════════════════════════════════════════════════════
-
-Object.assign(nudgarr.prototype = {}, {});  // noop — functions added to data object below
-
-// Extend the nudgarr() return with panel methods via prototype-style assignment.
-// Since Alpine doesn't use prototypes, we add them directly to the data object
-// via the init pattern. The stubs in the main data object get replaced below.
-
-const _panelMethods = {
-
-  // ── Sweep ─────────────────────────────────────────────────────────────────
-  async refreshSweep(statusData) {
-    try {
-      const status = statusData || await this.api('/api/status');
-      const summary  = status.last_summary || {};
-      const health   = status.instance_health || {};
-      const lifetime = status.sweep_lifetime || {};
-      const lastCutoff  = status.last_run_cutoff_utc  || null;
-      const lastBacklog = status.last_run_backlog_utc  || null;
-      const lastCf      = status.last_run_cfscore_utc  || null;
-
-      const allInsts = [];
-      for (const kind of ['radarr','sonarr']) {
-        for (const inst of (this.CFG?.instances?.[kind] || [])) {
-          allInsts.push({ ...inst, _kind: kind });
-        }
-      }
-
-      // Lifetime stats
-      let ltRuns = 0, ltSearched = 0;
-      for (const row of Object.values(lifetime)) {
-        ltRuns     += row.runs     || 0;
-        ltSearched += row.searched || 0;
-      }
-      this.lifetimeRuns = ltRuns;
-      this.avgPerRun    = ltRuns > 0 ? (ltSearched / ltRuns).toFixed(1) : '0';
-
-      // Instance health
-      const badInsts   = Object.entries(health).filter(([,v]) => v === 'bad');
-      this.instanceStatus = Object.entries(health).map(([key, state]) => {
-        const [app, ...np] = key.split('|');
-        return { app, name: np.join('|'), state };
-      });
-
-      // Imports confirmed this sweep
-      const imp = status.imports_confirmed_sweep || { movies: 0, shows: 0 };
-      this.importsSweep = imp;
-      this.importsTotal_ = (imp.movies || 0) + (imp.shows || 0);
-
-      // Pipeline data
-      this.pipelineData = {
-        cutoff:  this._buildPipelineAgg('cutoff',  summary, allInsts),
-        backlog: this._buildPipelineAgg('backlog', summary, allInsts),
-        cfScore: this._buildPipelineAgg('cfscore', summary, allInsts),
-        health,
-        lastCutoff, lastBacklog, lastCf,
-        allInsts,
-      };
-    } catch(e) {
-      console.warn('[sweep] refreshSweep failed:', e.message);
-    }
-  },
-
-  _buildPipelineAgg(type, summary, allInsts) {
-    const radarr = summary.radarr || [];
-    const sonarr = summary.sonarr || [];
-    const all    = [...radarr, ...sonarr];
-    const agg = { searched: 0, cooldown: 0, excluded: 0, tag: 0, profile: 0, grace: 0 };
-    for (const s of all) {
-      if (type === 'cutoff') {
-        agg.searched  += s.searched                || 0;
-        agg.cooldown  += s.skipped_cooldown         || 0;
-        agg.excluded  += s.skipped_excluded_cutoff  || 0;
-        agg.tag       += s.skipped_tag_cutoff       || 0;
-        agg.profile   += s.skipped_profile_cutoff   || 0;
-      } else if (type === 'backlog') {
-        agg.searched  += s.searched_missing         || 0;
-        agg.cooldown  += s.skipped_missing_cooldown || 0;
-        agg.grace     += s.skipped_grace            || 0;
-        agg.tag       += s.skipped_tag_backlog      || 0;
-        agg.profile   += s.skipped_profile_backlog  || 0;
-      } else {
-        agg.searched  += s.searched_cf              || 0;
-        agg.cooldown  += s.skipped_cf_cooldown      || 0;
-        agg.excluded  += s.skipped_cf_excluded      || 0;
-      }
-    }
-    return agg;
-  },
-
-  // ── Library ───────────────────────────────────────────────────────────────
-  async refreshLibrary() {
-    if (this.libView === 'history')    await this.refreshHistory();
-    else if (this.libView === 'imports')   await this.refreshImports();
-    else if (this.libView === 'cf-score')  await this.refreshCfScores();
-    else if (this.libView === 'exclusions') await this.loadExclusions();
-  },
-
-  async refreshHistory() {
-    try {
-      const sum = await this.api('/api/state/summary');
-      // Badge
-      const count = await this.api('/api/exclusions/unacknowledged-count');
-      this.exclBadge = count.count || 0;
-
-      const allInsts = [];
-      for (const kind of ['radarr','sonarr']) {
-        for (const inst of (this.CFG?.instances?.[kind] || [])) {
-          allInsts.push({ ...inst, _kind: kind, key: inst.url + '|' + inst.name });
-        }
-      }
-
-      const selInst  = this.historyInstanceFilter;
-      const selType  = this.historyTypeFilter;
-      const limit    = this.pageSize;
-      const offset   = (this.historyPage - 1) * limit;
-
-      const url = `/api/state/items?offset=${offset}&limit=${limit}`
-        + (selInst ? `&instance=${encodeURIComponent(selInst)}` : '')
-        + (selType ? `&type=${encodeURIComponent(selType)}` : '')
-        + (this.historySearch ? `&search=${encodeURIComponent(this.historySearch)}` : '');
-
-      const data = await this.api(url);
-      this.historyItems = data.items  || [];
-      this.historyTotal = data.total  || 0;
-    } catch(e) {
-      console.warn('[library] refreshHistory failed:', e.message);
-    }
-  },
-
-  async refreshImports() {
-    try {
-      const limit  = this.pageSize;
-      const offset = (this.importsPage - 1) * limit;
-      let url = `/api/stats?offset=${offset}&limit=${limit}&period=${encodeURIComponent(this.importsPeriod)}`;
-      if (this.historyInstanceFilter) url += `&instance=${encodeURIComponent(this.historyInstanceFilter)}`;
-      const data = await this.api(url);
-      this.importsItems = data.items      || [];
-      this.importsTotal = data.total      || 0;
-      localStorage.setItem('nudgarr_imports_period', this.importsPeriod);
-    } catch(e) {
-      console.warn('[library] refreshImports failed:', e.message);
-    }
-  },
-
-  async refreshCfScores() {
-    try {
-      let url = '/api/cf-scores/entries';
-      if (this.cfInstanceFilter) url += '?instance_id=' + encodeURIComponent(this.cfInstanceFilter);
-      const [status, entries] = await Promise.all([
-        this.api('/api/cf-scores/status'),
-        this.api(url),
-      ]);
-      this.cfItems = entries.entries || entries.items || [];
-      this.cfTotal = entries.total   || this.cfItems.length;
-      this.cfLastSync = status?.last_sync_utc || null;
-
-      if (status?.scan_in_progress && !this.cfScanInProgress) {
-        this.cfScanInProgress = true;
-        this._cfWaitForScan();
-      }
-    } catch(e) {
-      console.warn('[library] refreshCfScores failed:', e.message);
-    }
-  },
-
-  async _cfWaitForScan() {
-    for (let i = 0; i < 120; i++) {
-      await new Promise(r => setTimeout(r, 3000));
-      try {
-        const s = await this.api('/api/cf-scores/status');
-        if (!s.scan_in_progress) { this.cfScanInProgress = false; await this.refreshCfScores(); return; }
-      } catch(_) {}
-    }
-    this.cfScanInProgress = false;
-  },
-
-  async cfScanLibrary() {
-    try {
-      await this.api('/api/cf-scores/scan');
-      this.cfScanInProgress = true;
-      this._cfWaitForScan();
-    } catch(e) {
-      this.showAlert('Scan could not be started: ' + e.message);
-    }
-  },
-
-  async cfResetIndex() {
-    try {
-      await this.api('/api/cf-scores/reset');
-      this.showAlert('CF Score index reset.', 'success');
-      await this.refreshCfScores();
-    } catch(e) {
-      this.showAlert('Reset failed: ' + e.message);
-    }
-  },
-
-  async loadExclusions() {
-    try {
-      const data = await this.api('/api/exclusions');
-      this.exclusions = data.exclusions || [];
-      this.exclBadge  = 0;
-      await this.api('/api/exclusions/acknowledge');
-    } catch(e) {
-      console.warn('[library] loadExclusions failed:', e.message);
-    }
-  },
-
-  async toggleExclusion(title, app) {
-    try {
-      const isExcluded = this.exclusions.some(e => e.title === title);
-      if (isExcluded) {
-        await this.api(`/api/exclusions/${encodeURIComponent(title)}`, { method: 'DELETE' });
-      } else {
-        await this.api('/api/exclusions', { method: 'POST', body: { title, app } });
-      }
-      await this.loadExclusions();
-    } catch(e) {
-      this.showAlert('Exclusion update failed: ' + e.message);
-    }
-  },
-
-  async confirmClearExclusions() {
-    if (!this.clearExclOpt) return;
-    try {
-      await this.api('/api/exclusions/clear-auto', { method: 'POST', body: { scope: this.clearExclOpt } });
-      this.closeModal();
-      this.showAlert('Exclusions cleared.', 'success');
-      await this.loadExclusions();
-    } catch(e) {
-      this.showAlert('Clear failed: ' + e.message);
-    }
-  },
-
-  async pruneHistory() {
-    try {
-      const out = await this.api('/api/state/prune', { method: 'POST' });
-      this.showAlert(`Pruned ${out.removed || 0} entries.`, 'success');
-      await this.refreshHistory();
-    } catch(e) {
-      this.showAlert('Prune failed: ' + e.message);
-    }
-  },
-
-  // ── Intel ─────────────────────────────────────────────────────────────────
-  async refreshIntel() {
-    try {
-      this.intelData = await this.api('/api/intel');
-      this.intelColdStart = !!(this.intelData && this.intelData.cold_start);
-    } catch(e) {
-      console.warn('[intel] refreshIntel failed:', e.message);
-    }
-  },
-
-  // ── Instances ─────────────────────────────────────────────────────────────
-  async renderInstances() {
-    // Instances are rendered reactively from this.radarrInstances / sonarrInstances
-    // No API call needed — config is already loaded in applyConfig()
-  },
-
-  openInstanceModal(kind, idx) {
-    this.modalMode = idx >= 0 ? 'edit' : 'add';
-    this.modalIdx  = idx;
-    window._modalKind = kind;
-    window._modalIdx  = idx;
-
-    const inst = idx >= 0 ? (this.CFG?.instances?.[kind]?.[idx] || {}) : {};
-    const nameEl = document.getElementById('modalName');
-    const urlEl  = document.getElementById('modalUrl');
-    const keyEl  = document.getElementById('modalKey');
-    if (nameEl) nameEl.value = inst.name || '';
-    if (urlEl)  urlEl.value  = inst.url  || '';
-    if (keyEl)  { keyEl.value = inst.key || ''; keyEl.type = 'password'; }
-    const lbl = document.getElementById('modalKeyLabel');
-    if (lbl) lbl.textContent = 'Show';
-
-    // Clear test result
-    const wr = document.getElementById('modalTestResult');
-    if (wr) wr.style.display = 'none';
-
-    this.modal = 'instance';
-    setTimeout(() => { if (nameEl) nameEl.focus(); }, 60);
-  },
-
-  async deleteInstance(kind, idx) {
-    if (!this.CFG) return;
-    this.CFG.instances[kind].splice(idx, 1);
-    this.radarrInstances = this.CFG.instances.radarr || [];
-    this.sonarrInstances = this.CFG.instances.sonarr || [];
-    this.unsaved.settings = true;
-  },
-
-  async toggleInstance(kind, idx) {
-    try {
-      const out = await this.api('/api/instance/toggle', { method: 'POST', body: { kind, idx } });
-      if (this.CFG) this.CFG.instances[kind][idx].enabled = out.enabled;
-      this.radarrInstances = [...(this.CFG?.instances?.radarr || [])];
-      this.sonarrInstances = [...(this.CFG?.instances?.sonarr || [])];
-    } catch(e) {
-      this.showAlert('Toggle failed: ' + e.message);
-    }
-  },
-
-  async saveInstances() {
-    try {
-      await this.api('/api/config', { method: 'POST', body: this.CFG });
-      await this.loadAll();
-      this.unsaved.settings = false;
-      this.showAlert('Saved.', 'success');
-    } catch(e) {
-      this.showAlert('Save failed: ' + e.message);
-    }
-  },
-
-  // ── Overrides ─────────────────────────────────────────────────────────────
-  async renderOverrides() {
-    try {
-      const data = await this.api('/api/instance/overrides');
-      this.overrideCards = data.overrides || [];
-    } catch(e) {
-      console.warn('[overrides] renderOverrides failed:', e.message);
-    }
-  },
-
-  async applyOverrides(kind, idx) {
-    try {
-      const inst = this.CFG?.instances?.[kind]?.[idx];
-      if (!inst) return;
-      const card = document.querySelector(`[data-ov-card="${kind}-${idx}"]`);
-      if (!card) return;
-
-      const newOv = Object.assign({}, inst.overrides || {});
-      const numFields = ['cooldown_hours', 'max_cutoff_unmet', 'max_backlog', 'missing_grace_hours'];
-      if (kind === 'radarr') numFields.push('max_missing_days');
-      if (this.cfScoreEnabled) numFields.push('cf_max');
-
-      numFields.forEach(field => {
-        const input = card.querySelector(`[data-ov-field="${field}"]`);
-        if (!input) return;
-        const raw = input.value.trim();
-        if (raw !== '') newOv[field] = parseInt(raw, 10);
-        else delete newOv[field];
-      });
-
-      ['sample_mode', 'backlog_sample_mode', 'cf_sample_mode'].forEach(field => {
-        const sel = card.querySelector(`[data-ov-field="${field}"]`);
-        if (!sel) return;
-        if (!sel.value || sel.value === '__global__') delete newOv[field];
-        else newOv[field] = sel.value;
-      });
-
-      const boolFields = ['backlog_enabled', 'notifications_enabled'];
-      boolFields.forEach(field => {
-        const chk = card.querySelector(`[data-ov-field="${field}"]`);
-        if (!chk) return;
-        newOv[field] = chk.checked;
-      });
-
-      await this.api('/api/instance/overrides', {
-        method: 'POST',
-        body: { kind, idx, overrides: newOv },
-      });
-      this.CFG.instances[kind][idx].overrides = newOv;
-      this.showAlert('Overrides applied.', 'success');
-    } catch(e) {
-      this.showAlert('Failed to save overrides: ' + e.message);
-    }
-  },
-
-  async resetCardOverrides(kind, idx) {
-    try {
-      await this.api('/api/instance/overrides', {
-        method: 'POST',
-        body: { kind, idx, overrides: {} },
-      });
-      if (this.CFG?.instances?.[kind]?.[idx]) this.CFG.instances[kind][idx].overrides = {};
-      this.showAlert('Overrides reset.', 'success');
-    } catch(e) {
-      this.showAlert('Failed to reset overrides: ' + e.message);
-    }
-  },
-
-  // ── Filters ───────────────────────────────────────────────────────────────
-  async loadFilters() {
-    // Filters are loaded on demand when "Load Tags & Profiles" is clicked
-    // Pre-populate instance selectors from config
-    const radarrInsts = this.CFG?.instances?.radarr || [];
-    const sonarrInsts = this.CFG?.instances?.sonarr || [];
-    if (radarrInsts.length) this.radarrFiltersInstance = '0';
-    if (sonarrInsts.length) this.sonarrFiltersInstance = '0';
-  },
-
-  async loadArrData(kind) {
-    const idx = parseInt(kind === 'radarr' ? this.radarrFiltersInstance : this.sonarrFiltersInstance) || 0;
-    try {
-      const [tagRes, profileRes] = await Promise.all([
-        this.api(`/api/arr/tags?kind=${kind}&idx=${idx}`),
-        this.api(`/api/arr/profiles?kind=${kind}&idx=${idx}`),
-      ]);
-      if (!tagRes?.ok || !profileRes?.ok) {
-        this.showAlert(tagRes?.error || profileRes?.error || 'Failed to load — check instance connectivity.');
-        return;
-      }
-      if (kind === 'radarr') {
-        this.radarrFilterTags     = tagRes.tags      || [];
-        this.radarrFilterProfiles = profileRes.profiles || [];
-        this.radarrFiltersLoaded  = true;
-      } else {
-        this.sonarrFilterTags     = tagRes.tags      || [];
-        this.sonarrFilterProfiles = profileRes.profiles || [];
-        this.sonarrFiltersLoaded  = true;
-      }
-    } catch(e) {
-      this.showAlert('Failed to load arr data: ' + e.message);
-    }
-  },
-
-  async saveFilters(kind) {
-    const idx = parseInt(kind === 'radarr' ? this.radarrFiltersInstance : this.sonarrFiltersInstance) || 0;
-    try {
-      const cfg = await this.api('/api/config');
-      const insts = cfg.instances?.[kind] || [];
-      if (idx >= insts.length) return;
-      insts[idx].sweep_filters = {
-        excluded_tags:     kind === 'radarr' ? (this.radarrExcludedTags     || []) : (this.sonarrExcludedTags     || []),
-        excluded_profiles: kind === 'radarr' ? (this.radarrExcludedProfiles || []) : (this.sonarrExcludedProfiles || []),
-      };
-      await this.api('/api/config', { method: 'POST', body: cfg });
-      this.CFG = cfg;
-      this.unsaved.filters = false;
-      this.showAlert('Filters saved.', 'success');
-    } catch(e) {
-      this.showAlert('Save failed: ' + e.message);
-    }
-  },
-
-  // ── Settings ──────────────────────────────────────────────────────────────
-  async saveSettings() {
-    try {
-      if (!this.CFG) return;
-      if (this.schedulerEnabledForm) {
-        const parts = (this.cronExpr || '').trim().split(/\s+/);
-        const valid = parts.length === 5 && parts.every(p => /^[\d*/,\-]+$/.test(p));
-        if (!valid) { this.showAlert('Enter a valid cron expression before saving.'); return; }
-      }
-      Object.assign(this.CFG, {
-        scheduler_enabled:         this.schedulerEnabledForm,
-        cron_expression:           this.cronExpr,
-        cooldown_hours:            parseInt(this.cooldown) || 48,
-        radarr_cutoff_enabled:     this.radarrCutoffEnabled,
-        sonarr_cutoff_enabled:     this.sonarrCutoffEnabled,
-        radarr_max_movies_per_run: parseInt(this.radarrMax)  || 10,
-        sonarr_max_episodes_per_run: parseInt(this.sonarrMax) || 10,
-        radarr_sample_mode:        this.radarrSampleMode,
-        sonarr_sample_mode:        this.sonarrSampleMode,
-        batch_size:                parseInt(this.batchSize)    || 1,
-        sleep_seconds:             parseFloat(this.sleepSeconds) || 5,
-        jitter_seconds:            parseFloat(this.jitterSeconds) || 2,
-        maintenance_window_enabled: this.maintEnabled,
-        maintenance_window_start:  this.maintStart,
-        maintenance_window_end:    this.maintEnd,
-        maintenance_window_days:   this.maintDays,
-        queue_depth_enabled:       this.queueDepthEnabled,
-        queue_depth_threshold:     Math.max(1, parseInt(this.queueDepthThreshold) || 10),
-        per_instance_overrides_enabled: this.overridesEnabled,
-        radarr_auto_exclude_enabled:    this.radarrAutoExclEnabled,
-        sonarr_auto_exclude_enabled:    this.sonarrAutoExclEnabled,
-        auto_exclude_movies_threshold:  parseInt(this.radarrExclThreshold) || 0,
-        auto_exclude_shows_threshold:   parseInt(this.sonarrExclThreshold) || 0,
-        auto_unexclude_movies_days:     parseInt(this.radarrUnexcl)        || 0,
-        auto_unexclude_shows_days:      parseInt(this.sonarrUnexcl)        || 0,
-      });
-      await this.api('/api/config', { method: 'POST', body: this.CFG });
-      await this.loadAll();
-      this.unsaved.settings = false;
-      this.showAlert('Settings saved.', 'success');
-    } catch(e) {
-      this.showAlert('Save failed: ' + e.message);
-    }
-  },
-
-  // ── Pipelines ─────────────────────────────────────────────────────────────
-  async savePipelines() {
-    try {
-      if (!this.CFG) return;
-      Object.assign(this.CFG, {
-        radarr_backlog_enabled:    this.radarrBacklogEnabled,
-        sonarr_backlog_enabled:    this.sonarrBacklogEnabled,
-        radarr_missing_max:        parseInt(this.radarrBacklogMax) || 0,
-        sonarr_missing_max:        parseInt(this.sonarrBacklogMax) || 0,
-        radarr_backlog_sample_mode: this.radarrBacklogSampleMode,
-        sonarr_backlog_sample_mode: this.sonarrBacklogSampleMode,
-        radarr_missing_added_days:  parseInt(this.radarrMissingAddedDays) || 0,
-        radarr_missing_grace_hours: parseInt(this.radarrGracePeriod)       || 0,
-        sonarr_missing_grace_hours: parseInt(this.sonarrGracePeriod)       || 0,
-        cf_score_enabled:           this.cfScoreEnabled,
-        cf_score_sync_cron:         this.cfSyncCron,
-        radarr_cf_score_max:        parseInt(this.radarrCfMax) || 0,
-        sonarr_cf_score_max:        parseInt(this.sonarrCfMax) || 0,
-        radarr_cf_sample_mode:      this.radarrCfSampleMode,
-        sonarr_cf_sample_mode:      this.sonarrCfSampleMode,
-      });
-      await this.api('/api/config', { method: 'POST', body: this.CFG });
-      await this.loadAll();
-      this.unsaved.pipelines = false;
-      this.showAlert('Pipelines saved.', 'success');
-    } catch(e) {
-      this.showAlert('Save failed: ' + e.message);
-    }
-  },
-
-  // ── Notifications ─────────────────────────────────────────────────────────
-  async saveNotifications() {
-    try {
-      if (!this.CFG) return;
-      Object.assign(this.CFG, {
-        notify_enabled:            this.notifyEnabled,
-        notify_url:                this.notifyUrl,
-        notify_on_sweep_complete:  this.notifyOnSweep,
-        notify_on_import:          this.notifyOnImport,
-        notify_on_auto_exclusion:  this.notifyOnAutoExcl,
-        notify_on_error:           this.notifyOnError,
-        notify_on_queue_depth_skip: this.notifyOnQueueDepth,
-      });
-      await this.api('/api/config', { method: 'POST', body: this.CFG });
-      this.unsaved.notifications = false;
-      this.showAlert('Saved.', 'success');
-    } catch(e) {
-      this.showAlert('Save failed: ' + e.message);
-    }
-  },
-
-  async testNotification() {
-    try {
-      await this.api('/api/notifications/test');
-      this.showAlert('Test notification sent.', 'success');
-    } catch(e) {
-      this.showAlert('Test failed: ' + e.message);
-    }
-  },
-
-  // ── Advanced ──────────────────────────────────────────────────────────────
-  async saveAdvanced() {
-    try {
-      if (!this.CFG) return;
-      Object.assign(this.CFG, {
-        auth_enabled:          this.requireLogin,
-        auth_session_minutes:  parseInt(this.sessionMinutes)    || 60,
-        default_tab:           this.defaultTab,
-        show_support_link:     this.showSupportLinkForm,
-        import_check_minutes:  parseInt(this.importCheckMinutes) || 120,
-        log_level:             this.logLevel,
-        state_retention_days:  parseInt(this.retentionDays)      || 0,
-      });
-      await this.api('/api/config', { method: 'POST', body: this.CFG });
-      await this.loadAll();
-      this.unsaved.advanced = false;
-      this.showAlert('Saved.', 'success');
-    } catch(e) {
-      this.showAlert('Save failed: ' + e.message);
-    }
-  },
-
-  // ── Danger zone ───────────────────────────────────────────────────────────
-  async executeConfirmAction() {
-    this.closeModal();
-    try {
-      switch (this.confirmAction) {
-        case 'clearHistory':
-          await this.api('/api/state/clear', { method: 'POST' });
-          this.showAlert('History cleared.', 'success');
-          if (this.panel === 'library') await this.refreshHistory();
-          break;
-        case 'clearImports':
-          await this.api('/api/stats/clear', { method: 'POST' });
-          this.showAlert('Imports cleared.', 'success');
-          if (this.panel === 'library') await this.refreshImports();
-          break;
-        case 'clearLog':
-          await this.api('/api/log/clear', { method: 'POST' });
-          this.showAlert('Log cleared.', 'success');
-          break;
-        case 'resetIntel':
-          await this.api('/api/intel/reset', { method: 'POST' });
-          this.showAlert('Intel reset.', 'success');
-          if (this.panel === 'intel') await this.refreshIntel();
-          break;
-      }
-    } catch(e) {
-      this.showAlert(e.message);
-    }
-  },
-
-  async doResetConfig() {
-    this.closeModal();
-    try {
-      await this.api('/api/config/reset', { method: 'POST' });
-      window.location.href = '/';
-    } catch(e) {
-      this.showAlert('Reset failed: ' + e.message);
-    }
-  },
-
-  async backupAll() {
-    try {
-      const res = await fetch('/api/diagnostic');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'nudgarr-backup.json';
-      a.click();
-    } catch(e) {
-      this.showAlert('Backup failed: ' + e.message);
-    }
-  },
-
-  async downloadDiagnostic() {
-    try {
-      const res = await fetch('/api/diagnostic?mode=diag');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'nudgarr-diagnostic.txt';
-      a.click();
-    } catch(e) {
-      this.showAlert('Diagnostic failed: ' + e.message);
-    }
-  },
-};
-
-// Patch the stubs: replace the /* Phase 3 */ stubs in the nudgarr() function
-// by merging _panelMethods into the returned object at init time.
-const _origNudgarr = nudgarr;
-function nudgarr() {
-  const base = _origNudgarr();
-  // Add filter state (not in original data due to size)
-  base.radarrFilterTags      = [];
-  base.radarrFilterProfiles  = [];
-  base.sonarrFilterTags      = [];
-  base.sonarrFilterProfiles  = [];
-  base.radarrExcludedTags    = [];
-  base.radarrExcludedProfiles = [];
-  base.sonarrExcludedTags    = [];
-  base.sonarrExcludedProfiles = [];
-  // Merge all panel methods
-  Object.assign(base, _panelMethods);
-  return base;
-}

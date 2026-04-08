@@ -540,6 +540,107 @@ for page in ('login.html', 'setup.html'):
     else:
         fail(f"{page} missing from templates/")
 
+# ── Alpine Binding Cross-check ────────────────────────────────────────────────
+section("Alpine Binding Cross-check")
+
+try:
+    _JS_KEYWORDS = {
+        'true','false','null','undefined','NaN','Infinity',
+        'if','else','return','const','let','var','typeof','instanceof',
+        'new','delete','void','in','of','switch','case','break','continue',
+        'for','while','do','try','catch','finally','throw','async','await',
+        'Object','Array','Date','Math','JSON','Promise','parseInt','parseFloat',
+        'encodeURIComponent','decodeURIComponent','console','window','document',
+        'localStorage','fetch','URL','Error','Boolean','String','Number',
+        'event','i','d','v','p','e','s','n','r','a','b','c','k','t','x','y',
+    }
+
+    def _strip_strings(expr):
+        """Remove string literals so their contents are not treated as identifiers."""
+        expr = re.sub(r"'[^']*'", "''", expr)
+        expr = re.sub(r'"[^"]*"', '""', expr)
+        return expr
+
+    def _top_level_names(expr):
+        """Identifiers NOT preceded by a dot — top-level Alpine scope references."""
+        expr = _strip_strings(expr)
+        names = set()
+        for m in re.finditer(r'(?<![.\w])([a-zA-Z_$][a-zA-Z0-9_$]*)\b', expr):
+            name = m.group(1)
+            if name not in _JS_KEYWORDS and not name[0].isupper() and len(name) > 2:
+                names.add(name)
+        return names
+
+    def _class_value_names(expr):
+        """From :class object literal, only extract value expressions (right of ':')."""
+        expr = _strip_strings(expr)
+        names = set()
+        for part in expr.split(','):
+            colon = part.rfind(':')
+            if colon != -1:
+                names.update(_top_level_names(part[colon + 1:]))
+        return names
+
+    def _method_names(expr):
+        """Extract function call names (identifier immediately before '(')."""
+        expr = _strip_strings(expr)
+        names = set()
+        for m in re.finditer(r'([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(', expr):
+            name = m.group(1)
+            if name not in _JS_KEYWORDS and not name[0].isupper() and len(name) > 2:
+                names.add(name)
+        return names
+
+    _html = open(UI_FILE).read()
+    _js   = js_content
+
+    # x-model: direct property bindings
+    _xmodel_props = set()
+    for val in re.findall(r'x-model(?:\.\w+)?\s*=\s*"([^"]+)"', _html):
+        root = val.split('.')[0].strip()
+        if re.match(r'^[a-zA-Z_$][a-zA-Z0-9_$]*$', root):
+            _xmodel_props.add(root)
+    _miss = [p for p in sorted(_xmodel_props) if p not in _js]
+    if _miss: [fail(f"x-model binds to \'{p}\' but not found in app.js") for p in _miss]
+    else: ok(f"x-model bindings all present ({len(_xmodel_props)} properties)")
+
+    # x-show / x-if: boolean expressions
+    _show_names = set()
+    for expr in (re.findall(r'x-show\s*=\s*"([^"]+)"', _html) +
+                 re.findall(r'x-if\s*=\s*"([^"]+)"', _html)):
+        _show_names.update(_top_level_names(expr))
+    _miss = [n for n in sorted(_show_names) if n not in _js]
+    if _miss: [fail(f"x-show/x-if references \'{n}\' but not found in app.js") for n in _miss]
+    else: ok(f"x-show/x-if bindings all present ({len(_show_names)} identifiers)")
+
+    # x-text: text content expressions
+    _text_names = set()
+    for expr in re.findall(r'x-text\s*=\s*"([^"]+)"', _html):
+        _text_names.update(_top_level_names(expr))
+    _miss = [n for n in sorted(_text_names) if n not in _js]
+    if _miss: [fail(f"x-text references \'{n}\' but not found in app.js") for n in _miss]
+    else: ok(f"x-text bindings all present ({len(_text_names)} identifiers)")
+
+    # :class: only value-side identifiers (not CSS class name keys)
+    _class_names = set()
+    for expr in re.findall(r':class\s*=\s*"([^"]+)"', _html):
+        _class_names.update(_class_value_names(expr))
+    _miss = [n for n in sorted(_class_names) if n not in _js]
+    if _miss: [fail(f":class value references \'{n}\' but not found in app.js") for n in _miss]
+    else: ok(f":class value bindings all present ({len(_class_names)} identifiers)")
+
+    # @click / @change: method call names
+    _click_methods = set()
+    for expr in (re.findall(r'@click\s*=\s*"([^"]+)"', _html) +
+                 re.findall(r'@change\s*=\s*"([^"]+)"', _html)):
+        _click_methods.update(_method_names(expr))
+    _miss = [m for m in sorted(_click_methods) if m not in _js]
+    if _miss: [fail(f"@click/@change calls \'{m}()\' but not found in app.js") for m in _miss]
+    else: ok(f"@click/@change methods all present ({len(_click_methods)} methods)")
+
+except Exception as _e:
+    fail(f"Alpine binding cross-check error: {_e}")
+
 # ── Final Cleanup ─────────────────────────────────────────────────────────────
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):

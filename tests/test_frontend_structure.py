@@ -356,7 +356,7 @@ class TestResponsiveCSS:
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 254  # v5.0 baseline
+        EXPECTED_CHECK_COUNT = 260  # v5.0 baseline (260 after Alpine binding cross-check added)
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

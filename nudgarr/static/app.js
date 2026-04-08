@@ -81,6 +81,16 @@ function nudgarr() {
 
     // Exclusions view
     exclusionItems: [],
+    exclSearch: '',
+    exclInstance: '',
+    exclType: '',
+    exclPageSize: 25,
+    exclPage: 0,
+    exclTotal: 0,
+
+    // ── Save messages (inline, no modal on success) ───────────────────────
+    saveMsg: { pipelines: '', settings: '', notifications: '', advanced: '', filters: '' },
+    saveMsgOk: { pipelines: true, settings: true, notifications: true, advanced: true, filters: true },
 
     // ── Intel ────────────────────────────────────────────────────────────
     intelData: null,
@@ -320,12 +330,23 @@ function nudgarr() {
     get importsPageCount() { return Math.max(1, Math.ceil(this.importsTotal / this.importsPageSize)); },
     get cfPageCount() { return Math.max(1, Math.ceil(this.cfTotal / this.cfPageSize)); },
 
+    get exclPageCount() { return Math.max(1, Math.ceil(this.exclTotal / this.exclPageSize)); },
+    get hasExclusions() { return this.exclusionsData.length > 0; },
+
     get onboardingIsFirst() { return this.onboardingStep === 0; },
     get onboardingIsLast() { return this.onboardingStep === this.onboardingTotal - 1; },
 
     get cfStatusSyncCoverage() {
       if (!this.cfStatusData) return [];
-      return this.cfStatusData.instances || [];
+      return (this.cfStatusData.instances || []).map(row => {
+        let coverage = 0;
+        if (row.sync_progress && row.sync_progress.total > 0) {
+          coverage = Math.round(row.sync_progress.processed / row.sync_progress.total * 100);
+        } else if (row.last_synced_at) {
+          coverage = 100;
+        }
+        return { ...row, coverage };
+      });
     },
 
     // ── Init ─────────────────────────────────────────────────────────────
@@ -523,7 +544,7 @@ function nudgarr() {
       if (v === 'history') this.refreshHistory();
       if (v === 'imports') this.refreshImports();
       if (v === 'cfscores') this.refreshCfScores();
-      if (v === 'exclusions') this.refreshExclusions();
+      if (v === 'exclusions') { this.exclBadge = 0; this.refreshExclusions(); }
     },
 
     // ── Sweep ────────────────────────────────────────────────────────────
@@ -653,7 +674,16 @@ function nudgarr() {
       const title = item.title || item.key || '';
       if (!this.isExcluded(title)) {
         if (item.eligible_again === 'Next Sweep') return { cls: 'eligible-next-sweep', text: 'Next Sweep' };
-        return { cls: 'td-blue-dim', text: this._fmtTime(item.eligible_again) };
+        if (item.eligible_again) {
+          try {
+            const ts = new Date(item.eligible_again).getTime();
+            if (!isNaN(ts)) {
+              if (ts <= Date.now()) return { cls: 'eligible-next-sweep', text: 'Next Sweep' };
+              return { cls: 'td-blue-dim', text: 'In ' + this.formatRelative(ts, true) };
+            }
+          } catch (_) {}
+        }
+        return { cls: 'td-muted', text: '\u2014' };
       }
       return { cls: 'td-muted', text: '\u2014' };
     },
@@ -716,11 +746,10 @@ function nudgarr() {
     nextCfPage() { if (this.cfPage < this.cfPageCount - 1) this.refreshCfScores(this.cfPage + 1); },
 
     cfLastSync() {
-      // Bug #17: API returns last_sync_at field
-      return this.cfStatusData?.last_sync_at ? this._fmtTime(this.cfStatusData.last_sync_at) : 'Never';
+      return this.cfStatusData?.last_sync_at ? this.formatRelative(new Date(this.cfStatusData.last_sync_at).getTime(), false) : 'Never';
     },
 
-    cfIndexedCount() { return this.cfStatusData?.total_indexed ?? 0; },
+    cfIndexedCount() { return this.cfStatusData?.stats?.total_indexed ?? 0; },
 
     async scanCfLibrary() {
       try { await this._api('/api/cf-scores/scan', { method: 'POST' }); this.refreshCfScores(); }
@@ -734,11 +763,20 @@ function nudgarr() {
 
     // ── Library — Exclusions view ─────────────────────────────────────────
 
-    async refreshExclusions() {
+    async refreshExclusions(page) {
+      if (page !== undefined) this.exclPage = page;
       await this.loadExclusions();
-      this.exclusionItems = this.exclusionsData;
-      this.exclBadge = 0;
+      let items = [...this.exclusionsData];
+      if (this.exclInstance) items = items.filter(e => (e.instance_name || e.instance || '') === this.exclInstance);
+      if (this.exclType) items = items.filter(e => this.exclType === 'auto' ? e.source === 'auto' : e.source !== 'auto');
+      if (this.exclSearch) { const q = this.exclSearch.toLowerCase(); items = items.filter(e => (e.title || '').toLowerCase().includes(q)); }
+      this.exclTotal = items.length;
+      const start = this.exclPage * this.exclPageSize;
+      this.exclusionItems = items.slice(start, start + this.exclPageSize);
     },
+
+    prevExclPage() { if (this.exclPage > 0) this.refreshExclusions(this.exclPage - 1); },
+    nextExclPage() { if (this.exclPage < this.exclPageCount - 1) this.refreshExclusions(this.exclPage + 1); },
 
     async unexcludeItem(title) {
       await this._api('/api/exclusions/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
@@ -810,6 +848,10 @@ function nudgarr() {
       const { kind, idx, name, url, key } = this.instModal;
       if (!name.trim() || !url.trim()) { this.instModal.testStatus = 'err'; this.instModal.testMsg = 'Name and URL are required.'; return; }
       if (!key.trim() && idx < 0) { this.instModal.testStatus = 'err'; this.instModal.testMsg = 'API key is required.'; return; }
+      // Test first
+      await this.testInstConnection();
+      if (!this.instModal.testOk) return;
+      // Build entry
       if (!this.cfg.instances) this.cfg.instances = { radarr: [], sonarr: [] };
       const entry = { name: name.trim(), url: url.trim(), key: key.trim() };
       if (idx >= 0) {
@@ -819,8 +861,19 @@ function nudgarr() {
       } else {
         this.cfg.instances[kind].push(entry);
       }
-      this.instMsg = 'Unsaved Changes'; this.instMsgClass = 'msg unsaved';
-      this.closeInstModal();
+      // Save immediately
+      try {
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+        await new Promise(r => setTimeout(r, 400));
+        await this.testConnections();
+        this.closeInstModal();
+        this.instMsg = 'Saved'; this.instMsgClass = 'msg ok';
+        this._fadeMsg('instMsg');
+      } catch (e) {
+        this.instModal.testStatus = 'err';
+        this.instModal.testMsg = '\u2717 Save failed: ' + e.message;
+      }
     },
 
     async toggleInstance(kind, idx) {
@@ -848,7 +901,74 @@ function nudgarr() {
       } catch (e) { this.instMsg = 'Save failed: ' + e.message; this.instMsgClass = 'msg err'; }
     },
 
-    async testConnections() {
+    // ── Toggle auto-save helpers ──────────────────────────────────────────
+
+    async _autoSaveField(field, value) {
+      if (!this.cfg) return;
+      this.cfg[field] = value;
+      try {
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+      } catch (e) { this.showAlert('Auto-save failed: ' + e.message, 'error'); }
+    },
+
+    async toggleSchedulerEnabled(val) { this.schedulerEnabledUi = val; await this._autoSaveField('scheduler_enabled', val); },
+    async toggleMaintEnabled(val) { this.maintenanceEnabled = val; await this._autoSaveField('maintenance_window_enabled', val); },
+
+    async toggleMaintDayAuto(d) {
+      if (this.maintenanceDays.includes(d)) this.maintenanceDays = this.maintenanceDays.filter(x => x !== d);
+      else this.maintenanceDays = [...this.maintenanceDays, d];
+      this.validateMaintTime();
+      if (!this.cfg) return;
+      this.cfg.maintenance_window_days = [...this.maintenanceDays];
+      try { await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) }); await this.loadAll(); }
+      catch (e) { this.showAlert('Auto-save failed: ' + e.message, 'error'); }
+    },
+
+    async toggleQueueDepthEnabled(val) { this.queueDepthEnabled = val; await this._autoSaveField('queue_depth_enabled', val); },
+
+    async toggleCfEnabled(val) {
+      this.cfEnabled = val; this.cfScoreEnabled = val;
+      if (!this.cfg) return;
+      this.cfg.cf_score_enabled = val;
+      try { await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) }); await this.loadAll(); this.unsaved.pipelines = false; }
+      catch (e) { this.showAlert('Auto-save failed: ' + e.message, 'error'); }
+    },
+
+    async toggleCutoffEnabled(kind, val) {
+      if (kind === 'radarr') { this.radarrCutoffEnabled = val; await this._autoSaveField('radarr_cutoff_enabled', val); }
+      else { this.sonarrCutoffEnabled = val; await this._autoSaveField('sonarr_cutoff_enabled', val); }
+    },
+
+    async toggleBacklogEnabled(kind, val) {
+      if (kind === 'radarr') { this.radarrBacklogEnabled = val; await this._autoSaveField('radarr_backlog_enabled', val); }
+      else { this.sonarrBacklogEnabled = val; await this._autoSaveField('sonarr_backlog_enabled', val); }
+    },
+
+    async toggleAutoExcl(kind, val) {
+      if (kind === 'radarr') { this.radarrAutoExclEnabled = val; await this._autoSaveField('radarr_auto_exclude_enabled', val); }
+      else { this.sonarrAutoExclEnabled = val; await this._autoSaveField('sonarr_auto_exclude_enabled', val); }
+    },
+
+    async toggleShowSupportLink(val) { this.showSupportLink = val; await this._autoSaveField('show_support_link', val); },
+
+    async toggleNotifyEnabled(val) {
+      this.notifyEnabled = val;
+      if (!val) { await this._autoSaveField('notify_enabled', false); }
+      else if (this.notifyUrl.trim()) { await this._autoSaveField('notify_enabled', true); }
+      // No URL yet — update state only
+    },
+
+    async toggleNotifyOn(field, val) {
+      this[field] = val;
+      if (!this.notifyUrl.trim()) return;
+      const map = { notifyOnSweep:'notify_on_sweep_complete', notifyOnImport:'notify_on_import', notifyOnAutoExcl:'notify_on_auto_exclusion', notifyOnError:'notify_on_error', notifyOnQueueDepth:'notify_on_queue_depth_skip' };
+      if (map[field]) await this._autoSaveField(map[field], val);
+    },
+
+    _fadeSaveMsg(panel) {
+      setTimeout(() => { this.saveMsg[panel] = ''; }, 3000);
+    },
       try {
         const out = await this._api('/api/test', { method: 'POST' });
         const health = {};
@@ -891,8 +1011,9 @@ function nudgarr() {
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
         this.unsaved.pipelines = false;
-        this.showAlert('Pipelines saved.', 'success');
-      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+        this.saveMsg.pipelines = 'Saved'; this.saveMsgOk.pipelines = true;
+        this._fadeSaveMsg('pipelines');
+      } catch (e) { this.saveMsg.pipelines = 'Save failed: ' + e.message; this.saveMsgOk.pipelines = false; }
     },
 
     validateCfCron() {
@@ -970,16 +1091,32 @@ function nudgarr() {
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
         this.unsaved.settings = false;
-        this.showAlert('Settings saved.', 'success');
-      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+        this.saveMsg.settings = 'Saved'; this.saveMsgOk.settings = true;
+        this._fadeSaveMsg('settings');
+      } catch (e) { this.saveMsg.settings = 'Save failed: ' + e.message; this.saveMsgOk.settings = false; }
     },
 
     // ── Overrides ─────────────────────────────────────────────────────────
 
-    enableOverrides() {
+    async disableOverrides() {
+      this.overridesEnabled = false;
+      this.perInstanceOverridesEnabled = false;
+      await this._autoSaveField('per_instance_overrides_enabled', false);
+    },
       this.overridesEnabled = true;
       this.perInstanceOverridesEnabled = true;
-      if (!this.overridesInfoSeen) { this.overridesInfoSeen = true; this.openModal('overridesInfo'); }
+      if (!this.overridesInfoSeen) {
+        this.overridesInfoSeen = true;
+        this.openModal('overridesInfo');
+        // Save fires when modal is dismissed via closeOverridesInfoModal
+      } else {
+        this._autoSaveField('per_instance_overrides_enabled', true);
+      }
+    },
+
+    async closeOverridesInfoModal() {
+      this.closeModal();
+      await this._autoSaveField('per_instance_overrides_enabled', true);
     },
 
     _buildOverrideData() {
@@ -998,7 +1135,6 @@ function nudgarr() {
               backlog_max: (kind === 'radarr' ? ov.radarr_missing_max : ov.sonarr_missing_max) ?? null,
               backlog_sample_mode: (kind === 'radarr' ? ov.radarr_backlog_sample_mode : ov.sonarr_backlog_sample_mode) ?? '__global__',
               missing_added_days: kind === 'radarr' ? (ov.radarr_missing_added_days ?? null) : null,
-              cf_max: (kind === 'radarr' ? ov.radarr_cf_max_per_run : ov.sonarr_cf_max_per_run) ?? null,
               cf_sample_mode: (kind === 'radarr' ? ov.radarr_cf_sample_mode : ov.sonarr_cf_sample_mode) ?? '__global__',
               notifications_enabled: ov.notifications_enabled ?? null,
             };
@@ -1144,8 +1280,9 @@ function nudgarr() {
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
         this.unsaved.notifications = false;
-        this.showAlert('Notifications saved.', 'success');
-      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+        this.saveMsg.notifications = 'Saved'; this.saveMsgOk.notifications = true;
+        this._fadeSaveMsg('notifications');
+      } catch (e) { this.saveMsg.notifications = 'Save failed: ' + e.message; this.saveMsgOk.notifications = false; }
     },
 
     // ── Advanced ──────────────────────────────────────────────────────────
@@ -1163,8 +1300,9 @@ function nudgarr() {
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
         this.unsaved.advanced = false;
-        this.showAlert('Advanced settings saved.', 'success');
-      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+        this.saveMsg.advanced = 'Saved'; this.saveMsgOk.advanced = true;
+        this._fadeSaveMsg('advanced');
+      } catch (e) { this.saveMsg.advanced = 'Save failed: ' + e.message; this.saveMsgOk.advanced = false; }
     },
 
     async logout() {

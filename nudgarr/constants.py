@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "4.3.0"
+VERSION = "5.0.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")

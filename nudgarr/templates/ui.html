@@ -370,7 +370,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
   </div>
   <!-- Sidebar footer: version + support + sign out only -->
   <div class="sb-foot">
-    <span class="mono" style="font-size:10px;color:var(--muted)" x-text="'v' + version"></span>
+    <span class="mono" style="font-size:10px;color:var(--muted)" x-text="'v' + (version || '{{ VERSION }}')"></span>
     <div style="display:flex;align-items:center;gap:4px">
       <a x-show="showSupportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="btn sm ghost" style="font-size:11px;padding:3px 8px;text-decoration:none">&#127866; Support</a>
       <button class="btn sm ghost" x-show="authEnabled" @click="logout()" style="font-size:11px;padding:3px 8px">Sign Out</button>
@@ -458,14 +458,14 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="p-card cutoff">
               <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Cutoff Unmet</span><span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds items with a file that haven't reached the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCutoffUtc ? _fmtTimePadded(lastRunCutoffUtc) : ''"></span></div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px">
-                <div class="p-total-cell"><div class="p-total-lbl">Searched</div><div class="p-total-val" :class="{dim:cutoffAgg.searched===0}" x-text="cutoffAgg.searched"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Cooldown</div><div class="p-total-val" :class="{dim:cutoffAgg.cooldown===0}" x-text="cutoffAgg.cooldown"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Capped</div><div class="p-total-val" :class="{dim:cutoffAgg.capped===0}" x-text="cutoffAgg.capped"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Searched<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.searched===0}" x-text="cutoffAgg.searched"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Cooldown<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.cooldown===0}" x-text="cutoffAgg.cooldown"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Capped<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance max was already reached this sweep.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.capped===0}" x-text="cutoffAgg.capped"></div></div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
-                <div class="p-total-cell"><div class="p-total-lbl">Excluded</div><div class="p-total-val" :class="{dim:cutoffAgg.excluded===0}" x-text="cutoffAgg.excluded"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Tag</div><div class="p-total-val" :class="{dim:cutoffAgg.tag===0}" x-text="cutoffAgg.tag"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Profile</div><div class="p-total-val" :class="{dim:cutoffAgg.profile===0}" x-text="cutoffAgg.profile"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Excluded<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.excluded===0}" x-text="cutoffAgg.excluded"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Tag<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.tag===0}" x-text="cutoffAgg.tag"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Profile<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.profile===0}" x-text="cutoffAgg.profile"></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in cutoffInstRows" :key="row.name">
@@ -483,14 +483,14 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="p-card backlog">
               <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Backlog</span><span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds missing movies and episodes never grabbed.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunBacklogUtc ? _fmtTimePadded(lastRunBacklogUtc) : ''"></span></div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px">
-                <div class="p-total-cell"><div class="p-total-lbl">Searched</div><div class="p-total-val" :class="{dim:backlogAgg.searched===0}" x-text="backlogAgg.searched"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Cooldown</div><div class="p-total-val" :class="{dim:backlogAgg.cooldown===0}" x-text="backlogAgg.cooldown"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Capped</div><div class="p-total-val" :class="{dim:backlogAgg.capped===0}" x-text="backlogAgg.capped"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Searched<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Missing items Nudgarr sent a search command for this sweep.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.searched===0}" x-text="backlogAgg.searched"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Cooldown<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.cooldown===0}" x-text="backlogAgg.cooldown"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Capped<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance max was already reached this sweep.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.capped===0}" x-text="backlogAgg.capped"></div></div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
-                <div class="p-total-cell"><div class="p-total-lbl">Grace</div><div class="p-total-val" :class="{dim:backlogAgg.grace===0}" x-text="backlogAgg.grace"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Tag</div><div class="p-total-val" :class="{dim:backlogAgg.tag===0}" x-text="backlogAgg.tag"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Profile</div><div class="p-total-val" :class="{dim:backlogAgg.profile===0}" x-text="backlogAgg.profile"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Grace<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were added to your library within the grace period.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.grace===0}" x-text="backlogAgg.grace"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Tag<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.tag===0}" x-text="backlogAgg.tag"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Profile<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.profile===0}" x-text="backlogAgg.profile"></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in backlogInstRows" :key="row.name">
@@ -508,12 +508,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="p-card cfscore" x-show="cfScoreEnabled">
               <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">CF Score</span><span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds files where custom format score is below the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCfscoreUtc ? _fmtTimePadded(lastRunCfscoreUtc) : ''"></span></div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
-                <div class="p-total-cell"><div class="p-total-lbl">Searched</div><div class="p-total-val" :class="{dim:cfscoreAgg.searched===0}" x-text="cfscoreAgg.searched"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Cooldown</div><div class="p-total-val" :class="{dim:cfscoreAgg.cooldown===0}" x-text="cfscoreAgg.cooldown"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Searched<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep because their CF score was below the profile cutoff.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.searched===0}" x-text="cfscoreAgg.searched"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Cooldown<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.cooldown===0}" x-text="cfscoreAgg.cooldown"></div></div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:14px">
-                <div class="p-total-cell"><div class="p-total-lbl">Excluded</div><div class="p-total-val" :class="{dim:cfscoreAgg.excluded===0}" x-text="cfscoreAgg.excluded"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl">Queued</div><div class="p-total-val" :class="{dim:cfscoreAgg.queued===0}" x-text="cfscoreAgg.queued"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Excluded<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.excluded===0}" x-text="cfscoreAgg.excluded"></div></div>
+                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Queued<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were already in the download queue when this sweep ran.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.queued===0}" x-text="cfscoreAgg.queued"></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in cfscoreInstRows" :key="row.name">
@@ -540,7 +540,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <button class="vbtn" :class="{on:libView==='history'}" @click="setLibView('history')">History</button>
           <button class="vbtn" :class="{on:libView==='imports'}" @click="setLibView('imports')">Imports</button>
           <button class="vbtn" x-show="cfScoreEnabled" :class="{on:libView==='cfscores'}" @click="setLibView('cfscores')">CF Score</button>
-          <button class="vbtn" :class="{on:libView==='exclusions'}" @click="setLibView('exclusions')">Exclusions</button>
+          <button class="vbtn" :class="{on:libView==='exclusions'}" @click="setLibView('exclusions')" x-show="hasExclusions || libView==='exclusions'">Exclusions</button>
         </div>
       </div>
 
@@ -646,6 +646,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <thead><tr>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='title'&&importsSort.dir==='asc','sort-desc':importsSort.col==='title'&&importsSort.dir==='desc'}" @click="sortImports('title')">Title</th>
               <th>Instance</th><th>Type</th>
+              <th style="text-align:center">Count</th>
+              <th style="text-align:center">Upgrade</th>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='first_searched_ts'&&importsSort.dir==='asc','sort-desc':importsSort.col==='first_searched_ts'&&importsSort.dir==='desc'}" @click="sortImports('first_searched_ts')">Last Searched</th>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='imported_ts'&&importsSort.dir==='asc','sort-desc':importsSort.col==='imported_ts'&&importsSort.dir==='desc'}" @click="sortImports('imported_ts')">Imported</th>
               <th>Turnaround</th>
@@ -659,6 +661,14 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                   <td class="arr-link" @click="openArrLink(item.app||'',item.instance_name||'',item.item_id||'',item.series_id||'')" x-text="item.title||item.key"></td>
                   <td class="td-dim" x-text="item.instance_name||''"></td>
                   <td><span class="tag" :class="{'acquired':item.sweep_type==='Backlog','cf-score':item.sweep_type==='CF Score'}" x-text="item.sweep_type||'Cutoff Unmet'"></span></td>
+                  <td style="text-align:center">
+                    <span class="iter-pill" x-show="item.import_iteration > 1" x-text="'\xd7' + item.import_iteration"></span>
+                    <span x-show="!item.import_iteration || item.import_iteration <= 1" class="td-muted">&mdash;</span>
+                  </td>
+                  <td style="text-align:center">
+                    <span x-show="item.import_iteration > 1" style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid var(--border-md);border-radius:5px;padding:1px 6px;color:var(--ac-lt);cursor:help" title="Quality upgrade — this item was imported more than once">i</span>
+                    <span x-show="!item.import_iteration || item.import_iteration <= 1" class="td-muted">&mdash;</span>
+                  </td>
                   <td class="td-blue mono" style="font-size:12px" x-text="_fmtTime(item.first_searched_ts)"></td>
                   <td class="td-blue mono" style="font-size:12px" x-text="_fmtTime(item.imported_ts)"></td>
                   <td class="td-muted" style="font-size:12px" x-text="item.turnaround_days ? item.turnaround_days.toFixed(1)+'d' : '\u2014'"></td>
@@ -697,11 +707,11 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </template>
               <template x-for="entry in cfEntries" :key="entry.id||entry.title">
                 <tr>
-                  <td x-text="entry.title"></td>
+                  <td class="arr-link" @click="openArrLink(entry.app||'',entry.instance_name||'',entry.item_id||'',entry.series_id||'')" x-text="entry.title"></td>
                   <td class="td-dim" x-text="entry.instance_name||''"></td>
-                  <td class="mono" style="font-size:12px;color:var(--warn)" x-text="entry.cf_score ?? '\u2014'"></td>
-                  <td class="mono td-muted" style="font-size:12px" x-text="entry.cf_cutoff ?? '\u2014'"></td>
-                  <td class="mono" style="font-size:12px;color:var(--bad)" x-text="entry.cf_gap ?? '\u2014'"></td>
+                  <td class="mono" style="font-size:12px;color:var(--warn)" x-text="entry.current_score ?? '\u2014'"></td>
+                  <td class="mono td-muted" style="font-size:12px" x-text="entry.cutoff_score ?? '\u2014'"></td>
+                  <td class="mono" style="font-size:12px;color:var(--bad)" x-text="entry.gap ?? '\u2014'"></td>
                 </tr>
               </template>
             </tbody>
@@ -719,28 +729,47 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div class="card">
           <div class="card-hdr">
             <div class="card-title" style="margin:0">Exclusions</div>
-            <span class="help" x-text="exclusionItems.length + ' total \u00b7 ' + exclusionItems.filter(e=>e.source==='auto').length + ' auto \u00b7 ' + exclusionItems.filter(e=>e.source!=='auto').length + ' manual'"></span>
+            <span class="help" x-text="exclusionsData.length + ' total \u00b7 ' + exclusionsData.filter(e=>e.source==='auto').length + ' auto \u00b7 ' + exclusionsData.filter(e=>e.source!=='auto').length + ' manual'"></span>
           </div>
           <div class="filter-row">
+            <div class="field"><select x-model="exclInstance" @change="exclPage=0;refreshExclusions()" style="min-width:140px">
+              <option value="">All Instances</option>
+              <template x-for="inst in allInstances" :key="inst.key"><option :value="inst.name" x-text="inst.name"></option></template>
+            </select></div>
+            <div class="field"><select x-model="exclType" @change="exclPage=0;refreshExclusions()" style="min-width:110px">
+              <option value="">All Types</option>
+              <option value="auto">Auto</option>
+              <option value="manual">Manual</option>
+            </select></div>
+            <div class="field"><select x-model.number="exclPageSize" @change="exclPage=0;refreshExclusions()" style="width:auto">
+              <option value="10">10</option><option value="25">25</option><option value="50">50</option>
+            </select></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="exclSearch" @input="exclPage=0;refreshExclusions()"></div>
             <button class="btn sm dng" @click="openClearExclModal()">Clear Exclusions</button>
           </div>
           <table>
-            <thead><tr><th class="sortable">Title</th><th>Type</th><th>Searches</th><th class="sortable">Excluded</th><th></th></tr></thead>
+            <thead><tr><th>Title</th><th>Type</th><th>Searches</th><th>Instance</th><th>Excluded</th><th></th></tr></thead>
             <tbody>
               <template x-if="exclusionItems.length === 0">
-                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;font-size:12px">No exclusions.</td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-size:12px">No exclusions.</td></tr>
               </template>
               <template x-for="e in exclusionItems" :key="e.title">
                 <tr>
-                  <td x-text="e.title"></td>
+                  <td class="arr-link" @click="openArrLink(e.app||'',e.instance_name||'',e.item_id||'',e.series_id||'')" x-text="e.title"></td>
                   <td><span class="source-badge" :class="e.source==='auto'?'auto':'manual'" x-text="e.source==='auto'?'Auto':'Manual'"></span></td>
                   <td class="mono" x-text="e.search_count||0"></td>
+                  <td class="td-dim" x-text="e.instance_name||e.instance||''"></td>
                   <td class="mono td-muted" style="font-size:12px" x-text="_fmtTime(e.excluded_at)"></td>
                   <td><button class="btn sm" @click="unexcludeItem(e.title)">Unexclude</button></td>
                 </tr>
               </template>
             </tbody>
           </table>
+          <div class="pager" x-show="exclTotal > exclPageSize">
+            <button class="btn sm" @click="prevExclPage()" :disabled="exclPage===0">Prev</button>
+            <button class="btn sm" @click="nextExclPage()" :disabled="exclPage>=exclPageCount-1">Next</button>
+            <span class="pager-info" x-text="'Page ' + (exclPage+1) + ' of ' + exclPageCount + ' \u00b7 ' + exclTotal + ' items'"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -895,7 +924,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div class="cols2">
           <div><p class="app-hdr">Radarr</p>
             <div class="stk">
-              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" x-model="radarrCutoffEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div>
+              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="radarrCutoffEnabled" @change="toggleCutoffEnabled('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="radarrCutoffEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrMaxCutoff"></div>
                 <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible items are picked each run.<br><br><strong>Round Robin</strong> &mdash; items never searched go first (shuffled randomly). After those, picks whoever has been waiting longest. Recommended for even coverage.<br><br><strong>Random</strong> &mdash; shuffles the eligible pool randomly each run.<br><br><strong>Alphabetical</strong> &mdash; works A to Z.<br><br><strong>Oldest Added</strong> &mdash; targets items you've had longest.</div></span></label>
@@ -905,7 +934,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           </div>
           <div><p class="app-hdr">Sonarr</p>
             <div class="stk">
-              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" x-model="sonarrCutoffEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div>
+              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="sonarrCutoffEnabled" @change="toggleCutoffEnabled('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="sonarrCutoffEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrMaxCutoff"></div>
                 <div class="field"><label>Sample Mode</label><select x-model="sonarrSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
@@ -920,7 +949,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div class="cols2">
           <div><p class="app-hdr">Radarr</p>
             <div class="stk">
-              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" x-model="radarrBacklogEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div>
+              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="radarrBacklogEnabled" @change="toggleBacklogEnabled('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="radarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrMissingMax"></div>
                 <div class="field"><label style="display:flex;align-items:center;gap:5px">Missing Added Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items added to your library at least this many days ago. 0 = no limit.</div></span></label><input type="number" min="0" x-model.number="radarrMissingAddedDays"></div>
@@ -931,7 +960,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           </div>
           <div><p class="app-hdr">Sonarr</p>
             <div class="stk">
-              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" x-model="sonarrBacklogEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div>
+              <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="sonarrBacklogEnabled" @change="toggleBacklogEnabled('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="sonarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrMissingMax"></div>
                 <div class="field"><label>Sample Mode</label><select x-model="sonarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
@@ -944,7 +973,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <!-- CF Score -->
       <div class="card mb">
         <div class="card-hdr"><div class="card-title" style="margin:0;color:var(--warn);display:flex;align-items:center;gap:6px">CF Score <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files where the custom format score is below the cutoff for their quality profile. Off by default.</div></span></div>
-          <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" x-model="cfEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="cfEnabled ? 'Enabled' : 'Disabled'"></span></div>
+          <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="cfEnabled" @change="toggleCfEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="cfEnabled ? 'Enabled' : 'Disabled'"></span></div>
         </div>
         <div x-show="cfEnabled" style="margin-top:4px">
           <div class="cols2 mb">
@@ -984,7 +1013,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           </div>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="savePipelines()">Save Pipelines</button><span class="msg unsaved" x-show="unsaved.pipelines">Unsaved Changes</span></div>
+      <div class="save-bar"><button class="btn pri" @click="savePipelines()">Save Pipelines</button><span x-show="unsaved.pipelines" class="msg unsaved">Unsaved Changes</span><span x-show="saveMsg.pipelines" :class="saveMsgOk.pipelines ? 'msg ok' : 'msg err'" x-text="saveMsg.pipelines"></span></div>
     </div>
 
     <!-- SETTINGS PANEL -->
@@ -999,7 +1028,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <div class="stk">
             <div class="field"><label>Automatic Sweeps</label>
               <div class="row" style="gap:8px;height:34px">
-                <label class="toggle"><input type="checkbox" x-model="schedulerEnabledUi"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+                <label class="toggle"><input type="checkbox" :checked="schedulerEnabledUi" @change="toggleSchedulerEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
                 <span class="help" x-text="schedulerEnabledUi ? 'Enabled' : 'Manual'"></span>
               </div>
             </div>
@@ -1012,7 +1041,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="section-title" style="display:flex;align-items:center;gap:5px;margin:0 0 10px">Quiet Hours <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Suppresses scheduled sweeps and CF Score syncs during the configured window. Manual runs always bypass it. Import checking continues.</div></span></div>
             <div class="field"><label>Suppress scheduled sweeps</label>
               <div class="row" style="gap:8px;height:34px">
-                <label class="toggle"><input type="checkbox" x-model="maintenanceEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+                <label class="toggle"><input type="checkbox" :checked="maintenanceEnabled" @change="toggleMaintEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
                 <span class="help" x-text="maintenanceEnabled ? 'Enabled' : 'Disabled'"></span>
               </div>
             </div>
@@ -1023,7 +1052,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </div>
               <div class="row" style="gap:4px;flex-wrap:wrap;margin-bottom:8px">
                 <template x-for="(d, i) in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="i">
-                  <button class="day-pill" :class="{ on: isDayActive(i) }" @click.prevent="toggleMaintDay(i)" x-text="d"></button>
+                  <button class="day-pill" :class="{ on: isDayActive(i) }" @click.prevent="toggleMaintDayAuto(i)" x-text="d"></button>
                 </template>
               </div>
               <div class="cron-hint" x-text="maintHint" x-show="maintHint"></div>
@@ -1042,7 +1071,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="hr"></div>
             <div class="section-title" style="display:flex;align-items:center;gap:5px;margin:0 0 10px">Queue Depth <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Skip the sweep if the total download queue across all instances meets or exceeds the threshold. Useful when a large grab is in progress. Instances that fail the check contribute 0 to the total.</div></span></div>
             <div class="row" style="gap:8px;margin-bottom:10px">
-              <label class="toggle"><input type="checkbox" x-model="queueDepthEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              <label class="toggle"><input type="checkbox" :checked="queueDepthEnabled" @change="toggleQueueDepthEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
               <span class="help" x-text="queueDepthEnabled ? 'Skip sweep if download queue is busy' : 'Disabled'"></span>
             </div>
             <div class="field" :style="queueDepthEnabled ? '' : 'opacity:.38;pointer-events:none'">
@@ -1058,7 +1087,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                 <div class="help">Unlocks the Overrides panel. Override cooldown, max, and sample mode per instance.</div>
               </div>
               <label class="toggle" style="margin-top:2px;margin-left:16px;flex-shrink:0">
-                <input type="checkbox" :checked="overridesEnabled" @change="overridesEnabled ? overridesEnabled=false : enableOverrides()">
+                <input type="checkbox" :checked="overridesEnabled" @change="overridesEnabled ? disableOverrides() : enableOverrides()">
                 <span class="toggle-track"></span><span class="toggle-thumb"></span>
               </label>
             </div>
@@ -1090,7 +1119,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div class="cols2" style="gap:20px">
           <div><p class="app-hdr">Radarr</p>
             <div class="row" style="gap:8px;margin-bottom:10px">
-              <label class="toggle"><input type="checkbox" x-model="radarrAutoExclEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              <label class="toggle"><input type="checkbox" :checked="radarrAutoExclEnabled" @change="toggleAutoExcl('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
               <span class="help" x-text="radarrAutoExclEnabled ? 'Enabled' : 'Disabled'"></span>
             </div>
             <div :style="radarrAutoExclEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
@@ -1100,7 +1129,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           </div>
           <div><p class="app-hdr">Sonarr</p>
             <div class="row" style="gap:8px;margin-bottom:10px">
-              <label class="toggle"><input type="checkbox" x-model="sonarrAutoExclEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              <label class="toggle"><input type="checkbox" :checked="sonarrAutoExclEnabled" @change="toggleAutoExcl('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
               <span class="help" x-text="sonarrAutoExclEnabled ? 'Enabled' : 'Disabled'"></span>
             </div>
             <div :style="sonarrAutoExclEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
@@ -1110,7 +1139,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           </div>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="saveSettings()">Save Changes</button><span class="msg unsaved" x-show="unsaved.settings">Unsaved Changes</span></div>
+      <div class="save-bar"><button class="btn pri" @click="saveSettings()">Save Changes</button><span x-show="unsaved.settings" class="msg unsaved">Unsaved Changes</span><span x-show="saveMsg.settings" :class="saveMsgOk.settings ? 'msg ok' : 'msg err'" x-text="saveMsg.settings"></span></div>
     </div>
 
     <!-- OVERRIDES PANEL -->
@@ -1171,6 +1200,32 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                 <span class="toggle-track"></span><span class="toggle-thumb"></span>
               </label>
             </div>
+            <div class="ov-fields" style="margin-bottom:6px">
+              <div class="field"><label>Max</label>
+                <input type="number" min="1"
+                  :value="ovGet(inst.kind,inst.idx).backlog_max"
+                  @input="ovGet(inst.kind,inst.idx).backlog_max=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                  :class="{ 'ov-active': ovGet(inst.kind,inst.idx).backlog_max !== null }"
+                  :placeholder="inst.kind==='radarr' ? radarrMissingMax : sonarrMissingMax">
+              </div>
+              <div class="field"><label>Sample Mode</label>
+                <select x-model="ovGet(inst.kind,inst.idx).backlog_sample_mode" @change="ovMarkDirty(inst.kind,inst.idx)">
+                  <option value="__global__" x-text="'Use Global (' + (inst.kind==='radarr' ? radarrBacklogSampleMode.replace(/_/g,' ') : sonarrBacklogSampleMode.replace(/_/g,' ')) + ')'"></option>
+                  <option value="round_robin">Round Robin</option><option value="random">Random</option>
+                  <option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option>
+                </select>
+              </div>
+            </div>
+            <template x-if="inst.kind==='radarr'">
+              <div class="field" style="margin-bottom:8px">
+                <label>Missing Added Days</label>
+                <input type="number" min="0"
+                  :value="ovGet(inst.kind,inst.idx).missing_added_days"
+                  @input="ovGet(inst.kind,inst.idx).missing_added_days=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                  :class="{ 'ov-active': ovGet(inst.kind,inst.idx).missing_added_days !== null }"
+                  :placeholder="radarrMissingAddedDays">
+              </div>
+            </template>
             <!-- CF Score section (when enabled) -->
             <template x-if="cfScoreEnabled">
               <div>
@@ -1347,7 +1402,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <div class="stk">
             <div class="field"><label>Enable Notifications</label>
               <div class="row" style="gap:8px;height:34px">
-                <label class="toggle"><input type="checkbox" x-model="notifyEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+                <label class="toggle"><input type="checkbox" :checked="notifyEnabled" @change="toggleNotifyEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
                 <span class="help" x-text="notifyEnabled ? 'Send via any Apprise-compatible service' : 'Disabled'"></span>
               </div>
             </div>
@@ -1370,15 +1425,15 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div class="card">
           <div class="section-title">Notify On</div>
           <div style="display:flex;flex-direction:column">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnSweep"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnImport"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnAutoExcl"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnError"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnQueueDepth"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnSweep" @change="toggleNotifyOn('notifyOnSweep',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnImport" @change="toggleNotifyOn('notifyOnImport',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnAutoExcl" @change="toggleNotifyOn('notifyOnAutoExcl',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnError" @change="toggleNotifyOn('notifyOnError',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnQueueDepth" @change="toggleNotifyOn('notifyOnQueueDepth',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
           </div>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="saveNotifications()">Save Changes</button><span class="msg unsaved" x-show="unsaved.notifications">Unsaved Changes</span></div>
+      <div class="save-bar"><button class="btn pri" @click="saveNotifications()">Save Changes</button><span x-show="unsaved.notifications" class="msg unsaved">Unsaved Changes</span><span x-show="saveMsg.notifications" :class="saveMsgOk.notifications ? 'msg ok' : 'msg err'" x-text="saveMsg.notifications"></span></div>
     </div>
 
     <!-- ADVANCED PANEL -->
@@ -1407,7 +1462,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between">
               <div><div style="font-size:13px;font-weight:500">Show Support Link</div><div class="help">Displays a support link in the sidebar</div></div>
-              <label class="toggle" style="margin-left:16px;flex-shrink:0"><input type="checkbox" x-model="showSupportLink"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              <label class="toggle" style="margin-left:16px;flex-shrink:0"><input type="checkbox" :checked="showSupportLink" @change="toggleShowSupportLink($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
             </div>
           </div>
         </div>
@@ -1449,7 +1504,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <button class="btn sm dng" style="border-color:rgba(239,68,68,.5)" @click="openModal('resetConfig')">Reset Config</button>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="saveAdvanced()">Save Changes</button><span class="msg unsaved" x-show="unsaved.advanced">Unsaved Changes</span></div>
+      <div class="save-bar"><button class="btn pri" @click="saveAdvanced()">Save Changes</button><span x-show="unsaved.advanced" class="msg unsaved">Unsaved Changes</span><span x-show="saveMsg.advanced" :class="saveMsgOk.advanced ? 'msg ok' : 'msg err'" x-text="saveMsg.advanced"></span></div>
     </div>
 
   </div><!-- end .content -->
@@ -1637,12 +1692,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">&#9654; Backlog can be toggled per instance</div><div class="help">When overrides are active, each instance can have Backlog enabled or disabled independently, regardless of the global Pipelines setting.</div></div>
     </div>
     <div class="row" style="justify-content:flex-end;margin-top:18px">
-      <button class="btn sm pri" @click="closeModal()">Continue</button>
-    </div>
-  </div>
-</div>
-
-<!-- No Instances modal -->
+      <button class="btn sm pri" @click="closeOverridesInfoModal()">Continue</button>
 <div class="modal-backdrop" :class="{ open: modal==='noInstances' }" @click.self="closeModal()">
   <div class="modal" @click.stop style="max-width:400px">
     <h2 style="margin:0 0 8px">No Instances Configured</h2>

@@ -4,6 +4,27 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.0.0
+
+**Full frontend rewrite to Alpine.js sidebar UI.**
+
+- Replaced 14-file vanilla JS split with single app.js + ui.html (Alpine.js v3.15.11 self-hosted)
+- Sidebar navigation replaces horizontal tab bar (Monitor / Configure / System groups)
+- Library panel consolidates History, Imports, CF Score, and Exclusions with view switcher
+- Pipeline config moved to Pipelines panel; Settings covers Schedule, Throttling, Auto-Exclusion only
+- Unsaved changes amber dot indicator on nav items
+- Toggle controls auto-save immediately; Save Changes only required for field inputs
+- Instance modal tests connection before saving; green dot appears without manual Test step
+- Eligible Again column uses human-relative format (In 6h, Tomorrow, In 3 days)
+- Imports table adds Count and Upgrade columns
+- Exclusions view adds filtering, search, and pagination
+- CF Score entries table shows correct score/cutoff/gap values; coverage % computed from sync progress
+- Overrides cards include Backlog Max, Sample Mode, and Missing Added Days fields
+- Sweep pipeline cards show tooltips on each stat explaining what the number means
+- Version number in sidebar footer reflects installed version automatically
+
+---
+
 ## v4.3.0
 
 **Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency, Sweep Tab Redesign, Logic Unit Tests.**

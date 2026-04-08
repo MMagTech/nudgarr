@@ -1,185 +1,163 @@
-// Nudgarr v5 — app.js
-// Alpine.js data object + shared utilities.
-// All panel rendering, API calls, and state management live here.
+// Nudgarr v5 — Alpine.js frontend
+// Single data object; loaded as nudgarr/static/app.js.
+// ui.html: <body x-data="nudgarr()" x-init="...">
 
-// ── Tab migration — maps removed v4 tab names to v5 equivalents ───────────────
-const TAB_MIGRATION_V5 = {
-  'history':   'library',
-  'imports':   'library',
-  'cf-scores': 'library',
-};
-
-const VALID_TABS_V5 = [
-  'sweep', 'library', 'intel', 'instances', 'pipelines',
-  'overrides', 'filters', 'settings', 'notifications', 'advanced',
-];
-
-// ── Main Alpine data function ─────────────────────────────────────────────────
 function nudgarr() {
   return {
 
-    // ── Core state ───────────────────────────────────────────────────────────
-    CFG: null,
+    // ── Navigation ──────────────────────────────────────────────────────
     panel: 'sweep',
-    sidebarOpen: false,
-    sweeping: false,
-    schedulerEnabled: true,
-    autoMode: 'AUTO',
-    lastRunUtc: null,
-    nextRunUtc: null,
-    lastSkippedQueueDepthUtc: null,
 
-    // ── Instance counts ──────────────────────────────────────────────────────
-    radarrInstances: [],
-    sonarrInstances: [],
-    get radarrInstanceCount() { return this.radarrInstances.length; },
-    get sonarrInstanceCount() { return this.sonarrInstances.length; },
-
-    // ── Feature flags ────────────────────────────────────────────────────────
-    overridesEnabled: false,
+    // ── Feature flags ───────────────────────────────────────────────────
     cfScoreEnabled: false,
-    authEnabled: false,
-    showSupportLink: false,
+    overridesEnabled: false,
 
-    // ── Unsaved change tracking ──────────────────────────────────────────────
+    // ── Unsaved-changes tracking per panel ──────────────────────────────
     unsaved: {
       settings: false, pipelines: false, overrides: false,
       notifications: false, advanced: false, filters: false,
     },
 
-    // ── Modal state ──────────────────────────────────────────────────────────
-    modal: null,
-    clearExclOpt: null,
-    confirmAction: null,
-    confirmTitle: '',
-    confirmMsg: '',
-    confirmLabel: '',
-    alertMsg: '',
-    alertType: 'error',
-    modalMode: 'add',
-    modalIdx: -1,
+    // ── Sweep / Status ───────────────────────────────────────────────────
+    version: '',
+    sweeping: false,
+    schedulerEnabled: false,   // ONLY set from applyConfig() — never from scheduler_running
+    lastRunUtc: null,
+    nextRunUtc: null,
+    containerTime: '',
+    instanceHealth: {},
+    sweepLifetime: {},
+    importsConfirmedSweep: { movies: 0, shows: 0 },
+    lastSweepStartUtc: null,
+    lastSkippedQueueDepthUtc: null,
+    lastSummary: { radarr: [], sonarr: [] },
+    lastRunCutoffUtc: null,
+    lastRunBacklogUtc: null,
+    lastRunCfscoreUtc: null,
+    lastError: null,
+    _wasRunning: false,
+    _autoRefreshLast: 0,
 
-    // ── Overrides info seen flag ─────────────────────────────────────────────
-    overridesInfoSeen: false,
-
-    // ── Onboarding state ─────────────────────────────────────────────────────
-    onboardingStep: 0,
-    get onboardingTotal()   { return 8; },
-    get onboardingIsFirst() { return this.onboardingStep === 0; },
-    get onboardingIsLast()  { return this.onboardingStep === 7; },
-    onboardingNext() { if (this.onboardingStep < 7) this.onboardingStep++; else this.completeOnboarding(); },
-    onboardingPrev() { if (this.onboardingStep > 0) this.onboardingStep--; },
-    onboardingGoto(step) { if (step >= 0 && step <= 7) this.onboardingStep = step; },
-
-    async completeOnboarding() {
-      this.closeModal();
-      try { await this.api('/api/onboarding/complete', { method: 'POST' }); } catch (_) {}
-      if (this.CFG) this.CFG.onboarding_complete = true;
-      this.panel = 'instances';
-    },
-
-    // ── Day pills (Quiet Hours day-of-week selector) ──────────────────────────
-    isDayActive(i) { return (this.quietDays || []).includes(i); },
-    toggleDay(i) {
-      const days = [...(this.quietDays || [])];
-      const idx = days.indexOf(i);
-      if (idx >= 0) days.splice(idx, 1); else days.push(i);
-      this.quietDays = days.sort((a, b) => a - b);
-      this.unsaved.settings = true;
-    },
-
-
-
-    // ── Library view state ───────────────────────────────────────────────────
+    // ── Library ──────────────────────────────────────────────────────────
     libView: 'history',
-    exclBadge: 0,
 
-    // ── History state ────────────────────────────────────────────────────────
+    // History
     historyItems: [],
-    historyPage: 1,
     historyTotal: 0,
-    historySort: 'desc',
-    historySortField: 'last_searched_ts',
+    historyPage: 0,
+    historyPageSize: 25,
     historySearch: '',
-    historyInstanceFilter: '',
-    historyTypeFilter: '',
-    showExclusions: false,
-    exclusions: [],
+    historyInstance: '',
+    historyType: '',
+    historySort: { col: 'last_searched', dir: 'desc' },
+    exclusionsData: [],
+    exclusionsSet: new Set(),
+    exclBadge: 0,
+    summaryKpis: [],
 
-    // ── Imports state ────────────────────────────────────────────────────────
+    // Imports
     importsItems: [],
-    importsPage: 1,
     importsTotal: 0,
-    importsSort: 'desc',
-    importsSortField: 'confirmed_ts',
+    importsPage: 0,
+    importsPageSize: 25,
     importsSearch: '',
-    importsPeriod: localStorage.getItem('nudgarr_imports_period') || 'lifetime',
+    importsInstance: '',
+    importsType: '',
+    importsSort: { col: 'imported_ts', dir: 'desc' },
+    importsPeriod: (function() { try { return localStorage.getItem('nudgarr_imports_period') || 'lifetime'; } catch(e) { return 'lifetime'; } })(),
+    importsMoviesTotal: 0,
+    importsShowsTotal: 0,
+    importsAvailableInstances: [],
+    importsAvailableTypes: [],
 
-    // ── CF Score state ───────────────────────────────────────────────────────
-    cfItems: [],
-    cfPage: 1,
+    // CF Score entries
+    cfEntries: [],
     cfTotal: 0,
+    cfPage: 0,
+    cfPageSize: 25,
     cfSearch: '',
     cfInstanceFilter: '',
-    cfPageSize: 25,
-    cfScanInProgress: false,
+    cfStatusData: null,
 
-    // ── Sweep state ──────────────────────────────────────────────────────────
-    sweepStatus: null,
-    lifetimeRuns: 0,
-    avgPerRun: 0,
-    importsSweep: { movies: 0, shows: 0 },
-    importsTotal_: 0,
-    instanceStatus: [],
-    pipelineData: { cutoff: null, backlog: null, cfScore: null },
+    // Exclusions view
+    exclusionItems: [],
 
-    // ── Intel state ──────────────────────────────────────────────────────────
+    // ── Intel ────────────────────────────────────────────────────────────
     intelData: null,
-    intelColdStart: true,
 
-    // ── Settings form state ──────────────────────────────────────────────────
-    cronExpr: '0 */6 * * *',
-    quietEnabled: false,
-    quietStart: '02:00',
-    quietEnd: '06:00',
-    quietDays: [],
-    cooldown: 48,
-    queueEnabled: false,
-    queueThreshold: 10,
+    // ── Instances ────────────────────────────────────────────────────────
+    instMsg: '',
+    instMsgClass: '',
+    instModal: {
+      show: false, kind: 'radarr', idx: -1,
+      name: '', url: '', key: '', keyVisible: false,
+      testStatus: '', testMsg: '', testDone: false, testOk: false,
+      urlWarn: false, isEdit: false,
+      title: '', namePlaceholder: '', urlPlaceholder: '', keyLabel: '', keyPlaceholder: '',
+    },
+    cfg: null,
+
+    // ── Pipelines ────────────────────────────────────────────────────────
     radarrCutoffEnabled: true,
     sonarrCutoffEnabled: true,
-    radarrMax: 10,
-    sonarrMax: 10,
+    radarrMaxCutoff: 25,
+    sonarrMaxCutoff: 25,
     radarrSampleMode: 'round_robin',
     sonarrSampleMode: 'round_robin',
-    batchSize: 1,
-    sleepSecs: 5,
-    jitterSecs: 2,
-    radarrExclEnabled: false,
-    sonarrExclEnabled: false,
-    radarrExclThreshold: 10,
-    radarrUnexcl: 0,
-    sonarrExclThreshold: 10,
-    sonarrUnexcl: 0,
 
-    // ── Pipelines form state ─────────────────────────────────────────────────
     radarrBacklogEnabled: false,
     sonarrBacklogEnabled: false,
-    radarrBacklogMax: 5,
-    sonarrBacklogMax: 5,
+    radarrMissingMax: 1,
+    sonarrMissingMax: 1,
+    radarrMissingAddedDays: 14,
+    radarrMissingGraceHours: 0,
+    sonarrMissingGraceHours: 0,
     radarrBacklogSampleMode: 'round_robin',
     sonarrBacklogSampleMode: 'round_robin',
-    radarrMissingAddedDays: 30,
-    radarrGracePeriod: 0,
-    sonarrGracePeriod: 0,
+
+    cfEnabled: false,
     cfSyncCron: '0 0 * * *',
-    radarrCfMax: 5,
-    sonarrCfMax: 5,
+    cfCronHint: '',
+    cfCronValid: null,
+    radarrCfMax: 25,
+    sonarrCfMax: 25,
     radarrCfSampleMode: 'largest_gap_first',
     sonarrCfSampleMode: 'largest_gap_first',
-    cfLastSync: null,
 
-    // ── Notifications form state ─────────────────────────────────────────────
+    // ── Overrides ────────────────────────────────────────────────────────
+    ovData: {},
+    ovDirty: {},
+    overridesInfoSeen: false,
+
+    // ── Filters ──────────────────────────────────────────────────────────
+    radarrFilters: { loaded: false, instanceIdx: 0, tags: [], profiles: [], excludedTagIds: [], excludedProfileIds: [], tagSearch: '', profileSearch: '', loading: false },
+    sonarrFilters: { loaded: false, instanceIdx: 0, tags: [], profiles: [], excludedTagIds: [], excludedProfileIds: [], tagSearch: '', profileSearch: '', loading: false },
+
+    // ── Settings ─────────────────────────────────────────────────────────
+    schedulerEnabledUi: false,
+    cronExpr: '0 */6 * * *',
+    cronHint: '',
+    cronValid: null,
+    cooldownHours: 48,
+    maintenanceEnabled: false,
+    maintenanceStart: '23:00',
+    maintenanceEnd: '07:00',
+    maintenanceDays: [0,1,2,3,4,5,6],
+    maintHint: '',
+    batchSize: 1,
+    sleepSeconds: 5,
+    jitterSeconds: 2,
+    queueDepthEnabled: false,
+    queueDepthThreshold: 10,
+    perInstanceOverridesEnabled: false,
+    radarrAutoExclEnabled: false,
+    sonarrAutoExclEnabled: false,
+    autoExclMoviesThreshold: 0,
+    autoExclShowsThreshold: 0,
+    autoUnexclMoviesDays: 0,
+    autoUnexclShowsDays: 0,
+
+    // ── Notifications ────────────────────────────────────────────────────
     notifyEnabled: false,
     notifyUrl: '',
     notifyUrlVisible: false,
@@ -187,1159 +165,1221 @@ function nudgarr() {
     notifyOnImport: true,
     notifyOnAutoExcl: true,
     notifyOnError: true,
-    notifyOnQueueDepth: true,
+    notifyOnQueueDepth: false,
+    notifTestMsg: '',
+    notifTestMsgClass: '',
 
-    // ── Advanced form state ──────────────────────────────────────────────────
-    requireLogin: false,
+    // ── Advanced ─────────────────────────────────────────────────────────
+    authEnabled: false,
     sessionTimeout: 60,
-    defaultTab: 'sweep',
-    showSupportLinkForm: false,
-    importCheck: 120,
+    importCheckMinutes: 120,
     logLevel: 'INFO',
-    retentionDays: 90,
+    defaultTab: 'sweep',
+    showSupportLink: true,
+    retentionDays: 180,
 
-    // ── Filters state ────────────────────────────────────────────────────────
-    radarrFiltersInstance: '',
-    sonarrFiltersInstance: '',
-    radarrFiltersLoaded: false,
-    sonarrFiltersLoaded: false,
+    // ── Modals ───────────────────────────────────────────────────────────
+    modal: null,
+    confirmAction: null,
+    alertMsg: '',
+    alertType: 'error',   // 'error' | 'success'
+    clearExclOpt: null,
+    _confirmResolve: null,
 
-    // ── Overrides state ──────────────────────────────────────────────────────
-    overrideCards: [],
+    // ── Onboarding ───────────────────────────────────────────────────────
+    onboardingStep: 0,
+    onboardingTotal: 8,
 
-    // ── Page size (shared across paginated views) ─────────────────────────────
-    pageSize: 25,
+    // ── Computed ─────────────────────────────────────────────────────────
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // COMPUTED PROPERTIES
-    // ─────────────────────────────────────────────────────────────────────────
+    get autoMode() { return this.schedulerEnabled ? 'AUTO' : 'MANUAL'; },
 
     get topbarTitle() {
-      const m = {
-        sweep: 'Sweep', library: 'Library', intel: 'Intel',
-        instances: 'Instances', pipelines: 'Pipelines', overrides: 'Overrides',
-        filters: 'Filters', settings: 'Settings', notifications: 'Notifications',
-        advanced: 'Advanced',
-      };
+      const m = { sweep:'Sweep', library:'Library', intel:'Intel', instances:'Instances', pipelines:'Pipelines', settings:'Settings', overrides:'Overrides', filters:'Filters', notifications:'Notifications', advanced:'Advanced' };
       return m[this.panel] || '';
     },
 
     get topbarSub() {
-      const total = this.radarrInstanceCount + this.sonarrInstanceCount;
+      if (!this.cfg) return '';
+      const radarrCount = (this.cfg.instances?.radarr || []).length;
+      const sonarrCount = (this.cfg.instances?.sonarr || []).length;
+      const totalInst = radarrCount + sonarrCount;
+      const instStr = totalInst ? totalInst + ' instance' + (totalInst !== 1 ? 's' : '') : 'No instances';
       const activePipelines = [
         this.radarrCutoffEnabled || this.sonarrCutoffEnabled,
         this.radarrBacklogEnabled || this.sonarrBacklogEnabled,
-        this.cfScoreEnabled,
+        this.cfEnabled,
       ].filter(Boolean).length;
-      const disabled = [
-        !(this.radarrBacklogEnabled || this.sonarrBacklogEnabled) ? 'Backlog' : null,
-        !this.cfScoreEnabled ? 'CF Score' : null,
+      const disabledNames = [
+        !this.radarrBacklogEnabled && !this.sonarrBacklogEnabled ? 'Backlog' : null,
+        !this.cfEnabled ? 'CF Score' : null,
       ].filter(Boolean);
-      const pipelineSub = disabled.length
-        ? `${activePipelines} pipeline${activePipelines !== 1 ? 's' : ''} \u00b7 ${disabled.join(', ')} disabled`
-        : `${activePipelines} pipeline${activePipelines !== 1 ? 's' : ''}`;
+      const pipelineSub = disabledNames.length
+        ? activePipelines + ' pipeline' + (activePipelines !== 1 ? 's' : '') + ' \u00b7 ' + disabledNames.join(', ') + ' disabled'
+        : activePipelines + ' pipeline' + (activePipelines !== 1 ? 's' : '');
       const m = {
-        sweep:         `${total} instance${total !== 1 ? 's' : ''} \u00b7 ${pipelineSub}`,
-        library:       'History \u00b7 Imports \u00b7 CF Score \u00b7 Exclusions',
-        intel:         'Lifetime performance data',
-        instances:     `${this.radarrInstanceCount} Radarr \u00b7 ${this.sonarrInstanceCount} Sonarr`,
-        pipelines:     pipelineSub,
-        overrides:     `${total} instance${total !== 1 ? 's' : ''}`,
-        filters:       'Tag and quality profile exclusions per instance',
-        settings:      'Scheduler, throttling, auto-exclusion',
-        notifications: '1 agent configured',
-        advanced:      'Auth, retention, diagnostics',
+        sweep: instStr + ' \u00b7 ' + pipelineSub,
+        library: 'History \u00b7 Imports \u00b7 CF Score \u00b7 Exclusions',
+        intel: 'Lifetime performance data',
+        instances: radarrCount ? radarrCount + ' Radarr \u00b7 ' + sonarrCount + ' Sonarr' : 'No instances configured',
+        pipelines: pipelineSub,
+        settings: 'Scheduler, throttling, auto-exclusion',
+        overrides: totalInst + ' instance' + (totalInst !== 1 ? 's' : ''),
+        filters: 'Tag and quality profile exclusions per instance',
+        notifications: this.notifyEnabled ? '1 agent configured' : 'No agents configured',
+        advanced: 'Auth, retention, diagnostics',
       };
       return m[this.panel] || '';
     },
 
-    get lastRunTs() {
-      if (!this.lastRunUtc) return Date.now() - 2 * 3600000;
-      return new Date(this.lastRunUtc).getTime();
+    // Topbar status
+    get lastRunDisplay() {
+      if (this.lastSkippedQueueDepthUtc) return 'Queue Skip';
+      if (!this.lastRunUtc) return 'Never';
+      return this.formatRelative(new Date(this.lastRunUtc).getTime(), false);
     },
 
-    get nextRunTs() {
-      if (!this.nextRunUtc) return Date.now() + 25 * 60000;
-      return new Date(this.nextRunUtc).getTime();
+    get nextRunDisplay() {
+      if (!this.schedulerEnabled) return 'Manual';
+      if (!this.nextRunUtc) return 'Off';
+      return this.formatRelative(new Date(this.nextRunUtc).getTime(), true);
     },
 
     get nextRunColor() {
       if (!this.schedulerEnabled) return 'color:var(--muted)';
-      if (this.nextRunTs < Date.now()) return 'color:var(--warn)';
+      if (!this.nextRunUtc) return 'color:var(--muted)';
+      if (new Date(this.nextRunUtc).getTime() < Date.now()) return 'color:var(--warn)';
       return 'color:var(--ok)';
     },
 
-    get nextRunLabel() {
-      if (!this.schedulerEnabled) return 'Manual';
-      if (this.nextRunTs < Date.now()) return 'Overdue';
-      return this.formatRelative(this.nextRunTs, true);
+    get topbarDotClass() {
+      if (this.sweeping) return 'warn';
+      if (!this.schedulerEnabled) return 'muted';
+      if (this.nextRunUtc && new Date(this.nextRunUtc).getTime() < Date.now()) return 'warn';
+      return '';
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // INIT
-    // ─────────────────────────────────────────────────────────────────────────
+    get sweepHealthState() {
+      if (this.lastError) return 'error';
+      const bad = Object.values(this.instanceHealth).filter(v => v === 'bad').length;
+      return bad > 0 ? 'warn' : 'ok';
+    },
 
-    init() {
-      // Tab migration guard
+    get sweepHealthMsg() {
+      if (this.lastError) return 'Sweep Failed';
+      const bad = Object.entries(this.instanceHealth).filter(([,v]) => v === 'bad');
+      if (bad.length) return bad.length + ' Instance' + (bad.length > 1 ? 's' : '') + ' Unreachable';
+      return 'All Instances Healthy';
+    },
+
+    get lifetimeRuns() {
+      let r = 0;
+      for (const row of Object.values(this.sweepLifetime)) r += row.runs || 0;
+      return r;
+    },
+
+    get lifetimeAvgPerRun() {
+      let r = 0, s = 0;
+      for (const row of Object.values(this.sweepLifetime)) { r += row.runs || 0; s += row.searched || 0; }
+      return r > 0 ? (s / r).toFixed(1) : '0';
+    },
+
+    get allInstances() {
+      if (!this.cfg) return [];
+      const out = [];
+      (this.cfg.instances?.radarr || []).forEach(i => out.push({ key: i.name + '|' + (i.url || '').replace(/\/$/, ''), name: i.name, app: 'radarr' }));
+      (this.cfg.instances?.sonarr || []).forEach(i => out.push({ key: i.name + '|' + (i.url || '').replace(/\/$/, ''), name: i.name, app: 'sonarr' }));
+      return out;
+    },
+
+    get hasInstances() {
+      if (!this.cfg) return false;
+      return (this.cfg.instances?.radarr || []).length > 0 || (this.cfg.instances?.sonarr || []).length > 0;
+    },
+
+    get cutoffAgg() { return this._pipelineAgg('cutoff'); },
+    get backlogAgg() { return this._pipelineAgg('backlog'); },
+    get cfscoreAgg() { return this._pipelineAgg('cfscore'); },
+
+    get cutoffInstRows() { return this._pipelineInstRows('cutoff'); },
+    get backlogInstRows() { return this._pipelineInstRows('backlog'); },
+    get cfscoreInstRows() { return this._pipelineInstRows('cfscore'); },
+
+    get overrideInstances() {
+      if (!this.cfg) return [];
+      const out = [];
+      (this.cfg.instances?.radarr || []).forEach((inst, idx) => out.push({ kind: 'radarr', idx, name: inst.name }));
+      (this.cfg.instances?.sonarr || []).forEach((inst, idx) => out.push({ kind: 'sonarr', idx, name: inst.name }));
+      return out;
+    },
+
+    get radarrInstances() { return (this.cfg?.instances?.radarr || []); },
+    get sonarrInstances() { return (this.cfg?.instances?.sonarr || []); },
+
+    get historyPageCount() { return Math.max(1, Math.ceil(this.historyTotal / this.historyPageSize)); },
+    get importsPageCount() { return Math.max(1, Math.ceil(this.importsTotal / this.importsPageSize)); },
+    get cfPageCount() { return Math.max(1, Math.ceil(this.cfTotal / this.cfPageSize)); },
+
+    get onboardingIsFirst() { return this.onboardingStep === 0; },
+    get onboardingIsLast() { return this.onboardingStep === this.onboardingTotal - 1; },
+
+    get cfStatusSyncCoverage() {
+      if (!this.cfStatusData) return [];
+      return this.cfStatusData.instances || [];
+    },
+
+    // ── Init ─────────────────────────────────────────────────────────────
+
+    async init() {
+      let _pingTimer = null;
+      const _doPing = () => fetch('/api/ping', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+      const _onActivity = () => { if (_pingTimer) return; _doPing(); _pingTimer = setTimeout(() => { _pingTimer = null; }, 15000); };
+      ['click', 'keydown', 'scroll', 'touchstart'].forEach(ev => document.addEventListener(ev, _onActivity, { passive: true }));
+
+      window.addEventListener('unhandledrejection', ev => console.error('[unhandled]', ev.reason?.message || ev.reason));
+
       try {
-        const saved = localStorage.getItem('nudgarr_last_tab');
-        if (saved) {
-          const migrated = TAB_MIGRATION_V5[saved] || saved;
-          const valid = VALID_TABS_V5.includes(migrated) ? migrated : 'sweep';
-          if (valid !== saved) localStorage.setItem('nudgarr_last_tab', valid);
-          this.panel = valid;
-        }
-      } catch (_) {}
-      if (TAB_MIGRATION_V5[this.defaultTab]) this.defaultTab = TAB_MIGRATION_V5[this.defaultTab];
-      if (!VALID_TABS_V5.includes(this.defaultTab)) this.defaultTab = 'sweep';
+        await this.loadAll();
+        await this.maybeShowOnboarding();
+        if (this.cfg && this.cfg.onboarding_complete) await this.maybeShowWhatsNew();
+      } catch (e) {
+        this.showAlert('Failed to load \u2014 please refresh the page. (' + e.message + ')', 'error');
+      }
 
-      // Load config and start polling
-      this.loadAll();
       setInterval(() => this.pollCycle(), 5000);
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // API
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── API helper ───────────────────────────────────────────────────────
 
-    async api(path, opts = {}) {
-      const res = await fetch(path, {
-        headers: { 'Content-Type': 'application/json', ...opts.headers },
-        ...opts,
-        body: opts.body ? JSON.stringify(opts.body) : undefined,
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || `HTTP ${res.status}`);
-      }
-      return res.json();
+    async _api(path, opts) {
+      const r = await fetch(path, opts || {});
+      if (r.status === 401) { window.location.href = '/login'; return; }
+      const ct = r.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await r.json() : await r.text();
+      if (!r.ok) throw new Error(typeof data === 'string' ? data : (data.error || JSON.stringify(data)));
+      return data;
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BOOTSTRAP
-    // ─────────────────────────────────────────────────────────────────────────
+    _post(path, body) {
+      return this._api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    },
+
+    // ── Load all ─────────────────────────────────────────────────────────
 
     async loadAll() {
-      try {
-        this.CFG = await this.api('/api/config');
-        this.applyConfig();
-        await this.refreshStatus();
-        this.maybeShowWhatsNew();
-        this.maybeShowOnboarding();
-
-        // Navigate to saved or default tab
-        if (this.CFG && this.CFG.onboarding_complete) {
-          let start = null;
-          try { start = localStorage.getItem('nudgarr_last_tab'); } catch (_) {}
-          if (!start) start = this.CFG.default_tab || 'sweep';
-          start = TAB_MIGRATION_V5[start] || start;
-          if (!VALID_TABS_V5.includes(start)) start = 'sweep';
-          if (start === 'overrides' && !this.overridesEnabled) start = 'sweep';
-          this.panel = start;
-        } else {
-          this.panel = 'instances';
-        }
-
-        localStorage.setItem('nudgarr_last_tab', this.panel);
-        this.loadPanel(this.panel);
-        this.$watch('panel', val => {
-          localStorage.setItem('nudgarr_last_tab', val);
-          this.loadPanel(val);
-        });
-      } catch (e) {
-        this.showAlert('Failed to load — please refresh the page. (' + e.message + ')');
-      }
+      this.cfg = await this._api('/api/config');
+      const st = await this._api('/api/status');
+      this.version = st.version || '';
+      this.applyStatus(st);
+      this.applyConfig();
+      await this.loadExclusions();
     },
 
     applyConfig() {
-      const c = this.CFG;
-      if (!c) return;
-      // Instances
-      this.radarrInstances = (c.instances && c.instances.radarr) ? c.instances.radarr : [];
-      this.sonarrInstances = (c.instances && c.instances.sonarr) ? c.instances.sonarr : [];
-      // Feature flags
-      this.overridesEnabled = !!c.per_instance_overrides_enabled;
-      this.cfScoreEnabled   = !!c.cf_score_enabled;
-      this.authEnabled      = !!c.auth_enabled;
-      this.showSupportLink  = !!c.show_support_link;
-      // Scheduler
-      this.schedulerEnabled = !!c.scheduler_enabled;
-      this.cronExpr         = c.cron_expression || '0 */6 * * *';
-      this.autoMode             = c.scheduler_enabled ? 'AUTO' : 'MANUAL';
-      // Maintenance
-      this.quietEnabled = !!c.maintenance_window_enabled;
-      this.quietStart   = c.maintenance_window_start || '02:00';
-      this.quietEnd     = c.maintenance_window_end   || '06:00';
-      this.quietDays    = c.maintenance_window_days  || [];
-      // Cutoff
-      this.cooldown            = c.cooldown_hours            !== undefined ? c.cooldown_hours : 48;
-      this.radarrCutoffEnabled = c.radarr_cutoff_enabled     !== false;
-      this.sonarrCutoffEnabled = c.sonarr_cutoff_enabled     !== false;
-      this.radarrMax           = c.radarr_max_movies_per_run !== undefined ? c.radarr_max_movies_per_run : 10;
-      this.sonarrMax           = c.sonarr_max_episodes_per_run !== undefined ? c.sonarr_max_episodes_per_run : 10;
-      this.radarrSampleMode    = c.radarr_sample_mode        || 'round_robin';
-      this.sonarrSampleMode    = c.sonarr_sample_mode        || 'round_robin';
-      // Throttle
-      this.batchSize    = c.batch_size    || 1;
-      this.sleepSecs = c.sleep_seconds || 5;
-      this.jitterSecs = c.jitter_seconds || 2;
-      // Queue depth
-      this.queueEnabled   = !!c.queue_depth_enabled;
-      this.queueThreshold = c.queue_depth_threshold || 10;
-      // Auto-exclusion
-      this.radarrExclEnabled  = !!c.radarr_auto_exclude_enabled;
-      this.sonarrExclEnabled  = !!c.sonarr_auto_exclude_enabled;
-      this.radarrExclThreshold    = c.auto_exclude_movies_threshold || 10;
-      this.radarrUnexcl           = c.auto_unexclude_movies_days    || 0;
-      this.sonarrExclThreshold    = c.auto_exclude_shows_threshold  || 10;
-      this.sonarrUnexcl           = c.auto_unexclude_shows_days     || 0;
-      // Backlog
-      this.radarrBacklogEnabled    = !!c.radarr_backlog_enabled;
-      this.sonarrBacklogEnabled    = !!c.sonarr_backlog_enabled;
-      this.radarrBacklogMax        = c.radarr_missing_max            !== undefined ? c.radarr_missing_max : 5;
-      this.sonarrBacklogMax        = c.sonarr_missing_max            !== undefined ? c.sonarr_missing_max : 5;
-      this.radarrBacklogSampleMode = c.radarr_backlog_sample_mode    || 'round_robin';
-      this.sonarrBacklogSampleMode = c.sonarr_backlog_sample_mode    || 'round_robin';
-      this.radarrMissingAddedDays  = c.radarr_missing_added_days     !== undefined ? c.radarr_missing_added_days : 30;
-      this.radarrGracePeriod       = c.radarr_missing_grace_hours    || 0;
-      this.sonarrGracePeriod       = c.sonarr_missing_grace_hours    || 0;
-      // CF Score
-      this.cfSyncCron          = c.cf_score_sync_cron          || '0 0 * * *';
-      this.radarrCfMax         = c.radarr_cf_max_per_run         !== undefined ? c.radarr_cf_max_per_run : 5;
-      this.sonarrCfMax         = c.sonarr_cf_max_per_run         !== undefined ? c.sonarr_cf_max_per_run : 5;
-      this.radarrCfSampleMode  = c.radarr_cf_sample_mode       || 'largest_gap_first';
-      this.sonarrCfSampleMode  = c.sonarr_cf_sample_mode       || 'largest_gap_first';
-      // Notifications
-      this.notifyEnabled     = !!c.notify_enabled;
-      this.notifyUrl         = c.notify_url || '';
-      this.notifyOnSweep     = c.notify_on_sweep_complete  !== false;
-      this.notifyOnImport    = c.notify_on_import          !== false;
-      this.notifyOnAutoExcl  = c.notify_on_auto_exclusion  !== false;
-      this.notifyOnError     = c.notify_on_error           !== false;
-      this.notifyOnQueueDepth = !!c.notify_on_queue_depth_skip;
-      // Advanced
-      this.requireLogin      = !!c.auth_enabled;
-      this.sessionTimeout    = c.auth_session_minutes || 60;
-      this.defaultTab        = c.default_tab          || 'sweep';
-      this.showSupportLinkForm = !!c.show_support_link;
-      this.importCheck  = c.import_check_minutes || 120;
-      this.logLevel            = c.log_level            || 'INFO';
-      this.retentionDays       = c.state_retention_days !== undefined ? c.state_retention_days : 90;
+      if (!this.cfg) return;
+      // CRITICAL: schedulerEnabled only set here
+      this.schedulerEnabled = !!this.cfg.scheduler_enabled;
+      this.cfScoreEnabled = !!this.cfg.cf_score_enabled;
+      this.overridesEnabled = !!this.cfg.per_instance_overrides_enabled;
+
+      this.schedulerEnabledUi = !!this.cfg.scheduler_enabled;
+      this.cronExpr = this.cfg.cron_expression || '0 */6 * * *';
+      this.cooldownHours = this.cfg.cooldown_hours ?? 48;
+      this.maintenanceEnabled = !!this.cfg.maintenance_window_enabled;
+      this.maintenanceStart = this.cfg.maintenance_window_start || '23:00';
+      this.maintenanceEnd = this.cfg.maintenance_window_end || '07:00';
+      this.maintenanceDays = this.cfg.maintenance_window_days || [0,1,2,3,4,5,6];
+      this.batchSize = this.cfg.batch_size ?? 1;
+      this.sleepSeconds = this.cfg.sleep_seconds ?? 5;
+      this.jitterSeconds = this.cfg.jitter_seconds ?? 2;
+      this.queueDepthEnabled = !!this.cfg.queue_depth_enabled;
+      this.queueDepthThreshold = this.cfg.queue_depth_threshold ?? 10;
+      this.perInstanceOverridesEnabled = !!this.cfg.per_instance_overrides_enabled;
+      this.radarrAutoExclEnabled = !!this.cfg.radarr_auto_exclude_enabled;
+      this.sonarrAutoExclEnabled = !!this.cfg.sonarr_auto_exclude_enabled;
+      this.autoExclMoviesThreshold = this.cfg.auto_exclude_movies_threshold ?? 0;
+      this.autoExclShowsThreshold = this.cfg.auto_exclude_shows_threshold ?? 0;
+      this.autoUnexclMoviesDays = this.cfg.auto_unexclude_movies_days ?? 0;
+      this.autoUnexclShowsDays = this.cfg.auto_unexclude_shows_days ?? 0;
+
+      this.radarrCutoffEnabled = this.cfg.radarr_cutoff_enabled !== false;
+      this.sonarrCutoffEnabled = this.cfg.sonarr_cutoff_enabled !== false;
+      this.radarrMaxCutoff = this.cfg.radarr_max_movies_per_run ?? 25;
+      this.sonarrMaxCutoff = this.cfg.sonarr_max_episodes_per_run ?? 25;
+      this.radarrSampleMode = this.cfg.radarr_sample_mode || 'round_robin';
+      this.sonarrSampleMode = this.cfg.sonarr_sample_mode || 'round_robin';
+      this.radarrBacklogEnabled = !!this.cfg.radarr_backlog_enabled;
+      this.sonarrBacklogEnabled = !!this.cfg.sonarr_backlog_enabled;
+      this.radarrMissingMax = this.cfg.radarr_missing_max ?? 1;
+      this.sonarrMissingMax = this.cfg.sonarr_missing_max ?? 1;
+      this.radarrMissingAddedDays = this.cfg.radarr_missing_added_days ?? 14;
+      this.radarrMissingGraceHours = this.cfg.radarr_missing_grace_hours ?? 0;
+      this.sonarrMissingGraceHours = this.cfg.sonarr_missing_grace_hours ?? 0;
+      this.radarrBacklogSampleMode = this.cfg.radarr_backlog_sample_mode || 'round_robin';
+      this.sonarrBacklogSampleMode = this.cfg.sonarr_backlog_sample_mode || 'round_robin';
+      this.cfEnabled = !!this.cfg.cf_score_enabled;
+      this.cfSyncCron = this.cfg.cf_score_sync_cron || '0 0 * * *';
+      this.radarrCfMax = this.cfg.radarr_cf_max_per_run ?? 25;
+      this.sonarrCfMax = this.cfg.sonarr_cf_max_per_run ?? 25;
+      this.radarrCfSampleMode = this.cfg.radarr_cf_sample_mode || 'largest_gap_first';
+      this.sonarrCfSampleMode = this.cfg.sonarr_cf_sample_mode || 'largest_gap_first';
+
+      this.notifyEnabled = !!this.cfg.notify_enabled;
+      this.notifyUrl = this.cfg.notify_url || '';
+      this.notifyOnSweep = this.cfg.notify_on_sweep_complete !== false;
+      this.notifyOnImport = this.cfg.notify_on_import !== false;
+      this.notifyOnAutoExcl = this.cfg.notify_on_auto_exclusion !== false;
+      this.notifyOnError = this.cfg.notify_on_error !== false;
+      this.notifyOnQueueDepth = !!this.cfg.notify_on_queue_depth_skip;
+
+      this.authEnabled = this.cfg.auth_enabled !== false;
+      this.sessionTimeout = this.cfg.auth_session_minutes ?? 60;
+      this.importCheckMinutes = this.cfg.import_check_minutes ?? 120;
+      this.logLevel = this.cfg.log_level || 'INFO';
+      this.defaultTab = this.cfg.default_tab || 'sweep';
+      this.showSupportLink = this.cfg.show_support_link !== false;
+      this.retentionDays = this.cfg.state_retention_days ?? 180;
+
+      this.validateCron();
+      this.validateCfCron();
+      this.validateMaintTime();
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // STATUS POLLING
-    // ─────────────────────────────────────────────────────────────────────────
+    applyStatus(st) {
+      if (!st) return;
+      this.sweeping = !!st.run_in_progress;
+      this.lastRunUtc = st.last_run_utc || null;
+      this.nextRunUtc = st.next_run_utc || null;
+      this.containerTime = st.container_time || '';
+      this.instanceHealth = st.instance_health || {};
+      this.sweepLifetime = st.sweep_lifetime || {};
+      this.importsConfirmedSweep = st.imports_confirmed_sweep || { movies: 0, shows: 0 };
+      this.lastSweepStartUtc = st.last_sweep_start_utc || null;
+      this.lastSkippedQueueDepthUtc = st.last_skipped_queue_depth_utc || null;
+      this.lastSummary = st.last_summary || { radarr: [], sonarr: [] };
+      this.lastRunCutoffUtc = st.last_run_cutoff_utc || null;
+      this.lastRunBacklogUtc = st.last_run_backlog_utc || null;
+      this.lastRunCfscoreUtc = st.last_run_cfscore_utc || null;
+      this.lastError = st.last_error || null;
+    },
+
+    // ── Poll cycle ───────────────────────────────────────────────────────
 
     async pollCycle() {
-      try { await this.refreshStatus(); } catch (_) {}
-    },
-
-    async refreshStatus() {
-      const s = await this.api('/api/status');
-      this.sweeping         = !!s.run_in_progress;
-      this.schedulerEnabled = !!s.scheduler_running;
-      this.autoMode         = s.scheduler_running ? 'AUTO' : 'MANUAL';
-      if (s.version) { /* version displayed via {{ VERSION }} in template */ }
-      this.lastRunUtc       = s.last_run_utc       || null;
-      this.nextRunUtc       = s.next_run_utc        || null;
-      this.lastSkippedQueueDepthUtc = s.last_skipped_queue_depth_utc || null;
-      // Update sweep panel data if on sweep tab
-      if (this.panel === 'sweep') this.refreshSweep(s);
-    },
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PANEL LOADER
-    // ─────────────────────────────────────────────────────────────────────────
-
-    loadPanel(p) {
-      // Guard: if CF Score disabled and on cfscores view, redirect to history
-      if (p === 'library' && this.libView === 'cfscores' && !this.cfScoreEnabled) {
-        this.libView = 'history';
-      }
-      switch (p) {
-        case 'sweep':         this.refreshSweep();    break;
-        case 'library':       this.refreshLibrary();  break;
-        case 'intel':         this.refreshIntel();    break;
-        case 'instances':     this.renderInstances(); break;
-        case 'pipelines':     break; // reactive, no load needed
-        case 'overrides':     this.renderOverrides(); break;
-        case 'filters':       this.loadFilters();     break;
-        case 'settings':      break; // reactive
-        case 'notifications': break; // reactive
-        case 'advanced':      break; // reactive
+      try {
+        const st = await this._api('/api/status');
+        this.version = st.version || this.version;
+        const isRunning = !!st.run_in_progress;
+        this.sweeping = isRunning;
+        this.instanceHealth = st.instance_health || {};
+        this.sweepLifetime = st.sweep_lifetime || {};
+        this.importsConfirmedSweep = st.imports_confirmed_sweep || { movies: 0, shows: 0 };
+        this.lastSweepStartUtc = st.last_sweep_start_utc || null;
+        this.lastSkippedQueueDepthUtc = st.last_skipped_queue_depth_utc || null;
+        this.lastSummary = st.last_summary || { radarr: [], sonarr: [] };
+        this.lastRunCutoffUtc = st.last_run_cutoff_utc || null;
+        this.lastRunBacklogUtc = st.last_run_backlog_utc || null;
+        this.lastRunCfscoreUtc = st.last_run_cfscore_utc || null;
+        this.lastError = st.last_error || null;
+        if (!isRunning) {
+          this.lastRunUtc = st.last_run_utc || null;
+          this.nextRunUtc = st.next_run_utc || null;
+          this.containerTime = st.container_time || '';
+        }
+        if (this._wasRunning && !isRunning) {
+          this._autoRefreshLast = 0;
+          if (this.panel === 'library') this.refreshHistory();
+        }
+        this._wasRunning = isRunning;
+        const now = Date.now();
+        if (now - this._autoRefreshLast >= 30000) {
+          this._autoRefreshLast = now;
+          if (this.panel === 'library' && this.libView === 'history') this.refreshHistory();
+          if (this.panel === 'library' && this.libView === 'imports') this.refreshImports();
+        }
+      } catch (e) {
+        console.warn('[poll] failed:', e.message);
       }
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SIDEBAR / MODAL HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Navigation ───────────────────────────────────────────────────────
 
-    openSidebar()  { this.sidebarOpen = true; },
-    closeSidebar() { this.sidebarOpen = false; },
+    navigateTo(name) {
+      this.panel = name;
+      if (this.cfg && this.cfg.onboarding_complete) {
+        try { localStorage.setItem('nudgarr_last_tab', name); } catch (_) {}
+      }
+      if (name === 'library' && this.libView === 'history') this.refreshHistory();
+      if (name === 'library' && this.libView === 'imports') this.refreshImports();
+      if (name === 'library' && this.libView === 'cfscores') this.refreshCfScores();
+      if (name === 'library' && this.libView === 'exclusions') this.refreshExclusions();
+      if (name === 'intel') this.refreshIntel();
+      if (name === 'overrides') this._buildOverrideData();
+    },
 
-    openModal(name) { this.modal = name; },
-    closeModal()    { this.modal = null; this.clearExclOpt = null; this.confirmAction = null; },
+    setLibView(v) {
+      if (v === 'cfscores' && !this.cfScoreEnabled) { this.libView = 'history'; return; }
+      this.libView = v;
+      if (v === 'history') this.refreshHistory();
+      if (v === 'imports') this.refreshImports();
+      if (v === 'cfscores') this.refreshCfScores();
+      if (v === 'exclusions') this.refreshExclusions();
+    },
 
-    showAlert(msg, type = 'error') { this.alertMsg = msg; this.alertType = type; this.modal = 'alert'; },
+    // ── Sweep ────────────────────────────────────────────────────────────
 
-    danger(action) {
-      const actions = {
-        clearHistory:  { title: 'Clear History',          msg: 'Removes all search history records. Exclusions, imports, and Intel lifetime data are not affected.',          label: 'Clear History' },
-        clearImports:  { title: 'Clear Imports',          msg: 'Removes all import records. Intel lifetime totals and sweep run counts are not affected.',                    label: 'Clear Imports' },
-        clearLog:      { title: 'Clear Log',              msg: 'Clears the application log. This only affects the in-memory log shown in diagnostics.',                      label: 'Clear Log' },
-        resetIntel:    { title: 'Reset Intel',            msg: 'Resets all lifetime Intel data including turnaround, upgrade history, and exclusion events. Cannot be undone.', label: 'Reset Intel' },
-        resetExclusions: { title: 'Clear All Exclusions', msg: 'Removes every exclusion. All titles will become eligible for searching again immediately.',                   label: 'Clear Exclusions' },
+    _pipelineAgg(type) {
+      const all = [...(this.lastSummary.radarr || []), ...(this.lastSummary.sonarr || [])];
+      if (type === 'cutoff') {
+        const r = { searched: 0, cooldown: 0, capped: 0, excluded: 0, tag: 0, profile: 0 };
+        for (const s of all) { r.searched += s.searched||0; r.cooldown += s.skipped_cooldown||0; r.capped += Math.max(0,(s.eligible||0)-(s.searched||0)); r.excluded += s.skipped_excluded_cutoff||0; r.tag += s.skipped_tag_cutoff||0; r.profile += s.skipped_profile_cutoff||0; }
+        return r;
+      }
+      if (type === 'backlog') {
+        const r = { searched: 0, cooldown: 0, capped: 0, grace: 0, tag: 0, profile: 0 };
+        for (const s of all) { r.searched += s.searched_missing||0; r.cooldown += s.skipped_missing_cooldown||0; r.capped += Math.max(0,(s.eligible_missing||0)-(s.searched_missing||0)); r.grace += s.skipped_grace||0; r.tag += s.skipped_tag_backlog||0; r.profile += s.skipped_profile_backlog||0; }
+        return r;
+      }
+      const r = { searched: 0, cooldown: 0, excluded: 0, queued: 0 };
+      for (const s of all) { r.searched += s.searched_cf||0; r.cooldown += s.skipped_cf_cooldown||0; r.excluded += s.skipped_cf_excluded||0; r.queued += s.skipped_cf_queued||0; }
+      return r;
+    },
+
+    _pipelineInstRows(type) {
+      if (!this.cfg) return [];
+      const rows = [];
+      const all = [...(this.lastSummary.radarr || []), ...(this.lastSummary.sonarr || [])];
+      for (const kind of ['radarr', 'sonarr']) {
+        for (const inst of (this.cfg.instances?.[kind] || [])) {
+          const hk = kind + '|' + inst.name;
+          const dot = this.instanceHealth[hk] || 'unknown';
+          const s = all.find(x => x.name === inst.name);
+          const disabled = inst.enabled === false;
+          let v1, v2, v3;
+          if (type === 'cutoff') { v1 = s?(s.searched||0):null; v2 = s?(s.skipped_cooldown||0):null; v3 = s?(s.skipped_excluded_cutoff||0):null; }
+          else if (type === 'backlog') { v1 = s?(s.searched_missing||0):null; v2 = s?(s.skipped_missing_cooldown||0):null; v3 = s?((s.skipped_tag_backlog||0)+(s.skipped_profile_backlog||0)):null; }
+          else { v1 = s?(s.searched_cf||0):null; v2 = s?(s.skipped_cf_cooldown||0):null; v3 = s?(s.skipped_cf_excluded||0):null; }
+          rows.push({ name: inst.name, dot, disabled, v1, v2, v3 });
+        }
+      }
+      return rows;
+    },
+
+    async runNow() {
+      if (!this.hasInstances) { this.openModal('noInstances'); return; }
+      try {
+        await this._api('/api/run-now', { method: 'POST' });
+        this.sweeping = true;
+      } catch (e) {
+        this.showAlert('Run request failed: ' + e.message, 'error');
+      }
+    },
+
+    // ── Library — Exclusions ──────────────────────────────────────────────
+
+    async loadExclusions() {
+      try {
+        const data = await this._api('/api/exclusions');
+        this.exclusionsData = data || [];
+        this.exclusionsSet = new Set(this.exclusionsData.map(e => (e.title || '').toLowerCase()));
+        await this.refreshAutoExclBadge();
+      } catch (e) { console.warn('[excl]', e.message); }
+    },
+
+    async refreshAutoExclBadge() {
+      try {
+        const data = await this._api('/api/exclusions/unacknowledged-count');
+        this.exclBadge = data?.count ?? 0;
+      } catch (e) { /* silent */ }
+    },
+
+    isExcluded(title) { return this.exclusionsSet.has((title || '').toLowerCase()); },
+
+    async toggleExclusion(title) {
+      const isExcl = this.isExcluded(title);
+      await this._api(isExcl ? '/api/exclusions/remove' : '/api/exclusions/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
+      await this.loadExclusions();
+      if (this.libView === 'history') this.refreshHistory();
+    },
+
+    // ── Library — History ────────────────────────────────────────────────
+
+    async refreshHistory(page) {
+      if (page !== undefined) this.historyPage = page;
+      try {
+        const sum = await this._api('/api/state/summary');
+        this.summaryKpis = this.allInstances.map(inst => {
+          const count = (sum.per_instance?.[inst.app]?.[inst.key]) || 0;
+          return { name: inst.name, count };
+        }).filter(k => k.count > 0);
+
+        const limit = this.historyPageSize;
+        const offset = this.historyPage * limit;
+        let url = '/api/state/items?limit=' + limit + '&offset=' + offset;
+        if (this.historyInstance) url += '&instance=' + encodeURIComponent(this.historyInstance);
+        if (this.historyType) url += '&type=' + encodeURIComponent(this.historyType);
+        if (this.historySearch) url += '&search=' + encodeURIComponent(this.historySearch);
+        const data = await this._api(url);
+        this.historyItems = this._sortItems(data.items || [], this.historySort.col, this.historySort.dir);
+        this.historyTotal = data.total || 0;
+      } catch (e) { console.warn('[history]', e.message); }
+    },
+
+    sortHistory(col) {
+      if (this.historySort.col === col) this.historySort.dir = this.historySort.dir === 'asc' ? 'desc' : 'asc';
+      else { this.historySort.col = col; this.historySort.dir = 'asc'; }
+      this.historyPage = 0;
+      this.refreshHistory();
+    },
+
+    prevHistoryPage() { if (this.historyPage > 0) this.refreshHistory(this.historyPage - 1); },
+    nextHistoryPage() { if (this.historyPage < this.historyPageCount - 1) this.refreshHistory(this.historyPage + 1); },
+
+    async pruneState() {
+      try { await this._api('/api/state/prune', { method: 'POST' }); this.historyPage = 0; this.refreshHistory(); }
+      catch (e) { this.showAlert('Prune failed: ' + e.message, 'error'); }
+    },
+
+    openClearExclModal() { this.clearExclOpt = null; this.openModal('clearExcl'); },
+
+    async confirmClearExcl() {
+      if (!this.clearExclOpt) return;
+      const ep = this.clearExclOpt === 'auto' ? '/api/exclusions/clear-auto' : this.clearExclOpt === 'manual' ? '/api/exclusions/clear-manual' : '/api/exclusions/clear-all';
+      try { await this._api(ep, { method: 'POST' }); this.closeModal(); await this.loadExclusions(); this.refreshHistory(); }
+      catch (e) { this.showAlert('Clear failed: ' + e.message, 'error'); }
+    },
+
+    eligibleDisplay(item) {
+      const title = item.title || item.key || '';
+      if (!this.isExcluded(title)) {
+        if (item.eligible_again === 'Next Sweep') return { cls: 'eligible-next-sweep', text: 'Next Sweep' };
+        return { cls: 'td-blue-dim', text: this._fmtTime(item.eligible_again) };
+      }
+      return { cls: 'td-muted', text: '\u2014' };
+    },
+
+    // ── Library — Imports ────────────────────────────────────────────────
+
+    async refreshImports(page) {
+      if (page !== undefined) this.importsPage = page;
+      try {
+        try { localStorage.setItem('nudgarr_imports_period', this.importsPeriod); } catch (_) {}
+        const limit = this.importsPageSize;
+        const offset = this.importsPage * limit;
+        let url = '/api/stats?offset=' + offset + '&limit=' + limit + '&period=' + encodeURIComponent(this.importsPeriod);
+        if (this.importsInstance) url += '&instance=' + encodeURIComponent(this.importsInstance);
+        if (this.importsType) url += '&type=' + encodeURIComponent(this.importsType);
+        // Bug #3: /api/stats returns data.entries
+        const data = await this._api(url);
+        this.importsItems = data.entries || [];
+        this.importsTotal = data.total || 0;
+        // Bug #4 / #18: totals come from API
+        this.importsMoviesTotal = data.movies_total ?? 0;
+        this.importsShowsTotal = data.shows_total ?? 0;
+        this.importsAvailableInstances = data.instances || [];
+        this.importsAvailableTypes = data.types || [];
+        this.importsItems = this._sortItems(this.importsItems, this.importsSort.col, this.importsSort.dir);
+      } catch (e) { console.warn('[imports]', e.message); }
+    },
+
+    sortImports(col) {
+      if (this.importsSort.col === col) this.importsSort.dir = this.importsSort.dir === 'asc' ? 'desc' : 'asc';
+      else { this.importsSort.col = col; this.importsSort.dir = 'asc'; }
+      this.importsPage = 0;
+      this.refreshImports();
+    },
+
+    prevImportsPage() { if (this.importsPage > 0) this.refreshImports(this.importsPage - 1); },
+    nextImportsPage() { if (this.importsPage < this.importsPageCount - 1) this.refreshImports(this.importsPage + 1); },
+
+    async checkImportsNow() {
+      try { await this._api('/api/stats/check-imports', { method: 'POST' }); this.refreshImports(); }
+      catch (e) { this.showAlert('Check failed: ' + e.message, 'error'); }
+    },
+
+    // ── Library — CF Score ────────────────────────────────────────────────
+
+    async refreshCfScores(page) {
+      if (page !== undefined) this.cfPage = page;
+      try {
+        let url = '/api/cf-scores/entries?offset=' + (this.cfPage * this.cfPageSize) + '&limit=' + this.cfPageSize;
+        if (this.cfInstanceFilter) url += '&instance_id=' + encodeURIComponent(this.cfInstanceFilter);
+        if (this.cfSearch) url += '&search=' + encodeURIComponent(this.cfSearch);
+        const data = await this._api(url);
+        this.cfEntries = data.entries || [];
+        this.cfTotal = data.total || 0;
+        this.cfStatusData = await this._api('/api/cf-scores/status');
+      } catch (e) { console.warn('[cfscores]', e.message); }
+    },
+
+    prevCfPage() { if (this.cfPage > 0) this.refreshCfScores(this.cfPage - 1); },
+    nextCfPage() { if (this.cfPage < this.cfPageCount - 1) this.refreshCfScores(this.cfPage + 1); },
+
+    cfLastSync() {
+      // Bug #17: API returns last_sync_at field
+      return this.cfStatusData?.last_sync_at ? this._fmtTime(this.cfStatusData.last_sync_at) : 'Never';
+    },
+
+    cfIndexedCount() { return this.cfStatusData?.total_indexed ?? 0; },
+
+    async scanCfLibrary() {
+      try { await this._api('/api/cf-scores/scan', { method: 'POST' }); this.refreshCfScores(); }
+      catch (e) { this.showAlert('Scan failed: ' + e.message, 'error'); }
+    },
+
+    async resetCfIndex() {
+      try { await this._api('/api/cf-scores/reset', { method: 'POST' }); this.refreshCfScores(); }
+      catch (e) { this.showAlert('Reset failed: ' + e.message, 'error'); }
+    },
+
+    // ── Library — Exclusions view ─────────────────────────────────────────
+
+    async refreshExclusions() {
+      await this.loadExclusions();
+      this.exclusionItems = this.exclusionsData;
+      this.exclBadge = 0;
+    },
+
+    async unexcludeItem(title) {
+      await this._api('/api/exclusions/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
+      await this.loadExclusions();
+      this.exclusionItems = this.exclusionsData;
+    },
+
+    // ── Intel ─────────────────────────────────────────────────────────────
+
+    async refreshIntel() {
+      try { const data = await this._api('/api/intel'); this.intelData = data; }
+      catch (e) { console.warn('[intel]', e.message); }
+    },
+
+    intelUpgradePaths() {
+      // Bug #8: use path.from and path.to
+      return (this.intelData?.upgrade_history?.upgrade_paths || []);
+    },
+
+    async resetIntelData() {
+      await this._api('/api/intel/reset', { method: 'POST' });
+      this.refreshIntel();
+    },
+
+    // ── Instances ─────────────────────────────────────────────────────────
+
+    openInstModal(kind, idx) {
+      const isEdit = idx >= 0;
+      const inst = isEdit ? (this.cfg?.instances?.[kind]?.[idx] || {}) : {};
+      this.instModal = {
+        show: true, kind, idx, isEdit,
+        name: inst.name || '',
+        url: inst.url || '',
+        key: '',
+        keyVisible: false,
+        testStatus: '', testMsg: '', testDone: false, testOk: false,
+        urlWarn: false,
+        title: (isEdit ? 'Edit ' : 'Add ') + (kind === 'radarr' ? 'Radarr' : 'Sonarr') + ' Instance',
+        namePlaceholder: kind === 'radarr' ? 'Example: Radarr' : 'Example: Sonarr',
+        urlPlaceholder: kind === 'radarr' ? 'http://192.168.1.10:7878' : 'http://192.168.1.10:8989',
+        keyLabel: isEdit ? 'API Key (Leave blank to keep existing)' : 'API Key',
+        keyPlaceholder: isEdit ? 'Leave blank to keep existing key' : 'Instance API Key',
       };
-      const a = actions[action];
-      if (!a) return;
-      this.confirmAction = action;
-      this.confirmTitle  = a.title;
-      this.confirmMsg    = a.msg;
-      this.confirmLabel  = a.label;
-      this.modal = 'confirm';
     },
+
+    closeInstModal() { this.instModal.show = false; },
+
+    checkInstUrlPath() {
+      const url = this.instModal.url.trim();
+      if (!url) { this.instModal.urlWarn = false; return; }
+      try { const u = new URL(url); this.instModal.urlWarn = u.pathname && u.pathname !== '/'; }
+      catch (e) { this.instModal.urlWarn = false; }
+    },
+
+    async testInstConnection() {
+      const { name, url, key, kind } = this.instModal;
+      if (!url.trim()) { this.instModal.testStatus = 'err'; this.instModal.testMsg = 'Enter a URL first.'; return; }
+      this.instModal.testStatus = 'loading'; this.instModal.testMsg = 'Testing\u2026'; this.instModal.testDone = false;
+      try {
+        const payload = { kind, name: name || 'test', url: url.trim(), key: key.trim() };
+        const r = await this._api('/api/test-single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        this.instModal.testDone = true; this.instModal.testOk = !!r.ok;
+        if (r.ok) { this.instModal.testStatus = 'ok'; this.instModal.testMsg = '\u2713 ' + (r.version ? 'Connected \u00b7 v' + r.version : 'Connected'); }
+        else { this.instModal.testStatus = 'err'; this.instModal.testMsg = '\u2717 ' + (r.error || 'Connection failed'); }
+      } catch (e) { this.instModal.testDone = true; this.instModal.testOk = false; this.instModal.testStatus = 'err'; this.instModal.testMsg = '\u2717 ' + e.message; }
+    },
+
+    async saveInstModal() {
+      const { kind, idx, name, url, key } = this.instModal;
+      if (!name.trim() || !url.trim()) { this.instModal.testStatus = 'err'; this.instModal.testMsg = 'Name and URL are required.'; return; }
+      if (!key.trim() && idx < 0) { this.instModal.testStatus = 'err'; this.instModal.testMsg = 'API key is required.'; return; }
+      if (!this.cfg.instances) this.cfg.instances = { radarr: [], sonarr: [] };
+      const entry = { name: name.trim(), url: url.trim(), key: key.trim() };
+      if (idx >= 0) {
+        const existing = this.cfg.instances[kind][idx];
+        if (!key.trim()) entry.key = existing.key;
+        this.cfg.instances[kind][idx] = { ...existing, ...entry };
+      } else {
+        this.cfg.instances[kind].push(entry);
+      }
+      this.instMsg = 'Unsaved Changes'; this.instMsgClass = 'msg unsaved';
+      this.closeInstModal();
+    },
+
+    async toggleInstance(kind, idx) {
+      try {
+        const r = await this._api('/api/instance/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, idx }) });
+        if (this.cfg?.instances?.[kind]?.[idx]) this.cfg.instances[kind][idx].enabled = r.enabled;
+      } catch (e) { this.showAlert('Toggle failed: ' + e.message, 'error'); }
+    },
+
+    async deleteInstance(kind, idx) {
+      const name = this.cfg?.instances?.[kind]?.[idx]?.name || 'this instance';
+      const ok = await this._showConfirm('Delete Instance', 'Remove ' + name + ' from Nudgarr? This cannot be undone.', 'Delete', true);
+      if (!ok) return;
+      this.cfg.instances[kind].splice(idx, 1);
+      this.instMsg = 'Unsaved Changes'; this.instMsgClass = 'msg unsaved';
+    },
+
+    async saveInstances() {
+      try {
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+        await new Promise(r => setTimeout(r, 400));
+        this.instMsg = 'Saved'; this.instMsgClass = 'msg ok';
+        this._fadeMsg('instMsg');
+      } catch (e) { this.instMsg = 'Save failed: ' + e.message; this.instMsgClass = 'msg err'; }
+    },
+
+    async testConnections() {
+      try {
+        const out = await this._api('/api/test', { method: 'POST' });
+        const health = {};
+        for (const kind of ['radarr', 'sonarr']) {
+          for (const r of (out.results?.[kind] || [])) {
+            health[kind + '|' + r.name] = r.disabled ? 'disabled' : r.ok ? 'ok' : 'bad';
+          }
+        }
+        this.instanceHealth = { ...this.instanceHealth, ...health };
+      } catch (e) { this.showAlert('Test failed: ' + e.message, 'error'); }
+    },
+
+    // ── Pipelines ─────────────────────────────────────────────────────────
+
+    async savePipelines() {
+      try {
+        // Bug #2: all cutoff fields required
+        this.cfg.radarr_cutoff_enabled = this.radarrCutoffEnabled;
+        this.cfg.sonarr_cutoff_enabled = this.sonarrCutoffEnabled;
+        this.cfg.radarr_max_movies_per_run = parseInt(this.radarrMaxCutoff) || 25;
+        this.cfg.sonarr_max_episodes_per_run = parseInt(this.sonarrMaxCutoff) || 25;
+        this.cfg.radarr_sample_mode = this.radarrSampleMode;
+        this.cfg.sonarr_sample_mode = this.sonarrSampleMode;
+        this.cfg.radarr_backlog_enabled = this.radarrBacklogEnabled;
+        this.cfg.sonarr_backlog_enabled = this.sonarrBacklogEnabled;
+        this.cfg.radarr_missing_max = parseInt(this.radarrMissingMax) || 1;
+        this.cfg.sonarr_missing_max = parseInt(this.sonarrMissingMax) || 1;
+        this.cfg.radarr_missing_added_days = parseInt(this.radarrMissingAddedDays) || 14;
+        this.cfg.radarr_missing_grace_hours = parseInt(this.radarrMissingGraceHours) || 0;
+        this.cfg.sonarr_missing_grace_hours = parseInt(this.sonarrMissingGraceHours) || 0;
+        this.cfg.radarr_backlog_sample_mode = this.radarrBacklogSampleMode;
+        this.cfg.sonarr_backlog_sample_mode = this.sonarrBacklogSampleMode;
+        this.cfg.cf_score_enabled = this.cfEnabled;
+        this.cfg.cf_score_sync_cron = this.cfSyncCron;
+        this.cfg.radarr_cf_max_per_run = parseInt(this.radarrCfMax) || 25;
+        this.cfg.sonarr_cf_max_per_run = parseInt(this.sonarrCfMax) || 25;
+        this.cfg.radarr_cf_sample_mode = this.radarrCfSampleMode;
+        this.cfg.sonarr_cf_sample_mode = this.sonarrCfSampleMode;
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+        await new Promise(r => setTimeout(r, 400));
+        this.unsaved.pipelines = false;
+        this.showAlert('Pipelines saved.', 'success');
+      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+    },
+
+    validateCfCron() {
+      const val = (this.cfSyncCron || '').trim();
+      const parts = val.split(/\s+/);
+      const valid = parts.length === 5 && parts.every(p => /^[\d\*\/,\-]+$/.test(p));
+      this.cfCronValid = val ? valid : null;
+      this.cfCronHint = valid ? this._describeCron(val) : (val ? 'Invalid cron expression' : '');
+    },
+
+    // ── Settings ──────────────────────────────────────────────────────────
+
+    validateCron() {
+      const val = (this.cronExpr || '').trim();
+      const parts = val.split(/\s+/);
+      const valid = parts.length === 5 && parts.every(p => /^[\d\*\/,\-]+$/.test(p));
+      this.cronValid = val ? valid : null;
+      if (valid) {
+        const interval = this._cronIntervalMinutes(val);
+        this.cronHint = (interval !== null && interval < 60) ? '\u26a0 May stress indexers' : this._describeCron(val);
+      } else {
+        this.cronHint = val ? 'Invalid cron expression' : '';
+      }
+    },
+
+    validateMaintTime() {
+      const re = /^(\d{2}):(\d{2})$/;
+      const sm = this.maintenanceStart.match(re);
+      const em = this.maintenanceEnd.match(re);
+      if (!sm || !em) { this.maintHint = sm || em ? 'Enter times as HH:MM' : ''; return; }
+      const sOk = parseInt(sm[1]) <= 23 && parseInt(sm[2]) <= 59;
+      const eOk = parseInt(em[1]) <= 23 && parseInt(em[2]) <= 59;
+      if (!sOk || !eOk) { this.maintHint = 'Enter times as HH:MM (e.g. 23:00)'; return; }
+      const sMin = parseInt(sm[1]) * 60 + parseInt(sm[2]);
+      const eMin = parseInt(em[1]) * 60 + parseInt(em[2]);
+      if (sMin === eMin) { this.maintHint = 'Start and end time cannot be the same'; return; }
+      if (!this.maintenanceDays.length) { this.maintHint = 'Select at least one day'; return; }
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const sel = this.maintenanceDays.map(d => days[d]);
+      const dayStr = sel.length === 7 ? 'every day' : sel.join(', ');
+      const overnight = sMin > eMin;
+      this.maintHint = this.maintenanceStart + ' to ' + this.maintenanceEnd + (overnight ? ' (overnight)' : '') + ' on ' + dayStr;
+    },
+
+    toggleMaintDay(d) {
+      if (this.maintenanceDays.includes(d)) this.maintenanceDays = this.maintenanceDays.filter(x => x !== d);
+      else this.maintenanceDays = [...this.maintenanceDays, d];
+      this.validateMaintTime();
+    },
+
+    isDayActive(d) { return this.maintenanceDays.includes(d); },
+
+    async saveSettings() {
+      try {
+        this.cfg.scheduler_enabled = this.schedulerEnabledUi;
+        this.cfg.cron_expression = (this.cronExpr || '').trim();
+        this.cfg.cooldown_hours = parseInt(this.cooldownHours) || 48;
+        this.cfg.maintenance_window_enabled = this.maintenanceEnabled;
+        this.cfg.maintenance_window_start = this.maintenanceStart;
+        this.cfg.maintenance_window_end = this.maintenanceEnd;
+        this.cfg.maintenance_window_days = [...this.maintenanceDays];
+        this.cfg.batch_size = parseInt(this.batchSize) || 1;
+        this.cfg.sleep_seconds = parseFloat(this.sleepSeconds) || 5;
+        this.cfg.jitter_seconds = parseFloat(this.jitterSeconds) || 2;
+        this.cfg.queue_depth_enabled = this.queueDepthEnabled;
+        this.cfg.queue_depth_threshold = Math.max(1, parseInt(this.queueDepthThreshold) || 10);
+        this.cfg.per_instance_overrides_enabled = this.perInstanceOverridesEnabled;
+        this.cfg.radarr_auto_exclude_enabled = this.radarrAutoExclEnabled;
+        this.cfg.sonarr_auto_exclude_enabled = this.sonarrAutoExclEnabled;
+        this.cfg.auto_exclude_movies_threshold = parseInt(this.autoExclMoviesThreshold) || 0;
+        this.cfg.auto_exclude_shows_threshold = parseInt(this.autoExclShowsThreshold) || 0;
+        this.cfg.auto_unexclude_movies_days = parseInt(this.autoUnexclMoviesDays) || 0;
+        this.cfg.auto_unexclude_shows_days = parseInt(this.autoUnexclShowsDays) || 0;
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+        await new Promise(r => setTimeout(r, 400));
+        this.unsaved.settings = false;
+        this.showAlert('Settings saved.', 'success');
+      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+    },
+
+    // ── Overrides ─────────────────────────────────────────────────────────
 
     enableOverrides() {
       this.overridesEnabled = true;
-      if (!this.overridesInfoSeen) { this.overridesInfoSeen = true; this.modal = 'overridesInfo'; }
+      this.perInstanceOverridesEnabled = true;
+      if (!this.overridesInfoSeen) { this.overridesInfoSeen = true; this.openModal('overridesInfo'); }
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // WHAT'S NEW / ONBOARDING
-    // ─────────────────────────────────────────────────────────────────────────
+    _buildOverrideData() {
+      if (!this.cfg) return;
+      const newData = {}, newDirty = {};
+      for (const kind of ['radarr', 'sonarr']) {
+        (this.cfg.instances?.[kind] || []).forEach((inst, idx) => {
+          const k = kind + '-' + idx;
+          if (!this.ovData[k]) {
+            const ov = inst.overrides || {};
+            newData[k] = {
+              cooldown_hours: ov.cooldown_hours ?? null,
+              cutoff_max: kind === 'radarr' ? (ov.radarr_max_movies_per_run ?? null) : (ov.sonarr_max_episodes_per_run ?? null),
+              cutoff_sample_mode: (kind === 'radarr' ? ov.radarr_sample_mode : ov.sonarr_sample_mode) ?? '__global__',
+              backlog_enabled: (kind === 'radarr' ? ov.radarr_backlog_enabled : ov.sonarr_backlog_enabled) ?? null,
+              backlog_max: (kind === 'radarr' ? ov.radarr_missing_max : ov.sonarr_missing_max) ?? null,
+              backlog_sample_mode: (kind === 'radarr' ? ov.radarr_backlog_sample_mode : ov.sonarr_backlog_sample_mode) ?? '__global__',
+              missing_added_days: kind === 'radarr' ? (ov.radarr_missing_added_days ?? null) : null,
+              cf_max: (kind === 'radarr' ? ov.radarr_cf_max_per_run : ov.sonarr_cf_max_per_run) ?? null,
+              cf_sample_mode: (kind === 'radarr' ? ov.radarr_cf_sample_mode : ov.sonarr_cf_sample_mode) ?? '__global__',
+              notifications_enabled: ov.notifications_enabled ?? null,
+            };
+            newDirty[k] = false;
+          } else {
+            newData[k] = this.ovData[k];
+            newDirty[k] = this.ovDirty[k];
+          }
+        });
+      }
+      this.ovData = newData; this.ovDirty = newDirty;
+    },
 
-    maybeShowWhatsNew() {
-      if (!this.CFG || !this.CFG.onboarding_complete) return;
-      const lastSeen = this.CFG.last_seen_version || '';
-      const current  = this.CFG.version           || '';
-      const toMinor  = v => v.split('.').slice(0, 2).join('.');
-      if (current && toMinor(lastSeen) !== toMinor(current)) this.modal = 'whatsNew';
+    ovGet(kind, idx) { return this.ovData[kind + '-' + idx] || {}; },
+    ovMarkDirty(kind, idx) { this.ovDirty[kind + '-' + idx] = true; this.unsaved.overrides = true; },
+
+    ovOverrideCount(kind, idx) {
+      const d = this.ovGet(kind, idx);
+      return Object.values(d).filter(v => v !== null && v !== '__global__').length;
+    },
+
+    async applyOverrides(kind, idx) {
+      const d = this.ovGet(kind, idx);
+      const ov = {};
+      if (d.cooldown_hours !== null) ov.cooldown_hours = parseInt(d.cooldown_hours) || 0;
+      if (d.cutoff_max !== null) { if (kind === 'radarr') ov.radarr_max_movies_per_run = parseInt(d.cutoff_max) || 1; else ov.sonarr_max_episodes_per_run = parseInt(d.cutoff_max) || 1; }
+      if (d.cutoff_sample_mode !== '__global__') { if (kind === 'radarr') ov.radarr_sample_mode = d.cutoff_sample_mode; else ov.sonarr_sample_mode = d.cutoff_sample_mode; }
+      if (d.backlog_enabled !== null) { if (kind === 'radarr') ov.radarr_backlog_enabled = !!d.backlog_enabled; else ov.sonarr_backlog_enabled = !!d.backlog_enabled; }
+      if (d.backlog_max !== null) { if (kind === 'radarr') ov.radarr_missing_max = parseInt(d.backlog_max) || 1; else ov.sonarr_missing_max = parseInt(d.backlog_max) || 1; }
+      if (d.backlog_sample_mode !== '__global__') { if (kind === 'radarr') ov.radarr_backlog_sample_mode = d.backlog_sample_mode; else ov.sonarr_backlog_sample_mode = d.backlog_sample_mode; }
+      if (kind === 'radarr' && d.missing_added_days !== null) ov.radarr_missing_added_days = parseInt(d.missing_added_days) || 14;
+      if (d.cf_max !== null) { if (kind === 'radarr') ov.radarr_cf_max_per_run = parseInt(d.cf_max) || 1; else ov.sonarr_cf_max_per_run = parseInt(d.cf_max) || 1; }
+      if (d.cf_sample_mode !== '__global__') { if (kind === 'radarr') ov.radarr_cf_sample_mode = d.cf_sample_mode; else ov.sonarr_cf_sample_mode = d.cf_sample_mode; }
+      if (d.notifications_enabled !== null) ov.notifications_enabled = !!d.notifications_enabled;
+      try {
+        await this._api('/api/instance/overrides', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, idx, overrides: ov }) });
+        if (this.cfg.instances?.[kind]?.[idx]) this.cfg.instances[kind][idx].overrides = ov;
+        this.ovDirty[kind + '-' + idx] = false;
+        const anyDirty = Object.values(this.ovDirty).some(Boolean);
+        if (!anyDirty) this.unsaved.overrides = false;
+      } catch (e) { this.showAlert('Apply failed: ' + e.message, 'error'); }
+    },
+
+    async resetOverrideCard(kind, idx) {
+      try {
+        await this._api('/api/instance/overrides', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, idx, overrides: {} }) });
+        if (this.cfg.instances?.[kind]?.[idx]) this.cfg.instances[kind][idx].overrides = {};
+        const k = kind + '-' + idx;
+        const blank = {};
+        for (const key of Object.keys(this.ovData[k] || {})) blank[key] = key.includes('sample_mode') ? '__global__' : null;
+        this.ovData[k] = blank; this.ovDirty[k] = false;
+        const anyDirty = Object.values(this.ovDirty).some(Boolean);
+        if (!anyDirty) this.unsaved.overrides = false;
+      } catch (e) { this.showAlert('Reset failed: ' + e.message, 'error'); }
+    },
+
+    // ── Filters ───────────────────────────────────────────────────────────
+
+    async loadFilterData(kind) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      f.loading = true;
+      try {
+        const [tagsData, profilesData] = await Promise.all([
+          this._api('/api/arr/tags?kind=' + kind + '&idx=' + f.instanceIdx),
+          this._api('/api/arr/profiles?kind=' + kind + '&idx=' + f.instanceIdx),
+        ]);
+        f.tags = tagsData.tags || [];
+        f.profiles = profilesData.profiles || [];
+        const inst = (this.cfg?.instances?.[kind] || [])[f.instanceIdx];
+        const sf = inst?.sweep_filters || {};
+        f.excludedTagIds = sf.excluded_tag_ids ? [...sf.excluded_tag_ids] : [];
+        f.excludedProfileIds = sf.excluded_profile_ids ? [...sf.excluded_profile_ids] : [];
+        f.loaded = true;
+      } catch (e) { this.showAlert('Failed to load filter data: ' + e.message, 'error'); }
+      finally { f.loading = false; }
+    },
+
+    filterTagFiltered(kind) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const q = (f.tagSearch || '').toLowerCase();
+      return f.tags.filter(t => !q || (t.label || '').toLowerCase().includes(q));
+    },
+
+    filterProfileFiltered(kind) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const q = (f.profileSearch || '').toLowerCase();
+      return f.profiles.filter(p => !q || (p.name || '').toLowerCase().includes(q));
+    },
+
+    toggleFilterTag(kind, id) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const i = f.excludedTagIds.indexOf(id);
+      if (i >= 0) f.excludedTagIds.splice(i, 1); else f.excludedTagIds.push(id);
+      this.unsaved.filters = true;
+    },
+
+    toggleFilterProfile(kind, id) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const i = f.excludedProfileIds.indexOf(id);
+      if (i >= 0) f.excludedProfileIds.splice(i, 1); else f.excludedProfileIds.push(id);
+      this.unsaved.filters = true;
+    },
+
+    async saveFilters(kind) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const instances = this.cfg?.instances?.[kind];
+      if (!instances || !instances[f.instanceIdx]) return;
+      const payload = { kind, idx: f.instanceIdx, sweep_filters: { excluded_tag_ids: [...f.excludedTagIds], excluded_profile_ids: [...f.excludedProfileIds] } };
+      try {
+        await this._api('/api/arr/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        // Only clear unsaved if both filters are saved
+        this.unsaved.filters = false;
+      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+    },
+
+    // ── Notifications ─────────────────────────────────────────────────────
+
+    async testNotification() {
+      const url = this.notifyUrl.trim();
+      if (!url) { this.notifTestMsg = 'Enter a URL first.'; this.notifTestMsgClass = 'msg err'; return; }
+      this.notifTestMsg = 'Sending\u2026'; this.notifTestMsgClass = 'msg';
+      // Bug #5: must send {url} in body
+      try {
+        const r = await this._api('/api/notifications/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+        if (r && r.ok) { this.notifTestMsg = '\u2713 Notification sent'; this.notifTestMsgClass = 'msg ok'; }
+        else { this.notifTestMsg = '\u2717 ' + (r?.error || 'Failed'); this.notifTestMsgClass = 'msg err'; }
+      } catch (e) { this.notifTestMsg = '\u2717 ' + e.message; this.notifTestMsgClass = 'msg err'; }
+      setTimeout(() => { this.notifTestMsg = ''; this.notifTestMsgClass = ''; }, 5000);
+    },
+
+    // Bug #7: saveNotifications must POST config
+    async saveNotifications() {
+      try {
+        this.cfg.notify_enabled = this.notifyEnabled;
+        this.cfg.notify_url = this.notifyUrl.trim();
+        // Bug #6: x-model bindings used in HTML
+        this.cfg.notify_on_sweep_complete = this.notifyOnSweep;
+        this.cfg.notify_on_import = this.notifyOnImport;
+        this.cfg.notify_on_auto_exclusion = this.notifyOnAutoExcl;
+        this.cfg.notify_on_error = this.notifyOnError;
+        this.cfg.notify_on_queue_depth_skip = this.notifyOnQueueDepth;
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+        await new Promise(r => setTimeout(r, 400));
+        this.unsaved.notifications = false;
+        this.showAlert('Notifications saved.', 'success');
+      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+    },
+
+    // ── Advanced ──────────────────────────────────────────────────────────
+
+    async saveAdvanced() {
+      try {
+        this.cfg.state_retention_days = parseInt(this.retentionDays) || 180;
+        this.cfg.auth_enabled = this.authEnabled;
+        this.cfg.auth_session_minutes = parseInt(this.sessionTimeout) || 60;
+        this.cfg.import_check_minutes = parseInt(this.importCheckMinutes) || 120;
+        this.cfg.log_level = this.logLevel;
+        this.cfg.default_tab = this.defaultTab;
+        this.cfg.show_support_link = this.showSupportLink;
+        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
+        await this.loadAll();
+        await new Promise(r => setTimeout(r, 400));
+        this.unsaved.advanced = false;
+        this.showAlert('Advanced settings saved.', 'success');
+      } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+    },
+
+    async logout() {
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { /* silent */ }
+      window.location.href = '/login';
+    },
+
+    backupAll() { window.location.href = '/api/file/backup'; },
+    downloadDiagnostic() { window.location.href = '/api/diagnostic'; },
+
+    // Danger zone — stores confirmAction, shows confirm modal
+    danger(action) { this.confirmAction = action; this.openModal('confirm'); },
+
+    async executeDanger() {
+      const action = this.confirmAction;
+      this.closeModal();
+      try {
+        if (action === 'clearHistory') await this._api('/api/state/clear', { method: 'POST' });
+        else if (action === 'clearImports') await this._api('/api/stats/clear', { method: 'POST' });
+        else if (action === 'clearLog') await this._api('/api/log/clear', { method: 'POST' });
+        else if (action === 'resetIntel') { await this._api('/api/intel/reset', { method: 'POST' }); this.refreshIntel(); }
+      } catch (e) { this.showAlert(action + ' failed: ' + e.message, 'error'); }
+    },
+
+    async executeResetConfig() {
+      this.closeModal();
+      try { await this._api('/api/config/reset', { method: 'POST' }); window.location.reload(); }
+      catch (e) { this.showAlert('Reset failed: ' + e.message, 'error'); }
+    },
+
+    // ── Arr link ─────────────────────────────────────────────────────────
+
+    // Bug #11: openArrLink must exist in the Alpine object
+    async openArrLink(app, instanceName, itemId, seriesId) {
+      try {
+        let url = '/api/arr-link?app=' + encodeURIComponent(app) + '&instance=' + encodeURIComponent(instanceName) + '&item_id=' + encodeURIComponent(itemId);
+        if (seriesId) url += '&series_id=' + encodeURIComponent(seriesId);
+        const data = await this._api(url);
+        if (data.ok && data.url) window.open(data.url, '_blank');
+        else { this.showAlert('Could not open in ' + (app === 'radarr' ? 'Radarr' : 'Sonarr') + ': ' + (data.error || 'Unknown error'), 'error'); }
+      } catch (e) { this.showAlert('Link failed: ' + e.message, 'error'); }
+    },
+
+    // ── Modal helpers ─────────────────────────────────────────────────────
+
+    openModal(name) { this.modal = name; },
+
+    closeModal() {
+      const wasConfirm = this.modal === 'confirm';
+      this.modal = null;
+      this.clearExclOpt = null;
+      if (!wasConfirm) this.confirmAction = null;
+      if (wasConfirm && this._confirmResolve) { this._confirmResolve(false); this._confirmResolve = null; }
+    },
+
+    showAlert(msg, type) {
+      this.alertMsg = msg;
+      this.alertType = type || 'error';
+      this.openModal('alert');
+    },
+
+    // Promise-based confirm for deleteInstance etc.
+    _showConfirm(title, msg, okLabel, isDanger) {
+      this.confirmAction = null;  // not a danger zone action
+      this._genericConfirmTitle = title;
+      this._genericConfirmMsg = msg;
+      this._genericConfirmOkLabel = okLabel || 'Confirm';
+      this._genericConfirmIsDanger = !!isDanger;
+      this.openModal('genericConfirm');
+      return new Promise(resolve => { this._confirmResolve = resolve; });
+    },
+
+    _genericConfirmTitle: '',
+    _genericConfirmMsg: '',
+    _genericConfirmOkLabel: 'Confirm',
+    _genericConfirmIsDanger: false,
+
+    genericConfirmOk() {
+      this.modal = null;
+      if (this._confirmResolve) { this._confirmResolve(true); this._confirmResolve = null; }
+    },
+
+    // ── Onboarding ────────────────────────────────────────────────────────
+
+    async maybeShowOnboarding() {
+      if (!this.cfg || this.cfg.onboarding_complete) return;
+      this.onboardingStep = 0;
+      this.openModal('onboarding');
+    },
+
+    onboardingNext() {
+      if (!this.onboardingIsLast) { this.onboardingStep++; }
+      else { this.closeModal(); this._completeOnboarding(); this.onboardingStep = 0; }
+    },
+
+    onboardingPrev() { if (!this.onboardingIsFirst) this.onboardingStep--; },
+    onboardingGoto(i) { this.onboardingStep = i; },
+
+    async _completeOnboarding() {
+      try { await this._api('/api/onboarding/complete', { method: 'POST' }); if (this.cfg) this.cfg.onboarding_complete = true; }
+      catch (e) { /* silent */ }
+    },
+
+    async maybeShowWhatsNew() {
+      if (!this.cfg) return;
+      const lastSeen = this.cfg.last_seen_version || '';
+      const current = this.version || '';
+      const toMinor = v => v.split('.').slice(0, 2).join('.');
+      if (current && toMinor(lastSeen) !== toMinor(current)) {
+        this.openModal('whatsNew');
+      }
     },
 
     async dismissWhatsNew() {
       this.closeModal();
-      try { await this.api('/api/whats-new/dismiss', { method: 'POST' }); } catch (_) {}
-      if (this.CFG) this.CFG.last_seen_version = this.CFG.version;
+      try { await this._api('/api/whats-new/dismiss', { method: 'POST' }); if (this.cfg) this.cfg.last_seen_version = this.version; }
+      catch (e) { /* silent */ }
     },
 
-    maybeShowOnboarding() {
-      if (this.CFG && !this.CFG.onboarding_complete) this.modal = 'onboarding';
-    },
+    // ── Helpers ───────────────────────────────────────────────────────────
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TIME / CRON UTILITIES
-    // ─────────────────────────────────────────────────────────────────────────
-
-    formatRelative(ts, future = false) {
+    formatRelative(ts, future) {
       const diff = future ? ts - Date.now() : Date.now() - ts;
       const mins = Math.floor(diff / 60000);
       const hrs  = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
       if (!future && mins < 1) return 'Just now';
       if (future  && mins < 1) return 'Now';
-      if (mins < 60)           return `${mins}m${future ? '' : ' ago'}`;
-      if (hrs  < 24)           return `${hrs}h${future ? '' : ' ago'}`;
-      if (days < 7)            return `${days}d${future ? '' : ' ago'}`;
+      if (mins < 60)  return mins + 'm' + (future ? '' : ' ago');
+      if (hrs  < 24)  return hrs + 'h' + (future ? '' : ' ago');
+      if (days < 7)   return days + 'd' + (future ? '' : ' ago');
       const d = new Date(ts);
       const sameYear = d.getFullYear() === new Date().getFullYear();
-      return d.toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric',
-        ...(sameYear ? {} : { year: 'numeric' }),
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+    },
+
+    _fmtTime(s) {
+      if (!s) return '\u2014';
+      try { return new Date(s).toLocaleString(); } catch (e) { return s; }
+    },
+
+    _fmtTimePadded(s) {
+      if (!s) return '';
+      try {
+        const d = new Date(s);
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const dy = String(d.getDate()).padStart(2, '0');
+        let h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        const mi = String(d.getMinutes()).padStart(2, '0');
+        return mo + '/' + dy + ', ' + h + ':' + mi + ' ' + ampm;
+      } catch (e) { return s; }
+    },
+
+    _sortItems(items, col, dir) {
+      return [...items].sort((a, b) => {
+        let av = a[col], bv = b[col];
+        if (av == null) av = ''; if (bv == null) bv = '';
+        if (typeof av === 'number' && typeof bv === 'number') return dir === 'asc' ? av - bv : bv - av;
+        return dir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       });
     },
 
-    formatDate(ts) {
-      if (!ts) return '';
-      const d = new Date(ts);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    },
-
     formatCompact(n) {
-      if (n === null || n === undefined) return '—';
-      if (n < 10000) return n.toLocaleString();
-      if (n < 1000000) return (n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k';
-      return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      const v = Number(n) || 0;
+      if (v < 10000) return v.toLocaleString();
+      if (v < 1000000) return (v / 1000).toFixed(v < 100000 ? 1 : 0) + 'k';
+      return (v / 1000000).toFixed(1) + 'M';
     },
 
-    describeCron(expr) {
-      if (!expr) return '';
+    _cronIntervalMinutes(expr) {
       const parts = expr.trim().split(/\s+/);
-      if (parts.length !== 5) return expr;
+      if (parts.length !== 5) return null;
+      const [min, hr] = parts;
+      if (/^\*\/\d+$/.test(min)) return parseInt(min.split('/')[1]);
+      if (min === '*') return 1;
+      if (/^\*\/\d+$/.test(hr) && /^\d+$/.test(min)) return parseInt(hr.split('/')[1]) * 60;
+      return 60;
+    },
+
+    _describeCron(expr) {
+      const parts = expr.trim().split(/\s+/);
+      if (parts.length !== 5) return 'Custom Schedule';
       const [min, hr, dom, mon, dow] = parts;
-      if (expr === '0 */6 * * *') return 'Every 6 hours';
-      if (expr === '0 */4 * * *') return 'Every 4 hours';
-      if (expr === '0 */12 * * *') return 'Every 12 hours';
-      if (expr === '0 0 * * *') return 'Daily at midnight';
-      if (expr === '0 2 * * *') return 'Daily at 2 AM';
-      if (hr.startsWith('*/') && min === '0' && dom === '*' && mon === '*' && dow === '*') {
-        return `Every ${hr.slice(2)} hours`;
+      const exactMin = /^\d+$/.test(min), exactHr = /^\d+$/.test(hr);
+      const mm = exactMin ? String(parseInt(min)).padStart(2,'0') : '00';
+      if (dom === '*' && mon === '*' && dow === '*' && exactHr && exactMin) {
+        const h = parseInt(hr), m = parseInt(min), suffix = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+        return 'Daily at ' + h12 + ':' + String(m).padStart(2,'0') + ' ' + suffix;
       }
-      if (dom === '*' && mon === '*' && dow === '*' && min === '0') {
-        return `Daily at ${hr.padStart(2,'0')}:00`;
+      if (/^\*\/\d+$/.test(hr) && dom === '*' && mon === '*' && dow === '*') {
+        const n = parseInt(hr.split('/')[1]);
+        return 'Every ' + n + ' hour' + (n !== 1 ? 's' : '') + (exactMin ? ' at xx:' + mm : ' on the hour');
       }
-      return expr;
+      if (/^\*\/\d+$/.test(min) && hr === '*' && dom === '*' && mon === '*' && dow === '*') {
+        const n = parseInt(min.split('/')[1]);
+        return 'Every ' + n + ' minute' + (n !== 1 ? 's' : '');
+      }
+      return 'Custom Schedule';
     },
 
-    updateContainerTime() {
-      return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    _fadeMsg(prop) {
+      setTimeout(() => { this[prop] = ''; this[prop + 'Class'] = ''; }, 3000);
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PANEL STUBS — implemented in Phase 3
-    // ─────────────────────────────────────────────────────────────────────────
-
-    async runNow() {
-      try {
-        await this.api('/api/run-now', { method: 'POST' });
-        this.sweeping = true;
-      } catch (e) {
-        this.showAlert('Run request failed: ' + e.message);
-      }
+    sweepPipePill(sweepType) {
+      const t = (sweepType || '').toLowerCase();
+      if (t === 'cf score') return 'cfscore';
+      if (t === 'backlog') return 'backlog';
+      return 'cutoff';
     },
 
-    async logout() {
-      try {
-        await this.api('/api/auth/logout', { method: 'POST' });
-        window.location.href = '/login';
-      } catch (_) {
-        window.location.href = '/login';
-      }
+    fmtSweepTime(ts) {
+      if (!ts) return '\u2014';
+      try { return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ts; }
     },
-
-    // ── Filter data (loaded on demand) ─────────────────────────────────────────
-    radarrFilterTags:       [],
-    radarrFilterProfiles:   [],
-    sonarrFilterTags:       [],
-    sonarrFilterProfiles:   [],
-    radarrExcludedTags:     [],
-    radarrExcludedProfiles: [],
-    sonarrExcludedTags:     [],
-    sonarrExcludedProfiles: [],
-    filtersRadarrUnsaved:   false,
-    filtersSonarrUnsaved:   false,
-
-
-
-      // ── Sweep ─────────────────────────────────────────────────────────────────
-      async refreshSweep(statusData) {
-        try {
-          const status = statusData || await this.api('/api/status');
-          const summary  = status.last_summary || {};
-          const health   = status.instance_health || {};
-          const lifetime = status.sweep_lifetime || {};
-          // Per-pipeline timestamps not tracked separately — use last sweep time for all
-          const lastSweep = status.last_run_utc || null;
-          const lastCutoff  = lastSweep;
-          const lastBacklog = lastSweep;
-          const lastCf      = lastSweep;
-
-          const allInsts = [];
-          for (const kind of ['radarr','sonarr']) {
-            for (const inst of (this.CFG?.instances?.[kind] || [])) {
-              allInsts.push({ ...inst, _kind: kind });
-            }
-          }
-
-          // Lifetime stats
-          let ltRuns = 0, ltSearched = 0;
-          for (const row of Object.values(lifetime)) {
-            ltRuns     += row.runs     || 0;
-            ltSearched += row.searched || 0;
-          }
-          this.lifetimeRuns = ltRuns;
-          this.avgPerRun    = ltRuns > 0 ? (ltSearched / ltRuns).toFixed(1) : '0';
-
-          // Instance health
-          const badInsts   = Object.entries(health).filter(([,v]) => v === 'bad');
-          this.instanceStatus = Object.entries(health).map(([key, state]) => {
-            const [app, ...np] = key.split('|');
-            return { app, name: np.join('|'), state };
-          });
-
-          // Imports confirmed this sweep
-          const imp = status.imports_confirmed_sweep || { movies: 0, shows: 0 };
-          this.importsSweep = imp;
-          this.importsTotal_ = (imp.movies || 0) + (imp.shows || 0);
-
-          // Pipeline data
-          this.pipelineData = {
-            cutoff:  this._buildPipelineAgg('cutoff',  summary, allInsts),
-            backlog: this._buildPipelineAgg('backlog', summary, allInsts),
-            cfScore: this._buildPipelineAgg('cfscore', summary, allInsts),
-            health,
-            lastCutoff, lastBacklog, lastCf,
-            allInsts,
-          };
-        } catch(e) {
-          console.warn('[sweep] refreshSweep failed:', e.message);
-        }
-      },
-
-      _buildPipelineAgg(type, summary, allInsts) {
-        const radarr = summary.radarr || [];
-        const sonarr = summary.sonarr || [];
-        const all    = [...radarr, ...sonarr];
-        const agg = { searched: 0, cooldown: 0, excluded: 0, tag: 0, profile: 0, grace: 0, insts: [] };
-        for (const s of all) {
-          if (type === 'cutoff') {
-            agg.searched  += s.searched                || 0;
-            agg.cooldown  += s.skipped_cooldown         || 0;
-            agg.excluded  += s.skipped_excluded_cutoff  || 0;
-          } else if (type === 'backlog') {
-            agg.searched  += s.searched_missing         || 0;
-            agg.cooldown  += s.skipped_missing_cooldown || 0;
-            agg.excluded  += (s.skipped_tag_backlog || 0) + (s.skipped_profile_backlog || 0);
-          } else {
-            agg.searched  += s.searched_cf              || 0;
-            agg.cooldown  += s.skipped_cf_cooldown      || 0;
-            agg.excluded  += s.skipped_cf_excluded      || 0;
-          }
-        }
-        // Build per-instance rows for template
-        for (const inst of allInsts) {
-          const s = (summary[inst._kind] || []).find(x => x.name === inst.name);
-          let v1, v2, v3;
-          if (type === 'cutoff') {
-            v1 = s ? (s.searched               || 0) : null;
-            v2 = s ? (s.skipped_cooldown        || 0) : null;
-            v3 = s ? (s.skipped_excluded_cutoff || 0) : null;
-          } else if (type === 'backlog') {
-            v1 = s ? (s.searched_missing         || 0) : null;
-            v2 = s ? (s.skipped_missing_cooldown || 0) : null;
-            v3 = s ? ((s.skipped_tag_backlog || 0) + (s.skipped_profile_backlog || 0)) : null;
-          } else {
-            v1 = s ? (s.searched_cf        || 0) : null;
-            v2 = s ? (s.skipped_cf_cooldown || 0) : null;
-            v3 = s ? (s.skipped_cf_excluded || 0) : null;
-          }
-          agg.insts.push({ name: inst.name, _kind: inst._kind, v1, v2, v3 });
-        }
-        return agg;
-      },
-
-      // ── Library ───────────────────────────────────────────────────────────────
-      async refreshLibrary() {
-        if (this.libView === 'history')    await this.refreshHistory();
-        else if (this.libView === 'imports')   await this.refreshImports();
-        else if (this.libView === 'cfscores')  await this.refreshCfScores();
-        else if (this.libView === 'exclusions') await this.loadExclusions();
-      },
-
-      async refreshHistory() {
-        try {
-          const sum = await this.api('/api/state/summary');
-          // Badge
-          const count = await this.api('/api/exclusions/unacknowledged-count');
-          this.exclBadge = count.count || 0;
-
-          const allInsts = [];
-          for (const kind of ['radarr','sonarr']) {
-            for (const inst of (this.CFG?.instances?.[kind] || [])) {
-              allInsts.push({ ...inst, _kind: kind, key: inst.url + '|' + inst.name });
-            }
-          }
-
-          const selInst  = this.historyInstanceFilter;
-          const selType  = this.historyTypeFilter;
-          const limit    = this.pageSize;
-          const offset   = (this.historyPage - 1) * limit;
-
-          let instApp = '', instUrl = '';
-          if (selInst && selInst.includes('|')) {
-            instApp = selInst.split('|')[0];
-            instUrl = selInst.split('|').slice(1).join('|');
-          }
-          const url = `/api/state/items?offset=${offset}&limit=${limit}`
-            + (instApp ? `&app=${encodeURIComponent(instApp)}` : '')
-            + (instUrl ? `&instance=${encodeURIComponent(instUrl)}` : '')
-            + (selType ? `&type=${encodeURIComponent(selType)}` : '')
-            + (this.historySearch ? `&search=${encodeURIComponent(this.historySearch)}` : '');
-
-          const data = await this.api(url);
-          this.historyItems = data.items  || [];
-          this.historyTotal = data.total  || 0;
-        } catch(e) {
-          console.warn('[library] refreshHistory failed:', e.message);
-        }
-      },
-
-      async refreshImports() {
-        try {
-          const limit  = this.pageSize;
-          const offset = (this.importsPage - 1) * limit;
-          let url = `/api/stats?offset=${offset}&limit=${limit}&period=${encodeURIComponent(this.importsPeriod)}`;
-          if (this.historyInstanceFilter) url += `&instance=${encodeURIComponent(this.historyInstanceFilter)}`;
-          const data = await this.api(url);
-          this.importsItems = data.items      || [];
-          this.importsTotal = data.total      || 0;
-          localStorage.setItem('nudgarr_imports_period', this.importsPeriod);
-        } catch(e) {
-          console.warn('[library] refreshImports failed:', e.message);
-        }
-      },
-
-      async refreshCfScores() {
-        try {
-          let url = '/api/cf-scores/entries';
-          if (this.cfInstanceFilter) url += '?instance_id=' + encodeURIComponent(this.cfInstanceFilter);
-          const [status, entries] = await Promise.all([
-            this.api('/api/cf-scores/status'),
-            this.api(url),
-          ]);
-          this.cfItems = entries.entries || entries.items || [];
-          this.cfTotal = entries.total   || this.cfItems.length;
-          this.cfLastSync = status?.last_sync_utc || null;
-
-          if (status?.scan_in_progress && !this.cfScanInProgress) {
-            this.cfScanInProgress = true;
-            this._cfWaitForScan();
-          }
-        } catch(e) {
-          console.warn('[library] refreshCfScores failed:', e.message);
-        }
-      },
-
-      async _cfWaitForScan() {
-        for (let i = 0; i < 120; i++) {
-          await new Promise(r => setTimeout(r, 3000));
-          try {
-            const s = await this.api('/api/cf-scores/status');
-            if (!s.scan_in_progress) { this.cfScanInProgress = false; await this.refreshCfScores(); return; }
-          } catch(_) {}
-        }
-        this.cfScanInProgress = false;
-      },
-
-      async cfScanLibrary() {
-        try {
-          await this.api('/api/cf-scores/scan');
-          this.cfScanInProgress = true;
-          this._cfWaitForScan();
-        } catch(e) {
-          this.showAlert('Scan could not be started: ' + e.message);
-        }
-      },
-
-      async cfResetIndex() {
-        try {
-          await this.api('/api/cf-scores/reset');
-          this.showAlert('CF Score index reset.', 'success');
-          await this.refreshCfScores();
-        } catch(e) {
-          this.showAlert('Reset failed: ' + e.message);
-        }
-      },
-
-      async loadExclusions() {
-        try {
-          const data = await this.api('/api/exclusions');
-          this.exclusions = Array.isArray(data) ? data : (data.exclusions || []);
-          this.exclBadge  = 0;
-          await this.api('/api/exclusions/acknowledge');
-        } catch(e) {
-          console.warn('[library] loadExclusions failed:', e.message);
-        }
-      },
-
-      async toggleExclusion(title, app) {
-        try {
-          const isExcluded = this.exclusions.some(e => e.title === title);
-          if (isExcluded) {
-            await this.api('/api/exclusions/remove', { method: 'POST', body: { title } });
-          } else {
-            await this.api('/api/exclusions/add', { method: 'POST', body: { title } });
-          }
-          await this.loadExclusions();
-        } catch(e) {
-          this.showAlert('Exclusion update failed: ' + e.message);
-        }
-      },
-
-      async confirmClearExclusions() {
-        if (!this.clearExclOpt) return;
-        try {
-          const clearEndpoints = { auto: '/api/exclusions/clear-auto', manual: '/api/exclusions/clear-manual', all: '/api/exclusions/clear-all' };
-          const ep = clearEndpoints[this.clearExclOpt] || '/api/exclusions/clear-all';
-          await this.api(ep, { method: 'POST' });
-          this.closeModal();
-          this.showAlert('Exclusions cleared.', 'success');
-          await this.loadExclusions();
-        } catch(e) {
-          this.showAlert('Clear failed: ' + e.message);
-        }
-      },
-
-      async pruneHistory() {
-        try {
-          const out = await this.api('/api/state/prune', { method: 'POST' });
-          this.showAlert(`Pruned ${out.removed || 0} entries.`, 'success');
-          await this.refreshHistory();
-        } catch(e) {
-          this.showAlert('Prune failed: ' + e.message);
-        }
-      },
-
-      // ── Intel ─────────────────────────────────────────────────────────────────
-      async refreshIntel() {
-        try {
-          this.intelData = await this.api('/api/intel');
-          this.intelColdStart = !!(this.intelData && this.intelData.cold_start);
-        } catch(e) {
-          console.warn('[intel] refreshIntel failed:', e.message);
-        }
-      },
-
-      // ── Instances ─────────────────────────────────────────────────────────────
-      async renderInstances() {
-        // Instances are rendered reactively from this.radarrInstances / sonarrInstances
-        // No API call needed — config is already loaded in applyConfig()
-      },
-
-      openInstanceModal(kind, idx) {
-        this.modalMode = idx >= 0 ? 'edit' : 'add';
-        this.modalIdx  = idx;
-        window._modalKind = kind;
-        window._modalIdx  = idx;
-
-        const inst = idx >= 0 ? (this.CFG?.instances?.[kind]?.[idx] || {}) : {};
-        const nameEl = document.getElementById('modalName');
-        const urlEl  = document.getElementById('modalUrl');
-        const keyEl  = document.getElementById('modalKey');
-        if (nameEl) nameEl.value = inst.name || '';
-        if (urlEl)  urlEl.value  = inst.url  || '';
-        if (keyEl)  { keyEl.value = inst.key || ''; keyEl.type = 'password'; }
-        const lbl = document.getElementById('modalKeyLabel');
-        if (lbl) lbl.textContent = 'Show';
-
-        // Clear test result
-        const wr = document.getElementById('modalTestResult');
-        if (wr) wr.style.display = 'none';
-
-        this.modal = 'instance';
-        setTimeout(() => { if (nameEl) nameEl.focus(); }, 60);
-      },
-
-      async deleteInstance(kind, idx) {
-        if (!this.CFG) return;
-        this.CFG.instances[kind].splice(idx, 1);
-        this.radarrInstances = this.CFG.instances.radarr || [];
-        this.sonarrInstances = this.CFG.instances.sonarr || [];
-        this.unsaved.settings = true;
-      },
-
-      async toggleInstance(kind, idx) {
-        try {
-          const out = await this.api('/api/instance/toggle', { method: 'POST', body: { kind, idx } });
-          if (this.CFG) this.CFG.instances[kind][idx].enabled = out.enabled;
-          this.radarrInstances = [...(this.CFG?.instances?.radarr || [])];
-          this.sonarrInstances = [...(this.CFG?.instances?.sonarr || [])];
-        } catch(e) {
-          this.showAlert('Toggle failed: ' + e.message);
-        }
-      },
-
-      async saveInstances() {
-        try {
-          await this.api('/api/config', { method: 'POST', body: this.CFG });
-          await this.loadAll();
-          this.unsaved.settings = false;
-          this.showAlert('Saved.', 'success');
-        } catch(e) {
-          this.showAlert('Save failed: ' + e.message);
-        }
-      },
-
-      // ── Overrides ─────────────────────────────────────────────────────────────
-      async renderOverrides() {
-        // Overrides are read reactively from CFG.instances[kind][idx].overrides
-        // No separate API call needed — applyConfig() already populates the instance arrays
-      },
-
-      async applyOverrides(kind, idx) {
-        try {
-          const inst = this.CFG?.instances?.[kind]?.[idx];
-          if (!inst) return;
-          const card = document.querySelector(`[data-ov-card="${kind}-${idx}"]`);
-          if (!card) return;
-
-          const newOv = Object.assign({}, inst.overrides || {});
-          const numFields = ['cooldown_hours', 'max_cutoff_unmet', 'max_backlog', 'missing_grace_hours'];
-          if (kind === 'radarr') numFields.push('max_missing_days');
-          if (this.cfScoreEnabled) numFields.push('cf_max');
-
-          numFields.forEach(field => {
-            const input = card.querySelector(`[data-ov-field="${field}"]`);
-            if (!input) return;
-            const raw = input.value.trim();
-            if (raw !== '') newOv[field] = parseInt(raw, 10);
-            else delete newOv[field];
-          });
-
-          ['sample_mode', 'backlog_sample_mode', 'cf_sample_mode'].forEach(field => {
-            const sel = card.querySelector(`[data-ov-field="${field}"]`);
-            if (!sel) return;
-            if (!sel.value || sel.value === '__global__') delete newOv[field];
-            else newOv[field] = sel.value;
-          });
-
-          const boolFields = ['backlog_enabled', 'notifications_enabled'];
-          boolFields.forEach(field => {
-            const chk = card.querySelector(`[data-ov-field="${field}"]`);
-            if (!chk) return;
-            newOv[field] = chk.checked;
-          });
-
-          await this.api('/api/instance/overrides', {
-            method: 'POST',
-            body: { kind, idx, overrides: newOv },
-          });
-          this.CFG.instances[kind][idx].overrides = newOv;
-          this.showAlert('Overrides applied.', 'success');
-        } catch(e) {
-          this.showAlert('Failed to save overrides: ' + e.message);
-        }
-      },
-
-      async resetCardOverrides(kind, idx) {
-        try {
-          await this.api('/api/instance/overrides', {
-            method: 'POST',
-            body: { kind, idx, overrides: {} },
-          });
-          if (this.CFG?.instances?.[kind]?.[idx]) this.CFG.instances[kind][idx].overrides = {};
-          this.showAlert('Overrides reset.', 'success');
-        } catch(e) {
-          this.showAlert('Failed to reset overrides: ' + e.message);
-        }
-      },
-
-      // ── Filters ───────────────────────────────────────────────────────────────
-      async loadFilters() {
-        // Filters are loaded on demand when "Load Tags & Profiles" is clicked
-        // Pre-populate instance selectors from config
-        const radarrInsts = this.CFG?.instances?.radarr || [];
-        const sonarrInsts = this.CFG?.instances?.sonarr || [];
-        if (radarrInsts.length) this.radarrFiltersInstance = '0';
-        if (sonarrInsts.length) this.sonarrFiltersInstance = '0';
-      },
-
-      async loadArrData(kind) {
-        const idx = parseInt(kind === 'radarr' ? this.radarrFiltersInstance : this.sonarrFiltersInstance) || 0;
-        try {
-          const [tagRes, profileRes] = await Promise.all([
-            this.api(`/api/arr/tags?kind=${kind}&idx=${idx}`),
-            this.api(`/api/arr/profiles?kind=${kind}&idx=${idx}`),
-          ]);
-          if (!tagRes?.ok || !profileRes?.ok) {
-            this.showAlert(tagRes?.error || profileRes?.error || 'Failed to load — check instance connectivity.');
-            return;
-          }
-          if (kind === 'radarr') {
-            this.radarrFilterTags     = tagRes.tags      || [];
-            this.radarrFilterProfiles = profileRes.profiles || [];
-            this.radarrFiltersLoaded  = true;
-          } else {
-            this.sonarrFilterTags     = tagRes.tags      || [];
-            this.sonarrFilterProfiles = profileRes.profiles || [];
-            this.sonarrFiltersLoaded  = true;
-          }
-        } catch(e) {
-          this.showAlert('Failed to load arr data: ' + e.message);
-        }
-      },
-
-      async saveFilters(kind) {
-        const idx = parseInt(kind === 'radarr' ? this.radarrFiltersInstance : this.sonarrFiltersInstance) || 0;
-        try {
-          const cfg = await this.api('/api/config');
-          const insts = cfg.instances?.[kind] || [];
-          if (idx >= insts.length) return;
-          insts[idx].sweep_filters = {
-            excluded_tags:     kind === 'radarr' ? (this.radarrExcludedTags     || []) : (this.sonarrExcludedTags     || []),
-            excluded_profiles: kind === 'radarr' ? (this.radarrExcludedProfiles || []) : (this.sonarrExcludedProfiles || []),
-          };
-          await this.api('/api/config', { method: 'POST', body: cfg });
-          this.CFG = cfg;
-          this.unsaved.filters = false;
-          this.showAlert('Filters saved.', 'success');
-        } catch(e) {
-          this.showAlert('Save failed: ' + e.message);
-        }
-      },
-
-      // ── Settings ──────────────────────────────────────────────────────────────
-      async saveSettings() {
-        try {
-          if (!this.CFG) return;
-          if (this.schedulerEnabled) {
-            const parts = (this.cronExpr || '').trim().split(/\s+/);
-            const valid = parts.length === 5 && parts.every(p => /^[\d*/,\-]+$/.test(p));
-            if (!valid) { this.showAlert('Enter a valid cron expression before saving.'); return; }
-          }
-          Object.assign(this.CFG, {
-            scheduler_enabled:         this.schedulerEnabled,
-            cron_expression:           this.cronExpr,
-            cooldown_hours:            parseInt(this.cooldown) || 48,
-            radarr_cutoff_enabled:     this.radarrCutoffEnabled,
-            sonarr_cutoff_enabled:     this.sonarrCutoffEnabled,
-            radarr_max_movies_per_run: parseInt(this.radarrMax)  || 10,
-            sonarr_max_episodes_per_run: parseInt(this.sonarrMax) || 10,
-            radarr_sample_mode:        this.radarrSampleMode,
-            sonarr_sample_mode:        this.sonarrSampleMode,
-            batch_size:                parseInt(this.batchSize)    || 1,
-            sleep_seconds:             parseFloat(this.sleepSecs) || 5,
-            jitter_seconds:            parseFloat(this.jitterSecs) || 2,
-            maintenance_window_enabled: this.quietEnabled,
-            maintenance_window_start:  this.quietStart,
-            maintenance_window_end:    this.quietEnd,
-            maintenance_window_days:   this.quietDays,
-            queue_depth_enabled:       this.queueEnabled,
-            queue_depth_threshold:     Math.max(1, parseInt(this.queueThreshold) || 10),
-            per_instance_overrides_enabled: this.overridesEnabled,
-            radarr_auto_exclude_enabled:    this.radarrExclEnabled,
-            sonarr_auto_exclude_enabled:    this.sonarrExclEnabled,
-            auto_exclude_movies_threshold:  parseInt(this.radarrExclThreshold) || 0,
-            auto_exclude_shows_threshold:   parseInt(this.sonarrExclThreshold) || 0,
-            auto_unexclude_movies_days:     parseInt(this.radarrUnexcl)        || 0,
-            auto_unexclude_shows_days:      parseInt(this.sonarrUnexcl)        || 0,
-          });
-          await this.api('/api/config', { method: 'POST', body: this.CFG });
-          await this.loadAll();
-          this.unsaved.settings = false;
-          this.showAlert('Settings saved.', 'success');
-        } catch(e) {
-          this.showAlert('Save failed: ' + e.message);
-        }
-      },
-
-      // ── Pipelines ─────────────────────────────────────────────────────────────
-      async savePipelines() {
-        try {
-          if (!this.CFG) return;
-          Object.assign(this.CFG, {
-            radarr_backlog_enabled:    this.radarrBacklogEnabled,
-            sonarr_backlog_enabled:    this.sonarrBacklogEnabled,
-            radarr_missing_max:        parseInt(this.radarrBacklogMax) || 0,
-            sonarr_missing_max:        parseInt(this.sonarrBacklogMax) || 0,
-            radarr_backlog_sample_mode: this.radarrBacklogSampleMode,
-            sonarr_backlog_sample_mode: this.sonarrBacklogSampleMode,
-            radarr_missing_added_days:  parseInt(this.radarrMissingAddedDays) || 0,
-            radarr_missing_grace_hours: parseInt(this.radarrGracePeriod)       || 0,
-            sonarr_missing_grace_hours: parseInt(this.sonarrGracePeriod)       || 0,
-            cf_score_enabled:           this.cfScoreEnabled,
-            cf_score_sync_cron:         this.cfSyncCron,
-            radarr_cf_max_per_run:      parseInt(this.radarrCfMax) || 0,
-            sonarr_cf_max_per_run:      parseInt(this.sonarrCfMax) || 0,
-            radarr_cf_sample_mode:      this.radarrCfSampleMode,
-            sonarr_cf_sample_mode:      this.sonarrCfSampleMode,
-          });
-          await this.api('/api/config', { method: 'POST', body: this.CFG });
-          await this.loadAll();
-          this.unsaved.pipelines = false;
-          this.showAlert('Pipelines saved.', 'success');
-        } catch(e) {
-          this.showAlert('Save failed: ' + e.message);
-        }
-      },
-
-      // ── Notifications ─────────────────────────────────────────────────────────
-      async saveNotifications() {
-        try {
-          if (!this.CFG) return;
-          Object.assign(this.CFG, {
-            notify_enabled:            this.notifyEnabled,
-            notify_url:                this.notifyUrl,
-            notify_on_sweep_complete:  this.notifyOnSweep,
-            notify_on_import:          this.notifyOnImport,
-            notify_on_auto_exclusion:  this.notifyOnAutoExcl,
-            notify_on_error:           this.notifyOnError,
-            notify_on_queue_depth_skip: this.notifyOnQueueDepth,
-          });
-          await this.api('/api/config', { method: 'POST', body: this.CFG });
-          this.unsaved.notifications = false;
-          this.showAlert('Saved.', 'success');
-        } catch(e) {
-          this.showAlert('Save failed: ' + e.message);
-        }
-      },
-
-      async testNotification() {
-        try {
-          await this.api('/api/notifications/test');
-          this.showAlert('Test notification sent.', 'success');
-        } catch(e) {
-          this.showAlert('Test failed: ' + e.message);
-        }
-      },
-
-      // ── Advanced ──────────────────────────────────────────────────────────────
-      async saveAdvanced() {
-        try {
-          if (!this.CFG) return;
-          Object.assign(this.CFG, {
-            auth_enabled:          this.requireLogin,
-            auth_session_minutes:  parseInt(this.sessionTimeout)    || 60,
-            default_tab:           this.defaultTab,
-            show_support_link:     this.showSupportLinkForm,
-            import_check_minutes:  parseInt(this.importCheck) || 120,
-            log_level:             this.logLevel,
-            state_retention_days:  parseInt(this.retentionDays)      || 0,
-          });
-          await this.api('/api/config', { method: 'POST', body: this.CFG });
-          await this.loadAll();
-          this.unsaved.advanced = false;
-          this.showAlert('Saved.', 'success');
-        } catch(e) {
-          this.showAlert('Save failed: ' + e.message);
-        }
-      },
-
-      // ── Danger zone ───────────────────────────────────────────────────────────
-      async executeConfirmAction() {
-        this.closeModal();
-        try {
-          switch (this.confirmAction) {
-            case 'clearHistory':
-              await this.api('/api/state/clear', { method: 'POST' });
-              this.showAlert('History cleared.', 'success');
-              if (this.panel === 'library') await this.refreshHistory();
-              break;
-            case 'clearImports':
-              await this.api('/api/stats/clear', { method: 'POST' });
-              this.showAlert('Imports cleared.', 'success');
-              if (this.panel === 'library') await this.refreshImports();
-              break;
-            case 'clearLog':
-              await this.api('/api/log/clear', { method: 'POST' });
-              this.showAlert('Log cleared.', 'success');
-              break;
-            case 'resetIntel':
-              await this.api('/api/intel/reset', { method: 'POST' });
-              this.showAlert('Intel reset.', 'success');
-              if (this.panel === 'intel') await this.refreshIntel();
-              break;
-          }
-        } catch(e) {
-          this.showAlert(e.message);
-        }
-      },
-
-      async doResetConfig() {
-        this.closeModal();
-        try {
-          await this.api('/api/config/reset', { method: 'POST' });
-          window.location.href = '/';
-        } catch(e) {
-          this.showAlert('Reset failed: ' + e.message);
-        }
-      },
-
-      async backupAll() {
-        try {
-          const res = await fetch('/api/diagnostic');
-          const blob = await res.blob();
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = 'nudgarr-backup.json';
-          a.click();
-        } catch(e) {
-          this.showAlert('Backup failed: ' + e.message);
-        }
-      },
-
-      async downloadDiagnostic() {
-        try {
-          const res = await fetch('/api/diagnostic?mode=diag');
-          const blob = await res.blob();
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = 'nudgarr-diagnostic.txt';
-          a.click();
-        } catch(e) {
-          this.showAlert('Diagnostic failed: ' + e.message);
-        }
-      },
-
   };
 }
-
-// ── Globals still needed for onclick handlers in modals ───────────────────────
-// These bridge between onclick attributes in ui.html and the Alpine data object.
-// In a future cleanup these could be replaced with x-on:click bindings.
-
-function toggleKeyVis() {
-  const inp = document.getElementById('modalKey');
-  const btn = document.getElementById('modalKeyLabel');
-  if (!inp) return;
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
-  else                         { inp.type = 'password'; btn.textContent = 'Show'; }
-}
-
-// ── Alpine bridge helpers ─────────────────────────────────────────────────────
-// Called from onclick attrs in ui.html where @click is not possible.
-function _alpine() {
-  try { return Alpine.$data(document.querySelector('[x-data]')); } catch(_) { return null; }
-}
-
-async function testModalConnection() {
-  const d = _alpine(); if (!d) return;
-  const kind = window._modalKind || 'radarr';
-  const idx  = window._modalIdx  !== undefined ? window._modalIdx : -1;
-  const name = document.getElementById('modalName')?.value.trim();
-  const url  = document.getElementById('modalUrl')?.value.trim();
-  const key  = document.getElementById('modalKey')?.value.trim();
-  if (!url || !key) { d.showAlert('Enter a URL and API key before testing.'); return; }
-  const btn  = document.getElementById('modalTestBtn');
-  const wrap = document.getElementById('modalTestResult');
-  const inner = wrap?.querySelector('.modal-test-inner');
-  if (btn)   btn.disabled = true;
-  if (wrap)  wrap.style.display = 'block';
-  try {
-    const tempCfg = JSON.parse(JSON.stringify(d.CFG));
-    tempCfg.instances = tempCfg.instances || { radarr: [], sonarr: [] };
-    const tempInst = { name: name || kind, url, key };
-    if (idx >= 0) tempCfg.instances[kind][idx] = Object.assign({}, tempCfg.instances[kind][idx], tempInst);
-    else { tempCfg.instances[kind] = tempCfg.instances[kind] || []; tempCfg.instances[kind].push(tempInst); }
-    const out = await d.api('/api/test-instance', { method: 'POST', body: { kind, instances: tempCfg.instances, update_status: false } });
-    const results = out.results?.[kind] || [];
-    const testIdx = idx >= 0 ? idx : results.length - 1;
-    const match   = results[testIdx] || results.find(r => r.name === name);
-    if (wrap) wrap.style.display = 'block';
-    if (match?.ok) {
-      if (wrap) wrap.innerHTML = `<div class="modal-test-inner ok">Connected${match.version ? ' — ' + kind.charAt(0).toUpperCase()+kind.slice(1)+' v'+match.version : ''}</div>`;
-    } else {
-      if (wrap) wrap.innerHTML = `<div class="modal-test-inner bad">${escapeHtml((match && match.error) ? match.error : 'Could not connect — check URL and API key')}</div>`;
-    }
-  } catch(e) {
-    if (wrap) wrap.innerHTML = `<div class="modal-test-inner bad">Could not connect — check URL and API key</div>`;
-  }
-  if (btn) btn.disabled = false;
-}
-
-async function saveModal() {
-  const d = _alpine(); if (!d) return;
-  const kind = window._modalKind || 'radarr';
-  const idx  = window._modalIdx  !== undefined ? window._modalIdx : -1;
-  const name = document.getElementById('modalName')?.value.trim();
-  const url  = document.getElementById('modalUrl')?.value.trim();
-  const key  = document.getElementById('modalKey')?.value.trim();
-  if (!name || !url) { d.showAlert('All fields are required.'); return; }
-  if (!key && idx < 0) { d.showAlert('API key is required.'); return; }
-  if (!d.CFG.instances) d.CFG.instances = { radarr: [], sonarr: [] };
-  if (!d.CFG.instances[kind]) d.CFG.instances[kind] = [];
-  if (idx >= 0) {
-    d.CFG.instances[kind][idx] = Object.assign({}, d.CFG.instances[kind][idx], { name, url, key });
-  } else {
-    d.CFG.instances[kind].push({ name, url, key });
-  }
-  d.radarrInstances = [...(d.CFG.instances.radarr || [])];
-  d.sonarrInstances = [...(d.CFG.instances.sonarr || [])];
-  d.unsaved.settings = true;
-  d.closeModal();
-}
-
-function executeConfirmAction() { const d = _alpine(); if (d) d.executeConfirmAction(); }
-function doResetConfig()        { const d = _alpine(); if (d) d.doResetConfig(); }
-function confirmClearExclusions() { const d = _alpine(); if (d) d.confirmClearExclusions(); }
-

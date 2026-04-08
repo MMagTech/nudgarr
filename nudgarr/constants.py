@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "5.0.0"
+VERSION = "4.3.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")
@@ -162,18 +162,7 @@ VALID_CF_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added
 # All navigable tabs are included — conditional tabs (overrides, cf-scores, filters)
 # are in the list since a user may deliberately set one as their default.
 # The frontend falls back to "sweep" if the saved tab is not currently visible.
-# v5: History, Imports, CF Score consolidated into Library.
-# Overrides and Filters are sub-items under Pipelines in the sidebar.
 VALID_TABS = (
-    "sweep", "library", "intel",
-    "instances", "pipelines", "overrides", "filters",
-    "settings", "notifications", "advanced",
+    "instances", "overrides", "settings", "cf-scores", "filters",
+    "sweep", "history", "imports", "intel", "notifications", "advanced",
 )
-
-# Migration map for default_tab values written by v4.
-# Applied on config load so existing installs upgrade cleanly.
-TAB_MIGRATION_V5 = {
-    "history": "library",
-    "imports": "library",
-    "cf-scores": "library",
-}

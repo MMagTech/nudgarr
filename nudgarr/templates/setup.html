@@ -1,79 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Nudgarr &mdash; Setup</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nudgarr — Setup</title>
   <style>
-    @font-face {
-      font-family: 'Outfit';
-      src: url("/static/fonts/Outfit[wght].woff2") format('woff2');
-      font-weight: 100 900; font-display: swap;
-    }
-    :root{--bg:#0c0e1a;--surface:#0f1120;--card:#141626;--border:rgba(255,255,255,.08);
-      --border-focus:rgba(91,114,245,.5);--muted:#4a5270;--dim:#7a84a8;--text:#e2e6f6;
-      --accent:#5b72f5;--ac-lt:#8fa0fb;--ac-dim:rgba(91,114,245,.12);--ac-bdr:rgba(91,114,245,.3);}
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--text);
-      font-size:14px;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:36px;
-      width:380px;box-shadow:0 24px 64px rgba(0,0,0,.5);animation:fadeUp .22s ease forwards;}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    .wordmark{font-size:22px;font-weight:800;font-style:italic;
-      background:linear-gradient(120deg,#c4cfff 0%,#5b72f5 45%,#8fa0fb 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-      display:inline-block;margin-bottom:4px;}
-    .tagline{font-size:10px;color:rgba(143,160,251,.32);letter-spacing:.06em;text-transform:uppercase;
-      font-weight:500;margin-bottom:16px;line-height:1.5;}
-    .sub{font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:24px;}
-    .lbl{font-size:11.5px;color:var(--dim);font-weight:500;display:block;margin-bottom:5px;}
-    .inp{width:100%;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.03);color:var(--text);font-size:13px;font-family:'Outfit',sans-serif;
-      outline:none;margin-bottom:14px;transition:border-color .15s,box-shadow .15s;}
-    .inp:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(91,114,245,.1);}
-    .btn{width:100%;padding:10px;border-radius:10px;border:1px solid var(--ac-bdr);
-      background:var(--ac-dim);color:var(--ac-lt);font-size:14px;font-weight:600;
-      font-family:'Outfit',sans-serif;cursor:pointer;transition:background .15s,color .15s;margin-top:4px;}
-    .btn:hover{background:rgba(91,114,245,.2);color:#cdd8ff;}
-    .err{color:#fca5a5;font-size:12px;margin-bottom:14px;display:none;}
-    .err.show{display:block;}
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #11131f; color: #e8eaf0; font-size: 14px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #1e2030; border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 32px; width: 100%; max-width: 400px; }
+    h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .sub { color: #7c8494; font-size: 13px; margin: 0 0 24px; line-height: 1.5; }
+    label { font-size: 12px; color: #7c8494; font-weight: 500; display: block; margin-bottom: 5px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.10);
+      background: #181a28; color: #e8eaf0; font-size: 13px; outline: none; margin-bottom: 14px; }
+    input:focus { border-color: rgba(99,120,255,.6); }
+    button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(99,120,255,.35);
+      background: rgba(99,120,255,.2); color: #a8b4ff; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:hover { background: rgba(99,120,255,.32); color: #c0caff; }
+    .err { color: #fca5a5; font-size: 12px; margin-bottom: 14px; display: none; }
+    .err.show { display: block; }
   </style>
 </head>
 <body>
 <div class="card">
-  <div class="wordmark">Nudgarr</div>
-  <div class="tagline">Sweeping your library,<br>one nudge at a time</div>
-  <p class="sub">Create your login credentials to get started. To disable login later, go to <strong style="color:var(--text)">Advanced &rarr; Security</strong>.</p>
+  <h1>Welcome to Nudgarr</h1>
+  <p class="sub">Create your login credentials to get started. These will be required to access the UI.<br><br>To disable login later, go to Advanced → Require Login.</p>
   <div class="err" id="err"></div>
-  <label class="lbl">Username</label>
-  <input class="inp" type="text" id="usr" autocomplete="username" autofocus>
-  <label class="lbl">Password</label>
-  <input class="inp" type="password" id="pwd" autocomplete="new-password">
-  <label class="lbl">Confirm Password</label>
-  <input class="inp" type="password" id="pwd2" autocomplete="new-password" onkeydown="if(event.key==='Enter')setup()">
-  <button class="btn" onclick="setup()">Create Account</button>
+  <label>Username</label>
+  <input type="text" id="usr" autocomplete="username" autofocus/>
+  <label>Password</label>
+  <input type="password" id="pwd" autocomplete="new-password"/>
+  <label>Confirm Password</label>
+  <input type="password" id="pwd2" autocomplete="new-password" onkeydown="if(event.key==='Enter')setup()"/>
+  <button onclick="setup()">Create Account</button>
 </div>
 <script>
 async function setup() {
-  const usr  = document.getElementById('usr').value.trim();
-  const pwd  = document.getElementById('pwd').value;
+  const usr = document.getElementById('usr').value.trim();
+  const pwd = document.getElementById('pwd').value;
   const pwd2 = document.getElementById('pwd2').value;
-  const err  = document.getElementById('err');
-  if (!usr)            { err.textContent = 'Username is required.';             err.classList.add('show'); return; }
-  if (pwd.length < 6)  { err.textContent = 'Password must be at least 6 characters.'; err.classList.add('show'); return; }
-  if (pwd !== pwd2)    { err.textContent = 'Passwords do not match.';           err.classList.add('show'); return; }
-  const r = await fetch('/api/setup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: usr, password: pwd }),
+  const err = document.getElementById('err');
+  if (!usr) { err.textContent = 'Username is required.'; err.classList.add('show'); return; }
+  if (pwd.length < 6) { err.textContent = 'Password must be at least 6 characters.'; err.classList.add('show'); return; }
+  if (pwd !== pwd2) { err.textContent = 'Passwords do not match.'; err.classList.add('show'); return; }
+  const r = await fetch('/api/setup', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username: usr, password: pwd})
   });
-  if (r.ok) {
-    window.location.href = '/';
-  } else {
-    const d = await r.json();
-    err.textContent = d.error || 'Setup failed.';
-    err.classList.add('show');
-  }
+  if (r.ok) { window.location.href = '/'; }
+  else { const d = await r.json(); err.textContent = d.error || 'Setup failed.'; err.classList.add('show'); }
 }
 </script>
 </body>

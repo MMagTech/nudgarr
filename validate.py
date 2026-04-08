@@ -613,17 +613,11 @@ try:
     if _miss: [fail(f"x-show/x-if references \'{n}\' but not found in app.js") for n in _miss]
     else: ok(f"x-show/x-if bindings all present ({len(_show_names)} identifiers)")
 
-    # Extract x-for loop variable names — these are valid in x-text but not in app.js
-    _xfor_vars = set()
-    for _xfor_expr in re.findall(r'x-for\s*=\s*"([^"]+)"', _html):
-        _xfor_m = re.match(r'\(?(\w+)(?:,\s*\w+)?\)?\s+in\s+', _xfor_expr)
-        if _xfor_m: _xfor_vars.add(_xfor_m.group(1))
-
-    # x-text: text content expressions (exclude x-for loop variables)
+    # x-text: text content expressions
     _text_names = set()
     for expr in re.findall(r'x-text\s*=\s*"([^"]+)"', _html):
         _text_names.update(_top_level_names(expr))
-    _miss = [n for n in sorted(_text_names) if n not in _js and n not in _xfor_vars]
+    _miss = [n for n in sorted(_text_names) if n not in _js]
     if _miss: [fail(f"x-text references \'{n}\' but not found in app.js") for n in _miss]
     else: ok(f"x-text bindings all present ({len(_text_names)} identifiers)")
 

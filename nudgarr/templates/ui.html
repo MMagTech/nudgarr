@@ -221,40 +221,6 @@
       </div>
       </div>
       </template>
-      <!-- Sweep feed: items searched in the most recent sweep -->
-      <div class="card" style="margin-top:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-size:13px;font-weight:700">Searched This Sweep</span>
-          <select x-model.number="pageSize" @change="refreshSweep()" style="padding:4px 8px;font-size:12px;border-radius:6px;width:auto">
-            <option value="10">10</option><option value="25">25</option><option value="50">50</option>
-          </select>
-        </div>
-        <template x-if="!sweepFeedItems || sweepFeedItems.length === 0">
-          <p class="help" style="text-align:center;padding:16px 0">No items searched this sweep yet.</p>
-        </template>
-        <template x-if="sweepFeedItems && sweepFeedItems.length > 0">
-          <div>
-            <table class="feed-table"><thead><tr><th>Title</th><th>Instance</th><th>Time</th><th class="r">Pipeline</th></tr></thead>
-            <tbody>
-              <template x-for="item in sweepFeedItems" :key="item.key + item.last_searched">
-                <tr>
-                  <td class="arr-link" @click="openArrLink(item.app, item.instance_name, item.item_id, item.series_id)" x-text="item.title || item.key"></td>
-                  <td><span class="feed-instance" x-text="(item.instance_name || '') + ' · ' + (item.app === 'radarr' ? 'Radarr' : 'Sonarr')"></span></td>
-                  <td><span class="feed-time" x-text="item.last_searched ? new Date(item.last_searched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '—'"></span></td>
-                  <td class="feed-badge-cell">
-                    <span :class="'sw-pill ' + (item.sweep_type === 'Backlog' ? 'backlog' : item.sweep_type === 'CF Score' ? 'cfscore' : 'cutoff')" x-text="item.sweep_type || 'Cutoff'"></span>
-                  </td>
-                </tr>
-              </template>
-            </tbody></table>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">
-              <span class="help" x-text="'Showing ' + sweepFeedItems.length + (sweepFeedTotal > sweepFeedItems.length ? ' of ' + sweepFeedTotal : '')"></span>
-              <button class="btn sm" :disabled="sweepFeedPage <= 0" @click="sweepFeedPage--; loadSweepFeed()">Prev</button>
-              <button class="btn sm" :disabled="sweepFeedItems.length < pageSize" @click="sweepFeedPage++; loadSweepFeed()">Next</button>
-            </div>
-          </div>
-        </template>
-      </div>
     </div>
       <div x-show="panel==='library'">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
@@ -270,11 +236,6 @@
       <div x-show="libView==='history'">
         <div class="card">
           <div class="card-hdr"><div class="card-title" style="margin:0">History</div></div>
-          <div class="kpis" x-show="historyKpiCounts.length > 0">
-            <template x-for="kpi in historyKpiCounts" :key="kpi.name">
-              <div class="kpi-card"><div><div class="kpi-val" x-text="kpi.count.toLocaleString()"></div><div class="kpi-lbl" x-text="kpi.name"></div></div></div>
-            </template>
-          </div>
           <p class="help" style="margin:0 0 10px">Hover a row to exclude or unexclude a title from future searches.</p>
           <div class="filter-row">
             <div class="field">
@@ -339,7 +300,7 @@
         <div class="card">
           <div class="card-hdr"><div class="card-title" style="margin:0">Imports Confirmed</div></div>
           <div class="kpis">
-            <div class="kpi-card"><div><div class="kpi-val" x-text="(importsMoviesTotal || 0).toLocaleString()">0</div><div class="kpi-lbl">Movies</div></div></div>
+            <div class="kpi-card"><div><div class="kpi-val" x-text="importsItems.filter(i=>i.app==='radarr').length.toLocaleString()">0</div><div class="kpi-lbl">Movies</div></div></div>
             <div class="kpi-card" style="background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.25);justify-content:center;text-align:center">
               <div>
                 <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(16,185,129,.6);margin-bottom:6px">Confirmed</div>
@@ -348,7 +309,7 @@
                 </select>
               </div>
             </div>
-            <div class="kpi-card"><div><div class="kpi-val" x-text="(importsShowsTotal || 0).toLocaleString()">0</div><div class="kpi-lbl">Episodes</div></div></div>
+            <div class="kpi-card"><div><div class="kpi-val" x-text="importsItems.filter(i=>i.app==='sonarr').length.toLocaleString()">0</div><div class="kpi-lbl">Episodes</div></div></div>
           </div>
           <p class="help" style="margin:0 0 10px">Confirmed imports Nudgarr was responsible for.</p>
           <div class="filter-row">
@@ -540,9 +501,9 @@
             <div>
               <template x-for="path in intelData.upgrade_history.upgrade_paths" :key="path.from_quality + path.to_quality">
                 <div class="intel-upgrade-path">
-                  <span class="intel-up-from mono" x-text="path.from"></span>
+                  <span class="intel-up-from mono" x-text="path.from_quality"></span>
                   <span class="intel-up-arrow">&#8594;</span>
-                  <span class="intel-up-to mono" x-text="path.to"></span>
+                  <span class="intel-up-to mono" x-text="path.to_quality"></span>
                   <span class="intel-up-count" x-text="path.count + '×'"></span>
                 </div>
               </template>
@@ -695,7 +656,7 @@
       <div style="margin-bottom:14px"><span style="font-size:13px;font-weight:600">Per-Instance Overrides</span><p class="help" style="margin:2px 0 0">Unchanged fields inherit global values. Click Apply to save each card individually.</p></div>
       <div class="cols2">
         <template x-for="(inst, idx) in radarrInstances" :key="'radarr-'+idx">
-          <div class="ov-card" :data-ov-card="'radarr-'+idx">
+          <div class="ov-card">
             <div class="ov-card-hdr">
               <div class="row" style="gap:7px"><div class="ov-badge" x-text="inst.name"></div></div>
               <span class="help" style="font-size:11px" x-text="Object.keys(inst.overrides||{}).length > 0 ? Object.keys(inst.overrides||{}).length + ' Override(s)' : 'Global Inherited'"></span>
@@ -703,35 +664,26 @@
             <div style="max-width:50%;margin-bottom:10px">
               <div class="field">
                 <label>Cooldown (Hours)</label>
-                <input type="number" :placeholder="cooldown" :value="(inst.overrides||{}).cooldown_hours ?? ''" data-ov-field="cooldown_hours">
+                <input type="number" :placeholder="cooldown" :value="(inst.overrides||{}).cooldown_hours || ''" :data-ov-field="'cooldown_hours'" :data-kind="'radarr'" :data-idx="idx">
                 <span class="help" x-text="'Global: ' + cooldown"></span>
               </div>
             </div>
             <div class="ov-divider"></div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ac-lt);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(91,114,245,.2)">Cutoff Unmet</div>
             <div class="ov-fields" style="margin-bottom:10px">
-              <div class="field"><label>Max</label><input type="number" :placeholder="radarrMax" :value="(inst.overrides||{}).max_cutoff_unmet ?? ''" data-ov-field="max_cutoff_unmet"></div>
-              <div class="field"><label>Sample Mode</label><select data-ov-field="sample_mode" :value="(inst.overrides||{}).sample_mode || '__global__'"><option value="__global__">Use Global</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
+              <div class="field"><label>Max</label><input type="number" :placeholder="radarrMax" :value="(inst.overrides||{}).max_cutoff_unmet || ''"></div>
             </div>
             <div class="ov-divider"></div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(34,197,94,.2)">Backlog</div>
             <div class="ov-bl-row" style="margin-bottom:8px">
               <span class="help" style="font-size:11px" x-text="((inst.overrides||{}).backlog_enabled !== undefined ? (inst.overrides.backlog_enabled ? 'On' : 'Off') + ' (Override)' : 'Global: ' + (radarrBacklogEnabled ? 'On' : 'Off'))"></span>
-              <label class="toggle"><input type="checkbox" :checked="(inst.overrides||{}).backlog_enabled !== undefined ? inst.overrides.backlog_enabled : radarrBacklogEnabled" data-ov-field="backlog_enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-            </div>
-            <div class="ov-fields" style="margin-bottom:10px">
-              <div class="field"><label>Max Backlog</label><input type="number" :placeholder="radarrBacklogMax" :value="(inst.overrides||{}).max_backlog ?? ''" data-ov-field="max_backlog"></div>
-              <div class="field"><label>Sample Mode</label><select data-ov-field="backlog_sample_mode" :value="(inst.overrides||{}).backlog_sample_mode || '__global__'"><option value="__global__">Use Global</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
-              <div class="field"><label>Missing Added Days</label><input type="number" :placeholder="radarrMissingAddedDays" :value="(inst.overrides||{}).max_missing_days ?? ''" data-ov-field="max_missing_days"></div>
-              <div class="field"><label>Grace Period (Hours)</label><input type="number" :placeholder="radarrGracePeriod" :value="(inst.overrides||{}).missing_grace_hours ?? ''" data-ov-field="missing_grace_hours"></div>
             </div>
             <template x-if="cfScoreEnabled">
               <div>
                 <div class="ov-divider"></div>
                 <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(251,191,36,.2)">CF Score</div>
                 <div class="ov-fields" style="margin-bottom:10px">
-                  <div class="field"><label>Max</label><input type="number" :placeholder="radarrCfMax" :value="(inst.overrides||{}).cf_max ?? ''" data-ov-field="cf_max"></div>
-                  <div class="field"><label>Sample Mode</label><select data-ov-field="cf_sample_mode" :value="(inst.overrides||{}).cf_sample_mode || '__global__'"><option value="__global__">Use Global</option><option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option></select></div>
+                  <div class="field"><label>Max</label><input type="number" :placeholder="radarrCfMax" :value="(inst.overrides||{}).cf_max || ''"></div>
                 </div>
               </div>
             </template>
@@ -739,7 +691,6 @@
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Notifications</div>
             <div class="notify-footer-row">
               <span class="help" style="font-size:11.5px" x-text="((inst.overrides||{}).notifications_enabled !== undefined ? ((inst.overrides||{}).notifications_enabled ? 'On' : 'Off') + ' (Override)' : 'Global: ' + (notifyEnabled ? 'On' : 'Off'))"></span>
-              <label class="toggle"><input type="checkbox" :checked="(inst.overrides||{}).notifications_enabled !== undefined ? inst.overrides.notifications_enabled : notifyEnabled" data-ov-field="notifications_enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
             </div>
             <div class="ov-card-foot">
               <button class="ov-rst-all" @click="resetCardOverrides('radarr', idx)">Reset All to Global</button>
@@ -748,7 +699,7 @@
           </div>
         </template>
         <template x-for="(inst, idx) in sonarrInstances" :key="'sonarr-'+idx">
-          <div class="ov-card" :data-ov-card="'sonarr-'+idx">
+          <div class="ov-card">
             <div class="ov-card-hdr">
               <div class="row" style="gap:7px"><div class="ov-badge ov-sonarr" x-text="inst.name"></div></div>
               <span class="help" style="font-size:11px" x-text="Object.keys(inst.overrides||{}).length > 0 ? Object.keys(inst.overrides||{}).length + ' Override(s)' : 'Global Inherited'"></span>
@@ -756,35 +707,26 @@
             <div style="max-width:50%;margin-bottom:10px">
               <div class="field">
                 <label>Cooldown (Hours)</label>
-                <input type="number" :placeholder="cooldown" :value="(inst.overrides||{}).cooldown_hours ?? ''" data-ov-field="cooldown_hours">
+                <input type="number" :placeholder="cooldown" :value="(inst.overrides||{}).cooldown_hours || ''">
                 <span class="help" x-text="'Global: ' + cooldown"></span>
               </div>
             </div>
             <div class="ov-divider"></div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ac-lt);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(91,114,245,.2)">Cutoff Unmet</div>
             <div class="ov-fields" style="margin-bottom:10px">
-              <div class="field"><label>Max</label><input type="number" :placeholder="sonarrMax" :value="(inst.overrides||{}).max_cutoff_unmet ?? ''" data-ov-field="max_cutoff_unmet"></div>
-              <div class="field"><label>Sample Mode</label><select data-ov-field="sample_mode" :value="(inst.overrides||{}).sample_mode || '__global__'"><option value="__global__">Use Global</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
+              <div class="field"><label>Max</label><input type="number" :placeholder="sonarrMax" :value="(inst.overrides||{}).max_cutoff_unmet || ''"></div>
             </div>
             <div class="ov-divider"></div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(34,197,94,.2)">Backlog</div>
             <div class="ov-bl-row" style="margin-bottom:8px">
               <span class="help" style="font-size:11px" x-text="((inst.overrides||{}).backlog_enabled !== undefined ? (inst.overrides.backlog_enabled ? 'On' : 'Off') + ' (Override)' : 'Global: ' + (sonarrBacklogEnabled ? 'On' : 'Off'))"></span>
-              <label class="toggle"><input type="checkbox" :checked="(inst.overrides||{}).backlog_enabled !== undefined ? inst.overrides.backlog_enabled : sonarrBacklogEnabled" data-ov-field="backlog_enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-            </div>
-            <div class="ov-fields" style="margin-bottom:10px">
-              <div class="field"><label>Max Backlog</label><input type="number" :placeholder="sonarrBacklogMax" :value="(inst.overrides||{}).max_backlog ?? ''" data-ov-field="max_backlog"></div>
-              <div class="field"><label>Sample Mode</label><select data-ov-field="backlog_sample_mode" :value="(inst.overrides||{}).backlog_sample_mode || '__global__'"><option value="__global__">Use Global</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
-              <div class="field"><label>Grace Period (Hours)</label><input type="number" :placeholder="sonarrGracePeriod" :value="(inst.overrides||{}).missing_grace_hours ?? ''" data-ov-field="missing_grace_hours"></div>
-              <div></div>
             </div>
             <template x-if="cfScoreEnabled">
               <div>
                 <div class="ov-divider"></div>
                 <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(251,191,36,.2)">CF Score</div>
                 <div class="ov-fields" style="margin-bottom:10px">
-                  <div class="field"><label>Max</label><input type="number" :placeholder="sonarrCfMax" :value="(inst.overrides||{}).cf_max ?? ''" data-ov-field="cf_max"></div>
-                  <div class="field"><label>Sample Mode</label><select data-ov-field="cf_sample_mode" :value="(inst.overrides||{}).cf_sample_mode || '__global__'"><option value="__global__">Use Global</option><option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option></select></div>
+                  <div class="field"><label>Max</label><input type="number" :placeholder="sonarrCfMax" :value="(inst.overrides||{}).cf_max || ''"></div>
                 </div>
               </div>
             </template>
@@ -792,7 +734,6 @@
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Notifications</div>
             <div class="notify-footer-row">
               <span class="help" style="font-size:11.5px" x-text="((inst.overrides||{}).notifications_enabled !== undefined ? ((inst.overrides||{}).notifications_enabled ? 'On' : 'Off') + ' (Override)' : 'Global: ' + (notifyEnabled ? 'On' : 'Off'))"></span>
-              <label class="toggle"><input type="checkbox" :checked="(inst.overrides||{}).notifications_enabled !== undefined ? inst.overrides.notifications_enabled : notifyEnabled" data-ov-field="notifications_enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
             </div>
             <div class="ov-card-foot">
               <button class="ov-rst-all" @click="resetCardOverrides('sonarr', idx)">Reset All to Global</button>
@@ -961,22 +902,22 @@
                 <div style="position:relative"><input :type="notifyUrlVisible ? 'text' : 'password'" x-model="notifyUrl" style="padding-right:52px"><button class="btn sm ghost" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:11px" @click="notifyUrlVisible=!notifyUrlVisible" x-text="notifyUrlVisible ? 'Hide' : 'Show'"></button></div>
                 <div class="help">Supports any <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--ac-lt)">Apprise-compatible</a> URL.</div>
               </div>
-              <button class="btn sm" @click="testNotification()">Send Test</button>
+              <button class="btn sm">Send Test</button>
             </div>
           </div>
         </div>
         <div class="card">
           <div class="section-title">Notify On</div>
           <div style="display:flex;flex-direction:column">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnSweep"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnImport"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnAutoExcl"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnError"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox" x-model="notifyOnQueueDepth"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
           </div>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="saveNotifications()">Save Changes</button><span x-show="unsaved.notifications" class="msg unsaved">Unsaved Changes</span></div>
+      <div class="save-bar"><button class="btn pri" @click="unsaved.notifications=false">Save Changes</button><span x-show="unsaved.notifications" class="msg unsaved">Unsaved Changes</span></div>
     </div>
       <div x-show="panel==='advanced'" @change="unsaved.advanced=true">
       <div class="cols2" style="margin-bottom:14px">

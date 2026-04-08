@@ -1,62 +1,1008 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover"/>
-  <meta name="theme-color" content="#111320"/>
-  <meta name="nudgarr-version" content="{{ VERSION }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Nudgarr</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='ui.css', v=VERSION) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='ui-responsive.css', v=VERSION) }}">
+  <style>
+    @font-face {
+      font-family: 'Outfit';
+      src: url("{{ url_for('static', filename='fonts/Outfit[wght].woff2', v=VERSION) }}") format('woff2');
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url("{{ url_for('static', filename='fonts/JetBrainsMono[wght].woff2', v=VERSION) }}") format('woff2');
+      font-weight: 100 800;
+      font-display: swap;
+    }
+  </style>
+  <script src="{{ url_for('static', filename='alpine.min.js', v=VERSION) }}" defer></script>
+  <script src="{{ url_for('static', filename='app.js', v=VERSION) }}" defer></script>
 </head>
-<body>
-<div class="sticky-shell">
-  <div class="sticky-inner">
+<body x-data="nudgarr()" x-cloak>
 
-  {% include "ui-header.html" %}
+  <!-- ══ SIDEBAR ══ -->
+  <nav class="sb" :class="{ 'sb-open': sidebarOpen }">
+    <div class="sb-brand">
+      <div class="wordmark" :class="{ sweeping: sweeping }">Nudgarr</div>
+      <div class="tagline">Sweeping your library,<br>one nudge at a time</div>
+    </div>
 
-  {% include "ui-nav.html" %}
+    <div class="sb-nav">
+      <div class="nav-sect-label">Monitor</div>
+      <div class="nav-item" :class="{ active: panel==='sweep' }" @click="panel='sweep'; closeSidebar()">
+        Sweep
+      </div>
+      <div class="nav-item" :class="{ active: panel==='library' }" @click="panel='library'; closeSidebar(); exclBadge=0">
+        Library
+        <span x-show="exclBadge > 0" class="excl-badge" x-text="exclBadge"></span>
+      </div>
+      <div class="nav-item" :class="{ active: panel==='intel' }" @click="panel='intel'; closeSidebar()">Intel</div>
 
+      <div class="nav-sep"></div>
+      <div class="nav-sect-label">Configure</div>
+      <div class="nav-item" :class="{ active: panel==='instances' }" @click="panel='instances'; closeSidebar()">Instances</div>
+      <div class="nav-item" :class="{ active: panel==='pipelines' }" @click="panel='pipelines'; closeSidebar()">
+        Pipelines
+        <span x-show="unsaved.pipelines" class="unsaved-dot"></span>
+      </div>
+      <div class="nav-item nav-sub" :class="{ active: panel==='overrides' }" @click="panel='overrides'; closeSidebar()" x-show="overridesEnabled">
+        Overrides
+        <span x-show="unsaved.overrides" class="unsaved-dot"></span>
+      </div>
+      <div class="nav-item nav-sub" :class="{ active: panel==='filters' }" @click="panel='filters'; closeSidebar()">
+        Filters
+        <span x-show="unsaved.filters" class="unsaved-dot"></span>
+      </div>
+      <div class="nav-item" :class="{ active: panel==='settings' }" @click="panel='settings'; closeSidebar()">
+        Settings
+        <span x-show="unsaved.settings" class="unsaved-dot"></span>
+      </div>
+      <div class="nav-item" :class="{ active: panel==='notifications' }" @click="panel='notifications'; closeSidebar()">
+        Notifications
+        <span x-show="unsaved.notifications" class="unsaved-dot"></span>
+      </div>
+
+      <div class="nav-sep"></div>
+      <div class="nav-sect-label">System</div>
+      <div class="nav-item" :class="{ active: panel==='advanced' }" @click="panel='advanced'; closeSidebar()">
+        Advanced
+        <span x-show="unsaved.advanced" class="unsaved-dot"></span>
+      </div>
+    </div>
+
+    <div class="sb-foot">
+      <span class="ver mono">v{{ VERSION }}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a x-show="showSupportLink" href="https://buymeacoffee.com/mmagtech" target="_blank" class="ghost-link" title="Buy me a coffee">🍺</a>
+        <button x-show="authEnabled" @click="logout()" class="ghost-btn">Sign Out</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile overlay -->
+  <div class="sb-overlay" :class="{ 'sb-overlay-visible': sidebarOpen }" @click="closeSidebar()"></div>
+
+  <!-- ══ MAIN ══ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="hamburger" @click="openSidebar()" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div>
+        <div class="tb-title" x-text="topbarTitle"></div>
+        <div class="tb-sub" x-text="topbarSub"></div>
+      </div>
+      <div class="tb-status">
+        <div class="tb-dot" :class="{ warn: sweeping || (schedulerEnabled && nextRunTs < Date.now()), muted: !schedulerEnabled && !sweeping }"></div>
+        <span class="tb-meta">
+          <strong x-text="sweeping ? 'Running' : autoMode"></strong>
+          <span x-show="!sweeping">
+            <span class="tb-divider"> · </span>
+            <span x-text="formatRelative(lastRunTs)"></span>
+            <template x-if="schedulerEnabled">
+              <span>
+                <span class="tb-divider"> · </span>
+                <span :style="nextRunColor" x-text="nextRunLabel"></span>
+              </span>
+            </template>
+          </span>
+          <span x-show="sweeping" style="color:var(--warn);margin-left:4px">in progress&hellip;</span>
+        </span>
+        <button class="run-btn-tb" @click="(radarrInstanceCount + sonarrInstanceCount) === 0 ? openModal('noInstances') : runNow()">
+          &#9657; <span class="run-btn-text">Run Now</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Panels injected by Alpine x-show — see app.js for panel logic -->
+      <div x-show="panel==='sweep'">
+
+      <!-- Empty state — no instances configured -->
+      <template x-if="(radarrInstanceCount + sonarrInstanceCount) === 0">
+        <div style="display:flex;align-items:center;justify-content:center;height:60vh">
+          <div style="text-align:center;max-width:380px">
+            <div style="font-size:48px;line-height:1;margin-bottom:20px">&#128225;</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:8px">No Instances Configured</div>
+            <p class="help" style="font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:24px">Add a Radarr or Sonarr instance to get started. Sweep will populate automatically once an instance is connected.</p>
+            <button class="btn pri" @click="panel='instances'" style="padding:9px 24px;font-size:13px">Go to Instances</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- Normal sweep content — only when instances exist -->
+      <template x-if="(radarrInstanceCount + sonarrInstanceCount) > 0">
+      <div>
+      <!-- Status row — 3 cards matching pipeline columns -->
+      <div class="sweep-grid mb">
+        <div class="card">
+          <div class="stat-lbl" style="margin-bottom:10px">Sweep Health</div>
+          <div class="sh-banner ok" style="margin-bottom:12px"><div class="sh-dot ok"></div><span style="font-size:12.5px;font-weight:600;color:var(--ok)">All Instances Healthy</span></div>
+          <div style="display:flex;gap:20px">
+            <div><div class="stat-lbl">Lifetime Runs</div><div style="font-size:18px;font-weight:800;margin-top:2px">293</div></div>
+            <div><div class="stat-lbl">Avg / Run</div><div style="font-size:18px;font-weight:800;margin-top:2px">3.7</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="stat-lbl" style="margin-bottom:10px">Imports Confirmed</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px"><span style="font-size:32px;font-weight:800;line-height:1">1</span><span class="help">this sweep</span></div>
+          <div class="import-split">
+            <div class="import-half r"><div class="import-lbl r">Movies</div><div class="import-val r">1</div></div>
+            <div class="import-half s"><div class="import-lbl s">Episodes</div><div class="import-val s">0</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="stat-lbl" style="margin-bottom:10px">Last Sweep</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--border);border-radius:8px;overflow:hidden">
+            <div style="background:var(--card-2);padding:10px 14px"><div class="stat-lbl" style="margin-bottom:4px">Completed</div><div style="font-size:16px;font-weight:700">2 hr ago</div><div class="ls-meta">04/06, 6:00 PM</div></div>
+            <div style="background:var(--card-2);padding:10px 14px;border-left:1px solid var(--border)"><div class="stat-lbl" style="margin-bottom:4px">Next Run</div><div style="font-size:16px;font-weight:700;color:var(--ok)" x-text="schedulerEnabled ? '25 min' : 'Manual'"></div><div class="ls-meta">04/06, 8:00 PM</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Pipeline cards -->
+      <div class="sweep-grid mb">
+        <div class="p-card cutoff">
+          <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Cutoff Unmet</span><span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Finds items with a file that haven't reached the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)">6:00 PM</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px">
+            <div class="p-total-cell"><div class="p-total-lbl">Searched</div><div class="p-total-val dim">0</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Cooldown</div><div class="p-total-val">6</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Capped</div><div class="p-total-val dim">0</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
+            <div class="p-total-cell"><div class="p-total-lbl">Excluded</div><div class="p-total-val">55</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Tag</div><div class="p-total-val dim">0</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Profile</div><div class="p-total-val dim">0</div></div>
+          </div>
+          <div class="p-divider"></div>
+          <div class="p-inst-lbl">Per Instance</div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>Main</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val">4</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val">55</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>4K</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val">2</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>Main</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot warn"></span>Anime</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">&mdash;</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">&mdash;</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">&mdash;</div></div></div></div>
+        </div>
+        <div class="p-card backlog">
+          <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Backlog</span><span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Finds missing movies and episodes never grabbed.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)">6:00 PM</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px">
+            <div class="p-total-cell"><div class="p-total-lbl">Searched</div><div class="p-total-val dim">0</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Cooldown</div><div class="p-total-val dim">0</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Capped</div><div class="p-total-val dim">0</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
+            <div class="p-total-cell"><div class="p-total-lbl">Grace</div><div class="p-total-val">1</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Tag</div><div class="p-total-val dim">0</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Profile</div><div class="p-total-val dim">0</div></div>
+          </div>
+          <div class="p-divider"></div>
+          <div class="p-inst-lbl">Per Instance</div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>Main</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>4K</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>Main</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot warn"></span>Anime</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">&mdash;</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">&mdash;</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">&mdash;</div></div></div></div>
+        </div>
+        <div class="p-card cfscore">
+          <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">CF Score</span><span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Finds files where the custom format score is below the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)">6:00 PM</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
+            <div class="p-total-cell"><div class="p-total-lbl">Searched</div><div class="p-total-val">10</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Cooldown</div><div class="p-total-val">112</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:14px">
+            <div class="p-total-cell"><div class="p-total-lbl">Excluded</div><div class="p-total-val">20</div></div>
+            <div class="p-total-cell"><div class="p-total-lbl">Queued</div><div class="p-total-val dim">0</div></div>
+          </div>
+          <div class="p-divider"></div>
+          <div class="p-inst-lbl">Per Instance</div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>Main</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val">10</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val">110</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val">20</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>4K</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val">2</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot ok"></span>Main</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">0</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">0</div></div></div></div>
+          <div class="p-inst-row"><div class="p-inst-name"><span class="status-dot warn"></span>Anime</div><div class="p-inst-stats"><div class="p-inst-stat"><div class="p-inst-stat-lbl">Searched</div><div class="p-inst-stat-val dim">&mdash;</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Cooldown</div><div class="p-inst-stat-val dim">&mdash;</div></div><div class="p-inst-stat"><div class="p-inst-stat-lbl">Excl</div><div class="p-inst-stat-val dim">&mdash;</div></div></div></div>
+        </div>
+      </div>
+      </div>
+      </template>
+    </div>
+      <div x-show="panel==='library'" x-effect="if (!cfScoreEnabled && libView === 'cfscores') libView = 'history'">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="vsw">
+          <button class="vbtn" :class="{ on: libView==='history' }" @click="libView='history'">History</button>
+          <button class="vbtn" :class="{ on: libView==='imports' }" @click="libView='imports'">Imports</button>
+          <button class="vbtn" x-show="cfScoreEnabled" :class="{ on: libView==='cfscores' }" @click="libView='cfscores'">CF Score</button>
+          <button class="vbtn" :class="{ on: libView==='exclusions' }" @click="libView='exclusions'; exclBadge=0">Exclusions</button>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div x-show="libView==='history'">
+        <div class="card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">History</div></div>
+          <div class="kpis">
+            <div class="kpi-card"><div><div class="kpi-val">3,841</div><div class="kpi-lbl">Main (Radarr)</div></div></div>
+            <div class="kpi-card"><div><div class="kpi-val">1,929</div><div class="kpi-lbl">4K (Radarr)</div></div></div>
+            <div class="kpi-card"><div><div class="kpi-val">2,156</div><div class="kpi-lbl">Main (Sonarr)</div></div></div>
+          </div>
+          <p class="help" style="margin:0 0 10px">Hover a row to exclude or unexclude a title from future searches.</p>
+          <div class="filter-row">
+            <div class="field"><select><option>All Instances</option><option>Main</option><option>4K</option><option>Main</option></select></div>
+            <div class="field"><select><option>All Types</option><option>Cutoff Unmet</option><option>Backlog</option><option>CF Score</option></select></div>
+            <div class="field"><select><option>10</option><option>25</option><option>50</option></select></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;"></div>
+            <button class="btn sm">Refresh</button>
+            <button class="btn sm">Prune Expired</button>
+          </div>
+          <table><thead><tr>
+            <th class="sortable sort-desc">Title</th><th class="excl-col"></th>
+            <th class="sortable">Instance</th><th class="sortable">Type</th><th>Count</th>
+            <th class="sortable">Library Added</th><th class="sortable sort-desc">Last Searched</th><th class="sortable">Eligible Again</th>
+          </tr></thead>
+          <tbody>
+            <tr class="hist-row"><td class="arr-link">Dune: Part Two</td><td class="excl-col"><button class="excl-btn">&#8856;</button></td><td class="td-dim">Main</td><td><span class="tag">Cutoff Unmet</span></td><td><span class="count-pill">&times;3</span></td><td class="td-muted mono" style="font-size:12px">Jan 14, 2024</td><td class="td-blue mono" style="font-size:12px">Just now</td><td class="mono" style="font-size:12px"><span class="eligible-next-sweep">Next Sweep</span></td></tr>
+            <tr class="hist-row"><td class="arr-link">Oppenheimer</td><td class="excl-col"><button class="excl-btn">&#8856;</button></td><td class="td-dim">Main</td><td><span class="tag cf-score">CF Score</span></td><td><span class="count-pill">&times;5</span></td><td class="td-muted mono" style="font-size:12px">Jul 21, 2023</td><td class="td-blue mono" style="font-size:12px">5h ago</td><td class="mono" style="font-size:12px"><span class="td-blue-dim">In 12h</span></td></tr>
+            <tr class="hist-row"><td class="arr-link">Severance &middot; S02E01</td><td class="excl-col"><button class="excl-btn">&#8856;</button></td><td class="td-dim">Main</td><td><span class="tag acquired">Backlog</span></td><td><span class="count-pill">&times;2</span></td><td class="td-muted mono" style="font-size:12px">Feb 28, 2025</td><td class="td-blue mono" style="font-size:12px">3h ago</td><td class="mono" style="font-size:12px"><span class="td-blue-dim">In 4h</span></td></tr>
+            <tr class="hist-row"><td class="arr-link">The Brutalist</td><td class="excl-col"><button class="excl-btn">&#8856;</button></td><td class="td-dim">4K</td><td><span class="tag">Cutoff Unmet</span></td><td><span class="count-pill">&times;4</span></td><td class="td-muted mono" style="font-size:12px">Nov 3, 2024</td><td class="td-blue mono" style="font-size:12px">Yesterday</td><td class="mono" style="font-size:12px"><span class="td-blue-dim">Tomorrow</span></td></tr>
+            <tr class="hist-row"><td class="arr-link">Andor &middot; S02E03</td><td class="excl-col"><button class="excl-btn">&#8856;</button></td><td class="td-dim">Main</td><td><span class="tag">Cutoff Unmet</span></td><td></td><td class="td-muted mono" style="font-size:12px">Mar 10, 2025</td><td class="td-blue mono" style="font-size:12px">Yesterday</td><td class="mono" style="font-size:12px"><span class="td-blue-dim">In 23h</span></td></tr>
+          </tbody></table>
+          <div class="row" style="margin-top:10px">
+            <button class="btn sm">Prev</button><button class="btn sm">Next</button>
+            <span class="help" style="margin-left:4px">Page 1 of 121 &middot; 1,204 items</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Imports -->
+      <div x-show="libView==='imports'">
+        <div class="card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">Imports Confirmed</div></div>
+          <div class="kpis">
+            <div class="kpi-card"><div><div class="kpi-val">1,204</div><div class="kpi-lbl">Movies</div></div></div>
+            <div class="kpi-card" style="background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.25);justify-content:center;text-align:center">
+              <div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(16,185,129,.6);margin-bottom:6px">Confirmed</div>
+                <select x-model="importsPeriod" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);color:rgba(16,185,129,.9);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;width:auto;display:block;margin:0 auto">
+                  <option value="lifetime">Lifetime</option><option value="30">Last 30 Days</option><option value="7">Last 7 Days</option>
+                </select>
+              </div>
+            </div>
+            <div class="kpi-card"><div><div class="kpi-val">643</div><div class="kpi-lbl">Episodes</div></div></div>
+          </div>
+          <p class="help" style="margin:0 0 10px">Confirmed imports Nudgarr was responsible for. Only the Lifetime total persists through Clear Stats.</p>
+          <div class="filter-row">
+            <div class="field"><select><option>All Instances</option><option>Main</option><option>4K</option></select></div>
+            <div class="field"><select><option>All Types</option><option>Cutoff Unmet</option><option>Backlog</option><option>CF Score</option></select></div>
+            <div class="field"><select><option>10</option><option>25</option><option>50</option></select></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;"></div>
+            <button class="btn sm">Refresh</button>
+          </div>
+          <table><thead><tr>
+            <th class="sortable">Title</th><th class="sortable">Instance</th><th class="sortable">Type</th>
+            <th style="text-align:center">Count</th><th style="text-align:center">Upgrade</th>
+            <th class="sortable sort-desc">Last Searched</th><th class="sortable sort-desc">Imported</th><th>Turnaround</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="arr-link">Dune: Part Two</td><td class="td-dim">Main</td><td><span class="tag">Cutoff Unmet</span></td><td style="text-align:center">&mdash;</td><td style="text-align:center"><span style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid var(--border-md);border-radius:5px;padding:1px 6px;color:var(--ac-lt);cursor:help">i</span></td><td class="td-blue mono" style="font-size:12px">2h ago</td><td class="td-blue-dim mono" style="font-size:12px">2h ago</td><td class="td-dim mono" style="font-size:12px">4d 2h</td></tr>
+            <tr><td class="arr-link">The Bear &middot; S03E04</td><td class="td-dim">Main</td><td><span class="tag">Cutoff Unmet</span></td><td style="text-align:center"><span class="iter-pill">&times;2</span></td><td style="text-align:center">&mdash;</td><td class="td-blue mono" style="font-size:12px">2h ago</td><td class="td-blue-dim mono" style="font-size:12px">2h ago</td><td class="td-dim mono" style="font-size:12px">6h</td></tr>
+          </tbody></table>
+          <div class="row" style="margin-top:10px"><button class="btn sm">Prev</button><button class="btn sm">Next</button><span class="help" style="margin-left:4px">Page 1 of 185 &middot; 1,847 items</span></div>
+        </div>
+      </div>
+
+      <!-- CF Score -->
+      <div x-show="libView==='cfscores'">
+        <div class="card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">CF Score</div><span class="help">312 indexed &middot; Last sync 1h ago</span></div>
+          <div class="filter-row">
+            <div class="field"><select><option>All Instances</option><option>Main</option><option>4K</option></select></div>
+            <div class="field"><select><option>10</option><option>25</option><option>50</option></select></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;"></div>
+          </div>
+          <table><thead><tr><th class="sortable">Title</th><th class="sortable">Instance</th><th class="sortable sort-asc">Score</th><th class="sortable">Cutoff</th><th class="sortable sort-desc">Gap</th></tr></thead>
+          <tbody>
+            <tr><td class="arr-link">Dune: Part Two</td><td class="td-dim">Main</td><td class="mono" style="color:var(--warn)">42</td><td class="mono td-muted">100</td><td class="mono" style="color:var(--bad)">-58</td></tr>
+            <tr><td class="arr-link">Oppenheimer</td><td class="td-dim">Main</td><td class="mono" style="color:var(--warn)">67</td><td class="mono td-muted">100</td><td class="mono" style="color:var(--warn)">-33</td></tr>
+            <tr><td class="arr-link">Heat</td><td class="td-dim">Main</td><td class="mono" style="color:var(--warn)">80</td><td class="mono td-muted">100</td><td class="mono" style="color:var(--warn)">-20</td></tr>
+          </tbody></table>
+          <div class="row" style="margin-top:10px"><button class="btn sm">Prev</button><button class="btn sm">Next</button><span class="help" style="margin-left:4px">Page 1 of 32 &middot; 312 items</span></div>
+        </div>
+      </div>
+
+      <!-- Exclusions -->
+      <div x-show="libView==='exclusions'">
+        <div class="card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">Exclusions</div><span class="help">17 total &middot; 14 auto &middot; 3 manual</span></div>
+          <div class="filter-row">
+            <div class="field"><select><option>All Instances</option><option>Main</option><option>4K</option></select></div>
+            <div class="field"><select><option>All Types</option><option>Auto</option><option>Manual</option></select></div>
+            <div class="field"><select><option>10</option><option>25</option><option>50</option></select></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;"></div>
+            <button class="btn sm dng" @click="openModal('clearExcl')">Clear Exclusions</button>
+          </div>
+          <table><thead><tr>
+            <th class="sortable">Title</th><th class="sortable">Type</th><th class="sortable">Searches</th>
+            <th class="sortable">Instance</th><th class="sortable sort-desc">Excluded</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="arr-link">Civil War</td><td><span class="source-badge auto">Auto</span></td><td class="mono">10</td><td class="td-dim">Main</td><td class="mono td-muted" style="font-size:12px">3 days ago</td><td><button class="btn sm">Unexclude</button></td></tr>
+            <tr><td class="arr-link">The Acolyte &middot; S01E03</td><td><span class="source-badge manual">Manual</span></td><td class="mono td-muted">&mdash;</td><td class="td-dim">Main</td><td class="mono td-muted" style="font-size:12px">2 weeks ago</td><td><button class="btn sm">Unexclude</button></td></tr>
+            <tr><td class="arr-link">Megalopolis</td><td><span class="source-badge auto">Auto</span></td><td class="mono">10</td><td class="td-dim">Main</td><td class="mono td-muted" style="font-size:12px">1 week ago</td><td><button class="btn sm">Unexclude</button></td></tr>
+          </tbody></table>
+          <div class="row" style="margin-top:10px"><button class="btn sm">Prev</button><button class="btn sm">Next</button><span class="help" style="margin-left:4px">Page 1 of 2 &middot; 17 items</span></div>
+        </div>
+      </div>
+    </div>
+      <div x-show="panel==='intel'">
+      <div class="row mb" style="margin-bottom:14px"><button class="btn sm" @click="intelColdStart=!intelColdStart" x-text="intelColdStart ? 'Show Normal' : 'Show Cold Start'"></button></div>
+      <div class="card" x-show="intelColdStart">
+        <div class="cold-card">
+          <div style="font-size:44px;line-height:1">&#128225;</div>
+          <div><div class="card-title" style="font-size:18px;margin:0">Intel is Building&hellip;</div></div>
+          <p class="help" style="max-width:440px;font-size:13px;color:var(--dim);line-height:1.6">Nudgarr needs a minimum amount of data before producing meaningful numbers.</p>
+          <div style="display:flex;align-items:center;gap:24px">
+            <div class="cold-counter"><div class="cold-num has">9</div><div class="cold-unit">Confirmed Imports</div><div class="help">Need 25</div></div>
+            <span style="color:var(--muted);font-size:18px">or</span>
+            <div class="cold-counter"><div class="cold-num">12</div><div class="cold-unit">Sweep Runs</div><div class="help">Need 50</div></div>
+          </div>
+        </div>
+      </div>
+      <div x-show="!intelColdStart">
+        <div class="card mb"><div class="card-title" style="display:flex;align-items:center;gap:6px">Import Summary <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime import activity across all pipelines. Turnaround and Searches per Import are drawn from the protected Intel aggregate and survive Clear History and Clear Stats.</div></span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
+            <div class="intel-headline-cell"><div class="intel-headline-num ok">4d 2h</div><div class="intel-headline-lbl">Avg Turnaround</div></div>
+            <div class="intel-headline-cell"><div class="intel-headline-num accent">3.2</div><div class="intel-headline-lbl">Searches Per Import</div></div>
+            <div class="intel-headline-cell"><div class="intel-headline-num">312</div><div class="intel-headline-lbl">Quality Upgrades</div></div>
+          </div>
+          <table class="intel-table"><thead><tr><th>Pipeline</th><th>Imports</th><th>Searches</th><th>Conversion</th></tr></thead>
+          <tbody>
+            <tr><td><span class="tag">Cutoff Unmet</span></td><td><strong>1,204</strong></td><td><strong>3,841</strong></td><td>31%</td></tr>
+            <tr><td><span class="tag acquired">Backlog</span></td><td><strong>643</strong></td><td><strong>1,929</strong></td><td>33%</td></tr>
+            <tr><td><span class="tag cf-score">CF Score</span></td><td class="td-muted">0</td><td class="td-muted">0</td><td class="td-muted">0%</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card mb"><div class="card-title" style="display:flex;align-items:center;gap:6px">Instance Performance <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime counts per instance since Nudgarr was first set up. Confirmed Imports and Avg Turnaround are protected and survive Clear History.</div></span></div>
+          <table class="intel-table"><thead><tr><th>Instance</th><th>Sweep Runs</th><th>Total Searched</th><th>Confirmed Imports</th><th>Avg Turnaround</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Main</strong></td><td><strong>293</strong></td><td><strong>5,770</strong></td><td><strong style="color:var(--ok)">1,204</strong></td><td><strong>4d 2h</strong></td></tr>
+            <tr><td><strong>Main (Sonarr)</strong></td><td><strong>293</strong></td><td><strong>1,929</strong></td><td><strong style="color:var(--ok)">643</strong></td><td><strong>1d 14h</strong></td></tr>
+          </tbody></table>
+        </div>
+        <div class="card mb"><div class="card-title" style="display:flex;align-items:center;gap:6px">Upgrade History <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Acquired is any title Nudgarr confirmed imported for the first time. Acquired then Upgraded is any title first grabbed via Backlog and later upgraded via Cutoff Unmet or CF Score.</div></span></div>
+          <div class="intel-qi-split"><div class="intel-qi-cell"><div class="intel-qi-num">1,535</div><div class="intel-qi-label">Acquired</div></div><div class="intel-qi-cell"><div class="intel-qi-num ac">312</div><div class="intel-qi-label">Acquired then Upgraded</div></div></div>
+          <div class="intel-upgrade-path"><span class="intel-up-from mono">Bluray-1080p</span><span class="intel-up-arrow">&#8594;</span><span class="intel-up-to mono">Bluray-2160p Remux</span><span class="intel-up-count">312&times;</span></div>
+          <div class="intel-upgrade-path"><span class="intel-up-from mono">HDTV-720p</span><span class="intel-up-arrow">&#8594;</span><span class="intel-up-to mono">WEB-DL-1080p</span><span class="intel-up-count">891&times;</span></div>
+        </div>
+        <div class="cols2">
+          <div class="card"><div class="card-title" style="display:flex;align-items:center;gap:6px">CF Score Health <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Live stats from the CF Score index. Not part of the protected Intel aggregate — Reset Intel has no effect on this card. Updates after each Scan Library run.</div></span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px">
+              <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;margin-bottom:3px">312</div><div class="help">Total Indexed</div></div>
+              <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px">47</div><div class="help">Below Cutoff</div></div>
+              <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;color:var(--muted);margin-bottom:3px">15%</div><div class="help">of Index</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)"><span class="help">Last synced</span><span style="font-size:11.5px;color:var(--dim)">Apr 6, 2026</span></div>
+          </div>
+          <div class="card"><div class="card-title" style="display:flex;align-items:center;gap:6px">Exclusion Intel <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime summary of exclusion activity. Titles Cycled and Unexcluded Later Imported are derived from exclusion events and are reset by Reset Intel.</div></span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px">
+              <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;margin-bottom:3px">17</div><div class="help">Total</div></div>
+              <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px">3</div><div class="help">Auto this month</div></div>
+            </div>
+            <div class="intel-stat-row"><span class="intel-stat-label">Cycled through exclusions</span><span class="intel-stat-val">4</span></div>
+            <div class="intel-stat-row"><span class="intel-stat-label">Unexcluded and later imported</span><span class="intel-stat-val ok">2</span></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px;display:flex;justify-content:flex-end">
+          <button class="btn sm dng" @click="danger('resetIntel')">Reset Intel</button>
+        </div>
+      </div>
+    </div>
+      <div x-show="panel==='instances'">
+      <div class="cols2">
+        <div class="card">
+          <div class="row" style="margin-bottom:12px">
+            <span class="section-title" style="margin:0">Radarr Instances</span>
+            <button class="btn sm pri" style="margin-left:auto" @click="openModal('instance')">+ Add</button>
+          </div>
+          <p class="help" style="margin:0 0 8px">Add one or more Radarr instances.</p>
+          <div class="inst-card"><div class="inst-row1"><span class="status-dot ok"></span><div class="inst-info"><div class="inst-name">Main</div><div class="inst-meta">http://radarr.local:7878 &nbsp;&middot;&nbsp; Key: &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div></div><span class="pill ok" style="font-size:10px">Connected</span></div><div class="inst-row2"><button class="btn sm">Disable</button><div class="inst-actions"><button class="btn sm">Edit</button><button class="btn sm dng">Delete</button></div></div></div>
+          <div class="inst-card"><div class="inst-row1"><span class="status-dot ok"></span><div class="inst-info"><div class="inst-name">4K</div><div class="inst-meta">http://radarr4k.local:7879 &nbsp;&middot;&nbsp; Key: &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div></div><span class="pill ok" style="font-size:10px">Connected</span></div><div class="inst-row2"><button class="btn sm">Disable</button><div class="inst-actions"><button class="btn sm">Edit</button><button class="btn sm dng">Delete</button></div></div></div>
+        </div>
+        <div class="card">
+          <div class="row" style="margin-bottom:12px">
+            <span class="section-title" style="margin:0">Sonarr Instances</span>
+            <button class="btn sm pri" style="margin-left:auto" @click="openModal('instance')">+ Add</button>
+          </div>
+          <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances.</p>
+          <div class="inst-card"><div class="inst-row1"><span class="status-dot ok"></span><div class="inst-info"><div class="inst-name">Main</div><div class="inst-meta">http://sonarr.local:8989 &nbsp;&middot;&nbsp; Key: &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div></div><span class="pill ok" style="font-size:10px">Connected</span></div><div class="inst-row2"><button class="btn sm">Disable</button><div class="inst-actions"><button class="btn sm">Edit</button><button class="btn sm dng">Delete</button></div></div></div>
+          <div class="inst-card" style="border-color:rgba(239,68,68,.25)"><div class="inst-row1"><span class="status-dot bad"></span><div class="inst-info"><div class="inst-name">Anime</div><div class="inst-meta">http://sonarr-anime.local:8990 &nbsp;&middot;&nbsp; Key: &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div></div><span class="pill" style="font-size:10px;background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5">Unreachable</span></div><div class="inst-row2"><button class="btn sm">Enable</button><div class="inst-actions"><button class="btn sm">Edit</button><button class="btn sm dng">Delete</button></div></div></div>
+        </div>
+      </div>
+      <div class="save-bar"><button class="btn pri">Save Changes</button><button class="btn">Test Connections</button></div>
+    </div>
+      <div x-show="panel==='pipelines'" @change="unsaved.pipelines=true">
+      <div class="card mb">
+        <div class="card-title" style="color:var(--ac-lt);display:flex;align-items:center;gap:6px">Cutoff Unmet <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files that have been downloaded but haven't reached the quality cutoff set in your quality profile. Nudgarr tells Radarr or Sonarr to search for a better version. This is the primary pipeline and is on by default.</div></span></div>
+        <div class="cols2">
+          <div><p class="app-hdr radarr">Radarr</p><div class="stk"><div class="row" style="gap:8px;margin-bottom:4px"><label class="toggle"><input type="checkbox" x-model="radarrCutoffEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div><div :style="radarrCutoffEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk"><div class="field"><label>Max (Per Instance)</label><input type="number" value="10"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible items are picked each run.<br><br><strong>Round Robin</strong> — items never searched go first (shuffled randomly among themselves). After those, picks whoever has been waiting longest based on last search timestamp. The fairest option for even library coverage over time.<br><br><strong>Random</strong> — shuffles the eligible pool randomly each run. Different items every sweep, but no fairness guarantee — the same item could be skipped many times in a row.<br><br><strong>Alphabetical</strong> — works through your library A to Z. Predictable but skews toward early letters until the full library cycles through.<br><br><strong>Oldest Added</strong> — prioritizes items you have had longest. Good if you want to finish upgrading older content before newer additions.<br><br><strong>Newest Added</strong> — prioritizes items added most recently.</div></span></label><select><option>Round Robin</option><option>Random</option><option>Alphabetical</option></select></div></div></div></div></div>
+          <div><p class="app-hdr sonarr">Sonarr</p><div class="stk"><div class="row" style="gap:8px;margin-bottom:4px"><label class="toggle"><input type="checkbox" x-model="sonarrCutoffEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div><div :style="sonarrCutoffEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk"><div class="field"><label>Max (Per Instance)</label><input type="number" value="10"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible items are picked each run.<br><br><strong>Round Robin</strong> — items never searched go first (shuffled randomly among themselves). After those, picks whoever has been waiting longest based on last search timestamp. The fairest option for even library coverage over time.<br><br><strong>Random</strong> — shuffles the eligible pool randomly each run. Different items every sweep, but no fairness guarantee — the same item could be skipped many times in a row.<br><br><strong>Alphabetical</strong> — works through your library A to Z. Predictable but skews toward early letters until the full library cycles through.<br><br><strong>Oldest Added</strong> — prioritizes items you have had longest. Good if you want to finish upgrading older content before newer additions.<br><br><strong>Newest Added</strong> — prioritizes items added most recently.</div></span></label><select><option>Round Robin</option><option>Random</option></select></div></div></div></div></div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="card-title" style="color:var(--ok);display:flex;align-items:center;gap:6px">Backlog <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored movies and episodes you have never downloaded. Nudgarr tells your Arrs to search for missing content. Off by default — enable when you're ready and start with a low Max (Per Instance) value.</div></span></div>
+        <div class="cols2">
+          <div><p class="app-hdr radarr">Radarr</p><div class="stk"><div class="row" style="gap:8px;margin-bottom:4px"><label class="toggle"><input type="checkbox" x-model="radarrBacklogEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div><div :style="radarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk"><div class="field"><label>Max (Per Instance)</label><input type="number" value="5"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Missing Added Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items added to your library at least this many days ago. Prevents Nudgarr from immediately searching for something you just added. Set to 0 to search all missing items regardless of age.</div></span></label><input type="number" value="30"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible missing items are picked each run. Independent of the Cutoff Unmet sample mode.<br><br><strong>Round Robin</strong> — items never searched go first (shuffled randomly). After those, picks whoever has been waiting longest. Recommended — ensures nothing is permanently skipped.<br><br><strong>Random</strong> — shuffles the eligible pool each run. No fairness guarantee — an item could be skipped repeatedly by chance.<br><br><strong>Alphabetical</strong> — works A to Z through your missing content.<br><br><strong>Oldest Added</strong> — targets items missing from your library the longest.<br><br><strong>Newest Added</strong> — targets recently added missing items first.</div></span></label><select><option>Round Robin</option><option>Random</option></select></div><div class="field"><label>Grace Period (Hours)</label><input type="number" value="0"></div></div></div></div></div>
+          <div><p class="app-hdr sonarr">Sonarr</p><div class="stk"><div class="row" style="gap:8px;margin-bottom:4px"><label class="toggle"><input type="checkbox" x-model="sonarrBacklogEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div><div :style="sonarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk"><div class="field"><label>Max (Per Instance)</label><input type="number" value="5"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible missing items are picked each run. Independent of the Cutoff Unmet sample mode.<br><br><strong>Round Robin</strong> — items never searched go first (shuffled randomly). After those, picks whoever has been waiting longest. Recommended — ensures nothing is permanently skipped.<br><br><strong>Random</strong> — shuffles the eligible pool each run. No fairness guarantee — an item could be skipped repeatedly by chance.<br><br><strong>Alphabetical</strong> — works A to Z through your missing content.<br><br><strong>Oldest Added</strong> — targets items missing from your library the longest.<br><br><strong>Newest Added</strong> — targets recently added missing items first.</div></span></label><select><option>Round Robin</option><option>Random</option></select></div><div class="field"><label>Grace Period (Hours)</label><input type="number" value="0"></div></div></div></div></div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="card-hdr"><div class="card-title" style="margin:0;color:var(--warn);display:flex;align-items:center;gap:6px">CF Score <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files where the custom format score is below the cutoff for their quality profile. Nudgarr searches for a better-scored release. The cutoff score is read directly from each quality profile — no manual configuration required. Off by default.</div></span></div><div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" x-model="cfScoreEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="cfScoreEnabled ? 'Enabled' : 'Disabled'"></span></div></div>
+        <div x-show="cfScoreEnabled" style="margin-top:4px">
+          <div class="cols2" style="margin-bottom:16px">
+            <div><p class="app-hdr radarr">Radarr</p><div class="stk"><div class="field"><label>Max (Per Instance)</label><input type="number" value="5"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible CF Score items are picked each run.<br><br><strong>Largest Gap First</strong> — prioritizes items with the biggest gap between their current score and their profile cutoff. Within tied gaps, never-searched items go first (shuffled randomly), then sorted by how long ago they were last searched. Prevents starvation across gap groups. This is the default and recommended mode for CF Score.<br><br><strong>Round Robin</strong> — never-searched items go first, then longest-waiting. Ignores score gap — treats all items equally regardless of how far below cutoff they are.<br><br><strong>Random</strong> — shuffles the eligible pool each run. No gap awareness, no fairness guarantee.<br><br><strong>Alphabetical</strong> — works A to Z regardless of score gap.<br><br><strong>Oldest Added</strong> — targets items added to your library longest ago.</div></span></label><select><option>Largest Gap First</option><option>Round Robin</option><option>Random</option></select></div></div></div>
+            <div><p class="app-hdr sonarr">Sonarr</p><div class="stk"><div class="field"><label>Max (Per Instance)</label><input type="number" value="5"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible CF Score items are picked each run.<br><br><strong>Largest Gap First</strong> — prioritizes items with the biggest gap between their current score and their profile cutoff. Within tied gaps, never-searched items go first (shuffled randomly), then sorted by how long ago they were last searched. Prevents starvation across gap groups. This is the default and recommended mode for CF Score.<br><br><strong>Round Robin</strong> — never-searched items go first, then longest-waiting. Ignores score gap — treats all items equally regardless of how far below cutoff they are.<br><br><strong>Random</strong> — shuffles the eligible pool each run. No gap awareness, no fairness guarantee.<br><br><strong>Alphabetical</strong> — works A to Z regardless of score gap.<br><br><strong>Oldest Added</strong> — targets items added to your library longest ago.</div></span></label><select><option>Largest Gap First</option><option>Round Robin</option></select></div></div></div>
+          </div>
+          <div class="hr"></div>
+          <div class="section-title" style="margin-bottom:10px">Sync Schedule</div>
+          <div style="max-width:320px"><div class="field"><label style="display:flex;align-items:center;gap:5px">Cron Expression <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Schedule for automatic CF Score index rebuilds. Cron fires at fixed clock times. Syncs are suppressed during Quiet Hours. Manual Scan Library always runs regardless.</div></span></label><input class="mono" x-model="cfSyncCron"><div class="cron-hint">Daily at midnight</div></div></div>
+          <div class="hr"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="section-title" style="margin:0">Index Status</div>
+            <div style="display:flex;gap:8px"><button class="btn sm pri">Scan Library</button><button class="btn sm dng">Reset Index</button></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:6px;background:var(--ok-dim);border:1px solid rgba(34,197,94,.2);border-radius:7px;padding:6px 12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--ok);display:inline-block;flex-shrink:0"></span><span style="font-size:11.5px;color:var(--ok);font-weight:500">Last synced 2h ago</span></div>
+            <div style="display:flex;align-items:center;gap:6px;background:var(--ac-dim);border:1px solid var(--ac-bdr);border-radius:7px;padding:6px 12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--ac-lt);display:inline-block;flex-shrink:0"></span><span style="font-size:11.5px;color:var(--ac-lt);font-weight:500">Next sync in 22h</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.015)"><div><div style="font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px">Main <span style="font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;color:var(--ok);background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.25)">100%</span></div><div class="help" style="margin-top:2px">1,204 indexed &middot; 47 below cutoff</div></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,.015)"><div><div style="font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px">Main <span style="font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;color:var(--ac-lt);background:var(--ac-dim);border-color:var(--ac-bdr)">43%</span></div><div class="help" style="margin-top:2px">642 indexed &middot; syncing&hellip;</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="save-bar"><button class="btn pri" @click="unsaved.pipelines=false">Save Pipelines</button><span x-show="unsaved.pipelines" class="msg unsaved">Unsaved Changes</span></div>
+    </div>
+      <div x-show="panel==='overrides'" x-show="overridesEnabled">
+      <div style="margin-bottom:14px"><span style="font-size:13px;font-weight:600">Per-Instance Overrides</span><p class="help" style="margin:2px 0 0">Unchanged fields inherit global values.</p></div>
+      <div class="cols2">
+        <div class="ov-card">
+          <div class="ov-card-hdr"><div class="row" style="gap:7px"><div class="ov-badge">Main</div></div><span class="help" style="font-size:11px">Global Inherited</span></div>
+          <div style="max-width:50%;margin-bottom:10px"><div class="field"><label>Cooldown (Hours)</label><input type="number" placeholder="48"><span class="help">Global: 48</span></div></div>
+          <div class="hr" style="margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ac-lt);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(91,114,245,.2)">Cutoff Unmet</div>
+          <div class="ov-fields" style="margin-bottom:10px"><div class="field"><label>Max</label><input type="number" placeholder="10"></div><div class="field"><label>Sample Mode</label><select><option value="__global__">Use Global (Round Robin)</option></select></div></div>
+          <div class="hr" style="margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(34,197,94,.2)">Backlog</div>
+          <div class="ov-bl-row" style="margin-bottom:8px"><span class="help" style="font-size:11px">Off (Global: Off)</span><label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          <template x-if="cfScoreEnabled">
+            <div>
+              <div class="hr" style="margin:10px 0"></div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(251,191,36,.2)">CF Score</div>
+              <div class="ov-fields" style="margin-bottom:10px"><div class="field"><label>Max</label><input type="number" placeholder="5"></div><div class="field"><label>Sample Mode</label><select><option value="__global__">Use Global (Largest Gap First)</option></select></div></div>
+            </div>
+          </template>
+          <div class="hr" style="margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Notifications</div>
+          <div class="notify-footer-row"><span class="help" style="font-size:11.5px">On (Global: On)</span><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          <div class="ov-card-foot"><button class="ov-rst-all">Reset All to Global</button><button class="btn sm pri">Apply</button></div>
+        </div>
+        <div class="ov-card" :class="{ 'ov-dirty': sonarrMainDirty }">
+          <div class="ov-card-hdr"><div class="row" style="gap:7px"><div class="ov-badge ov-sonarr">Main</div></div><span class="help" style="font-size:11px" x-text="sonarrMainDirty ? 'Unsaved Changes' : '1 Override'" :class="{ 'msg unsaved': sonarrMainDirty }"></span></div>
+          <div style="max-width:50%;margin-bottom:10px"><div class="field"><label>Cooldown (Hours)</label><input type="number" x-model.number="sonarrMainCooldown" class="ov-active" @input="sonarrMainDirty=true"><span class="help">Global: 48</span></div></div>
+          <div class="hr" style="margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ac-lt);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(91,114,245,.2)">Cutoff Unmet</div>
+          <div class="ov-fields" style="margin-bottom:10px"><div class="field"><label>Max</label><input type="number" placeholder="10"></div><div class="field"><label>Sample Mode</label><select><option value="__global__">Use Global (Round Robin)</option></select></div></div>
+          <div class="hr" style="margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(34,197,94,.2)">Backlog</div>
+          <div class="ov-bl-row" style="margin-bottom:8px"><span class="help" style="font-size:11px">Off (Global: Off)</span><label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          <template x-if="cfScoreEnabled">
+            <div>
+              <div class="hr" style="margin:10px 0"></div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(251,191,36,.2)">CF Score</div>
+              <div class="ov-fields" style="margin-bottom:10px"><div class="field"><label>Max</label><input type="number" placeholder="5"></div><div class="field"><label>Sample Mode</label><select><option value="__global__">Use Global (Largest Gap First)</option></select></div></div>
+            </div>
+          </template>
+          <div class="hr" style="margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Notifications</div>
+          <div class="notify-footer-row"><span class="help" style="font-size:11.5px">On (Global: On)</span><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          <div class="ov-card-foot"><button class="ov-rst-all" @click="sonarrMainDirty=false">Reset All to Global</button><button class="btn sm pri" @click="sonarrMainDirty=false">Apply</button></div>
+        </div>
+      </div>
+    </div>
+      <div x-show="panel==='filters'">
+      <div style="margin-bottom:16px"><div style="font-size:14px;font-weight:600;margin-bottom:3px">Tag &amp; Quality Profile Filters</div><p class="help">Exclude items from sweep by tag or quality profile. Applied per instance.</p></div>
+      <div class="cols2">
+        <div class="card filter-box-fixed">
+          <div class="card-hdr" style="margin-bottom:12px;flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;letter-spacing:.04em;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt)">Radarr</span>
+              <select style="font-size:11px;padding:3px 7px;max-width:110px;border-radius:6px;border:1px solid var(--border-md);background:var(--surface);color:var(--text);width:auto"><option>Main</option><option>4K</option></select>
+            </div>
+            <button class="btn sm" @click="radarrFiltersLoaded=!radarrFiltersLoaded" x-text="radarrFiltersLoaded ? 'Reload' : 'Load Tags &amp; Profiles'"></button>
+          </div>
+          <div class="filter-card-body" x-show="radarrFiltersLoaded">
+            <div class="filter-section">
+              <div class="help" style="margin-bottom:8px;font-weight:600;font-size:11.5px">Filtered Tags</div>
+              <div class="filter-pill-area"><span class="filter-active-pill">nonyfy <span class="filter-pill-x">&times;</span></span><span class="filter-active-pill">4k-only <span class="filter-pill-x">&times;</span></span></div>
+              <input class="filter-search" placeholder="Search tags&hellip;">
+              <div class="filter-list">
+                <div class="filter-list-item active-radarr">nonyfy</div>
+                <div class="filter-list-item active-radarr">4k-only</div>
+                <div class="filter-list-item">hdr</div><div class="filter-list-item">dolby-vision</div>
+              </div>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;flex-shrink:0">
+            <div class="filter-section">
+              <div class="help" style="margin-bottom:8px;font-weight:600;font-size:11.5px">Filtered Quality Profiles</div>
+              <div class="filter-pill-area"><span class="filter-active-pill">SD Only <span class="filter-pill-x">&times;</span></span></div>
+              <input class="filter-search" placeholder="Search profiles&hellip;">
+              <div class="filter-list"><div class="filter-list-item active-radarr">SD Only</div><div class="filter-list-item">1080p Bluray</div><div class="filter-list-item">2160p Remux</div></div>
+            </div>
+            <div class="save-bar" style="margin-top:8px;flex-shrink:0"><span class="msg unsaved" style="flex:1;font-size:12px" x-show="filtersRadarrUnsaved">Unsaved Changes</span><button class="btn sm pri" @click="filtersRadarrUnsaved=false">Apply</button></div>
+          </div>
+          <div x-show="!radarrFiltersLoaded" style="display:flex;align-items:center;justify-content:center;flex:1"><p class="help" style="text-align:center;padding:20px">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</p></div>
+        </div>
+        <div class="card filter-box-fixed">
+          <div class="card-hdr" style="margin-bottom:12px;flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;letter-spacing:.04em;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);color:#86efac">Sonarr</span>
+              <select style="font-size:11px;padding:3px 7px;max-width:110px;border-radius:6px;border:1px solid var(--border-md);background:var(--surface);color:var(--text);width:auto"><option>Main</option><option>Anime</option></select>
+            </div>
+            <button class="btn sm" @click="sonarrFiltersLoaded=!sonarrFiltersLoaded" x-text="sonarrFiltersLoaded ? 'Reload' : 'Load Tags &amp; Profiles'"></button>
+          </div>
+          <div x-show="!sonarrFiltersLoaded" style="display:flex;align-items:center;justify-content:center;flex:1"><p class="help" style="text-align:center;padding:20px">Click <strong>Load Tags &amp; Profiles</strong> to fetch from this instance.</p></div>
+        </div>
+      </div>
+    </div>
+      <div x-show="panel==='settings'" @change="unsaved.settings=true">
+      <div class="cols2 mb">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div class="section-title" style="margin:0">Schedule</div><span class="mono" style="font-size:11px;color:var(--muted)">6:14 PM</span></div>
+          <div class="stk">
+            <div class="field"><label>Automatic Sweeps</label><div class="row" style="gap:8px;height:34px"><label class="toggle"><input type="checkbox" x-model="schedulerEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="schedulerEnabled ? 'Enabled' : 'Manual'"></span></div></div>
+            <div class="field" :style="schedulerEnabled ? '' : 'opacity:.38;pointer-events:none'"><label style="display:flex;align-items:center;gap:5px">Cron Expression <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Cron fires at fixed clock times — missed schedules are skipped, not caught up. Set the TZ environment variable to control which timezone cron uses. Defaults to UTC.</div></span></label><input class="mono" x-model="cronExpr" :disabled="!schedulerEnabled"><div class="cron-hint">Every 6 hours</div></div>
+            <div class="hr"></div>
+            <div class="section-title" style="display:flex;align-items:center;gap:5px">Quiet Hours <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Suppresses scheduled sweeps and CF Score syncs during the configured time window. Manual runs always bypass it. Import checking continues during the window.</div></span></div>
+            <div class="field"><label>Suppress scheduled sweeps</label><div class="row" style="gap:8px;height:34px"><label class="toggle"><input type="checkbox" x-model="quietEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="quietEnabled ? 'Enabled' : 'Disabled'"></span></div></div>
+            <div :style="quietEnabled ? '' : 'opacity:.38;pointer-events:none'">
+              <div class="cols2" style="gap:10px;margin-bottom:10px"><div class="field"><label>Start</label><input type="text" x-model="quietStart" class="mono"></div><div class="field"><label>End</label><input type="text" x-model="quietEnd" class="mono"></div></div>
+              <div class="row" style="gap:4px;flex-wrap:wrap">
+                <template x-for="(d, i) in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="i">
+                  <button class="day-pill" :class="{ on: isDayActive(i) }" @click="toggleDay(i)" x-text="d"></button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Sweep Controls</div>
+          <div class="stk">
+            <div class="field"><label style="display:flex;align-items:center;gap:5px">Cooldown (Hours) <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend waiting at least 24-48 hours between searches for the same item to avoid triggering rate limits or bans.</div></span></label><input type="number" x-model.number="cooldown"><div class="help">0 = No Cooldown</div></div>
+            <div class="hr"></div>
+            <div class="section-title" style="display:flex;align-items:center;gap:5px">Queue Depth <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Skip the sweep if the total download queue across all instances meets or exceeds the threshold. Useful when a large grab from a list or manual search is in progress. Instances that fail the check contribute 0 to the total.</div></span></div>
+            <div class="row" style="gap:8px;margin-bottom:10px"><label class="toggle"><input type="checkbox" x-model="queueEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="queueEnabled ? 'Skip sweep if download queue is busy' : 'Disabled'"></span></div>
+            <div class="field" :style="queueEnabled ? '' : 'opacity:.38;pointer-events:none'"><label>Queue Threshold</label><input type="number" x-model.number="queueThreshold"><div class="help">Skip sweep if total queue meets or exceeds this</div></div>
+            <div class="hr"></div>
+            <div class="section-title" style="display:flex;align-items:center;gap:5px">Per-Instance Overrides <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or sample modes. Enable and disable without losing your saved overrides.</div></span></div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div :style="overridesEnabled ? '' : 'opacity:.38'"><div style="font-size:13px;font-weight:500">Enable Per-Instance Overrides</div><div class="help">Unlocks the Overrides tab. Override cooldown, max, and sample mode per instance.</div></div>
+              <label class="toggle" style="margin-top:2px;margin-left:16px;flex-shrink:0"><input type="checkbox" :checked="overridesEnabled" @change="overridesEnabled ? overridesEnabled=false : enableOverrides()"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="section-title">Throttling</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap">
+          <div class="field" style="min-width:140px;flex:1"><label style="display:flex;align-items:center;gap:5px">Batch Size <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How many search commands are sent to your instances at once. A batch size of 1 means each item is searched individually with a pause in between. Higher values send multiple searches simultaneously but hit your indexer harder.</div></span></label><input type="number" x-model.number="batchSize"><div class="help">Items per search command</div></div>
+          <div class="field" style="min-width:140px;flex:1"><label style="display:flex;align-items:center;gap:5px">Sleep Seconds <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches. Combined with batch size this controls the overall pace of a sweep.</div></span></label><input type="number" x-model.number="sleepSecs"><div class="help">Pause between searches</div></div>
+          <div class="field" style="min-width:140px;flex:1"><label style="display:flex;align-items:center;gap:5px">Jitter Seconds <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Adds a random delay on top of the sleep time between batches. Makes Nudgarr's search pattern less predictable to indexers.</div></span></label><input type="number" x-model.number="jitterSecs"><div class="help">Random variance added to sleep</div></div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="section-title">Auto-Exclusion</div>
+        <p class="help" style="margin:0 0 14px">Auto-exclude titles repeatedly searched with no confirmed import.</p>
+        <div class="cols2" style="gap:20px">
+          <div><p class="app-hdr radarr">Radarr</p><div class="row" style="gap:8px;margin-bottom:10px"><label class="toggle"><input type="checkbox" x-model="radarrExclEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrExclEnabled ? 'Enabled' : 'Disabled'"></span></div><div :style="radarrExclEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk"><div class="field"><label style="display:flex;align-items:center;gap:5px">Exclude After X Searches <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. 0 disables auto-exclusion for movies. Thresholds are global — configure with your most conservative instance in mind.</div></span></label><input type="number" x-model.number="radarrExclThreshold"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Unexclude After X Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Automatically remove a movie from auto-exclusions after this many days, giving it another chance. 0 means they stay excluded until manually removed.</div></span></label><input type="number" x-model.number="radarrUnexcl"><div class="help">0 = Permanent until manually removed</div></div></div></div></div>
+          <div><p class="app-hdr sonarr">Sonarr</p><div class="row" style="gap:8px;margin-bottom:10px"><label class="toggle"><input type="checkbox" x-model="sonarrExclEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrExclEnabled ? 'Enabled' : 'Disabled'"></span></div><div :style="sonarrExclEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk"><div class="field"><label style="display:flex;align-items:center;gap:5px">Exclude After X Searches <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Auto-exclude an episode after this many searches with no confirmed import. 0 disables auto-exclusion for episodes. Thresholds are global — configure with your most conservative instance in mind.</div></span></label><input type="number" x-model.number="sonarrExclThreshold"></div><div class="field"><label style="display:flex;align-items:center;gap:5px">Unexclude After X Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Automatically remove an episode from auto-exclusions after this many days. 0 means they stay excluded until manually removed.</div></span></label><input type="number" x-model.number="sonarrUnexcl"></div></div></div></div>
+        </div>
+      </div>
+      <div class="save-bar"><button class="btn pri" @click="unsaved.settings=false">Save Changes</button><span x-show="unsaved.settings" class="msg unsaved">Unsaved Changes</span></div>
+    </div></div>
+      <div x-show="panel==='notifications'" @change="unsaved.notifications=true">
+      <div class="cols2">
+        <div class="card">
+          <div class="section-title">Notifications</div>
+          <div class="stk">
+            <div class="field"><label>Enable Notifications</label><div class="row" style="gap:8px;height:34px"><label class="toggle"><input type="checkbox" x-model="notifyEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="notifyEnabled ? 'Send via any Apprise-compatible service' : 'Disabled'"></span></div></div>
+            <div :style="notifyEnabled ? '' : 'opacity:.38;pointer-events:none'">
+              <div class="field">
+                <label>Notification URL</label>
+                <div style="position:relative"><input :type="notifyUrlVisible ? 'text' : 'password'" value="discord://webhookid/token" style="padding-right:52px"><button class="btn sm ghost" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:11px" @click="notifyUrlVisible=!notifyUrlVisible" x-text="notifyUrlVisible ? 'Hide' : 'Show'"></button></div>
+                <div class="help">Supports any <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--ac-lt)">Apprise-compatible</a> URL.</div>
+              </div>
+              <button class="btn sm">Send Test</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Notify On</div>
+          <div style="display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          </div>
+        </div>
+      </div>
+      <div class="save-bar"><button class="btn pri" @click="unsaved.notifications=false">Save Changes</button><span x-show="unsaved.notifications" class="msg unsaved">Unsaved Changes</span></div>
+    </div>
+      <div x-show="panel==='advanced'" @change="unsaved.advanced=true">
+      <div class="cols2" style="margin-bottom:14px">
+        <div class="card">
+          <div class="section-title">Security</div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:5px">Require Login <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Adds a login screen to prevent unauthorized access. Passwords are salted and hashed with progressive lockout on failed attempts. Not a substitute for network-level security — use a reverse proxy with HTTPS for remote access.</div></span></div><div class="help">Password-protect the UI.</div></div><label class="toggle" style="margin-top:2px;margin-left:16px;flex-shrink:0"><input type="checkbox" x-model="authEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          <div style="padding-top:12px;margin-bottom:16px" :style="authEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="field"><label>Session Timeout (Minutes)</label><input type="number" x-model.number="sessionTimeout" style="max-width:160px" :disabled="!authEnabled"></div></div>
+          <div class="hr"></div>
+          <div class="section-title" style="margin-top:14px">UI Preferences</div>
+          <div class="stk">
+            <div class="field"><label style="display:flex;align-items:center;gap:5px">Default Tab <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Tab shown when opening Nudgarr on a new browser or device. Within the same browser Nudgarr always remembers the last tab you visited.</div></span></label><select x-model="defaultTab">
+                  <option value="sweep">Sweep</option>
+                  <option value="library">Library</option>
+                  <option value="intel">Intel</option>
+                  <option value="instances">Instances</option>
+                  <option value="pipelines">Pipelines</option>
+                  <option value="settings">Settings</option>
+                  <option value="notifications">Notifications</option>
+                  <option value="advanced">Advanced</option>
+                </select><div class="help">Shown on a fresh browser. Within the same browser Nudgarr always remembers your last tab.</div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;font-weight:500">Show Support Link</div><div class="help">Displays a support link in the sidebar</div></div><label class="toggle" style="margin-left:16px;flex-shrink:0"><input type="checkbox" x-model="showSupportLink"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Stats, Logging &amp; Data</div>
+          <div class="stk">
+            <div class="field"><label style="display:flex;align-items:center;gap:5px">Import Check (Minutes) <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. Setting this too low may miss slow downloads — 120 minutes is a safe default.</div></span></label><input type="number" x-model.number="importCheck"><div class="help">How often Nudgarr polls for confirmed imports</div></div>
+            <div class="field"><label>Log Level</label><select x-model="logLevel"><option>INFO</option><option>DEBUG</option><option>WARNING</option><option>ERROR</option></select></div>
+            <div class="hr"></div>
+            <div class="field"><label style="display:flex;align-items:center;gap:5px">Days to Keep History &amp; Imports <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How many days Nudgarr keeps history and import records before pruning on the next sweep. Lifetime Intel aggregates are never affected by pruning. 0 = keep forever.</div></span></label><input type="number" x-model.number="retentionDays" style="max-width:160px"><div class="help">0 = keep forever</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><div class="section-title" style="margin:0">Support &amp; Diagnostics</div><span style="font-size:11px;color:var(--muted);font-weight:400">v4.3.0</span></div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap">
+          <div><p class="help" style="margin:0 0 12px">Data backup and diagnostic tools.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm">Backup All</button><button class="btn sm">Download Diagnostic</button><a class="btn sm" style="text-decoration:none" href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank">Open Issue &#8599;</a><a class="btn sm" style="text-decoration:none" href="https://mmagtech.github.io/nudgarr/" target="_blank">Documentation &#8599;</a></div></div>
+        </div>
+      </div>
+      <div class="card" style="border-color:var(--bad-bdr);background:rgba(239,68,68,.03)">
+        <div class="section-title" style="color:#fca5a5;margin-bottom:4px">Danger Zone</div>
+        <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn sm dng" @click="danger('clearHistory')">Clear History</button>
+          <button class="btn sm dng" @click="danger('clearImports')">Clear Imports</button>
+          <button class="btn sm dng" @click="danger('clearLog')">Clear Log</button>
+          <button class="btn sm dng" style="border-color:rgba(239,68,68,.5)" @click="openModal('resetConfig')">Reset Config</button>
+        </div>
+      </div>
+      <div class="save-bar"><button class="btn pri" @click="unsaved.advanced=false">Save Changes</button><span x-show="unsaved.advanced" class="msg unsaved">Unsaved Changes</span></div>
+    </div>
+
+  </div><!-- end .content -->
+
+  </div><!-- end .main -->
+
+  <!-- ══ MODALS ══ -->
+  <!-- Instance Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='instance' }" @click.self="closeModal()">
+    <div class="modal" @click.stop id="instModal">
+      <h2 x-text="modalMode==='edit' ? 'Edit Instance' : 'Add Instance'"></h2>
+      <div class="stk">
+        <div class="field"><label>Name</label><input type="text" id="modalName" placeholder="Example: Radarr Main"></div>
+        <div class="field">
+          <label>URL</label>
+          <input type="text" id="modalUrl" placeholder="http://192.168.1.10:7878">
+          <div id="modalUrlWarn" class="amber-warn-collapsible" style="display:none;padding:10px 13px;margin-top:6px;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:8px">
+            <p class="help" style="color:#fbbf24">URL should not include a path (e.g. /radarr). Use the root URL.</p>
+          </div>
+        </div>
+        <div class="field">
+          <label>API Key</label>
+          <div style="position:relative;display:flex;gap:6px">
+            <input type="password" id="modalKey" placeholder="Paste your API key" style="flex:1">
+            <button class="btn sm" onclick="toggleKeyVis()" id="modalKeyLabel">Show</button>
+          </div>
+        </div>
+        <div id="modalTestResult" style="display:none;margin-top:4px">
+          <div id="modalTestResultInner" style="font-size:12px;padding:8px 10px;border-radius:8px"></div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:20px">
+        <button class="btn sm" id="modalTestBtn" onclick="testModalConnection()">Test Connection</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" @click="closeModal()">Cancel</button>
+          <button class="btn sm pri" onclick="saveModal()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear Exclusions Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='clearExcl' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:460px">
+      <h2 style="margin:0 0 16px">Clear Exclusions</h2>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+        <div class="excl-opt" :class="{ selected: clearExclOpt==='auto' }" @click="clearExclOpt='auto'">
+          <div class="excl-radio"></div>
+          <div><div style="font-weight:600;font-size:13px;margin-bottom:2px">Auto-exclusions only</div><div class="help">Remove only titles that were excluded automatically by the threshold rule.</div></div>
+        </div>
+        <div class="excl-opt" :class="{ selected: clearExclOpt==='manual' }" @click="clearExclOpt='manual'">
+          <div class="excl-radio"></div>
+          <div><div style="font-weight:600;font-size:13px;margin-bottom:2px">Manual exclusions only</div><div class="help">Remove only titles you excluded manually from the History view.</div></div>
+        </div>
+        <div class="excl-opt" :class="{ selected: clearExclOpt==='all' }" @click="clearExclOpt='all'">
+          <div class="excl-radio"></div>
+          <div><div style="font-weight:600;font-size:13px;margin-bottom:2px">All exclusions</div><div class="help">Remove every exclusion regardless of source.</div></div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn sm" @click="closeModal()">Cancel</button>
+        <button class="btn sm pri" :disabled="!clearExclOpt" onclick="confirmClearExclusions()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal (dynamic) -->
+  <div class="modal-backdrop" :class="{ open: modal==='confirm' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:420px">
+      <h2 style="margin:0 0 10px" x-text="confirmTitle"></h2>
+      <p class="help" style="margin:0 0 20px;line-height:1.6" x-text="confirmMsg"></p>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn sm" @click="closeModal()">Cancel</button>
+        <button class="btn sm" style="background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5" onclick="executeConfirmAction()">
+          <span x-text="confirmLabel"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Config Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='resetConfig' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:420px;border-color:var(--bad-bdr)">
+      <h2 style="margin:0 0 10px;color:#fca5a5">Reset Configuration</h2>
+      <p class="help" style="margin:0 0 20px;line-height:1.6">This wipes all data — config, instances, history, imports, exclusions, CF Score index, and Intel. The database is deleted and recreated. There is no undo.</p>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn sm" @click="closeModal()">Cancel</button>
+        <button class="btn sm" style="background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5" onclick="doResetConfig()">Reset Everything</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='alert' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:380px"
+      :style="alertType==='error' ? 'border-color:var(--bad-bdr);background:rgba(239,68,68,.02)' : 'border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.02)'">
+      <h2 style="margin:0 0 10px;font-size:15px;font-weight:700"
+        :style="alertType==='error' ? 'color:#fca5a5' : 'color:#86efac'"
+        x-text="alertType==='error' ? 'Something Went Wrong' : 'Done'"></h2>
+      <p style="margin:0 0 20px;font-size:13px;color:var(--dim);line-height:1.6" x-text="alertMsg"></p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sm" @click="closeModal()"
+          :style="alertType==='error' ? 'background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5' : 'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.25);color:#86efac'">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding Modal -->
+<div class="modal-backdrop" :class="{ open: modal==='onboarding' }" @click.self="closeModal()">
+  <div class="modal" @click.stop style="max-width:560px;padding:28px;display:flex;flex-direction:column;">
+
+    <div style="flex:1">
+      <!-- wordmark -->
+      <div style="font-size:13px;font-weight:800;font-style:italic;background:linear-gradient(120deg,#c4cfff 0%,#5b72f5 45%,#8fa0fb 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:inline-block;margin-bottom:14px">Nudgarr</div>
+
+      <!-- Step 0: Welcome -->
+      <template x-if="onboardingStep===0">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">Welcome to Nudgarr</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7">Nudgarr tells your Radarr and Sonarr instances what to search for, so you don't have to. It works quietly in the background, nudging your Arrs toward better quality releases, filling in missing content, and refining what you already have.<br><br>It runs on a schedule. You set the rules once and let it work through your library over time. This walkthrough covers the key concepts and settings to get you started safely.</p>
+        </div>
+      </template>
+
+      <!-- Step 1: How it works -->
+      <template x-if="onboardingStep===1">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">How Nudgarr Works</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:14px">Nudgarr runs three independent pipelines each sweep. Each one targets a different kind of gap in your library.</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);flex-shrink:0;white-space:nowrap;margin-top:1px">Cutoff Unmet</span><p style="font-size:12.5px;color:var(--dim);line-height:1.5">You have the file but it does not meet your quality profile cutoff. Nudgarr tells your Arrs to search for a better version. <strong style="color:var(--text)">On by default.</strong></p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#86efac;flex-shrink:0;white-space:nowrap;margin-top:1px">Backlog</span><p style="font-size:12.5px;color:var(--dim);line-height:1.5">You do not have the file at all. Nudgarr searches for missing movies and episodes. <strong style="color:var(--text)">Off by default</strong> &mdash; enable in Pipelines when ready.</p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);color:var(--warn);flex-shrink:0;white-space:nowrap;margin-top:1px">CF Score</span><p style="font-size:12.5px;color:var(--dim);line-height:1.5">You have the file and quality tier is met, but the custom format score is below cutoff. <strong style="color:var(--text)">Off by default</strong> &mdash; enable in Pipelines when ready.</p></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Step 2: Add instances -->
+      <template x-if="onboardingStep===2">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Step 1</div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">Add Your Instances</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7">Go to <strong style="color:var(--text)">Instances</strong> in the sidebar. Add each of your Radarr and Sonarr servers with their URL and API key. Use <strong style="color:var(--text)">Test Connections</strong> to confirm everything is reachable before moving on.<br><br>You can add multiple instances of the same app. Nudgarr will nudge all of them each sweep. Keep in mind that Max (Per Instance) applies per instance &mdash; two Radarr instances set to 5 means up to 10 movie search commands per sweep.</p>
+        </div>
+      </template>
+
+      <!-- Step 3: Scheduler -->
+      <template x-if="onboardingStep===3">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Step 2</div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">Scheduler and Run Now</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7">The scheduler is <strong style="color:var(--text)">off by default</strong>. Nudgarr will not run automatically until you enable it in <strong style="color:var(--text)">Settings &rarr; Schedule</strong>.<br><br>You can trigger a sweep at any time using <strong style="color:var(--text)">Run Now</strong> in the topbar &mdash; it's always visible no matter which tab you're on. This is the recommended approach for your first few runs.<br><br>When you're ready to automate, set a cron schedule. The default is <code style="font-family:monospace;font-size:12px;background:rgba(255,255,255,.06);padding:1px 6px;border-radius:4px;color:var(--ac-lt)">0 */6 * * *</code> &mdash; every 6 hours. Start conservative.</p>
+          <div style="padding:11px 14px;border-radius:10px;margin-top:12px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.2)"><p style="font-size:12px;color:var(--dim);line-height:1.6">Nudgarr has no visibility into your indexer's rate limits. Pacing is your responsibility.</p></div>
+        </div>
+      </template>
+
+      <!-- Step 4: Throttling -->
+      <template x-if="onboardingStep===4">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Step 3</div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">Cutoff Unmet and Throttling</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7">These settings live in <strong style="color:var(--text)">Pipelines</strong> (per-pipeline max and sample mode) and <strong style="color:var(--text)">Settings</strong> (cooldown and throttling).<br><br><strong style="color:var(--text)">Max (Per Instance)</strong> &mdash; how many items Nudgarr nudges per instance per sweep. Start at 1 and increase slowly.<br><br><strong style="color:var(--text)">Cooldown</strong> &mdash; how long before the same item is nudged again. Default is 48 hours. Do not lower this aggressively &mdash; repeated searches in a short window is one of the fastest ways to get flagged by an indexer.<br><br><strong style="color:var(--text)">Sample Mode</strong> &mdash; controls which eligible items are picked each run. Round Robin searches whoever has been waiting longest. Random gives even coverage.<br><br><strong style="color:var(--text)">Batch, Sleep, and Jitter</strong> &mdash; control how fast commands are sent. The defaults are safe.</p>
+        </div>
+      </template>
+
+      <!-- Step 5: Exclusions -->
+      <template x-if="onboardingStep===5">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Step 4</div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">Exclusions and Auto-Exclusion</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7">Some items will never be available on your indexers. Excluding them keeps your eligible pool clean and avoids wasting search commands.<br><br><strong style="color:var(--text)">Manual exclusions</strong> &mdash; in <strong style="color:var(--text)">Library &rarr; History</strong>, hover a row and click the exclusion icon to remove that title from future searches. Review and manage exclusions in <strong style="color:var(--text)">Library &rarr; Exclusions</strong>.<br><br><strong style="color:var(--text)">Auto-exclusion</strong> &mdash; in <strong style="color:var(--text)">Settings</strong>, enable auto-exclusion and set a search threshold. If an item is nudged that many times with no confirmed import, Nudgarr excludes it automatically. Set an Unexclude Days value to give items another chance after a period. Start with a threshold of 10.</p>
+        </div>
+      </template>
+
+      <!-- Step 6: Notifications & Intel -->
+      <template x-if="onboardingStep===6">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Step 5</div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">Notifications and Intel</h2>
+          <p style="font-size:13px;color:var(--dim);line-height:1.7"><strong style="color:var(--text)">Notifications</strong> &mdash; add your Apprise-compatible URL in the <strong style="color:var(--text)">Notifications</strong> tab, choose which events to be notified on, and use Send Test to confirm it's working. Supports Discord, Gotify, Ntfy, Pushover, Slack, and more.<br><br><strong style="color:var(--text)">Intel</strong> &mdash; a lifetime performance dashboard showing hard facts about what Nudgarr has actually done &mdash; import turnaround, searches per import, pipeline breakdown, upgrade history, and exclusion activity. Needs a minimum of 25 confirmed imports or 50 sweep runs before data appears. Give it time.</p>
+        </div>
+      </template>
+
+      <!-- Step 7: Ready -->
+      <template x-if="onboardingStep===7">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;margin:0 0 12px">You're Ready</h2>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px">
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">Go to <strong style="color:var(--text)">Instances</strong> and add your Radarr and Sonarr servers</p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">Review <strong style="color:var(--text)">Settings</strong> and keep everything conservative</p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">Hit <strong style="color:var(--text)">Run Now</strong> in the topbar to trigger your first sweep manually</p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">Check <strong style="color:var(--text)">Library &rarr; History</strong> to see what was nudged</p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">5</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">Check <strong style="color:var(--text)">Library &rarr; Imports</strong> after a day or two to see what was confirmed</p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">6</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">If everything looks right, enable the scheduler in <strong style="color:var(--text)">Settings &rarr; Schedule</strong></p></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">7</div><p style="font-size:12.5px;color:var(--dim);line-height:1.5">Gradually increase Max (Per Instance) in <strong style="color:var(--text)">Pipelines</strong> as you get comfortable</p></div>
+          </div>
+          <div style="padding:11px 14px;border-radius:10px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2)"><p style="font-size:12px;color:var(--dim);line-height:1.6">Nudgarr is designed to work quietly in the background. Start slow, let it earn your trust, and tune from there.</p></div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:12px">If Nudgarr is useful to you, the 🍺 support link in the sidebar is a nice way to say thanks. You can hide it anytime in <strong style="color:var(--dim)">Advanced &rarr; UI Preferences</strong>.</p>
+        </div>
+      </template>
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
+      <div style="display:flex;gap:6px;align-items:center">
+        <template x-for="i in onboardingTotal" :key="i">
+          <div style="width:6px;height:6px;border-radius:50%;cursor:pointer;transition:background .2s,transform .2s"
+            :style="onboardingStep===i-1 ? 'background:var(--accent);transform:scale(1.3)' : onboardingStep>i-1 ? 'background:var(--ok)' : 'background:rgba(255,255,255,.12)'"
+            @click="onboardingGoto(i-1)"></div>
+        </template>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" x-show="!onboardingIsFirst" @click="onboardingPrev()">Back</button>
+        <button class="btn pri" @click="onboardingNext()" x-text="onboardingIsLast ? 'Get Started' : 'Next'"></button>
+      </div>
+    </div>
   </div>
 </div>
-<div class="wrap">
 
-    {% include "ui-tab-instances.html" %}
+  <!-- No Instances Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='noInstances' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:400px">
+      <h2 style="margin:0 0 8px">No Instances Configured</h2>
+      <p class="help" style="margin:0 0 20px;line-height:1.6">Add a Radarr or Sonarr instance to get started. Sweep will populate automatically once an instance is connected.</p>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn sm" @click="closeModal()">Dismiss</button>
+        <button class="btn sm pri" @click="closeModal(); panel='instances'">Go to Instances</button>
+      </div>
+    </div>
+  </div>
 
-    {% include "ui-tab-sweep.html" %}
+  <!-- Overrides Info Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='overridesInfo' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:500px;border-color:var(--ac-bdr)">
+      <h2 style="margin:0 0 4px">Per-Instance Overrides &mdash; How it works</h2>
+      <p class="help" style="margin:0 0 16px">Read this once &mdash; it won't show again.</p>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">&#127760; Global values are the starting point</div>
+          <div class="help">Every instance starts from the global values set in Settings and Pipelines. Override any field on any instance independently &mdash; unset fields always fall back to global.</div>
+        </div>
+        <div style="padding:10px 13px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.25);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px;color:#fcd34d">&#9888;&#65039; Search volume multiplies per instance</div>
+          <div class="help">Each instance runs independently. 4 instances &times; max 15 = up to 60 searches per sweep. Review your indexer's rate limits before raising per-instance caps.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">&#127919; Nothing changes until you hit Apply</div>
+          <div class="help">Enabling overrides doesn't change any behaviour on its own. Each instance card has its own Apply button &mdash; only saved cards take effect.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">&#8635; Disabling overrides reverts all instances to global immediately</div>
+          <div class="help">All per-instance values &mdash; including cooldown &mdash; revert to global the moment you disable overrides. Your override values are preserved and restored if you re-enable.</div>
+        </div>
+        <div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px">&#9654; Backlog can be toggled per instance</div>
+          <div class="help">When overrides are active, each instance can have Backlog enabled or disabled independently, regardless of the global Pipelines setting.</div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:18px">
+        <button class="btn sm pri" @click="closeModal()">Continue</button>
+      </div>
+    </div>
+  </div>
 
-    {% include "ui-tab-settings.html" %}
+  <!-- What's New Modal -->
+  <div class="modal-backdrop" :class="{ open: modal==='whatsNew' }" @click.self="closeModal()">
+    <div class="modal" @click.stop style="max-width:520px">
+      <h2 style="margin:0 0 4px">What's New in v{{ VERSION }}</h2>
+      <p class="help" style="margin:0 0 18px">v5 is a full UI redesign. Everything still works the same way &mdash; this is what moved and where.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">Tabs replaced with a sidebar</div>
+          <div class="help">The horizontal tab bar is gone. Navigation is now a sidebar on the left with Monitor, Configure, and System groups. Overrides and Filters sit as sub-items under Pipelines.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">History, Imports, CF Score, and Exclusions are now Library</div>
+          <div class="help">Four separate tabs are now one Library tab with a view switcher. Exclusions get their own dedicated view. The CF Score tab becomes the CF Score view inside Library.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">Pipeline config moved to Pipelines</div>
+          <div class="help">Backlog and CF Score settings have moved from Advanced and Settings into the Pipelines tab where they sit alongside Cutoff Unmet config.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">Unsaved changes indicator</div>
+          <div class="help">A small amber dot now appears next to any nav item with unsaved changes. Navigate freely without losing pending edits.</div>
+        </div>
+        <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">No migration required</div>
+          <div class="help">No backend changes. Your config, history, exclusions, imports, and CF Score index are all untouched. The upgrade is a container restart.</div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-top:20px">
+        <a href="https://mmagtech.github.io/nudgarr/" target="_blank" style="font-size:12px;color:var(--ac-lt);text-decoration:none">Full docs &amp; wiki &#8599;</a>
+        <button class="btn sm pri" @click="dismissWhatsNew()">Continue</button>
+      </div>
+    </div>
 
-    {% include "ui-tab-filters.html" %}
-
-    {% include "ui-tab-history.html" %}
-
-    {% include "ui-tab-imports.html" %}
-
-    {% include "ui-tab-intel.html" %}
-
-    {% include "ui-tab-cf-scores.html" %}
-
-    {% include "ui-tab-notifications.html" %}
-
-    {% include "ui-tab-advanced.html" %}
-
-    {% include "ui-tab-overrides.html" %}
-
-    {% include "ui-modals.html" %}
-
-<script src="{{ url_for('static', filename='ui-core.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-instances.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-overrides.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-sweep.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-history.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-imports.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-intel.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-cf-scores.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-settings.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-notifications.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-advanced.js', v=VERSION) }}"></script>
-<script src="{{ url_for('static', filename='ui-filters.js', v=VERSION) }}"></script>
 </body>
 </html>

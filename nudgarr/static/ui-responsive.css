@@ -1,340 +1,213 @@
-    /* ══════════════════════════════════════════════════════════════════════
-       ui-responsive.css — narrow-viewport responsive layer for the desktop UI.
+/* Nudgarr v5 — Responsive layer.
+   Pure @media blocks only. Never modify desktop layout here.
+   Two breakpoints: 720px (tablet), 480px (phone portrait).
+   Plus phone landscape orientation query. */
 
-       Pure @media blocks. No rules apply at full desktop width.
-       Loaded after ui.css; overrides only what needs adjusting at narrow viewports.
-       ui.css is never modified — this file is the sole responsive surface.
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE LAYER — pure @media blocks, no desktop rules touched.
+   720px: tablet portrait / narrow desktop
+   480px: phone portrait
+   landscape + max-height 500px: phone landscape
+═══════════════════════════════════════════════════════════════════ */
 
-       Two breakpoints:
-         720px  matches the existing ui.css .cols2 / .cols3 breakpoint.
-                Grid stacking (sweep-grid, intel-grid-score), table scroll,
-                CF Score filter row alignment, Settings scheduler row wrap,
-                History/Imports filter controls wrap.
+html { overflow-x: hidden; }
 
-         480px  phone portrait specifics: tab bar horizontal scroll,
-                header condensing, wrap padding, pipeline total cell reflow,
-                Advanced auto-exclusion grid stack, sweep card scroll.
+/* ── Hamburger button — hidden on desktop ── */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  padding: 7px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+}
+.hamburger:hover { background: rgba(255,255,255,.05); }
+.hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dim);
+  transition: all .2s;
+}
 
-       Orientation query:
-         landscape + max-height 500px  phone landscape tab bar scroll.
+/* ── Sidebar overlay backdrop ── */
+.sb-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
 
-       Global:
-         html overflow-x hidden prevents Safari from zooming the page when
-         any element briefly exceeds the viewport width.
-    ══════════════════════════════════════════════════════════════════════ */
+/* ══ 720px — tablet portrait and below ══ */
+@media (max-width: 720px) {
 
-    /* Global: prevent horizontal overflow from triggering Safari auto-zoom.
-       Child elements with their own overflow-x: auto still scroll correctly. */
-    html { overflow-x: hidden; }
+  html, body { overflow-x: hidden; }
 
+  /* Show hamburger */
+  .hamburger { display: flex; }
 
-    /* ── 720px: tablet portrait and below ─────────────────────────────── */
-    @media (max-width: 720px) {
+  /* Sidebar becomes a fixed overlay — hidden off-screen by default */
+  .sb {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 200;
+    box-shadow: 4px 0 40px rgba(0,0,0,.6);
+  }
+  .sb.sb-open { transform: translateX(0); }
 
-      /* Prevent overflowing elements from making the page body horizontally
-         scrollable. Mirrors the same rule in the 480px block below. Child
-         elements with explicit overflow-x: auto still scroll within their
-         own context (table wrappers, tab bar). */
-      html, body { overflow-x: hidden; }
+  /* Backdrop visible when sidebar open */
+  .sb-overlay.sb-overlay-visible { display: block; }
 
-      /* Advanced tab configuration card: cols3 stacks at 720px.
-         Remove border-right (now a stray right border on full-width cells),
-         normalise padding, and add a top border between stacked cells. */
-      .adv-cfg-cell--left,
-      .adv-cfg-cell--mid,
-      .adv-cfg-cell--right {
-        border-right: none !important;
-        padding: 12px 0 !important;
-      }
-      .adv-cfg-cell--mid,
-      .adv-cfg-cell--right {
-        border-top: 1px solid var(--border);
-      }
+  /* Main takes full width now sidebar is out of flow */
+  .main { width: 100%; }
 
-      /* Sweep pipeline grid: 3-col → 1-col at narrow viewport.
-         Pipeline cards are now direct grid children so sweep-grid
-         stacking covers all six cards (3 pipeline + 3 summary). */
-      .sweep-grid              { grid-template-columns: minmax(0, 1fr); }
+  /* Sweep pipeline grid: 3-col → 1-col */
+  .sweep-grid { flex-direction: column; }
 
-      /* Intel Library Score + Search Health grid removed in v4.3.0.
-         Intel tab now uses standard full-width cards. */
+  /* cols2 and cols3: stack vertically */
+  .cols2, .cols3 { flex-direction: column; }
+  .cols2 > *, .cols3 > * { min-width: 0; }
+  .cols2 > .card + .card,
+  .cols3 > .card + .card { margin-top: 14px; }
 
-      /* Tables rendered dynamically into these wrapper divs scroll horizontally.
-         A minimum width forces scroll before content overflows.
-         The first column (title / instance name) is pinned via sticky positioning. */
-      #historyTableWrap,
-      #importsTableWrap,
-      #cfEntriesWrap {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-      }
+  /* Tables: horizontal scroll */
+  .table-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { min-width: 600px; }
 
-      #historyTableWrap table,
-      #cfEntriesWrap table {
-        width: auto;
-        min-width: 100%;
-      }
+  /* Sticky first column on scrollable tables */
+  td:first-child, th:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--card);
+    z-index: 1;
+  }
 
-      #importsTableWrap {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-      }
+  /* Filter rows: wrap */
+  .filter-row { flex-wrap: wrap; }
+  .filter-row .field { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
 
-      #importsTableWrap table {
-        width: auto;
-        min-width: 760px;
-      }
+  /* Tooltip: flip leftward to prevent off-screen overflow */
+  .tooltip-box {
+    left: auto;
+    right: calc(100% + 3px);
+    width: 220px;
+  }
 
-      /* Imports table first column: sticky. The Safari phantom scroll issue
-         that previously required position:static here was caused by a tooltip
-         on the first column — that tooltip has since been removed so sticky
-         is safe to use. */
-      #importsTableWrap td:first-child,
-      #importsTableWrap th:first-child {
-        position: sticky;
-        left: 0;
-        background: var(--card);
-        z-index: 1;
-      }
+  /* Intel headlines: 3-col → 2-col */
+  .intel-headlines { grid-template-columns: 1fr 1fr; }
 
-      #historyTableWrap td:first-child,
-      #historyTableWrap th:first-child {
-        position: sticky;
-        left: 0;
-        background: var(--card);
-        z-index: 1;
-      }
+  /* Filter box fixed height: relax on tablet */
+  .filter-box-fixed { height: auto; min-height: 400px; }
 
-      /* Sweep feed table — wrapped in .feed-table-wrap in the template */
-      .feed-table-wrap {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin: 0 -4px;
-        padding: 0 4px;
-      }
+  /* Overrides cols2: stack */
+  .ov-card { min-width: 0; }
 
-      .feed-table-wrap .feed-table { min-width: 460px; }
+}
 
-      /* Tooltip boxes use position:absolute with left:calc(100%+3px) and
-         width:280px — on mobile this pushes them off the right edge of the
-         viewport. Safari counts this in page width even when opacity:0,
-         triggering auto-zoom. Flip to open leftward and cap width. */
-      .tooltip-box {
-        left: auto;
-        right: calc(100% + 3px);
-        width: 220px;
-      }
-         Automatic Sweeps/Cron and Maintenance Window rows don't overflow
-         the left card of the cols2 grid. */
-      .sched-row { flex-wrap: wrap !important; }
+/* ══ 480px — phone portrait ══ */
+@media (max-width: 480px) {
 
-      /* History, Imports, and CF Score filter controls: break out of the
-         row, go full-width, wrap fields, and shed hard min-widths. Applies
-         at 720px so landscape phone viewports are covered. */
-      .tab-filter-controls {
-        margin-left: 0 !important;
-        width: 100%;
-        flex-wrap: wrap;
-      }
-      .tab-filter-controls .field {
-        min-width: 0 !important;
-        flex: 1 1 calc(50% - 4px);
-      }
-      .tab-filter-controls .field:last-of-type {
-        flex: 1 1 100%;
-      }
+  html, body { overflow-x: hidden; }
 
-      /* CF Score filter controls already have .cf-filter-controls handled
-         below — ensure min-width is fully shed at this breakpoint too. */
-      .cf-filter-controls .field {
-        min-width: 0 !important;
-      }
-      .cf-filter-controls {
-        margin-left: 0 !important;
-        flex-wrap: wrap;
-        width: 100%;
-      }
+  /* Topbar condensed */
+  .topbar { padding: 0 14px; height: 52px; gap: 8px; }
+  .tb-title { font-size: 13px; }
 
-      .cf-filter-controls .field {
-        min-width: 0 !important;
-        flex: 1 1 140px;
-      }
+  /* Hide topbar subtitle on phone */
+  .topbar > div > .tb-title + div { display: none; }
 
-    }
+  /* Status strip: hide last run, keep mode + next */
+  .tb-last { display: none !important; }
+  .tb-divider-last { display: none !important; }
 
+  /* Run Now: icon only */
+  .run-btn-text { display: none; }
+  .run-btn-tb { padding: 6px 10px; }
 
-    /* ── 480px: phone portrait ─────────────────────────────────────────── */
-    @media (max-width: 480px) {
+  /* Content padding */
+  .content { padding: 16px 14px; }
 
-      /* Prevent any overflowing element from making the page body horizontally
-         scrollable. Child elements with their own overflow-x: auto (table
-         wrappers, tab bar) still scroll correctly within their own context. */
-      html, body { overflow-x: hidden; }
+  /* Cards: reduce padding */
+  .card { padding: 14px; }
 
-      /* Wrap: reduce side padding from 24px to 12px */
-      .wrap { padding-left: 12px; padding-right: 12px; }
+  /* Sweep pipeline totals: tighter grid */
+  .p-total-cell { padding: 6px 5px; }
+  .p-total-val { font-size: 16px; }
 
-      /* Tab bar: stop wrapping to a second line — scroll horizontally instead.
-         A right-fade gradient hint is added via .sticky-inner::after below.
-         flex-shrink: 0 on .tab prevents tabs from being compressed before
-         overflow kicks in. overflow-y: hidden + touch-action: pan-x prevent
-         the tab bar from wiggling vertically during a page scroll gesture. */
-      .tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        touch-action: pan-x;
-      }
-      .tabs::-webkit-scrollbar { display: none; }
+  /* Intel headlines: 2-col on phone too — last cell full width */
+  .intel-headlines { grid-template-columns: 1fr 1fr; }
 
-      /* Each tab must not shrink — without this flexbox compresses tabs and
-         clips their text before the container scrolls */
-      .tab { flex-shrink: 0; }
+  /* All tooltips open downward on phone */
+  .tooltip-icon .tooltip-box,
+  .tooltip-icon.tip-down .tooltip-box {
+    left: 0;
+    right: auto;
+    top: calc(100% + 3px);
+    bottom: auto;
+    width: 220px;
+    white-space: normal;
+  }
 
-      /* Fade hint on the right edge of the tab bar to signal more tabs */
-      .sticky-inner {
-        position: relative;
-      }
-      .sticky-inner::after {
-        content: '';
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        width: 40px;
-        height: 38px; /* covers tab bar height */
-        background: linear-gradient(to right, transparent, var(--bg));
-        pointer-events: none;
-        z-index: 10;
-      }
+  /* KPI cards: wrap to 2 per row */
+  .kpis { flex-wrap: wrap; }
+  .kpi-card { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
 
-      /* Hide Last run and Next run status bar segments — too cramped at phone width.
-         The scheduler running dot remains visible. */
-      .status-seg-last,
-      .status-seg-next { display: none; }
+  /* vsw view switcher: scroll horizontally */
+  .vsw { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; }
+  .vbtn { flex-shrink: 0; }
 
-      /* Hide the Mobile view button — no longer needed */
-      .mobile-view-btn { display: none; }
+  /* Overrides fields: single column */
+  .ov-fields { grid-template-columns: 1fr; }
 
-      /* Sweep pipeline aggregate totals:
-         Cutoff Unmet and Backlog 6-col → 3-col (two rows of three)
-         CF Score 4-col → 2-col (two rows of two) */
-      .p-totals   { grid-template-columns: repeat(3, 1fr); }
-      .p-totals-4 { grid-template-columns: repeat(2, 1fr); }
+  /* Filter box fixed height: remove on phone */
+  .filter-box-fixed { height: auto; }
 
-      /* Imports tab stat cards: reorder to Confirmed top full-width,
-         Movies and Episodes side by side below. Uses CSS order so the
-         HTML (and JS references) are unchanged. */
-      .import-stats { flex-direction: row; flex-wrap: wrap; }
-      .import-stat-card.movies { order: 2; flex: 1 1 calc(50% - 4px); min-width: 0; }
-      .import-stat-card.shows  { order: 3; flex: 1 1 calc(50% - 4px); min-width: 0; }
-      .import-stats > .import-stat-card:not(.movies):not(.shows) { order: 1; flex: 1 1 100%; }
+  /* Pipelines cols2: already stacked at 720px */
 
-      /* Intel Instance Performance table: horizontal scroll with sticky
-         first column on portrait mobile. No tooltip on first column so
-         no Safari phantom scroll workaround needed. */
-      #intelInstanceTable {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      #intelInstanceTable table {
-        width: auto;
-        min-width: 100%;
-      }
-      #intelInstanceTable td:first-child,
-      #intelInstanceTable th:first-child {
-        position: sticky;
-        left: 0;
-        background: var(--card);
-        z-index: 1;
-      }
+  /* Intel qi split: stack */
+  .intel-qi-split { grid-template-columns: 1fr; }
 
-      .intel-headlines { grid-template-columns: 1fr 1fr; }
-      .intel-headline-cell:last-child {
-        grid-column: 1 / -1;
-        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-      }
-      .intel-headline-cell:first-child { border-radius: var(--radius-sm) 0 0 0; }
-      .intel-headline-cell:nth-child(2) { border-radius: 0 var(--radius-sm) 0 0; }
+}
 
-      /* On mobile portrait all cards stack full-width so left/right tooltip
-         directions are unreliable. Force all tooltips to open downward —
-         the page scrolls vertically so there is always room below. */
-      .tooltip-icon .tooltip-box,
-      .tooltip-icon.tip-left .tooltip-box,
-      .tooltip-icon.tip-down .tooltip-box {
-        left: 0;
-        right: auto;
-        top: calc(100% + 3px);
-        bottom: auto;
-        width: 220px;
-        white-space: normal;
-      }
+/* ══ Phone landscape ══ */
+@media (orientation: landscape) and (max-height: 500px) {
 
-      /* Advanced Auto-Exclusion Radarr/Sonarr columns: 2-col → 1-col.
-         Uses .adv-autoexcl-grid class added to the inline-grid div in the template. */
-      .adv-autoexcl-grid { grid-template-columns: 1fr; }
+  .hamburger { display: flex; }
 
-      /* Sweep cards: constrain all grid children to the column width
-         and allow horizontal scroll within each card so per-instance
-         stat rows and aggregate totals don't overflow the viewport. */
-      .sweep-grid > .card {
-        min-width: 0;
-        overflow-x: auto;
-      }
+  .sb {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 200;
+    box-shadow: 4px 0 40px rgba(0,0,0,.6);
+  }
+  .sb.sb-open { transform: translateX(0); }
+  .sb-overlay.sb-overlay-visible { display: block; }
+  .main { width: 100%; }
 
-    }
+  .topbar { height: 48px; padding: 0 16px; }
+  .content { padding: 14px 16px; }
 
+  /* All tooltips downward in landscape */
+  .tooltip-icon .tooltip-box,
+  .tooltip-icon.tip-down .tooltip-box {
+    left: 0; right: auto;
+    top: calc(100% + 3px); bottom: auto;
+    width: 220px; white-space: normal;
+  }
 
-    /* ── Phone landscape: single-line scrollable tab bar ───────────────── */
-    /* max-height:500px targets phone landscape only — tablets and desktops
-       in landscape are taller than 500px so this never fires for them. */
-    @media (orientation: landscape) and (max-height: 500px) {
+  .sweep-grid { flex-direction: column; }
 
-      .tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        touch-action: pan-x;
-      }
-      .tabs::-webkit-scrollbar { display: none; }
-      .tab { flex-shrink: 0; }
-
-      /* Fade hint on the right edge matching the portrait treatment */
-      .sticky-inner { position: relative; }
-      .sticky-inner::after {
-        content: '';
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        width: 40px;
-        height: 38px;
-        background: linear-gradient(to right, transparent, var(--bg));
-        pointer-events: none;
-        z-index: 10;
-      }
-
-      /* Force tooltips downward in landscape — same reasoning as portrait. */
-      .tooltip-icon .tooltip-box,
-      .tooltip-icon.tip-left .tooltip-box,
-      .tooltip-icon.tip-down .tooltip-box {
-        left: 0;
-        right: auto;
-        top: calc(100% + 3px);
-        bottom: auto;
-        width: 220px;
-        white-space: normal;
-      }
-
-      /* Sweep cards: stack to single column in landscape so each card has
-         full width. Per-instance stat rows scroll horizontally within each card. */
-      .sweep-grid { grid-template-columns: minmax(0, 1fr); }
-      .sweep-grid > .card {
-        min-width: 0;
-        overflow-x: auto;
-      }
-
-    }
+}

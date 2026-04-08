@@ -1,26 +1,26 @@
 """
 test_frontend_structure.py
 ──────────────────────────
-Structural integrity tests for the Nudgarr frontend.
+Structural integrity tests for the Nudgarr v5 frontend.
 
-Run before and after any JS or template refactor to verify:
+v5 architecture:
+  - Single Alpine.js app (app.js) replaces 12 separate JS files
+  - Single ui.html template replaces 15 template partials
+  - alpine.min.js self-hosted alongside Outfit/JetBrains Mono fonts
+  - ui-responsive.css is the sole responsive surface
+
+Run before and after any JS or template change to verify:
   - All expected files exist
-  - All files are linked from ui.html in the correct order
-  - No function is defined more than once across the JS codebase
-      (known intentional overloads are explicitly whitelisted)
-  - Every onclick handler in ui.html resolves to a defined JS function
-  - Every el('id') call in JS resolves to an id defined in ui.html
-  - Cross-file function calls respect script load order
-      (a file must not call a function defined in a later-loading file
-       at parse time — deferred calls inside function bodies are OK
-       only when the calling function itself is never invoked at parse time)
-  - All shared state variables are declared in ui-core.js
-  - No JS file exceeds the agreed line-count ceiling
-  - validate.py reports 0 failures
+  - All files are linked from ui.html
+  - All required Alpine state properties are declared
+  - All required methods are present in app.js
+  - All 10 panels and 9 modals are present in ui.html
+  - No v4 split files remain
+  - validate.py reports 0 failures at the expected check count
 
 Usage:
   cd <repo-root>
-  pytest tests/test_frontend_structure.py -v
+  PYTHONPATH=. pytest tests/test_frontend_structure.py -v
 """
 
 import os
@@ -37,84 +37,76 @@ STATIC_DIR   = os.path.join(REPO_ROOT, 'nudgarr', 'static')
 TEMPLATE_DIR = os.path.join(REPO_ROOT, 'nudgarr', 'templates')
 UI_HTML      = os.path.join(TEMPLATE_DIR, 'ui.html')
 
-# ── Expected JS files and their load order (index = position in ui.html) ──────
+# ── Expected v5 static files ──────────────────────────────────────────────────
 
-JS_LOAD_ORDER = [
-    'ui-core.js',
-    'ui-instances.js',
-    'ui-overrides.js',
-    'ui-sweep.js',
-    'ui-history.js',
-    'ui-imports.js',
-    'ui-intel.js',
-    'ui-cf-scores.js',
-    'ui-settings.js',
-    'ui-notifications.js',
-    'ui-advanced.js',
-    'ui-filters.js',
+EXPECTED_JS_FILES  = ['alpine.min.js', 'app.js']
+EXPECTED_CSS_FILES = ['ui.css', 'ui-responsive.css']
+
+# ── v4 files that must NOT be present ─────────────────────────────────────────
+
+V4_JS_FILES = [
+    'ui-core.js', 'ui-instances.js', 'ui-overrides.js', 'ui-sweep.js',
+    'ui-history.js', 'ui-imports.js', 'ui-intel.js', 'ui-cf-scores.js',
+    'ui-settings.js', 'ui-notifications.js', 'ui-advanced.js', 'ui-filters.js',
 ]
 
-# ── Line-count ceilings per file (0 = no ceiling set) ─────────────────────────
-# Any file that exceeds this will fail. Update when a deliberate large file
-# is accepted (e.g. after a future refactor raises the ceiling).
+V4_TEMPLATE_PARTIALS = [
+    'ui-header.html', 'ui-nav.html', 'ui-modals.html',
+    'ui-tab-advanced.html', 'ui-tab-cf-scores.html', 'ui-tab-filters.html',
+    'ui-tab-history.html', 'ui-tab-imports.html', 'ui-tab-instances.html',
+    'ui-tab-intel.html', 'ui-tab-notifications.html', 'ui-tab-overrides.html',
+    'ui-tab-settings.html', 'ui-tab-sweep.html',
+]
+
+# ── Required Alpine state properties ──────────────────────────────────────────
+
+REQUIRED_STATE = [
+    'panel', 'sidebarOpen', 'sweeping', 'schedulerEnabled', 'modal',
+    'overridesEnabled', 'cfScoreEnabled', 'unsaved', 'libView', 'exclBadge',
+    'CFG', 'lastRunUtc', 'nextRunUtc', 'autoMode',
+]
+
+# ── Required methods in app.js ────────────────────────────────────────────────
+
+REQUIRED_METHODS = [
+    # Bootstrap
+    'loadAll', 'pollCycle', 'refreshStatus', 'applyConfig',
+    # Panel refreshers
+    'refreshSweep', 'refreshHistory', 'refreshImports', 'refreshCfScores',
+    'loadExclusions', 'refreshIntel',
+    # Save functions
+    'saveSettings', 'savePipelines', 'saveNotifications', 'saveAdvanced', 'saveFilters',
+    # Actions
+    'runNow', 'logout', 'danger', 'executeConfirmAction', 'doResetConfig',
+    'confirmClearExclusions',
+    # Modal helpers
+    'showAlert', 'openModal', 'closeModal',
+    # Utilities
+    'formatRelative', 'formatCompact', 'describeCron',
+    # Sidebar
+    'openSidebar', 'closeSidebar',
+]
+
+# ── Required panels ───────────────────────────────────────────────────────────
+
+PANELS_V5 = [
+    'sweep', 'library', 'intel', 'instances', 'pipelines',
+    'overrides', 'filters', 'settings', 'notifications', 'advanced',
+]
+
+# ── Required modals ───────────────────────────────────────────────────────────
+
+MODALS_V5 = [
+    'instance', 'clearExcl', 'confirm', 'resetConfig', 'alert',
+    'noInstances', 'overridesInfo', 'whatsNew', 'onboarding',
+]
+
+# ── Line count ceilings ───────────────────────────────────────────────────────
 
 LINE_COUNT_CEILINGS = {
-    'ui-core.js':                      400,
-    'ui-instances.js':                 450,
-    'ui-overrides.js':                 510,  # raised v4.2.1: +cf_sample_mode override field, VALID_CF_MODES, CF_MODE_LABELS
-    'ui-sweep.js':                     500,  # raised v4.2.0: Sweep tab redesign
-    'ui-history.js':                   380,
-    'ui-imports.js':                   250,
-    'ui-intel.js':                     550,
-    'ui-cf-scores.js':                 495,  # v4.2.0: cron sync, pill colors, next sync display
-    'ui-settings.js':                  660,  # raised v4.2.0: +syncMaintUi/validateMaintTime/toggleMaintDay + load/save
-    'ui-notifications.js':             120,
-    'ui-advanced.js':                  335,  # raised v4.3.0: +Queue Depth fields and sync function
-    'ui-filters.js':                   470,  # raised v4.2.0: CF filter sync modal handlers
-}
-
-# ── Known intentional duplicate function names (defined in two files by design)
-# Format: frozenset of the two filenames that each define the function.
-
-KNOWN_DUPLICATE_FUNCTIONS = {
-}
-
-# ── Shared state that must be declared in ui-core.js ─────────────────────────
-
-SHARED_STATE_VARS = [
-    'CFG',
-    'PAGE',
-    'HISTORY_TOTAL',
-    'IMPORTS_PAGE',
-    'IMPORTS_TOTAL',
-    'IMPORTS_PERIOD',
-    'SWEEP_FEED_PAGE',
-    'SWEEP_FEED_TOTAL',
-    'ALL_INSTANCES',
-    'ACTIVE_TAB',
-    'HISTORY_SORT',
-    'IMPORTS_SORT',
-    'EXCLUSIONS_SET',
-    'EXCL_FILTER_ACTIVE',
-]
-
-# ── Cross-file load-order dependencies ────────────────────────────────────────
-# These are calls inside function bodies (not at parse time) where the called
-# function lives in a later-loading file. They are legitimate because the caller
-# only executes after all scripts have loaded (user interaction / poll cycle).
-# Listed here so the load-order test can explicitly whitelist them rather than
-# silently ignore the issue.
-
-DEFERRED_CROSS_FILE_CALLS = {
-    # ui-settings.js calls these inside _onTabShown / showTab — only invoked
-    # at runtime after all scripts have loaded.
-    'ui-settings.js': {
-        'fillNotifications',    # defined in ui-notifications.js
-        'fillAdvanced',         # defined in ui-advanced.js
-        'fillFilters',          # defined in ui-filters.js
-        '_filterHasPending',    # defined in ui-filters.js
-        'renderOverridesCards', # defined in ui-overrides.js (loads before — OK, listed for completeness)
-    },
+    'app.js':              2000,
+    'ui.css':               500,
+    'ui-responsive.css':    400,
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -123,99 +115,127 @@ def read_file(path):
     with open(path, encoding='utf-8') as f:
         return f.read()
 
-def read_js(filename):
+def read_static(filename):
     return read_file(os.path.join(STATIC_DIR, filename))
 
-def read_html():
-    # Read ui.html plus all template partials as a single combined string
-    # so ID and onclick checks cover elements that moved to partial files.
-    combined = read_file(UI_HTML)
-    for partial in sorted(os.listdir(TEMPLATE_DIR)):
-        if partial != 'ui.html' and partial.startswith('ui') and partial.endswith('.html'):
-            p = os.path.join(TEMPLATE_DIR, partial)
-            if os.path.exists(p):
-                combined += '\n' + read_file(p)
-    return combined
+def read_ui_html():
+    return read_file(UI_HTML)
 
-def all_js_content():
-    """Combined content of all JS files in load order."""
-    parts = []
-    for fn in JS_LOAD_ORDER:
-        path = os.path.join(STATIC_DIR, fn)
-        if os.path.exists(path):
-            parts.append(read_js(fn))
-    return '\n'.join(parts)
-
-def get_defined_functions(content):
-    """Return set of function names defined at top level in JS content."""
-    return set(re.findall(r'^(?:async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)', content, re.MULTILINE))
-
-def get_defined_functions_per_file():
-    """Return dict mapping filename -> set of defined function names."""
-    result = {}
-    for fn in JS_LOAD_ORDER:
-        path = os.path.join(STATIC_DIR, fn)
-        if os.path.exists(path):
-            result[fn] = get_defined_functions(read_js(fn))
-    return result
-
-def get_onclick_functions(html):
-    """Extract bare function names from onclick attributes in HTML."""
-    raw = re.findall(r'onclick="([^"]+)"', html)
-    functions = set()
-    for handler in raw:
-        # Extract leading function name (before '(' or '.')
-        match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', handler)
-        if match:
-            functions.add(match.group(1))
-    return functions
-
-def get_el_calls(content):
-    """Return set of element IDs referenced via el('id') in JS."""
-    return set(re.findall(r"el\('([^']+)'\)", content))
-
-def get_html_ids(html):
-    """Return set of element IDs declared in HTML."""
-    return set(re.findall(r'id="([^"]+)"', html))
-
-def get_script_load_order(html):
-    """Return list of JS filenames in the order they appear as script tags."""
-    return re.findall(r"filename='([^']+\.js)'", html)
+def read_app_js():
+    return read_file(os.path.join(STATIC_DIR, 'app.js'))
 
 
 # ── Tests — File existence ─────────────────────────────────────────────────────
 
 class TestFileExistence:
 
-    @pytest.mark.parametrize('filename', JS_LOAD_ORDER)
+    @pytest.mark.parametrize('filename', EXPECTED_JS_FILES)
     def test_js_file_exists(self, filename):
-        path = os.path.join(STATIC_DIR, filename)
-        assert os.path.exists(path), f"Missing JS file: nudgarr/static/{filename}"
+        assert os.path.exists(os.path.join(STATIC_DIR, filename)), \
+            f"Missing JS file: nudgarr/static/{filename}"
+
+    @pytest.mark.parametrize('filename', EXPECTED_CSS_FILES)
+    def test_css_file_exists(self, filename):
+        assert os.path.exists(os.path.join(STATIC_DIR, filename)), \
+            f"Missing CSS file: nudgarr/static/{filename}"
 
     def test_ui_html_exists(self):
-        assert os.path.exists(UI_HTML), "Missing template: nudgarr/templates/ui.html"
+        assert os.path.exists(UI_HTML)
+
+    def test_login_html_exists(self):
+        assert os.path.exists(os.path.join(TEMPLATE_DIR, 'login.html'))
+
+    def test_setup_html_exists(self):
+        assert os.path.exists(os.path.join(TEMPLATE_DIR, 'setup.html'))
+
+    def test_fonts_present(self):
+        for font in ['Outfit[wght].woff2', 'JetBrainsMono[wght].woff2']:
+            assert os.path.exists(os.path.join(STATIC_DIR, 'fonts', font)), \
+                f"Missing font: {font}"
+
+    def test_alpine_self_hosted(self):
+        """alpine.min.js must be self-hosted — not loaded from CDN."""
+        assert os.path.exists(os.path.join(STATIC_DIR, 'alpine.min.js')), \
+            "alpine.min.js missing from static/"
+        html = read_ui_html()
+        assert 'cdn.jsdelivr.net' not in html, \
+            "Alpine.js loaded from CDN — must be self-hosted"
 
 
-# ── Tests — HTML links ────────────────────────────────────────────────────────
+# ── Tests — No v4 artifacts ────────────────────────────────────────────────────
+
+class TestNoV4Artifacts:
+
+    @pytest.mark.parametrize('filename', V4_JS_FILES)
+    def test_v4_js_not_present(self, filename):
+        assert not os.path.exists(os.path.join(STATIC_DIR, filename)), \
+            f"v4 JS file still present: {filename} — remove it"
+
+    @pytest.mark.parametrize('filename', V4_TEMPLATE_PARTIALS)
+    def test_v4_partial_not_present(self, filename):
+        assert not os.path.exists(os.path.join(TEMPLATE_DIR, filename)), \
+            f"v4 template partial still present: {filename} — remove it"
+
+
+# ── Tests — HTML links ─────────────────────────────────────────────────────────
 
 class TestHTMLLinks:
 
-    @pytest.mark.parametrize('filename', JS_LOAD_ORDER)
-    def test_js_file_linked_in_html(self, filename):
-        html = read_html()
+    @pytest.mark.parametrize('filename', EXPECTED_JS_FILES)
+    def test_js_linked_in_html(self, filename):
+        html = read_ui_html()
         assert filename in html, \
-            f"ui.html is missing a <script> tag for: {filename}"
+            f"ui.html missing script tag for: {filename}"
 
-    def test_script_load_order_matches_expected(self):
-        html = read_html()
-        actual_order = get_script_load_order(html)
-        # Filter to only files in our known list
-        actual_known = [f for f in actual_order if f in JS_LOAD_ORDER]
-        assert actual_known == JS_LOAD_ORDER, (
-            f"Script load order in ui.html does not match expected.\n"
-            f"Expected: {JS_LOAD_ORDER}\n"
-            f"Got:      {actual_known}"
-        )
+    @pytest.mark.parametrize('filename', EXPECTED_CSS_FILES)
+    def test_css_linked_in_html(self, filename):
+        html = read_ui_html()
+        assert filename in html, \
+            f"ui.html missing link tag for: {filename}"
+
+
+# ── Tests — HTML structure ─────────────────────────────────────────────────────
+
+class TestHTMLStructure:
+
+    def test_div_balance(self):
+        html = read_ui_html()
+        opens  = html.count('<div')
+        closes = html.count('</div')
+        assert opens == closes, \
+            f"Unbalanced divs in ui.html: {opens} opens vs {closes} closes"
+
+    def test_alpine_xdata_present(self):
+        html = read_ui_html()
+        assert 'x-data="nudgarr()"' in html, \
+            "Alpine x-data='nudgarr()' missing from ui.html body tag"
+
+    def test_sidebar_present(self):
+        assert 'class="sb"' in read_ui_html()
+
+    def test_main_area_present(self):
+        assert 'class="main"' in read_ui_html()
+
+    def test_no_duplicate_ids(self):
+        html = read_ui_html()
+        all_ids = re.findall(r'id=["\']([^"\']+)["\']', html)
+        seen, dupes = set(), set()
+        for i in all_ids:
+            if i in seen: dupes.add(i)
+            seen.add(i)
+        assert not dupes, f"Duplicate IDs in ui.html: {sorted(dupes)}"
+
+    @pytest.mark.parametrize('panel', PANELS_V5)
+    def test_panel_present(self, panel):
+        html = read_ui_html()
+        assert f"panel==='{panel}'" in html, \
+            f"Panel '{panel}' missing from ui.html"
+
+    @pytest.mark.parametrize('modal', MODALS_V5)
+    def test_modal_present(self, modal):
+        html = read_ui_html()
+        assert f"modal==='{modal}'" in html, \
+            f"Modal '{modal}' missing from ui.html"
 
 
 # ── Tests — Line count ceilings ───────────────────────────────────────────────
@@ -223,289 +243,100 @@ class TestHTMLLinks:
 class TestLineCounts:
 
     @pytest.mark.parametrize('filename,ceiling', LINE_COUNT_CEILINGS.items())
-    def test_file_under_line_ceiling(self, filename, ceiling):
+    def test_file_under_ceiling(self, filename, ceiling):
         path = os.path.join(STATIC_DIR, filename)
         if not os.path.exists(path):
             pytest.skip(f"{filename} not found")
         count = sum(1 for _ in open(path, encoding='utf-8'))
         assert count <= ceiling, (
             f"{filename} has {count} lines — exceeds ceiling of {ceiling}. "
-            f"Consider splitting or raise the ceiling deliberately."
+            f"Raise the ceiling deliberately if this is intentional."
         )
 
 
-# ── Tests — Duplicate functions ───────────────────────────────────────────────
+# ── Tests — Alpine state ──────────────────────────────────────────────────────
 
-class TestNoDuplicateFunctions:
+class TestAlpineState:
 
-    def test_no_unexpected_duplicate_function_definitions(self):
-        per_file = get_defined_functions_per_file()
-        # Build inverse map: function name -> list of files that define it
-        fn_to_files = {}
-        for filename, fns in per_file.items():
-            for fn in fns:
-                fn_to_files.setdefault(fn, []).append(filename)
-
-        unexpected_dupes = {}
-        for fn, files in fn_to_files.items():
-            if len(files) < 2:
-                continue
-            known = KNOWN_DUPLICATE_FUNCTIONS.get(fn)
-            if known and frozenset(files) == known:
-                continue  # whitelisted intentional duplicate
-            unexpected_dupes[fn] = files
-
-        assert not unexpected_dupes, (
-            "Unexpected duplicate function definitions found:\n" +
-            '\n'.join(f"  {fn}: {files}" for fn, files in sorted(unexpected_dupes.items()))
-        )
+    @pytest.mark.parametrize('prop', REQUIRED_STATE)
+    def test_state_property_declared(self, prop):
+        js = read_app_js()
+        assert f"'{prop}'" in js or f'"{prop}"' in js or f'{prop}:' in js, \
+            f"Alpine state property '{prop}' not declared in app.js"
 
 
-# ── Tests — onclick resolution ────────────────────────────────────────────────
+# ── Tests — Required methods ──────────────────────────────────────────────────
 
-class TestOnclickResolution:
+class TestRequiredMethods:
 
-    # Functions that exist at runtime but are not in our static JS files
-    # (e.g. browser builtins, or intentionally inlined)
-    IGNORED_ONCLICK_FUNCTIONS = {
-        'el',              # inline helper used in some onclick attributes
-        'event',           # browser event object access
-        'confirmResolve',  # assigned dynamically in showConfirm() — not a function declaration
-    }
-
-    def test_all_onclick_functions_defined_in_js(self):
-        html = read_html()
-        js  = all_js_content()
-        defined = get_defined_functions(js)
-        onclick_fns = get_onclick_functions(html) - self.IGNORED_ONCLICK_FUNCTIONS
-        missing = {fn for fn in onclick_fns if fn not in defined}
-        assert not missing, (
-            "onclick handlers in ui.html call functions not defined in any JS file:\n" +
-            '\n'.join(f"  {fn}()" for fn in sorted(missing))
-        )
+    @pytest.mark.parametrize('method', REQUIRED_METHODS)
+    def test_method_present(self, method):
+        js = read_app_js()
+        assert f'async {method}(' in js or f'{method}(' in js, \
+            f"Method '{method}()' missing from app.js"
 
 
-# ── Tests — el() ID resolution ────────────────────────────────────────────────
+# ── Tests — Tab migration ─────────────────────────────────────────────────────
 
-class TestElementIdResolution:
+class TestTabMigration:
 
-    # IDs that are injected dynamically at runtime (not present in static HTML)
-    DYNAMIC_IDS = {
-        # Instance cards rendered by renderInstances()
-        'radarrList', 'sonarrList',
-    }
+    def test_migration_map_in_app_js(self):
+        js = read_app_js()
+        assert 'TAB_MIGRATION_V5' in js, \
+            "TAB_MIGRATION_V5 not in app.js"
 
-    def test_el_calls_reference_existing_ids(self):
-        js   = all_js_content()
-        html = read_html()
-        el_calls = get_el_calls(js) - self.DYNAMIC_IDS
-        html_ids = get_html_ids(html)
-        missing  = el_calls - html_ids
-        # Filter out IDs that look like dynamic patterns (contain variables)
-        static_missing = {i for i in missing if re.match(r'^[a-zA-Z][a-zA-Z0-9_\-]*$', i)}
-        assert not static_missing, (
-            "el() calls in JS reference IDs not found in ui.html:\n" +
-            '\n'.join(f"  el('{i}')" for i in sorted(static_missing))
-        )
+    def test_v4_tabs_in_migration_map(self):
+        js = read_app_js()
+        for old_tab in ['history', 'imports', 'cf-scores']:
+            assert old_tab in js, \
+                f"v4 tab '{old_tab}' missing from migration map in app.js"
 
+    def test_migration_in_constants(self):
+        constants = read_file(os.path.join(REPO_ROOT, 'nudgarr', 'constants.py'))
+        assert 'TAB_MIGRATION_V5' in constants, \
+            "TAB_MIGRATION_V5 missing from constants.py"
 
-# ── Tests — Shared state location ─────────────────────────────────────────────
+    def test_migration_in_config(self):
+        config = read_file(os.path.join(REPO_ROOT, 'nudgarr', 'config.py'))
+        assert 'TAB_MIGRATION_V5' in config, \
+            "TAB_MIGRATION_V5 not applied in config.py"
 
-class TestSharedState:
-
-    @pytest.mark.parametrize('var_name', SHARED_STATE_VARS)
-    def test_shared_state_declared_in_core(self, var_name):
-        core = read_js('ui-core.js')
-        # Match let/const declaration at line start
-        pattern = rf'^(?:let|const)\s+{re.escape(var_name)}\b'
-        assert re.search(pattern, core, re.MULTILINE), (
-            f"Shared state variable '{var_name}' is not declared in ui-core.js"
-        )
-
-    @pytest.mark.parametrize('var_name', SHARED_STATE_VARS)
-    def test_shared_state_not_redeclared_in_other_files(self, var_name):
-        """Shared state should be declared once in ui-core.js, not in other files."""
-        offenders = []
-        for fn in JS_LOAD_ORDER:
-            if fn == 'ui-core.js':
-                continue
-            path = os.path.join(STATIC_DIR, fn)
-            if not os.path.exists(path):
-                continue
-            content = read_js(fn)
-            pattern = rf'^(?:let|const)\s+{re.escape(var_name)}\b'
-            if re.search(pattern, content, re.MULTILINE):
-                offenders.append(fn)
-        assert not offenders, (
-            f"Shared state '{var_name}' is re-declared in: {offenders}. "
-            f"It must only be declared in ui-core.js."
-        )
+    def test_valid_tabs_updated(self):
+        constants = read_file(os.path.join(REPO_ROOT, 'nudgarr', 'constants.py'))
+        # v5 tabs should be present
+        for tab in ['library', 'pipelines']:
+            assert tab in constants, \
+                f"v5 tab '{tab}' missing from VALID_TABS in constants.py"
+        # v4 standalone tabs should not be in VALID_TABS
+        m = re.search(r'VALID_TABS\s*=\s*\((.*?)\)', constants, re.DOTALL)
+        assert m, "VALID_TABS not found in constants.py"
+        valid_tabs_block = m.group(1)
+        for old_tab in ['"cf-scores"', '"history"', '"imports"']:
+            assert old_tab not in valid_tabs_block, \
+                f"v4 tab {old_tab} still in VALID_TABS (should be removed)"
 
 
-# ── Tests — Load order safety ──────────────────────────────────────────────────
+# ── Tests — Responsive CSS ────────────────────────────────────────────────────
 
-class TestLoadOrder:
+class TestResponsiveCSS:
 
-    def test_ui_imports_only_calls_sort_helpers_from_ui_history(self):
-        """
-        ui-imports.js calls applySortIndicators() and sortItems() which are
-        defined in ui-history.js. ui-history.js loads before ui-imports.js.
-        This test verifies that relationship is intact.
-        """
-        imports_content = read_js('ui-imports.js')
-        history_content = read_js('ui-history.js')
-        history_order   = JS_LOAD_ORDER.index('ui-history.js')
-        imports_order   = JS_LOAD_ORDER.index('ui-imports.js')
-        assert history_order < imports_order, \
-            "ui-history.js must load before ui-imports.js"
+    def test_breakpoints_present(self):
+        resp = read_static('ui-responsive.css')
+        assert '@media (max-width: 720px)' in resp
+        assert '@media (max-width: 480px)' in resp
 
-        for fn in ('applySortIndicators', 'sortItems'):
-            assert fn in imports_content, \
-                f"ui-imports.js no longer calls {fn} — test may be stale"
-            assert re.search(rf'^function {fn}\b', history_content, re.MULTILINE), \
-                f"{fn} is no longer defined in ui-history.js"
+    def test_sidebar_overlay_present(self):
+        resp = read_static('ui-responsive.css')
+        assert 'sb-open' in resp, \
+            "Sidebar open state (.sb-open or .sb.sb-open) missing from responsive CSS"
 
-    def test_deferred_cross_file_calls_are_inside_functions(self):
-        """
-        Functions called across file boundaries in ui-settings.js must be
-        inside function bodies (deferred), not at parse/module level.
-        This ensures they are only invoked after all scripts have loaded.
-        """
-        content = read_js('ui-settings.js')
-        deferred = DEFERRED_CROSS_FILE_CALLS.get('ui-settings.js', set())
-        for fn in deferred:
-            if fn not in content:
-                continue  # function not called here at all — test stays green
-            # Verify the call appears inside a function body:
-            # check that it's not at column 0 (i.e. not a top-level statement)
-            for line in content.splitlines():
-                stripped = line.strip()
-                if re.match(rf'{re.escape(fn)}\s*\(', stripped):
-                    assert not line.startswith(fn), (
-                        f"{fn}() appears to be called at the top level in "
-                        f"ui-settings.js — it must only be called inside a "
-                        f"function body to be safe across script load order."
-                    )
-
-    def test_notifications_loads_after_settings(self):
-        settings_order      = JS_LOAD_ORDER.index('ui-settings.js')
-        notifications_order = JS_LOAD_ORDER.index('ui-notifications.js')
-        assert settings_order < notifications_order, \
-            "ui-settings.js must load before ui-notifications.js"
-
-    def test_advanced_loads_after_settings(self):
-        settings_order = JS_LOAD_ORDER.index('ui-settings.js')
-        advanced_order = JS_LOAD_ORDER.index('ui-advanced.js')
-        assert settings_order < advanced_order, \
-            "ui-settings.js must load before ui-advanced.js"
-
-    def test_filters_loads_after_settings(self):
-        settings_order = JS_LOAD_ORDER.index('ui-settings.js')
-        filters_order  = JS_LOAD_ORDER.index('ui-filters.js')
-        assert settings_order < filters_order, \
-            "ui-settings.js must load before ui-filters.js"
+    def test_hamburger_present(self):
+        resp = read_static('ui-responsive.css')
+        assert 'hamburger' in resp, \
+            ".hamburger class missing from responsive CSS"
 
 
-
-
-# ── Tests — Split integrity ───────────────────────────────────────────────────
-
-class TestSplitIntegrity:
-    """
-    Verify that the split files contain the functions they are expected to own.
-    These tests act as a guard against functions accidentally landing in the
-    wrong file during a refactor.
-    """
-
-    EXPECTED_OWNERS = {
-        # file -> functions that must be defined there
-        'ui-notifications.js': {
-            'fillNotifications', 'syncNotifyUi', 'toggleNotifyUrl',
-            'testNotification', 'saveNotifications',
-        },
-        'ui-advanced.js': {
-            'fillAdvanced', 'syncAutoExclUi', 'syncAuthUi',
-            'markUnsaved', 'syncBacklogUi', 'saveAdvanced',
-            'onAutoExclDisabledKeep', 'onAutoExclDisabledClear',
-            'logout', 'resetConfig', 'clearLog',
-            'backupAll', 'downloadDiagnostic',
-            'syncCfScoreToggleLabel', 'toggleCfScoreFeature',
-            '_maybeShowAutoExclDisabledPopup',
-        },
-        'ui-cf-scores.js': {
-            'fillCfScores', 'cfScanLibrary', 'cfResetIndex',
-            'cfRenderTable', 'cfSortTable', 'saveCfScores',
-            'cfFilterEntries', 'cfPrevPage', 'cfNextPage',
-            'cfFilterSearch', 'cfClearSearch', 'jumpCfPage',
-        },
-        'ui-settings.js': {
-            'showTab', '_doShowTab', '_onTabShown',
-            'fillSettings', 'saveSettings', 'validateCronExpr', 'describeCron',
-            'checkCooldownWarning', 'maybeShowWhatsNew', 'dismissWhatsNew',
-            'renderOnboardingStep', 'onboardingStep', 'maybeShowOnboarding',
-            'replayOnboarding', 'syncCutoffUi',
-        },
-        'ui-history.js': {
-            'loadExclusions', 'toggleExclusion', 'refreshAutoExclBadge',
-            'onAutoExclBadgeClick', 'toggleExclusionsFilter',
-            'refreshHistory', 'sortHistory', 'applySortIndicators', 'sortItems',
-            'prevPage', 'nextPage', 'filterHistorySearch', 'clearHistorySearch',
-            'pruneState', 'clearState',
-            'openClearExclusionsModal', 'closeClearExclusionsModal',
-            'selectClearExclOption', 'confirmClearExclusions',
-        },
-        'ui-imports.js': {
-            'refreshImports', 'sortImports', 'prevStatsPage', 'nextStatsPage',
-            'filterImportsSearch', 'clearImportsSearch', 'onImportsPeriodChange',
-            'checkImportsNow', 'clearImports', 'buildUpgradeCell', 'fmtDate',
-        },
-        'ui-sweep.js': {
-            'refreshSweep', 'showSweepNoInstancesModal', 'runNow',
-            'loadSweepFeed', 'prevSweepFeed', 'nextSweepFeed', 'goToSweepFeedPage',
-        },
-        'ui-filters.js': {
-            'saveFilters', 'fillFilters', 'closeCfFilterSyncModal', 'syncCfIndexFromModal',
-        },
-    }
-
-    @pytest.mark.parametrize('filename,expected_fns', EXPECTED_OWNERS.items())
-    def test_file_owns_expected_functions(self, filename, expected_fns):
-        path = os.path.join(STATIC_DIR, filename)
-        if not os.path.exists(path):
-            pytest.skip(f"{filename} not found")
-        defined = get_defined_functions(read_js(filename))
-        missing = expected_fns - defined
-        assert not missing, (
-            f"{filename} is missing expected functions:\n" +
-            '\n'.join(f"  {fn}" for fn in sorted(missing))
-        )
-
-    @pytest.mark.parametrize('filename,expected_fns', EXPECTED_OWNERS.items())
-    def test_functions_not_duplicated_in_wrong_file(self, filename, expected_fns):
-        """Functions that belong in one file must not also appear in other files
-        (except for the whitelisted intentional duplicates)."""
-        for fn in expected_fns:
-            if fn in KNOWN_DUPLICATE_FUNCTIONS:
-                continue
-            for other_file in JS_LOAD_ORDER:
-                if other_file == filename:
-                    continue
-                path = os.path.join(STATIC_DIR, other_file)
-                if not os.path.exists(path):
-                    continue
-                other_defined = get_defined_functions(read_js(other_file))
-                assert fn not in other_defined, (
-                    f"Function '{fn}' is defined in both {filename} (expected owner) "
-                    f"and {other_file} (unexpected duplicate)"
-                )
-
-
-# ── Tests — validate.py passthrough ──────────────────────────────────────────
-
-class TestValidatePy:
-
-    def test_validate_py_passes_with_zero_failures(self):
-        """validate.py must report 0 failures. This is the canonical gate."""
+    def test_validate_py_passes(self):
         result = subprocess.run(
             [sys.executable, 'validate.py'],
             cwd=REPO_ROOT,
@@ -520,12 +351,12 @@ class TestValidatePy:
             f"validate.py reported failures:\n{result.stdout}"
         )
 
-    def test_validate_py_check_count_matches_expected(self):
+    def test_validate_py_check_count(self):
         """
         validate.py must pass at exactly the expected check count.
         Update this number deliberately when checks are added or removed.
         """
-        EXPECTED_CHECK_COUNT = 346  # raised v4.3.0: +12 Queue Depth checks
+        EXPECTED_CHECK_COUNT = 254  # v5.0 baseline
 
         result = subprocess.run(
             [sys.executable, 'validate.py'],

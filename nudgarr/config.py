@@ -17,7 +17,7 @@ import logging
 import re
 from typing import Any, Dict, List, Tuple
 
-from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES, VALID_TABS
+from nudgarr.constants import CONFIG_FILE, DEFAULT_CONFIG, VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES, VALID_TABS, TAB_MIGRATION_V5
 from nudgarr.utils import load_json, save_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,9 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
     # Default tab (v4.4.0)
     default_tab = cfg.get("default_tab", "sweep")
+    # v5 migration: map removed tab names to their v5 equivalents
+    default_tab = TAB_MIGRATION_V5.get(default_tab, default_tab)
+    cfg["default_tab"] = default_tab
     if default_tab not in VALID_TABS:
         errs.append(f"default_tab must be one of {VALID_TABS}")
 

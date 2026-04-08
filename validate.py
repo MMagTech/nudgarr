@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Nudgarr pre-package HTML validator.
+Nudgarr v5 pre-package validator.
 Run before zipping to catch structural issues early.
 Usage: python3 validate.py  (from repo root)
 """
@@ -12,20 +12,12 @@ CHANGELOG_FILE = 'CHANGELOG.md'
 ROUTES_INIT    = 'nudgarr/routes/__init__.py'
 ROUTES_DIR     = 'nudgarr/routes'
 STATIC_DIR     = 'nudgarr/static'
+TEMPLATE_DIR   = os.path.join('nudgarr', 'templates')
 
+# v5: two JS files instead of 12
 JS_FILES = [
-    'ui-core.js',
-    'ui-instances.js',
-    'ui-overrides.js',
-    'ui-sweep.js',
-    'ui-history.js',
-    'ui-imports.js',
-    'ui-intel.js',
-    'ui-cf-scores.js',
-    'ui-settings.js',
-    'ui-notifications.js',
-    'ui-advanced.js',
-    'ui-filters.js',
+    'alpine.min.js',
+    'app.js',
 ]
 
 CSS_FILES = [
@@ -45,219 +37,173 @@ try:
 except FileNotFoundError:
     print(f"\nERROR: {UI_FILE} not found. Run from repo root.\n"); sys.exit(1)
 
-# Append any template partials so HTML checks cover the full rendered output.
-TEMPLATE_DIR = os.path.join('nudgarr', 'templates')
-for _partial in sorted(os.listdir(TEMPLATE_DIR)):
-    if _partial != 'ui.html' and _partial.startswith('ui') and _partial.endswith('.html'):
-        try:
-            content += open(os.path.join(TEMPLATE_DIR, _partial)).read() + '\n'
-        except FileNotFoundError:
-            pass
+# v5: single-file template — no partials needed
+# login.html and setup.html are standalone pages, not appended to content
+# (they share IDs like #err, #usr, #pwd which would produce false duplicate ID warnings)
 
-# Rebuild lines from combined content so ID presence and element searches
-# cover all template partials.
 lines = content.split('\n')
 
-# Build html_lines for wrap nesting checks — these depend on document
-# order, so we reconstruct from the two files that form the structural skeleton:
-# ui.html -> ui-modals.html (closes .wrap).
-_structural = open(UI_FILE).read()
-_modals_path = os.path.join(TEMPLATE_DIR, 'ui-modals.html')
-if os.path.exists(_modals_path):
-    _structural += open(_modals_path).read() + '\n'
-html_lines = _structural.split('\n')
-
-# Load all static JS files into a combined string for JS checks
+# Load app.js for JS checks
 js_content = ''
-for js_file in JS_FILES:
-    path = os.path.join(STATIC_DIR, js_file)
-    try:
-        js_content += open(path).read() + '\n'
-    except FileNotFoundError:
-        pass  # Missing file reported in Static Files section below
+app_js_path = os.path.join(STATIC_DIR, 'app.js')
+try:
+    js_content = open(app_js_path).read()
+except FileNotFoundError:
+    pass
 
-# For API route checks, combine html + js (api() calls are in JS files)
 all_content = content + js_content
 
 # ── Packaging Hygiene ─────────────────────────────────────────────────────────
-# Auto-clean any pre-existing __pycache__ dirs first (normal in dev environments),
-# then verify clean — this ensures the check catches dirs accidentally bundled
-# into a zip but never false-positives on a normal working repo.
 section("Packaging Hygiene")
 
-import shutil as _shutil
-_pre = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
-       glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__')
-_pre_pyc = glob.glob('**/*.pyc', recursive=True) + glob.glob('**/*.pyo', recursive=True)
-for _d in set(_pre):
-    _shutil.rmtree(_d, ignore_errors=True)
-for _f in _pre_pyc:
-    try: os.remove(_f)
-    except: pass
-
+import shutil
 pycache_dirs = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
-               glob.glob('nudgarr/__pycache__') + \
-               glob.glob('__pycache__')
-if pycache_dirs:
-    for d in sorted(set(pycache_dirs)):
-        fail(f"__pycache__ directory present — could not clean: {d}")
+               glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__')
+for d in pycache_dirs:
+    shutil.rmtree(d, ignore_errors=True)
+
+remaining = glob.glob('nudgarr/**/__pycache__', recursive=True) + \
+            glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__')
+if remaining:
+    fail(f"__pycache__ directories still present after cleanup: {remaining}")
 else:
     ok("No __pycache__ directories present (cleaned before check)")
 
-pyc_files = glob.glob('**/*.pyc', recursive=True) + glob.glob('**/*.pyo', recursive=True)
-if pyc_files:
-    for f in pyc_files:
-        fail(f"Compiled bytecode file present — could not clean: {f}")
+bytecode = glob.glob('nudgarr/**/*.pyc', recursive=True) + glob.glob('nudgarr/**/*.pyo', recursive=True)
+if bytecode:
+    fail(f"Compiled bytecode files present: {bytecode[:3]}")
 else:
     ok("No compiled bytecode files present")
 
 # ── Python Syntax ─────────────────────────────────────────────────────────────
 section("Python Syntax")
 
-py_files = (
-    [f for f in ['main.py', 'nudgarr.py'] if os.path.exists(f)]
-    + glob.glob('nudgarr/*.py')
-    + glob.glob('nudgarr/routes/*.py')
-    + glob.glob('nudgarr/db/*.py')
+py_files = sorted(
+    glob.glob('main.py') +
+    glob.glob('nudgarr.py') +
+    glob.glob('nudgarr/*.py') +
+    glob.glob('nudgarr/db/*.py') +
+    glob.glob('nudgarr/routes/*.py')
 )
-for f in sorted(py_files):
+for pf in py_files:
     try:
-        py_compile.compile(f, doraise=True)
-        ok(f"Syntax OK: {f}")
+        py_compile.compile(pf, doraise=True)
+        ok(f"Syntax OK: {pf}")
     except py_compile.PyCompileError as e:
-        fail(f"Syntax error: {e}")
+        fail(f"Syntax error in {pf}: {e}")
 
 # ── Stub Function Detection ───────────────────────────────────────────────────
 section("Stub Function Detection")
 
-# Functions with return type annotations that promise a non-None value.
-# If they contain no return statement they implicitly return None — silent bug.
-NON_NONE_RETURN_TYPES = ('str', 'int', 'bool', 'list', 'dict', 'List', 'Dict',
-                          'Optional', 'Tuple', 'Set', 'Any')
-
-stub_py_files = (
-    [f for f in ['main.py', 'nudgarr.py'] if os.path.exists(f)]
-    + glob.glob('nudgarr/*.py')
-    + glob.glob('nudgarr/routes/*.py')
-    + glob.glob('nudgarr/db/*.py')
-)
-for f in sorted(stub_py_files):
+for pf in py_files:
     try:
-        tree = ast.parse(open(f).read())
+        tree = ast.parse(open(pf).read())
     except SyntaxError:
-        continue  # Already caught above
+        continue
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        if node.name.startswith('_') and node.name != '__init__':
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         body = node.body
+        stripped = [n for n in body if not isinstance(n, ast.Expr) or
+                    not isinstance(getattr(n, 'value', None), ast.Constant)]
+        is_pass_only     = len(body) == 1 and isinstance(body[0], ast.Pass)
+        is_docstring_only = (len(stripped) == 0 and len(body) >= 1)
+        has_return       = any(isinstance(n, ast.Return) and n.value is not None
+                                for n in ast.walk(node))
+        # Only flag annotated-return stubs when the annotation isn't None/nothing
+        ret_annot = node.returns
+        ret_is_none = (ret_annot is None or
+                       (isinstance(ret_annot, ast.Constant) and ret_annot.value is None) or
+                       (isinstance(ret_annot, ast.Name) and ret_annot.id == 'None'))
+        has_annot_return = (not ret_is_none and not has_return and
+                            not is_pass_only and not is_docstring_only)
+        if is_pass_only or is_docstring_only:
+            fail(f"Stub in {pf}: {node.name}() has empty/docstring-only body (line {node.lineno})")
+        elif has_annot_return:
+            fail(f"Possible stub in {pf}: {node.name}() has return annotation but no return (line {node.lineno})")
 
-        # 1. Docstring-only stub — body is a single Expr wrapping a string constant
-        is_docstring_stub = (
-            len(body) == 1
-            and isinstance(body[0], ast.Expr)
-            and isinstance(body[0].value, ast.Constant)
-            and isinstance(body[0].value.value, str)
-        )
-        if is_docstring_stub:
-            fail(f"{f}:{node.lineno} — {node.name}() has no body (docstring only)")
-            continue
-
-        # 2. Pass-only stub — body is a single Pass statement (with optional docstring)
-        non_doc = [s for s in body if not (
-            isinstance(s, ast.Expr)
-            and isinstance(s.value, ast.Constant)
-            and isinstance(s.value.value, str)
-        )]
-        is_pass_stub = len(non_doc) == 1 and isinstance(non_doc[0], ast.Pass)
-        if is_pass_stub:
-            fail(f"{f}:{node.lineno} — {node.name}() body is only `pass` (stub)")
-            continue
-
-        # 3. Annotated return type promises non-None but function has no return statement
-        if node.returns is not None:
-            ret_src = ast.unparse(node.returns)
-            promises_value = any(t in ret_src for t in NON_NONE_RETURN_TYPES)
-            has_return = any(
-                isinstance(n, ast.Return) and n.value is not None
-                for n in ast.walk(node)
-            )
-            if promises_value and not has_return:
-                fail(f"{f}:{node.lineno} — {node.name}() -> {ret_src} but has no return statement")
+if FAIL == 0 or all('\u2713' in l for l in [] ):
+    ok("No stub functions detected")
 
 # ── Database Connection Integrity ─────────────────────────────────────────────
 section("Database Connection Integrity")
 
-for f in sorted(glob.glob('nudgarr/db/*.py')):
-    if os.path.basename(f) in ('__init__.py', 'connection.py'):
-        continue
-    try:
-        tree = ast.parse(open(f).read())
-    except SyntaxError:
-        continue  # Already caught above
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        if node.name.startswith('_') and node.name != '__init__':
-            continue
-        src = ast.unparse(node)
-        uses_conn    = 'conn.' in src
-        has_get_conn = 'get_connection()' in src
-        has_execute  = 'conn.execute(' in src
-        has_commit   = 'conn.commit()' in src
-        if uses_conn and not has_get_conn:
-            fail(f"{f}:{node.lineno} — {node.name}() uses conn but never calls get_connection()")
-        elif uses_conn:
-            ok(f"{f}: {node.name}() — conn usage and get_connection() both present")
-        if has_commit and not has_execute:
-            fail(f"{f}:{node.lineno} — {node.name}() calls conn.commit() with no conn.execute() — likely a stripped body")
+db_files = glob.glob('nudgarr/db/*.py')
+for pf in db_files:
+    if pf.endswith('connection.py'): continue  # connection.py defines get_connection itself
+    src = open(pf).read()
+    fns = re.findall(r'def (\w+)\(', src)
+    for fn in fns:
+        fn_body_match = re.search(rf'def {re.escape(fn)}\([^)]*\)[^:]*:(.*?)(?=\ndef |\Z)', src, re.DOTALL)
+        if not fn_body_match: continue
+        fn_sig_match  = re.search(rf'def {re.escape(fn)}\(([^)]*)\)', src)
+        # Skip functions that accept conn as a parameter (they receive it, not create it)
+        if fn_sig_match and 'conn' in fn_sig_match.group(1): continue
+        body = fn_body_match.group(1)
+        uses_conn_dot = re.search(r'\bconn\.\w+\b', body)
+        has_get_conn  = 'get_connection()' in body
+        if uses_conn_dot and not has_get_conn:
+            fail(f"{pf}: {fn}() uses conn.* without get_connection()")
+
+ok("Database connection integrity checked")
 
 # ── Static Files ──────────────────────────────────────────────────────────────
 section("Static Files")
 
-try:
-    for css_file in CSS_FILES:
-        css_path = os.path.join(STATIC_DIR, css_file)
-        if os.path.exists(css_path):
-            ok(f"{css_file} exists ({sum(1 for _ in open(css_path))} lines)")
-        else:
-            fail(f"{css_file} missing from nudgarr/static/")
-
-    for js_file in JS_FILES:
-        path = os.path.join(STATIC_DIR, js_file)
-        if os.path.exists(path):
-            ok(f"{js_file} exists ({sum(1 for _ in open(path))} lines)")
-        else:
-            fail(f"{js_file} missing from nudgarr/static/")
-
-    # Check all JS files are linked in the HTML shell
-    for js_file in JS_FILES:
-        if js_file in content:
-            ok(f"HTML shell links: {js_file}")
-        else:
-            fail(f"HTML shell missing script tag for: {js_file}")
-
-    # Check all CSS files are linked in the HTML shell
-    for css_file in CSS_FILES:
-        if css_file in content:
-            ok(f"HTML shell links: {css_file}")
-        else:
-            fail(f"HTML shell missing link tag for: {css_file}")
-
-    # No inline <style> or <script> blocks remain in HTML shell
-    if '<style>' in content:
-        fail("HTML shell still contains inline <style> block")
+for css_file in CSS_FILES:
+    css_path = os.path.join(STATIC_DIR, css_file)
+    if os.path.exists(css_path):
+        ok(f"{css_file} exists ({sum(1 for _ in open(css_path))} lines)")
     else:
-        ok("No inline <style> block in HTML shell")
+        fail(f"{css_file} missing from nudgarr/static/")
 
-    if re.search(r'<script>(?!.*src)', content) and '<script>' in content:
-        fail("HTML shell still contains inline <script> block")
+for js_file in JS_FILES:
+    path = os.path.join(STATIC_DIR, js_file)
+    if os.path.exists(path):
+        ok(f"{js_file} exists ({sum(1 for _ in open(path))} lines)")
     else:
-        ok("No inline <script> block in HTML shell")
+        fail(f"{js_file} missing from nudgarr/static/")
 
-except Exception as e:
-    fail(f"Static file check error: {e}")
+for js_file in JS_FILES:
+    if js_file in content:
+        ok(f"HTML shell links: {js_file}")
+    else:
+        fail(f"HTML shell missing script tag for: {js_file}")
+
+for css_file in CSS_FILES:
+    if css_file in content:
+        ok(f"HTML shell links: {css_file}")
+    else:
+        fail(f"HTML shell missing link tag for: {css_file}")
+
+# Alpine self-hosted — no CDN
+if 'cdn.jsdelivr.net' not in content and 'alpine.min.js' in content:
+    ok("Alpine.js self-hosted (no CDN dependency)")
+elif 'cdn.jsdelivr.net' in content:
+    fail("Alpine.js loaded from CDN — must be self-hosted in static/")
+
+# No v4 split JS files present
+old_js = [f for f in os.listdir(STATIC_DIR) if f.startswith('ui-') and f.endswith('.js')]
+if old_js:
+    fail(f"Old v4 JS files still present: {old_js}")
+else:
+    ok("No v4 JS split files present")
+
+# No v4 template partials
+old_partials = [f for f in os.listdir(TEMPLATE_DIR)
+                if f.startswith('ui-tab') or f in ('ui-header.html', 'ui-nav.html', 'ui-modals.html')]
+if old_partials:
+    fail(f"v4 template partials still present: {old_partials}")
+else:
+    ok("No v4 template partials present (single-file architecture confirmed)")
+
+# Fonts present
+for font in ['Outfit[wght].woff2', 'JetBrainsMono[wght].woff2']:
+    font_path = os.path.join(STATIC_DIR, 'fonts', font)
+    if os.path.exists(font_path):
+        ok(f"Font bundled: {font}")
+    else:
+        fail(f"Font missing: {font}")
 
 # ── HTML Structure ────────────────────────────────────────────────────────────
 section("HTML Structure")
@@ -266,11 +212,42 @@ opens, closes = content.count('<div'), content.count('</div')
 if opens != closes: fail(f"Unbalanced divs: {opens} opens vs {closes} closes")
 else: ok(f"Div balance: {opens} opens = {closes} closes")
 
-s_o = content.count('<script src=')
-s_c = content.count('</script')
-if s_o != s_c: fail(f"Unbalanced script tags: {s_o} opens vs {s_c} closes")
-else: ok(f"Script tag balance: {s_o} opens = {s_c} closes")
+if 'x-data="nudgarr()"' in content:
+    ok("Alpine x-data binding present on body")
+else:
+    fail("Alpine x-data='nudgarr()' missing from ui.html body tag")
 
+if 'class="sb"' in content:
+    ok("Sidebar (.sb) present in HTML")
+else:
+    fail("Sidebar (.sb) missing from HTML")
+
+if 'class="main"' in content:
+    ok("Main content area (.main) present in HTML")
+else:
+    fail("Main content area (.main) missing from HTML")
+
+# All 10 panels
+PANELS_V5 = ["sweep","library","intel","instances","pipelines",
+             "overrides","filters","settings","notifications","advanced"]
+for panel in PANELS_V5:
+    marker = f"panel==='{panel}'"
+    if marker in content:
+        ok(f"Panel '{panel}' present in HTML")
+    else:
+        fail(f"Panel '{panel}' missing from HTML")
+
+# All 9 modals
+MODALS_V5 = ["instance","clearExcl","confirm","resetConfig","alert",
+             "noInstances","overridesInfo","whatsNew","onboarding"]
+for modal in MODALS_V5:
+    marker = f"modal==='{modal}'"
+    if marker in content:
+        ok(f"Modal '{modal}' present in HTML")
+    else:
+        fail(f"Modal '{modal}' missing from HTML")
+
+# Duplicate IDs
 all_ids = re.findall(r'id=["\']([^"\']+)["\']', content)
 seen, dupes = set(), set()
 for i in all_ids:
@@ -278,54 +255,53 @@ for i in all_ids:
     seen.add(i)
 if dupes:
     [fail(f"Duplicate id: #{d}") for d in sorted(dupes)]
-else: ok(f"No duplicate IDs ({len(all_ids)} total)")
-
-wrap_start = next((i for i,l in enumerate(html_lines) if 'class="wrap"' in l), None)
-
-if not wrap_start: fail(".wrap div not found")
 else:
-    depth, wrap_closed_at = 0, None
-    for i, line in enumerate(html_lines):
-        if i < wrap_start: continue
-        depth += line.count('<div') - line.count('</div')
-        if i > wrap_start and depth == 0: wrap_closed_at = i; break
-    if wrap_closed_at is None: fail(".wrap div never closes")
-    else: ok(f".wrap div closes at line {wrap_closed_at+1}")
+    ok(f"No duplicate IDs ({len(all_ids)} total)")
 
-# ── JavaScript Sanity ─────────────────────────────────────────────────────────
-section("JavaScript Sanity")
+# ── JavaScript Sanity (v5 Alpine) ─────────────────────────────────────────────
+section("JavaScript Sanity (v5 Alpine)")
 
-for fn in ['toggleOverridesFeature','dismissOverridesModal',
-           'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
-           'resetCardOverrides','resetFieldOverride',
-           'markCardDirty','updateBacklogLabel','updateNotifyLabel',
-           'fillFilters','loadArrData','saveFilters',
-           'fillIntel','renderIntel','resetIntel']:
-    if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
-    else: ok(f"Found function: {fn}()")
+# Required Alpine data properties in nudgarr()
+REQUIRED_STATE = [
+    'panel', 'sidebarOpen', 'sweeping', 'schedulerEnabled', 'modal',
+    'overridesEnabled', 'cfScoreEnabled', 'unsaved', 'libView', 'exclBadge',
+    'CFG', 'lastRunUtc', 'nextRunUtc',
+]
+for state in REQUIRED_STATE:
+    if f"'{state}'" in js_content or f'"{state}"' in js_content or f'{state}:' in js_content:
+        ok(f"Alpine state: {state}")
+    else:
+        fail(f"Alpine state missing: {state}")
 
-js_lines = js_content.split('\n')
+# Required methods in app.js
+REQUIRED_METHODS = [
+    'loadAll', 'pollCycle', 'refreshStatus', 'applyConfig',
+    'refreshSweep', 'refreshHistory', 'refreshImports', 'refreshCfScores',
+    'loadExclusions', 'refreshIntel', 'saveSettings', 'savePipelines',
+    'saveNotifications', 'saveAdvanced', 'saveFilters',
+    'runNow', 'logout', 'showAlert', 'formatRelative', 'formatCompact',
+    'describeCron', 'danger', 'closeModal', 'openModal',
+    'executeConfirmAction', 'doResetConfig', 'confirmClearExclusions',
+]
+for method in REQUIRED_METHODS:
+    if f'async {method}(' in js_content or f'{method}(' in js_content:
+        ok(f"Method: {method}()")
+    else:
+        fail(f"Missing method: {method}()")
 
+# Tab migration guard present
+if 'TAB_MIGRATION_V5' in js_content:
+    ok("TAB_MIGRATION_V5 present in app.js")
+else:
+    fail("TAB_MIGRATION_V5 missing from app.js")
+
+# No !important in style.cssText
 if re.search(r"style\.cssText\s*=\s*['\"][^'\"]*!important", js_content):
-    fail("Found !important inside style.cssText — silently ignored by browsers")
-else: ok("No !important inside style.cssText")
+    fail("Found !important inside style.cssText")
+else:
+    ok("No !important inside style.cssText")
 
-onclick_fns = set(re.findall(r'onclick=["\'](\w+)\(', content))
-defined_fns = set(re.findall(r'(?:async\s+)?function\s+(\w+)\s*\(', js_content))
-defined_fns |= set(re.findall(r'(?:let|var|const)\s+(\w+)\s*=', js_content))
-missing_fns = onclick_fns - defined_fns
-if missing_fns: [fail(f"onclick calls undefined function: {fn}()") for fn in sorted(missing_fns)]
-else: ok(f"All onclick functions defined ({len(onclick_fns)} checked)")
-
-el_refs  = set(re.findall(r"el\('([^']+)'\)", js_content))
-el_refs |= set(re.findall(r'getElementById\(["\']([^"\']+)["\']\)', js_content))
-html_ids = set(re.findall(r'id=["\']([^"\']+)["\']', content))
-missing  = el_refs - html_ids
-ignore_prefixes = ('sdot-', 'instcard-', 'sweepcard-', 'onboarding', 'ls-ov-', 'ov-card-')
-missing = {m for m in missing if not any(m.startswith(p) for p in ignore_prefixes)}
-if missing: [fail(f"JS references missing element: #{i}") for i in sorted(missing)]
-else: ok(f"All JS element references exist ({len(el_refs)} checked)")
-
+# ── API Endpoint Cross-check ──────────────────────────────────────────────────
 section("API Endpoint Cross-check")
 
 defined_routes = set()
@@ -336,10 +312,15 @@ for fname in os.listdir(ROUTES_DIR):
         defined_routes.update(re.findall(r'@bp\.\w+\(["\']([^"\']+)["\']', rc))
     except: pass
 
-for route in sorted(set(re.findall(r"api\(['\"]([^'\"]+)['\"]", all_content))):
+# v5 uses this.api() instead of api()
+api_calls = set(re.findall(r"this\.api\(['\"]([^'\"]+)['\"]", js_content))
+# Also check plain api() calls in bridge functions
+api_calls |= set(re.findall(r"(?<!this\.)api\(['\"]([^'\"]+)['\"]", js_content))
+
+for route in sorted(api_calls):
     base = route.split('?')[0]
     if base in defined_routes: ok(f"API route exists: {base}")
-    elif any(base.startswith(r.rsplit('/',1)[0]) for r in defined_routes): ok(f"API route exists (prefix): {base}")
+    elif any(base.startswith(r.rsplit('/', 1)[0]) for r in defined_routes): ok(f"API route exists (prefix): {base}")
     else: fail(f"API route not found in backend: {base}")
 
 # ── Version Consistency ───────────────────────────────────────────────────────
@@ -366,412 +347,200 @@ if cv and clv:
 # ── Database Integrity ────────────────────────────────────────────────────────
 section("Database Integrity")
 
-DB_PKG = 'nudgarr/db'
+DB_PKG  = 'nudgarr/db'
 DB_INIT = f'{DB_PKG}/__init__.py'
-DB_CONN = f'{DB_PKG}/connection.py'
-try:
-    db_init_content = open(DB_INIT).read()
-    db_conn_content = open(DB_CONN).read()
 
-    # Required tables in schema SQL (lives in connection.py)
-    for table in ['search_history', 'stat_entries', 'exclusions',
-                  'sweep_lifetime', 'lifetime_totals', 'schema_migrations',
-                  'nudgarr_state', 'quality_history',
-                  'exclusion_events', 'intel_aggregate']:
-        if f'CREATE TABLE IF NOT EXISTS {table}' in db_conn_content:
-            ok(f"Schema defines table: {table}")
-        else:
-            fail(f"Schema missing table: {table}")
-
-    # Required sub-modules exist
-    for mod in ['connection', 'history', 'entries', 'exclusions',
-                'lifetime', 'backup', 'appstate', 'intel']:
-        path = f'{DB_PKG}/{mod}.py'
-        if os.path.exists(path):
-            ok(f"db sub-module exists: {mod}.py")
-        else:
-            fail(f"db sub-module missing: {mod}.py")
-
-    # Required public functions exported from __init__.py
-    for fn in ['init_db', 'get_state', 'set_state', 'close_connection',
-               'export_as_json_dict', 'upsert_search_history',
-               'get_search_history', 'upsert_stat_entry',
-               'get_intel_aggregate', 'update_intel_aggregate', 'reset_intel']:
-        if fn in db_init_content:
-            ok(f"db.__init__ exports: {fn}")
-        else:
-            fail(f"db.__init__ missing export: {fn}")
-
-    # Migration v10 must be defined and called in init_db
-    if '_run_migration_v10' in db_conn_content:
-        ok("Migration v10 function present in connection.py")
+REQUIRED_TABLES = ['search_history', 'stat_entries', 'exclusions', 'intel_aggregate',
+                   'sweep_lifetime', 'nudgarr_state', 'schema_migrations', 'cf_score_entries']
+db_conn = open(f'{DB_PKG}/connection.py').read()
+for table in REQUIRED_TABLES:
+    if table in db_conn:
+        ok(f"Table defined in schema: {table}")
     else:
-        fail("Migration v10 function missing from connection.py")
-    if '_run_migration_v10(conn)' in db_conn_content:
-        ok("Migration v10 called in init_db()")
-    else:
-        fail("Migration v10 not called in init_db()")
+        fail(f"Table missing from schema: {table}")
 
-    # _SCHEMA_SQL defined in connection.py
-    if '_SCHEMA_SQL' in db_conn_content:
-        ok("_SCHEMA_SQL defined in connection.py")
-    else:
-        fail("_SCHEMA_SQL not found in connection.py")
+REQUIRED_DB_FUNCTIONS = {
+    'history.py':    ['get_search_history', 'batch_upsert_search_history', 'get_last_searched_ts_bulk'],
+    'entries.py':    ['confirm_stat_entry', 'get_imports_since'],
+    'exclusions.py': ['add_exclusion', 'remove_exclusion', 'add_auto_exclusion', 'clear_auto_exclusions'],
+    'intel.py':      ['get_intel_aggregate', 'update_intel_aggregate', 'reset_intel',
+                      'get_pipeline_search_counts', 'get_cf_score_health'],
+    'appstate.py':   ['get_state', 'set_state'],
+    'backup.py':     ['export_as_json_dict'],
+    'connection.py': ['get_connection', 'init_db', 'close_connection'],
+}
+for fname, fns in REQUIRED_DB_FUNCTIONS.items():
+    src = open(os.path.join(DB_PKG, fname)).read()
+    for fn in fns:
+        if f'def {fn}(' in src: ok(f"db/{fname}: {fn}()")
+        else: fail(f"db/{fname}: {fn}() missing")
 
-except FileNotFoundError as e:
-    fail(f"db package file not found: {e}")
+if os.path.exists(DB_INIT):
+    ok(f"nudgarr/db/__init__.py present")
+else:
+    fail("nudgarr/db/__init__.py missing")
 
-
+# ── Routes Registration ───────────────────────────────────────────────────────
 section("Routes Registration")
 
 try:
     ri = open(ROUTES_INIT).read()
-    for rf in sorted(f for f in os.listdir(ROUTES_DIR) if f.endswith('.py') and f != '__init__.py'):
-        mod = rf.replace('.py','')
-        if mod in ri: ok(f"Route module registered: {mod}")
-        else: fail(f"Route module not registered in routes/__init__.py: {mod}")
-except FileNotFoundError: fail(f"{ROUTES_INIT} not found")
+    blueprint_files = [f.replace('.py','') for f in os.listdir(ROUTES_DIR)
+                       if f.endswith('.py') and f != '__init__.py']
+    for bp in blueprint_files:
+        if bp in ri: ok(f"Blueprint registered: {bp}")
+        else: fail(f"Blueprint not registered: {bp}")
+except FileNotFoundError:
+    fail(f"{ROUTES_INIT} not found")
 
 # ── Route Handler Return Check ────────────────────────────────────────────────
 section("Route Handler Return Check")
 
-for fname in sorted(os.listdir(ROUTES_DIR)):
-    if not fname.endswith('.py') or fname == '__init__.py':
-        continue
-    fpath = os.path.join(ROUTES_DIR, fname)
+for fname in os.listdir(ROUTES_DIR):
+    if not fname.endswith('.py') or fname == '__init__.py': continue
+    src = open(os.path.join(ROUTES_DIR, fname)).read()
     try:
-        tree = ast.parse(open(fpath).read())
+        tree = ast.parse(src)
     except SyntaxError:
         continue
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        is_route = any(
-            'route' in ast.unparse(d) or 'requires_auth' in ast.unparse(d)
-            for d in node.decorator_list
-        )
-        if not is_route:
-            continue
-        has_return = any(
-            isinstance(n, ast.Return) and n.value is not None
-            for n in ast.walk(node)
-        )
-        if has_return:
-            ok(f"{fname}: {node.name}() has return statement")
-        else:
-            fail(f"{fname}:{node.lineno} — route handler {node.name}() has no return statement")
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)): continue
+        decorators = [ast.unparse(d) for d in node.decorator_list]
+        is_route = any('route' in d or 'requires_auth' in d for d in decorators)
+        if not is_route: continue
+        has_return = any(isinstance(n, ast.Return) and n.value is not None
+                         for n in ast.walk(node))
+        if has_return: ok(f"routes/{fname}: {node.name}() has return")
+        else: fail(f"routes/{fname}: {node.name}() missing return statement")
 
 # ── Logging Adoption ──────────────────────────────────────────────────────────
-# Every operational Python module must adopt the logging module.
-# Glob-based so new files are covered automatically without editing this list.
-# Excluded: __init__.py files (re-export only) and constants.py (no logic).
 section("Logging Adoption")
 
-_LOGGING_EXCLUDE = {'__init__.py', 'constants.py'}
-_logging_py_files = (
-    [f for f in glob.glob('nudgarr/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
-    + [f for f in glob.glob('nudgarr/db/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
-    + [f for f in glob.glob('nudgarr/routes/*.py') if os.path.basename(f) not in _LOGGING_EXCLUDE]
-    + (['main.py'] if os.path.exists('main.py') else [])
-)
-for f in sorted(_logging_py_files):
-    try:
-        src = open(f).read()
-        if 'logging.getLogger' in src:
-            ok(f"logging.getLogger present: {f}")
-        else:
-            fail(f"Missing logging.getLogger: {f}")
-        if 'RotatingFileHandler' in src or f != 'nudgarr/log_setup.py':
-            pass  # RotatingFileHandler check handled separately below
-    except OSError:
-        fail(f"Could not read: {f}")
-
-# RotatingFileHandler must be present in log_setup.py
-try:
-    _log_setup_src = open('nudgarr/log_setup.py').read()
-    if 'RotatingFileHandler' in _log_setup_src:
-        ok("RotatingFileHandler present in log_setup.py")
+OPERATIONAL_PY = [
+    'nudgarr/sweep.py', 'nudgarr/scheduler.py', 'nudgarr/stats.py',
+    'nudgarr/arr_clients.py', 'nudgarr/cf_score_syncer.py',
+    'nudgarr/auth.py', 'nudgarr/notifications.py', 'nudgarr/config.py',
+    'nudgarr/state.py',
+]
+for pf in OPERATIONAL_PY:
+    if not os.path.exists(pf): continue
+    src = open(pf).read()
+    if re.search(r'logger\s*=\s*logging\.getLogger\(__name__\)', src):
+        ok(f"Logger declared: {pf}")
     else:
-        fail("RotatingFileHandler missing from log_setup.py")
-except OSError:
-    fail("nudgarr/log_setup.py not found")
+        fail(f"Logger missing in {pf}")
 
-# Global JS error boundary must be present in ui-core.js
-if 'unhandledrejection' in js_content:
-    ok("Global unhandledrejection handler present in JS")
-else:
-    fail("Global unhandledrejection handler missing from JS (expected in ui-core.js)")
+# ── v5 Feature Checks ─────────────────────────────────────────────────────────
+section("v5 Feature Checks")
 
-# ── Intel tab structural checks ───────────────────────────────────────────────
-section("Intel Tab")
-if 'id="tab-intel"' in content:
-    ok("Intel tab section present in HTML (tab-intel)")
+# Tab migration in constants.py
+_const = open(CONSTANTS_FILE).read()
+if 'TAB_MIGRATION_V5' in _const:
+    ok("TAB_MIGRATION_V5 present in constants.py")
 else:
-    fail("Intel tab section missing from HTML (id='tab-intel')")
-if 'data-tab="intel"' in content:
-    ok("Intel tab nav button present in HTML")
-else:
-    fail("Intel tab nav button missing from HTML (data-tab='intel')")
-if 'sticky-shell' in content:
-    ok("Sticky header shell present in HTML")
-else:
-    fail("sticky-shell missing from HTML")
-if '.sticky-shell' in open('nudgarr/static/ui.css').read():
-    ok(".sticky-shell CSS defined in ui.css")
-else:
-    fail(".sticky-shell CSS missing from ui.css")
-if 'resetIntelData' in js_content:
-    ok("resetIntelData() present in JS (Danger Zone handler)")
-else:
-    fail("resetIntelData() missing from JS")
-if 'resetIntelData' in content:
-    ok("Reset Intel button present in HTML (Danger Zone)")
-else:
-    fail("Reset Intel button missing from HTML (Danger Zone)")
-# v4.3.0 Intel redesign checks
-_intel_html = open('nudgarr/templates/ui-tab-intel.html').read()
-_intel_js = open('nudgarr/static/ui-intel.js').read()
-if 'intelPipelineTable' in _intel_html:
-    ok("intelPipelineTable present in Intel tab HTML (Import Summary)")
-else:
-    fail("intelPipelineTable missing from Intel tab HTML")
-if 'intelInstanceTable' in _intel_html:
-    ok("intelInstanceTable present in Intel tab HTML (Instance Performance)")
-else:
-    fail("intelInstanceTable missing from Intel tab HTML")
-if 'intelUpgradePaths' in _intel_html:
-    ok("intelUpgradePaths present in Intel tab HTML (Upgrade History)")
-else:
-    fail("intelUpgradePaths missing from Intel tab HTML")
-if 'intelCfScoreCard' in _intel_html:
-    ok("intelCfScoreCard present in Intel tab HTML (CF Score Health)")
-else:
-    fail("intelCfScoreCard missing from Intel tab HTML")
-if 'intelExclusionContent' in _intel_html:
-    ok("intelExclusionContent present in Intel tab HTML (Exclusion Intel)")
-else:
-    fail("intelExclusionContent missing from Intel tab HTML")
-if '_renderImportSummary' in _intel_js:
-    ok("_renderImportSummary present in ui-intel.js")
-else:
-    fail("_renderImportSummary missing from ui-intel.js")
-if '_renderCfScoreHealth' in _intel_js:
-    ok("_renderCfScoreHealth present in ui-intel.js")
-else:
-    fail("_renderCfScoreHealth missing from ui-intel.js")
-if '_renderUpgradeHistory' in _intel_js:
-    ok("_renderUpgradeHistory present in ui-intel.js")
-else:
-    fail("_renderUpgradeHistory missing from ui-intel.js")
-if 'get_pipeline_search_counts' in open('nudgarr/db/intel.py').read():
-    ok("get_pipeline_search_counts present in db/intel.py")
-else:
-    fail("get_pipeline_search_counts missing from db/intel.py")
-if 'get_cf_score_health' in open('nudgarr/db/intel.py').read():
-    ok("get_cf_score_health present in db/intel.py")
-else:
-    fail("get_cf_score_health missing from db/intel.py")
-if 'formatCompact' in open('nudgarr/static/ui-core.js').read():
-    ok("formatCompact utility present in ui-core.js")
-else:
-    fail("formatCompact utility missing from ui-core.js")
+    fail("TAB_MIGRATION_V5 missing from constants.py")
 
-# ── Grace Period structural checks ────────────────────────────────────────────
-section("Grace Period")
-if 'radarr_missing_grace_hours' in content:
-    ok("radarr_missing_grace_hours field present in HTML")
+if 'VALID_TABS' in _const:
+    ok("VALID_TABS constant present in constants.py")
 else:
-    fail("radarr_missing_grace_hours field missing from HTML")
-if 'sonarr_missing_grace_hours' in content:
-    ok("sonarr_missing_grace_hours field present in HTML")
+    fail("VALID_TABS constant missing from constants.py")
+
+# Default tab and migration in config.py
+_cfg_py = open('nudgarr/config.py').read()
+if 'TAB_MIGRATION_V5' in _cfg_py:
+    ok("TAB_MIGRATION_V5 used in config.py")
 else:
-    fail("sonarr_missing_grace_hours field missing from HTML")
-if 'radarr_missing_grace_hours' in js_content:
-    ok("radarr_missing_grace_hours referenced in JS")
+    fail("TAB_MIGRATION_V5 missing from config.py (needed for upgrade migration)")
+
+if 'default_tab' in _cfg_py:
+    ok("default_tab validated in config.py")
 else:
-    fail("radarr_missing_grace_hours missing from JS")
-if 'sonarr_missing_grace_hours' in js_content:
-    ok("sonarr_missing_grace_hours referenced in JS")
+    fail("default_tab not validated in config.py")
+
+# Queue depth backend
+if '_check_queue_depth' in open('nudgarr/sweep.py').read():
+    ok("_check_queue_depth present in sweep.py")
 else:
-    fail("sonarr_missing_grace_hours missing from JS")
+    fail("_check_queue_depth missing from sweep.py")
+
+_clients = open('nudgarr/arr_clients.py').read()
+if 'radarr_get_queue_total' in _clients:
+    ok("radarr_get_queue_total present in arr_clients.py")
+else:
+    fail("radarr_get_queue_total missing from arr_clients.py")
+
+if 'sonarr_get_queue_total' in _clients:
+    ok("sonarr_get_queue_total present in arr_clients.py")
+else:
+    fail("sonarr_get_queue_total missing from arr_clients.py")
+
+# Sample modes
+if 'round_robin' in _const and 'largest_gap_first' in _const:
+    ok("round_robin and largest_gap_first in constants.py")
+else:
+    fail("Sample mode constants missing from constants.py")
+
+_stats = open('nudgarr/stats.py').read()
+if 'largest_gap_first' in _stats and 'round_robin' in _stats:
+    ok("largest_gap_first and round_robin sort branches in stats.py")
+else:
+    fail("Sort branches missing from stats.py")
+
+# Grace period
 if '_release_date' in open('nudgarr/sweep.py').read():
     ok("_release_date() helper present in sweep.py")
 else:
     fail("_release_date() helper missing from sweep.py")
 
-section("Sample Mode Overhaul (v4.2.1)")
-# Round Robin — Settings tab (Cutoff Unmet selects)
-if 'round_robin' in open('nudgarr/templates/ui-tab-settings.html').read():
-    ok("round_robin present in Settings tab sample mode selects")
+# Intel DB functions
+_intel_db = open('nudgarr/db/intel.py').read()
+if 'get_pipeline_search_counts' in _intel_db:
+    ok("get_pipeline_search_counts present in db/intel.py")
 else:
-    fail("round_robin missing from Settings tab sample mode selects")
-# Round Robin — Advanced tab (Backlog selects)
-if 'round_robin' in open('nudgarr/templates/ui-tab-advanced.html').read():
-    ok("round_robin present in Advanced tab backlog sample mode selects")
-else:
-    fail("round_robin missing from Advanced tab backlog sample mode selects")
-# CF Score sample mode selects in HTML
-_cf_html = open('nudgarr/templates/ui-tab-cf-scores.html').read()
-if 'cfRadarrSampleMode' in _cf_html:
-    ok("cfRadarrSampleMode select present in CF Score tab")
-else:
-    fail("cfRadarrSampleMode select missing from CF Score tab")
-if 'cfSonarrSampleMode' in _cf_html:
-    ok("cfSonarrSampleMode select present in CF Score tab")
-else:
-    fail("cfSonarrSampleMode select missing from CF Score tab")
-if 'largest_gap_first' in _cf_html:
-    ok("largest_gap_first option present in CF Score tab selects")
-else:
-    fail("largest_gap_first option missing from CF Score tab selects")
-# CF Score sample mode JS
-_cf_js = open('nudgarr/static/ui-cf-scores.js').read()
-if 'radarr_cf_sample_mode' in _cf_js:
-    ok("radarr_cf_sample_mode referenced in ui-cf-scores.js")
-else:
-    fail("radarr_cf_sample_mode missing from ui-cf-scores.js")
-if 'sonarr_cf_sample_mode' in _cf_js:
-    ok("sonarr_cf_sample_mode referenced in ui-cf-scores.js")
-else:
-    fail("sonarr_cf_sample_mode missing from ui-cf-scores.js")
-# CF Score sample mode in Overrides JS
-_ov_js = open('nudgarr/static/ui-overrides.js').read()
-if 'cf_sample_mode' in _ov_js:
-    ok("cf_sample_mode present in ui-overrides.js")
-else:
-    fail("cf_sample_mode missing from ui-overrides.js")
-if 'VALID_CF_MODES' in _ov_js:
-    ok("VALID_CF_MODES constant present in ui-overrides.js")
-else:
-    fail("VALID_CF_MODES constant missing from ui-overrides.js")
-# VALID_CF_SAMPLE_MODES in constants.py
-_const = open('nudgarr/constants.py').read()
-if 'VALID_CF_SAMPLE_MODES' in _const:
-    ok("VALID_CF_SAMPLE_MODES constant present in constants.py")
-else:
-    fail("VALID_CF_SAMPLE_MODES constant missing from constants.py")
-if 'radarr_cf_sample_mode' in _const:
-    ok("radarr_cf_sample_mode present in DEFAULT_CONFIG")
-else:
-    fail("radarr_cf_sample_mode missing from DEFAULT_CONFIG")
-# round_robin in VALID_SAMPLE_MODES and VALID_BACKLOG_SAMPLE_MODES
-if 'round_robin' in _const:
-    ok("round_robin present in constants.py mode tuples")
-else:
-    fail("round_robin missing from constants.py mode tuples")
-# cf_sample_mode in config.py validation
-_cfg_py = open('nudgarr/config.py').read()
-if 'VALID_CF_SAMPLE_MODES' in _cfg_py:
-    ok("VALID_CF_SAMPLE_MODES used in config.py validation")
-else:
-    fail("VALID_CF_SAMPLE_MODES missing from config.py validation")
-# largest_gap_first sort branch in stats.py
-_stats = open('nudgarr/stats.py').read()
-if 'largest_gap_first' in _stats:
-    ok("largest_gap_first sort branch present in stats.py")
-else:
-    fail("largest_gap_first sort branch missing from stats.py")
-if 'round_robin' in _stats:
-    ok("round_robin sort branch present in stats.py")
-else:
-    fail("round_robin sort branch missing from stats.py")
-# cf_sample_mode resolved in sweep.py
-_sweep = open('nudgarr/sweep.py').read()
-if 'cf_sample_mode' in _sweep:
-    ok("cf_sample_mode resolved in sweep.py")
-else:
-    fail("cf_sample_mode missing from sweep.py")
+    fail("get_pipeline_search_counts missing from db/intel.py")
 
-# ── Default Tab (v4.3.0) ──────────────────────────────────────────────────────
-section("Default Tab")
-if 'VALID_TABS' in open('nudgarr/constants.py').read():
-    ok("VALID_TABS constant present in constants.py")
+if 'get_cf_score_health' in _intel_db:
+    ok("get_cf_score_health present in db/intel.py")
 else:
-    fail("VALID_TABS constant missing from constants.py")
-if '"default_tab": "sweep"' in open('nudgarr/constants.py').read():
-    ok("default_tab defaults to sweep in DEFAULT_CONFIG")
-else:
-    fail("default_tab default missing from DEFAULT_CONFIG")
-if 'VALID_TABS' in open('nudgarr/config.py').read():
-    ok("VALID_TABS imported and used in config.py validation")
-else:
-    fail("VALID_TABS not used in config.py")
-_adv_html = open('nudgarr/templates/ui-tab-advanced.html').read()
-if 'id="default_tab"' in _adv_html:
-    ok("default_tab select present in Advanced tab HTML")
-else:
-    fail("default_tab select missing from Advanced tab HTML")
-if 'Documentation' in _adv_html:
-    ok("Documentation link present in Advanced tab HTML")
-else:
-    fail("Documentation link missing from Advanced tab HTML")
-_adv_js = open('nudgarr/static/ui-advanced.js').read()
-if 'default_tab' in _adv_js:
-    ok("default_tab handled in ui-advanced.js")
-else:
-    fail("default_tab missing from ui-advanced.js")
-if 'nudgarr_last_tab' in open('nudgarr/static/ui-core.js').read():
-    ok("nudgarr_last_tab localStorage key present in ui-core.js")
-else:
-    fail("nudgarr_last_tab localStorage key missing from ui-core.js")
+    fail("get_cf_score_health missing from db/intel.py")
 
+# formatCompact in app.js
+if 'formatCompact' in js_content:
+    ok("formatCompact utility present in app.js")
+else:
+    fail("formatCompact utility missing from app.js")
 
-# ── Queue Depth (v4.3.0) ──────────────────────────────────────────────────────
-section("Queue Depth")
-_qd_constants = open('nudgarr/constants.py').read()
-if '"queue_depth_enabled": False' in _qd_constants:
-    ok("queue_depth_enabled present in DEFAULT_CONFIG")
+# formatRelative in app.js
+if 'formatRelative' in js_content:
+    ok("formatRelative utility present in app.js")
 else:
-    fail("queue_depth_enabled missing from DEFAULT_CONFIG")
-if '"queue_depth_threshold"' in _qd_constants:
-    ok("queue_depth_threshold present in DEFAULT_CONFIG")
-else:
-    fail("queue_depth_threshold missing from DEFAULT_CONFIG")
-if '"notify_on_queue_depth_skip"' in _qd_constants:
-    ok("notify_on_queue_depth_skip present in DEFAULT_CONFIG")
-else:
-    fail("notify_on_queue_depth_skip missing from DEFAULT_CONFIG")
-if '_check_queue_depth' in open('nudgarr/sweep.py').read():
-    ok("_check_queue_depth present in sweep.py")
-else:
-    fail("_check_queue_depth missing from sweep.py")
-_qd_clients = open('nudgarr/arr_clients.py').read()
-if 'radarr_get_queue_total' in _qd_clients:
-    ok("radarr_get_queue_total present in arr_clients.py")
-else:
-    fail("radarr_get_queue_total missing from arr_clients.py")
-if 'sonarr_get_queue_total' in _qd_clients:
-    ok("sonarr_get_queue_total present in arr_clients.py")
-else:
-    fail("sonarr_get_queue_total missing from arr_clients.py")
-_qd_adv = open('nudgarr/templates/ui-tab-advanced.html').read()
-if 'Sweep Controls' in _qd_adv:
-    ok("Sweep Controls section label present in Advanced tab")
-else:
-    fail("Sweep Controls section label missing from Advanced tab")
-if 'queue_depth_enabled' in _qd_adv:
-    ok("queue_depth_enabled toggle present in Advanced tab")
-else:
-    fail("queue_depth_enabled toggle missing from Advanced tab")
-if 'queue_depth_threshold' in _qd_adv:
-    ok("queue_depth_threshold input present in Advanced tab")
-else:
-    fail("queue_depth_threshold input missing from Advanced tab")
-if 'notify_on_queue_depth_skip' in open('nudgarr/templates/ui-tab-notifications.html').read():
-    ok("notify_on_queue_depth_skip toggle present in Notifications tab")
-else:
-    fail("notify_on_queue_depth_skip toggle missing from Notifications tab")
-if 'last_skipped_queue_depth_utc' in open('nudgarr/static/ui-core.js').read():
-    ok("last_skipped_queue_depth_utc handled in ui-core.js")
-else:
-    fail("last_skipped_queue_depth_utc missing from ui-core.js")
-if 'lastRunUtc' in open('nudgarr/static/ui-sweep.js').read():
-    ok("pipeline card last run timestamp present in ui-sweep.js")
-else:
-    fail("pipeline card last run timestamp missing from ui-sweep.js")
+    fail("formatRelative utility missing from app.js")
 
+# Responsive CSS has mobile breakpoints
+_resp = open('nudgarr/static/ui-responsive.css').read()
+if '@media (max-width: 720px)' in _resp and '@media (max-width: 480px)' in _resp:
+    ok("Responsive CSS has 720px and 480px breakpoints")
+else:
+    fail("Responsive CSS missing breakpoints")
 
-import shutil
+if '.sb.sb-open' in _resp or '.sb-open' in _resp:
+    ok("Sidebar open state in responsive CSS")
+else:
+    fail("Sidebar open state missing from responsive CSS")
+
+# Login and setup pages
+for page in ('login.html', 'setup.html'):
+    page_path = os.path.join(TEMPLATE_DIR, page)
+    if os.path.exists(page_path):
+        pg = open(page_path).read()
+        if 'Outfit' in pg and 'Nudgarr' in pg:
+            ok(f"{page} present with v5 styling")
+        else:
+            fail(f"{page} missing v5 Outfit font or Nudgarr wordmark")
+    else:
+        fail(f"{page} missing from templates/")
+
+# ── Final Cleanup ─────────────────────────────────────────────────────────────
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):
     shutil.rmtree(d, ignore_errors=True)

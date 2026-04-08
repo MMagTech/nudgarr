@@ -641,6 +641,93 @@ try:
 except Exception as _e:
     fail(f"Alpine binding cross-check error: {_e}")
 
+
+# ── Structural Panel Audit (mockup fidelity) ──────────────────────────────────
+# Verifies every CSS class that defines a visual component exists in the correct
+# panel. Prevents silent loss of UI elements during refactors.
+# Class list extracted from the agreed mockup transcript (2026-04-07).
+
+try:
+    with open(UI_FILE) as _fh:
+        _html_full = _fh.read()
+
+    def _panel(start_marker, end_marker):
+        s = _html_full.find(start_marker)
+        e = _html_full.find(end_marker, s)
+        if s == -1 or e == -1:
+            return ""
+        return _html_full[s:e]
+
+    _panels = {
+        "sweep":     _panel("x-show=\"panel==='sweep'\"", "x-show=\"panel==='library'\""),
+        "library":   _panel("x-show=\"panel==='library'\"", "x-show=\"panel==='intel'\""),
+        "intel":     _panel("x-show=\"panel==='intel'\"", "x-show=\"panel==='instances'\""),
+        "instances": _panel("x-show=\"panel==='instances'\"", "x-show=\"panel==='pipelines'\""),
+        "pipelines": _panel("x-show=\"panel==='pipelines'\"", "x-show=\"panel==='overrides'\""),
+        "overrides": _panel("x-show=\"panel==='overrides'\"", "x-show=\"panel==='filters'\""),
+        "filters":   _panel("x-show=\"panel==='filters'\"", "x-show=\"panel==='settings'\""),
+        "settings":  _panel("x-show=\"panel==='settings'\"", "x-show=\"panel==='notifications'\""),
+        "sidebar":   _panel('class="sb-brand">', 'class="main"'),
+    }
+
+    _struct_checks = {
+        "sweep":     ["sweep-grid", "sh-banner", "sh-dot", "import-split", "import-half r",
+                      "import-lbl r", "import-val r", "ls-meta", "p-card", "p-hdr", "p-name",
+                      "p-total-cell", "p-total-lbl", "p-total-val", "p-divider", "p-inst-lbl",
+                      "p-inst-row", "p-inst-name", "p-inst-stats", "p-inst-stat-lbl", "p-inst-stat-val"],
+        "library":   ["vsw", "vbtn", "filter-row", "hist-row", "arr-link", "excl-col", "excl-btn",
+                      "count-pill", "eligible-next-sweep", "kpis", "kpi-card", "kpi-val",
+                      "source-badge"],
+        "intel":     ["cold-counter", "cold-num", "cold-unit", "intel-headline-cell",
+                      "intel-headline-num", "intel-headline-lbl", "intel-table",
+                      "intel-qi-split", "intel-qi-cell", "intel-qi-num", "intel-qi-label",
+                      "intel-upgrade-path", "intel-up-from", "intel-up-arrow", "intel-up-to",
+                      "intel-up-count", "intel-stat-row", "intel-stat-label", "intel-stat-val",
+                      "CF Score Health", "Exclusion Intel", "Upgrade History",
+                      "Import Summary", "Instance Performance"],
+        "instances": ["inst-card", "inst-row1", "inst-row2", "inst-info", "inst-name",
+                      "inst-meta", "inst-actions", "save-bar"],
+        "pipelines": ["app-hdr radarr", "app-hdr sonarr", "Cutoff Unmet", "Backlog",
+                      "CF Score", "Sync Schedule", "cron-hint", "Save Pipelines"],
+        "overrides": ["ov-card", "ov-card-hdr", "ov-badge", "ov-badge ov-sonarr",
+                      "ov-fields", "ov-bl-row", "ov-card-foot", "ov-rst-all", "ov-divider",
+                      "Cutoff Unmet", "Backlog", "Notifications"],
+        "filters":   ["filter-box-fixed", "filter-card-body", "filter-section", "filter-list",
+                      "filter-list-item", "filter-active-pill", "filter-pill-x", "filter-pill-area", "save-bar"],
+        "settings":  ["Scheduler", "Quiet Hours", "Throttling", "Auto-Exclusion",
+                      "Queue Depth", "Per-Instance Overrides", "day-pill",
+                      "quietEnabled", "quietStart", "quietEnd", "save-bar"],
+        "sidebar":   ["sb-brand", "wordmark", "tagline", "sb-nav", "nav-sect-label",
+                      "nav-item", "nav-sep", "unsaved-dot", "sb-foot",
+                      "excl-badge", "ver mono",
+                      "Sweep", "Library", "Intel", "Instances", "Pipelines",
+                      "Overrides", "Filters", "Settings", "Notifications", "Advanced"],
+    }
+
+    _struct_total = 0
+    _struct_fail = 0
+    for _panel_name, _items in _struct_checks.items():
+        _chunk = _panels.get(_panel_name, "")
+        if not _chunk:
+            fail(f"Panel '{_panel_name}' not found in ui.html")
+            _struct_fail += 1
+            continue
+        _missing = [c for c in _items if c not in _chunk]
+        _struct_total += len(_items)
+        if _missing:
+            for m in _missing:
+                fail(f"Structural [{_panel_name}]: missing \"{m}\"")
+                _struct_fail += 1
+        else:
+            pass  # individual pass() calls skipped to keep output clean
+
+    if _struct_fail == 0:
+        ok(f"Structural panel audit: all {_struct_total} mockup elements present")
+    # (individual failures already reported above)
+
+except Exception as _e:
+    fail(f"Structural panel audit error: {_e}")
+
 # ── Final Cleanup ─────────────────────────────────────────────────────────────
 for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
          glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):

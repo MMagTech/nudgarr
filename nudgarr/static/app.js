@@ -170,7 +170,6 @@ function nudgarr() {
     radarrBacklogSampleMode: 'round_robin',
     sonarrBacklogSampleMode: 'round_robin',
     radarrMissingAddedDays: 30,
-    sonarrMissingAddedDays: 0,
     radarrGracePeriod: 0,
     sonarrGracePeriod: 0,
     cfSyncCron: '0 0 * * *',
@@ -406,8 +405,8 @@ function nudgarr() {
       this.sonarrGracePeriod       = c.sonarr_missing_grace_hours    || 0;
       // CF Score
       this.cfSyncCron          = c.cf_score_sync_cron          || '0 0 * * *';
-      this.radarrCfMax         = c.radarr_cf_score_max         !== undefined ? c.radarr_cf_score_max : 5;
-      this.sonarrCfMax         = c.sonarr_cf_score_max         !== undefined ? c.sonarr_cf_score_max : 5;
+      this.radarrCfMax         = c.radarr_cf_max_per_run         !== undefined ? c.radarr_cf_max_per_run : 5;
+      this.sonarrCfMax         = c.sonarr_cf_max_per_run         !== undefined ? c.sonarr_cf_max_per_run : 5;
       this.radarrCfSampleMode  = c.radarr_cf_sample_mode       || 'largest_gap_first';
       this.sonarrCfSampleMode  = c.sonarr_cf_sample_mode       || 'largest_gap_first';
       // Notifications
@@ -438,9 +437,10 @@ function nudgarr() {
 
     async refreshStatus() {
       const s = await this.api('/api/status');
-      this.sweeping         = !!s.sweeping;
-      this.schedulerEnabled = !!s.scheduler_enabled;
-      this.autoMode         = s.scheduler_enabled ? 'AUTO' : 'MANUAL';
+      this.sweeping         = !!s.run_in_progress;
+      this.schedulerEnabled = !!s.scheduler_running;
+      this.autoMode         = s.scheduler_running ? 'AUTO' : 'MANUAL';
+      if (s.version) { /* version displayed via {{ VERSION }} in template */ }
       this.lastRunUtc       = s.last_run_utc       || null;
       this.nextRunUtc       = s.next_run_utc        || null;
       this.lastSkippedQueueDepthUtc = s.last_skipped_queue_depth_utc || null;
@@ -549,6 +549,12 @@ function nudgarr() {
       });
     },
 
+    formatDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    },
+
     formatCompact(n) {
       if (n === null || n === undefined) return '—';
       if (n < 10000) return n.toLocaleString();
@@ -622,9 +628,11 @@ function nudgarr() {
           const summary  = status.last_summary || {};
           const health   = status.instance_health || {};
           const lifetime = status.sweep_lifetime || {};
-          const lastCutoff  = status.last_run_cutoff_utc  || null;
-          const lastBacklog = status.last_run_backlog_utc  || null;
-          const lastCf      = status.last_run_cfscore_utc  || null;
+          // Per-pipeline timestamps not tracked separately — use last sweep time for all
+          const lastSweep = status.last_run_utc || null;
+          const lastCutoff  = lastSweep;
+          const lastBacklog = lastSweep;
+          const lastCf      = lastSweep;
 
           const allInsts = [];
           for (const kind of ['radarr','sonarr']) {
@@ -672,25 +680,40 @@ function nudgarr() {
         const radarr = summary.radarr || [];
         const sonarr = summary.sonarr || [];
         const all    = [...radarr, ...sonarr];
-        const agg = { searched: 0, cooldown: 0, excluded: 0, tag: 0, profile: 0, grace: 0 };
+        const agg = { searched: 0, cooldown: 0, excluded: 0, tag: 0, profile: 0, grace: 0, insts: [] };
         for (const s of all) {
           if (type === 'cutoff') {
             agg.searched  += s.searched                || 0;
             agg.cooldown  += s.skipped_cooldown         || 0;
             agg.excluded  += s.skipped_excluded_cutoff  || 0;
-            agg.tag       += s.skipped_tag_cutoff       || 0;
-            agg.profile   += s.skipped_profile_cutoff   || 0;
           } else if (type === 'backlog') {
             agg.searched  += s.searched_missing         || 0;
             agg.cooldown  += s.skipped_missing_cooldown || 0;
-            agg.grace     += s.skipped_grace            || 0;
-            agg.tag       += s.skipped_tag_backlog      || 0;
-            agg.profile   += s.skipped_profile_backlog  || 0;
+            agg.excluded  += (s.skipped_tag_backlog || 0) + (s.skipped_profile_backlog || 0);
           } else {
             agg.searched  += s.searched_cf              || 0;
             agg.cooldown  += s.skipped_cf_cooldown      || 0;
             agg.excluded  += s.skipped_cf_excluded      || 0;
           }
+        }
+        // Build per-instance rows for template
+        for (const inst of allInsts) {
+          const s = (summary[inst._kind] || []).find(x => x.name === inst.name);
+          let v1, v2, v3;
+          if (type === 'cutoff') {
+            v1 = s ? (s.searched               || 0) : null;
+            v2 = s ? (s.skipped_cooldown        || 0) : null;
+            v3 = s ? (s.skipped_excluded_cutoff || 0) : null;
+          } else if (type === 'backlog') {
+            v1 = s ? (s.searched_missing         || 0) : null;
+            v2 = s ? (s.skipped_missing_cooldown || 0) : null;
+            v3 = s ? ((s.skipped_tag_backlog || 0) + (s.skipped_profile_backlog || 0)) : null;
+          } else {
+            v1 = s ? (s.searched_cf        || 0) : null;
+            v2 = s ? (s.skipped_cf_cooldown || 0) : null;
+            v3 = s ? (s.skipped_cf_excluded || 0) : null;
+          }
+          agg.insts.push({ name: inst.name, _kind: inst._kind, v1, v2, v3 });
         }
         return agg;
       },
@@ -699,7 +722,7 @@ function nudgarr() {
       async refreshLibrary() {
         if (this.libView === 'history')    await this.refreshHistory();
         else if (this.libView === 'imports')   await this.refreshImports();
-        else if (this.libView === 'cf-score')  await this.refreshCfScores();
+        else if (this.libView === 'cfscores')  await this.refreshCfScores();
         else if (this.libView === 'exclusions') await this.loadExclusions();
       },
 
@@ -722,8 +745,14 @@ function nudgarr() {
           const limit    = this.pageSize;
           const offset   = (this.historyPage - 1) * limit;
 
+          let instApp = '', instUrl = '';
+          if (selInst && selInst.includes('|')) {
+            instApp = selInst.split('|')[0];
+            instUrl = selInst.split('|').slice(1).join('|');
+          }
           const url = `/api/state/items?offset=${offset}&limit=${limit}`
-            + (selInst ? `&instance=${encodeURIComponent(selInst)}` : '')
+            + (instApp ? `&app=${encodeURIComponent(instApp)}` : '')
+            + (instUrl ? `&instance=${encodeURIComponent(instUrl)}` : '')
             + (selType ? `&type=${encodeURIComponent(selType)}` : '')
             + (this.historySearch ? `&search=${encodeURIComponent(this.historySearch)}` : '');
 
@@ -805,7 +834,7 @@ function nudgarr() {
       async loadExclusions() {
         try {
           const data = await this.api('/api/exclusions');
-          this.exclusions = data.exclusions || [];
+          this.exclusions = Array.isArray(data) ? data : (data.exclusions || []);
           this.exclBadge  = 0;
           await this.api('/api/exclusions/acknowledge');
         } catch(e) {
@@ -817,9 +846,9 @@ function nudgarr() {
         try {
           const isExcluded = this.exclusions.some(e => e.title === title);
           if (isExcluded) {
-            await this.api(`/api/exclusions/${encodeURIComponent(title)}`, { method: 'DELETE' });
+            await this.api('/api/exclusions/remove', { method: 'POST', body: { title } });
           } else {
-            await this.api('/api/exclusions', { method: 'POST', body: { title, app } });
+            await this.api('/api/exclusions/add', { method: 'POST', body: { title } });
           }
           await this.loadExclusions();
         } catch(e) {
@@ -830,7 +859,9 @@ function nudgarr() {
       async confirmClearExclusions() {
         if (!this.clearExclOpt) return;
         try {
-          await this.api('/api/exclusions/clear-auto', { method: 'POST', body: { scope: this.clearExclOpt } });
+          const clearEndpoints = { auto: '/api/exclusions/clear-auto', manual: '/api/exclusions/clear-manual', all: '/api/exclusions/clear-all' };
+          const ep = clearEndpoints[this.clearExclOpt] || '/api/exclusions/clear-all';
+          await this.api(ep, { method: 'POST' });
           this.closeModal();
           this.showAlert('Exclusions cleared.', 'success');
           await this.loadExclusions();
@@ -921,12 +952,8 @@ function nudgarr() {
 
       // ── Overrides ─────────────────────────────────────────────────────────────
       async renderOverrides() {
-        try {
-          const data = await this.api('/api/instance/overrides');
-          this.overrideCards = data.overrides || [];
-        } catch(e) {
-          console.warn('[overrides] renderOverrides failed:', e.message);
-        }
+        // Overrides are read reactively from CFG.instances[kind][idx].overrides
+        // No separate API call needed — applyConfig() already populates the instance arrays
       },
 
       async applyOverrides(kind, idx) {
@@ -1102,8 +1129,8 @@ function nudgarr() {
             sonarr_missing_grace_hours: parseInt(this.sonarrGracePeriod)       || 0,
             cf_score_enabled:           this.cfScoreEnabled,
             cf_score_sync_cron:         this.cfSyncCron,
-            radarr_cf_score_max:        parseInt(this.radarrCfMax) || 0,
-            sonarr_cf_score_max:        parseInt(this.sonarrCfMax) || 0,
+            radarr_cf_max_per_run:      parseInt(this.radarrCfMax) || 0,
+            sonarr_cf_max_per_run:      parseInt(this.sonarrCfMax) || 0,
             radarr_cf_sample_mode:      this.radarrCfSampleMode,
             sonarr_cf_sample_mode:      this.sonarrCfSampleMode,
           });

@@ -103,6 +103,7 @@ function nudgarr() {
     historySearch: '',
     historyInstanceFilter: '',
     historyTypeFilter: '',
+    historyKpiCounts: [],
     showExclusions: false,
     exclusions: [],
 
@@ -207,7 +208,14 @@ function nudgarr() {
     // ── Overrides state ──────────────────────────────────────────────────────
     overrideCards: [],
 
-    // ── Page size (shared across paginated views) ─────────────────────────────
+    importsMoviesTotal: 0,
+    importsShowsTotal: 0,
+
+    // ── Sweep feed state ─────────────────────────────────────────────────────
+    sweepFeedItems: [],
+    sweepFeedPage: 0,
+    sweepFeedTotal: 0,
+
     pageSize: 25,
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -437,13 +445,29 @@ function nudgarr() {
 
     async refreshStatus() {
       const s = await this.api('/api/status');
-      this.sweeping         = !!s.run_in_progress;
-      this.schedulerEnabled = !!s.scheduler_running;
-      this.autoMode         = s.scheduler_running ? 'AUTO' : 'MANUAL';
-      if (s.version) { /* version displayed via {{ VERSION }} in template */ }
-      this.lastRunUtc       = s.last_run_utc       || null;
-      this.nextRunUtc       = s.next_run_utc        || null;
+      const wasSweeeping = this.sweeping;
+      this.sweeping   = !!s.run_in_progress;
+      // NOTE: do NOT override schedulerEnabled from scheduler_running.
+      // scheduler_running is always True while the background thread lives.
+      // schedulerEnabled tracks the user's config preference (auto vs manual)
+      // and is set only by applyConfig(). Overriding it here would revert the
+      // UI to AUTO immediately after the user saves Manual.
+      this.lastRunUtc = s.last_run_utc || null;
+      this.nextRunUtc = s.next_run_utc  || null;
       this.lastSkippedQueueDepthUtc = s.last_skipped_queue_depth_utc || null;
+
+      // Always update instanceStatus so health dots work on every panel
+      const health = s.instance_health || {};
+      this.instanceStatus = Object.entries(health).map(([key, state]) => {
+        const [app, ...np] = key.split('|');
+        return { app, name: np.join('|'), state };
+      });
+
+      // If a sweep just finished, refresh library if user is on it
+      if (wasSweeeping && !this.sweeping && this.panel === 'library') {
+        this.refreshLibrary();
+      }
+
       // Update sweep panel data if on sweep tab
       if (this.panel === 'sweep') this.refreshSweep(s);
     },
@@ -621,6 +645,33 @@ function nudgarr() {
 
 
 
+      async loadSweepFeed() {
+        try {
+          const status = await this.api('/api/status');
+          const since  = status.last_sweep_start_utc || '';
+          if (!since) { this.sweepFeedItems = []; this.sweepFeedTotal = 0; return; }
+          const limit  = this.pageSize;
+          const offset = this.sweepFeedPage * limit;
+          const data   = await this.api(`/api/state/items?since=${encodeURIComponent(since)}&limit=${limit}&offset=${offset}`);
+          this.sweepFeedItems = data.items || [];
+          this.sweepFeedTotal = data.total || 0;
+        } catch(e) {
+          console.warn('[sweep] loadSweepFeed failed:', e.message);
+        }
+      },
+
+      async openArrLink(app, instanceName, itemId, seriesId) {
+        try {
+          let url = `/api/arr-link?app=${encodeURIComponent(app)}&instance=${encodeURIComponent(instanceName)}&item_id=${encodeURIComponent(itemId || '')}`;
+          if (seriesId) url += `&series_id=${encodeURIComponent(seriesId)}`;
+          const data = await this.api(url);
+          if (data.ok && data.url) window.open(data.url, '_blank');
+          else this.showAlert('Could not open: ' + (data.error || 'Unknown error'));
+        } catch(e) {
+          this.showAlert('Link failed: ' + e.message);
+        }
+      },
+
       // ── Sweep ─────────────────────────────────────────────────────────────────
       async refreshSweep(statusData) {
         try {
@@ -671,6 +722,7 @@ function nudgarr() {
             lastCutoff, lastBacklog, lastCf,
             allInsts,
           };
+          await this.loadSweepFeed();
         } catch(e) {
           console.warn('[sweep] refreshSweep failed:', e.message);
         }
@@ -728,29 +780,35 @@ function nudgarr() {
 
       async refreshHistory() {
         try {
+          // Load per-instance search counts for KPI pills
           const sum = await this.api('/api/state/summary');
-          // Badge
-          const count = await this.api('/api/exclusions/unacknowledged-count');
-          this.exclBadge = count.count || 0;
-
-          const allInsts = [];
-          for (const kind of ['radarr','sonarr']) {
+          const perInst = sum.per_instance || {};
+          this.historyKpiCounts = [];
+          for (const kind of ['radarr', 'sonarr']) {
             for (const inst of (this.CFG?.instances?.[kind] || [])) {
-              allInsts.push({ ...inst, _kind: kind, key: inst.url + '|' + inst.name });
+              const key = `${inst.name}|${inst.url.replace(/\/$/, '')}`;
+              const count = (perInst[kind] && perInst[kind][key]) || 0;
+              if (count > 0) this.historyKpiCounts.push({ name: inst.name, count });
             }
           }
 
-          const selInst  = this.historyInstanceFilter;
-          const selType  = this.historyTypeFilter;
-          const limit    = this.pageSize;
-          const offset   = (this.historyPage - 1) * limit;
+          // Badge count
+          try {
+            const countData = await this.api('/api/exclusions/unacknowledged-count');
+            this.exclBadge = countData.count || 0;
+          } catch(_) {}
+
+          const selInst = this.historyInstanceFilter;
+          const selType = this.historyTypeFilter;
+          const limit   = this.pageSize;
+          const offset  = (this.historyPage - 1) * limit;
 
           let instApp = '', instUrl = '';
           if (selInst && selInst.includes('|')) {
             instApp = selInst.split('|')[0];
             instUrl = selInst.split('|').slice(1).join('|');
           }
-          const url = `/api/state/items?offset=${offset}&limit=${limit}`
+          let url = `/api/state/items?offset=${offset}&limit=${limit}`
             + (instApp ? `&app=${encodeURIComponent(instApp)}` : '')
             + (instUrl ? `&instance=${encodeURIComponent(instUrl)}` : '')
             + (selType ? `&type=${encodeURIComponent(selType)}` : '')
@@ -771,8 +829,10 @@ function nudgarr() {
           let url = `/api/stats?offset=${offset}&limit=${limit}&period=${encodeURIComponent(this.importsPeriod)}`;
           if (this.historyInstanceFilter) url += `&instance=${encodeURIComponent(this.historyInstanceFilter)}`;
           const data = await this.api(url);
-          this.importsItems = data.items      || [];
-          this.importsTotal = data.total      || 0;
+          this.importsItems       = data.entries    || [];  // API returns 'entries' not 'items'
+          this.importsTotal       = data.total      || 0;
+          this.importsMoviesTotal = data.movies_total ?? 0;
+          this.importsShowsTotal  = data.shows_total  ?? 0;
           localStorage.setItem('nudgarr_imports_period', this.importsPeriod);
         } catch(e) {
           console.warn('[library] refreshImports failed:', e.message);
@@ -789,7 +849,7 @@ function nudgarr() {
           ]);
           this.cfItems = entries.entries || entries.items || [];
           this.cfTotal = entries.total   || this.cfItems.length;
-          this.cfLastSync = status?.last_sync_utc || null;
+          this.cfLastSync = status?.last_sync_at || status?.last_sync_utc || null;
 
           if (status?.scan_in_progress && !this.cfScanInProgress) {
             this.cfScanInProgress = true;
@@ -960,10 +1020,13 @@ function nudgarr() {
         try {
           const inst = this.CFG?.instances?.[kind]?.[idx];
           if (!inst) return;
+          // Find the card by the data-ov-card attribute Alpine renders dynamically
           const card = document.querySelector(`[data-ov-card="${kind}-${idx}"]`);
-          if (!card) return;
+          if (!card) { this.showAlert('Could not find override card — try refreshing.'); return; }
 
           const newOv = Object.assign({}, inst.overrides || {});
+
+          // Numeric fields
           const numFields = ['cooldown_hours', 'max_cutoff_unmet', 'max_backlog', 'missing_grace_hours'];
           if (kind === 'radarr') numFields.push('max_missing_days');
           if (this.cfScoreEnabled) numFields.push('cf_max');
@@ -976,6 +1039,7 @@ function nudgarr() {
             else delete newOv[field];
           });
 
+          // Select fields with __global__ sentinel
           ['sample_mode', 'backlog_sample_mode', 'cf_sample_mode'].forEach(field => {
             const sel = card.querySelector(`[data-ov-field="${field}"]`);
             if (!sel) return;
@@ -983,11 +1047,17 @@ function nudgarr() {
             else newOv[field] = sel.value;
           });
 
-          const boolFields = ['backlog_enabled', 'notifications_enabled'];
-          boolFields.forEach(field => {
+          // Boolean toggle fields
+          ['backlog_enabled', 'notifications_enabled'].forEach(field => {
             const chk = card.querySelector(`[data-ov-field="${field}"]`);
             if (!chk) return;
-            newOv[field] = chk.checked;
+            const globalVal = field === 'backlog_enabled'
+              ? (kind === 'radarr' ? this.radarrBacklogEnabled : this.sonarrBacklogEnabled)
+              : this.notifyEnabled;
+            // Only store override if it differs from global or was already overridden
+            if (chk.checked !== globalVal || field in (inst.overrides || {})) {
+              newOv[field] = chk.checked;
+            }
           });
 
           await this.api('/api/instance/overrides', {
@@ -1118,6 +1188,14 @@ function nudgarr() {
         try {
           if (!this.CFG) return;
           Object.assign(this.CFG, {
+            // Cutoff Unmet — these live in the Pipelines panel but were missing from savePipelines
+            radarr_cutoff_enabled:       this.radarrCutoffEnabled,
+            sonarr_cutoff_enabled:       this.sonarrCutoffEnabled,
+            radarr_max_movies_per_run:   parseInt(this.radarrMax)   || 1,
+            sonarr_max_episodes_per_run: parseInt(this.sonarrMax)   || 1,
+            radarr_sample_mode:          this.radarrSampleMode,
+            sonarr_sample_mode:          this.sonarrSampleMode,
+            // Backlog
             radarr_backlog_enabled:    this.radarrBacklogEnabled,
             sonarr_backlog_enabled:    this.sonarrBacklogEnabled,
             radarr_missing_max:        parseInt(this.radarrBacklogMax) || 0,
@@ -1127,6 +1205,7 @@ function nudgarr() {
             radarr_missing_added_days:  parseInt(this.radarrMissingAddedDays) || 0,
             radarr_missing_grace_hours: parseInt(this.radarrGracePeriod)       || 0,
             sonarr_missing_grace_hours: parseInt(this.sonarrGracePeriod)       || 0,
+            // CF Score
             cf_score_enabled:           this.cfScoreEnabled,
             cf_score_sync_cron:         this.cfSyncCron,
             radarr_cf_max_per_run:      parseInt(this.radarrCfMax) || 0,
@@ -1165,9 +1244,11 @@ function nudgarr() {
       },
 
       async testNotification() {
+        if (!this.notifyUrl) { this.showAlert('Enter a notification URL first.'); return; }
         try {
-          await this.api('/api/notifications/test');
-          this.showAlert('Test notification sent.', 'success');
+          const r = await this.api('/api/notifications/test', { method: 'POST', body: { url: this.notifyUrl } });
+          if (r && r.ok) this.showAlert('Test notification sent.', 'success');
+          else this.showAlert('Test failed: ' + (r?.error || 'Check your URL'));
         } catch(e) {
           this.showAlert('Test failed: ' + e.message);
         }
@@ -1342,4 +1423,21 @@ async function saveModal() {
 function executeConfirmAction() { const d = _alpine(); if (d) d.executeConfirmAction(); }
 function doResetConfig()        { const d = _alpine(); if (d) d.doResetConfig(); }
 function confirmClearExclusions() { const d = _alpine(); if (d) d.confirmClearExclusions(); }
+
+// ── Activity ping — resets session timer on real user interaction only ────────
+// Debounced to at most once every 15 seconds. Mirrors v4.3 behaviour.
+(function() {
+  let _pingTimer = null;
+  function _ping() {
+    fetch('/api/ping', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+  }
+  function _onActivity() {
+    if (_pingTimer) return;
+    _ping();
+    _pingTimer = setTimeout(() => { _pingTimer = null; }, 15000);
+  }
+  ['click', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+    document.addEventListener(ev, _onActivity, { passive: true })
+  );
+})();
 

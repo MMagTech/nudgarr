@@ -1,0 +1,137 @@
+/*
+ * Nudgarr responsive overrides — load after ui.css only.
+ * Keep all breakpoint rules here; do not add @media to ui.css.
+ */
+
+@media (max-width: 900px) {
+  /* Off-canvas sidebar: full-width main, drawer toggled from top bar */
+  .tb-menu-btn {
+    display: inline-flex;
+  }
+  .nav-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 285;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+  }
+  .sb {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 290;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: none;
+  }
+  .sb.drawer-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.45);
+  }
+  .content {
+    padding: 18px 16px 48px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    height: auto;
+    min-height: 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  }
+  .tb-status {
+    margin-left: 0;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .cols2:not(.cols-overrides) {
+    flex-direction: column;
+  }
+  .cols3 {
+    flex-direction: column;
+  }
+  .sweep-grid {
+    flex-direction: column;
+  }
+  .intel-import-metrics {
+    grid-template-columns: 1fr;
+  }
+  .intel-metric-grid.cols3 {
+    grid-template-columns: 1fr;
+  }
+  .intel-metric-grid.cols2 {
+    grid-template-columns: 1fr;
+  }
+  .intel-qi-split {
+    grid-template-columns: 1fr;
+  }
+  .filter-box-fixed {
+    height: auto;
+    min-height: 320px;
+    max-height: 55vh;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --lib-cols: 1;
+  }
+  .cols2.cols-overrides {
+    grid-template-columns: 1fr;
+  }
+  .ov-fields {
+    grid-template-columns: 1fr;
+  }
+  .content {
+    padding: 14px 12px 40px;
+  }
+  .topbar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .card {
+    padding: 14px;
+  }
+  .p-inst-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .p-inst-stats {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  /* Pipeline cards: stat tiles stack so numbers stay readable */
+  .p-card .sweep-stat-grid.cols3 {
+    grid-template-columns: 1fr;
+  }
+  .p-card .sweep-stat-grid.cols2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Touch devices: tooltips use hover; show on tap (:active) when no fine pointer */
+@media (hover: none) {
+  .tooltip-icon:active .tooltip-box,
+  .tooltip-icon:focus-visible .tooltip-box {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .tooltip-icon:focus {
+    outline: 2px solid rgba(91, 114, 245, 0.45);
+    outline-offset: 2px;
+  }
+}
+
+/* Modals: respect home indicator / notch */
+.modal-backdrop.open {
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+.modal {
+  margin: auto;
+}

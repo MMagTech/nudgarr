@@ -19,6 +19,7 @@ from flask import Blueprint, jsonify
 
 from nudgarr import db
 from nudgarr.auth import requires_auth
+from nudgarr.cf_effective import allowed_cf_score_instance_ids
 from nudgarr.config import load_or_init_config
 
 logger = logging.getLogger(__name__)
@@ -178,7 +179,8 @@ def _build_intel_payload():
     cf_score_health = None
     if cf_enabled:
         logger.debug("[Intel] fetching CF Score health")
-        cf_score_health = db.get_cf_score_health()
+        _allowed_cf = allowed_cf_score_instance_ids(cfg)
+        cf_score_health = db.get_cf_score_health(_allowed_cf)
 
     # ── 7. Exclusion Intel ────────────────────────────────────────────
     logger.debug("[Intel] building exclusion intel")

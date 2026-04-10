@@ -13,7 +13,7 @@ exclusions table — all read/write operations.
   get_auto_exclusions_older_than() -- auto-exclusion rows older than N days (for unexclude)
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from nudgarr.db.connection import get_connection
 import logging
@@ -27,21 +27,56 @@ def get_exclusions() -> List[Dict]:
     """Return all exclusion rows ordered by most recently added.
 
     Each row includes: title, excluded_at, source ('manual' or 'auto'),
-    search_count (0 for manual entries), and acknowledged flag.
+    search_count (snapshot at exclude time; manual uses History count or latest search_history),
+    acknowledged flag, and when available
+    app / instance_name / item_id / series_id from the latest matching search_history
+    row (for opening the title in Radarr/Sonarr from the Library tab).
     """
     conn = get_connection()
     rows = conn.execute(
         """
-        SELECT title, excluded_at, source, search_count, acknowledged
-        FROM exclusions
-        ORDER BY excluded_at DESC
+        SELECT e.title, e.excluded_at, e.source, e.search_count, e.acknowledged,
+               sh.app, sh.instance_name, sh.item_id, sh.series_id
+        FROM exclusions e
+        LEFT JOIN search_history sh ON sh.id = (
+            SELECT sh2.id FROM search_history sh2
+            WHERE sh2.title = e.title COLLATE NOCASE
+            ORDER BY sh2.last_searched_ts DESC LIMIT 1
+        )
+        ORDER BY e.excluded_at DESC
         """
     ).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        sid = d.get("series_id")
+        d["series_id"] = str(sid) if sid not in (None, "") else ""
+        out.append(d)
+    return out
 
 
-def add_exclusion(title: str) -> None:
+def _search_count_for_title(title: str) -> int:
+    """Latest search_history row for this title (for manual exclude snapshot)."""
+    conn = get_connection()
+    row = conn.execute(
+        """
+        SELECT search_count FROM search_history
+        WHERE title = ? COLLATE NOCASE
+        ORDER BY last_searched_ts DESC
+        LIMIT 1
+        """,
+        (title.strip(),),
+    ).fetchone()
+    if not row:
+        return 0
+    return int(row["search_count"] or 0)
+
+
+def add_exclusion(title: str, search_count: Optional[int] = None) -> None:
     """Add a manual exclusion (case-insensitive dedup via INSERT OR IGNORE).
+
+    search_count defaults to the latest matching search_history row so the
+    Exclusions tab matches what History showed when the user toggles exclude.
 
     Manual exclusions are acknowledged by default since the user added them
     deliberately and does not need a status bar notification.
@@ -49,21 +84,26 @@ def add_exclusion(title: str) -> None:
     """
     conn = get_connection()
     now = iso_z(utcnow())
+    title_clean = title.strip()
+    if search_count is None:
+        sc = _search_count_for_title(title_clean)
+    else:
+        sc = max(0, int(search_count))
     conn.execute(
         """
         INSERT OR IGNORE INTO exclusions
             (title, excluded_at, source, search_count, acknowledged)
-        VALUES (?, ?, 'manual', 0, 1)
+        VALUES (?, ?, 'manual', ?, 1)
         """,
-        (title.strip(), now)
+        (title_clean, now, sc)
     )
     conn.execute(
         """
         INSERT INTO exclusion_events
             (title, event_type, source, search_count_at_event, event_ts)
-        VALUES (?, 'excluded', 'manual', 0, ?)
+        VALUES (?, 'excluded', 'manual', ?, ?)
         """,
-        (title.strip(), now)
+        (title_clean, sc, now)
     )
     conn.commit()
 

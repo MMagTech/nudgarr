@@ -50,6 +50,12 @@ from typing import Any, Dict, List
 import requests
 
 from nudgarr import db
+from nudgarr.cf_effective import (
+    CF_LAST_INSTANCE_SYNC_PREFIX,
+    CF_SCAN_SNAPSHOT_PREFIX,
+    allowed_cf_score_instance_ids,
+    effective_cf_score_enabled,
+)
 from nudgarr.arr_clients import (
     cf_get_quality_profiles,
     cf_radarr_get_all_movies,
@@ -73,6 +79,22 @@ CF_SCORE_API_BATCH_SIZE = 100
 # Full key: CF_SYNC_PROGRESS_PREFIX + instance_id
 # Value: JSON string {"processed": N, "total": M, "in_progress": bool}
 CF_SYNC_PROGRESS_PREFIX = "cf_sync_progress|"
+
+
+def _write_last_instance_sync(instance_id: str) -> None:
+    """Persist completion time for this instance (used when DB rows are absent after disable)."""
+    try:
+        db.set_state(CF_LAST_INSTANCE_SYNC_PREFIX + instance_id, iso_z(utcnow()))
+    except Exception:
+        logger.debug("[CF Sync] Failed to write last sync time for %s -- non-fatal", instance_id)
+
+
+def _write_cf_scan_snapshot(instance_id: str, scanned: int) -> None:
+    """Persist how many units were scanned last run (Radarr files / Sonarr series) for Intel totals."""
+    try:
+        db.set_state(CF_SCAN_SNAPSHOT_PREFIX + instance_id, json.dumps({"scanned": scanned}))
+    except Exception:
+        logger.debug("[CF Sync] Failed to write scan snapshot for %s -- non-fatal", instance_id)
 
 
 def _write_sync_progress(instance_id: str, processed: int, total: int, in_progress: bool) -> None:
@@ -173,17 +195,25 @@ class CustomFormatScoreSyncer:
         sync_started_at = iso_z(utcnow())
         summary: Dict[str, Any] = {"radarr": [], "sonarr": []}
 
+        # Drop index rows for instances that are disabled, removed, or renamed (v5.0.0)
+        allowed_ids = allowed_cf_score_instance_ids(cfg)
+        db.prune_cf_scores_not_in_allowed_instances(allowed_ids)
+
         radarr_instances = cfg.get("instances", {}).get("radarr", [])
         sonarr_instances = cfg.get("instances", {}).get("sonarr", [])
 
         for inst in radarr_instances:
             if not inst.get("enabled", True):
                 continue
+            if not effective_cf_score_enabled(cfg, "radarr", inst):
+                continue
             result = self._sync_radarr_instance(inst, session, sync_started_at)
             summary["radarr"].append(result)
 
         for inst in sonarr_instances:
             if not inst.get("enabled", True):
+                continue
+            if not effective_cf_score_enabled(cfg, "sonarr", inst):
                 continue
             result = self._sync_sonarr_instance(inst, session, sync_started_at)
             summary["sonarr"].append(result)
@@ -253,6 +283,8 @@ class CustomFormatScoreSyncer:
         if not movies:
             logger.info("[CF Sync] Radarr:%s -- no eligible movies found", name)
             pruned = db.prune_stale_cf_scores(instance_id, sync_started_at)
+            _write_cf_scan_snapshot(instance_id, 0)
+            _write_last_instance_sync(instance_id)
             return {"name": name, "written": 0, "skipped": 0, "pruned": pruned}
 
         # Apply tag and profile filters -- mirrors the Cutoff Unmet filter logic
@@ -353,6 +385,8 @@ class CustomFormatScoreSyncer:
 
             # Mark sync complete for the ring chart
             _write_sync_progress(instance_id, total_files, total_files, False)
+            _write_cf_scan_snapshot(instance_id, total_files)
+            _write_last_instance_sync(instance_id)
 
             logger.info(
                 "[CF Sync] Radarr:%s done -- eligible=%d written=%d skipped=%d pruned=%d",
@@ -424,6 +458,8 @@ class CustomFormatScoreSyncer:
         if not all_series:
             logger.info("[CF Sync] Sonarr:%s -- no monitored series found", name)
             pruned = db.prune_stale_cf_scores(instance_id, sync_started_at)
+            _write_cf_scan_snapshot(instance_id, 0)
+            _write_last_instance_sync(instance_id)
             return {"name": name, "written": 0, "skipped": 0, "pruned": pruned}
 
         # Apply tag and profile filters at the series level
@@ -533,6 +569,8 @@ class CustomFormatScoreSyncer:
 
             # Mark sync complete for the ring chart
             _write_sync_progress(instance_id, total_series, total_series, False)
+            _write_cf_scan_snapshot(instance_id, total_series)
+            _write_last_instance_sync(instance_id)
 
             logger.info(
                 "[CF Sync] Sonarr:%s done -- series=%d written=%d skipped=%d pruned=%d",

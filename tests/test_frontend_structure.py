@@ -6,7 +6,9 @@ Structural integrity tests for the Nudgarr v5 frontend (Alpine.js).
 v5 architecture:
   - nudgarr/static/app.js      Single Alpine data factory function nudgarr()
   - nudgarr/static/alpine.min.js  Alpine.js v3 runtime (self-hosted)
-  - nudgarr/templates/ui.html  Single-file HTML with inline CSS, all panels
+  - nudgarr/static/ui.css      Base app styles
+  - nudgarr/static/ui-responsive.css  Breakpoint overrides only (@media)
+  - nudgarr/templates/ui.html  Single-file HTML, all panels
 
 Run before and after any frontend change to verify:
   - Required static files exist and meet size expectations
@@ -35,16 +37,22 @@ TEMPLATE_DIR = os.path.join(REPO_ROOT, 'nudgarr', 'templates')
 UI_HTML      = os.path.join(TEMPLATE_DIR, 'ui.html')
 APP_JS       = os.path.join(STATIC_DIR, 'app.js')
 ALPINE_JS    = os.path.join(STATIC_DIR, 'alpine.min.js')
+UI_CSS       = os.path.join(STATIC_DIR, 'ui.css')
+UI_RESP_CSS  = os.path.join(STATIC_DIR, 'ui-responsive.css')
 
 # ── v5 JS files ───────────────────────────────────────────────────────────────
 
 V5_JS_FILES = ['alpine.min.js', 'app.js']
+
+V5_CSS_FILES = ['ui.css', 'ui-responsive.css']
 
 # ── Line-count ceilings ───────────────────────────────────────────────────────
 
 LINE_COUNT_CEILINGS = {
     'app.js':        1700,  # v5 single-file Alpine data object
     'alpine.min.js': 5,     # minified — always 1-2 lines
+    'ui.css':        450,
+    'ui-responsive.css': 200,
 }
 
 # ── All 10 panels expected in ui.html ────────────────────────────────────────
@@ -105,6 +113,7 @@ REQUIRED_ALPINE_METHODS = [
     'backupAll',
     'downloadDiagnostic',
     'formatCompact',
+    'formatQualityHistoryLine',
     'formatRelative',    # replaces _relTime
     '_fmtTimePadded',
     '_sortItems',
@@ -143,6 +152,12 @@ class TestFileExistence:
     def test_ui_html_exists(self):
         assert os.path.exists(UI_HTML), "Missing: nudgarr/templates/ui.html"
 
+    def test_ui_css_exists(self):
+        assert os.path.exists(UI_CSS), "Missing: nudgarr/static/ui.css"
+
+    def test_ui_responsive_css_exists(self):
+        assert os.path.exists(UI_RESP_CSS), "Missing: nudgarr/static/ui-responsive.css"
+
     def test_alpine_min_js_minimum_size(self):
         """Alpine.js minified should be at least 30KB."""
         size = os.path.getsize(ALPINE_JS)
@@ -174,10 +189,13 @@ class TestHTMLStructure:
             "x-cloak missing — Alpine flash of unstyled content (FOUC) will occur"
         )
 
-    def test_inline_css_present(self):
+    def test_stylesheets_linked(self):
         html = read_html()
-        assert '<style>' in html, (
-            "No inline <style> block in ui.html — v5 CSS is expected inline"
+        assert "filename='ui.css'" in html and "filename='ui-responsive.css'" in html, (
+            "ui.html must link static/ui.css then ui-responsive.css via url_for"
+        )
+        assert '<style>' not in html, (
+            "Inline <style> removed — base CSS lives in nudgarr/static/ui.css"
         )
 
     def test_no_bare_inline_scripts(self):
@@ -192,6 +210,11 @@ class TestHTMLStructure:
     def test_js_file_referenced_in_html(self, js_file):
         html = read_html()
         assert js_file in html, f"HTML does not reference: {js_file}"
+
+    @pytest.mark.parametrize('css_file', V5_CSS_FILES)
+    def test_css_file_referenced_in_html(self, css_file):
+        html = read_html()
+        assert css_file in html, f"HTML does not reference: {css_file}"
 
     def test_alpine_loaded_before_body_close(self):
         html = read_html()
@@ -282,7 +305,7 @@ class TestAppJsStructure:
         assert len(assignments) >= 1, "schedulerEnabled never assigned in app.js"
 
     def test_save_pipelines_includes_cutoff_fields(self):
-        """savePipelines must include all six cutoff config fields (bug #2)."""
+        """Cutoff fields must be synced before save (bug #2); live in _syncFullCfgFromUi()."""
         js = read_app_js()
         required_fields = [
             'radarr_cutoff_enabled',
@@ -292,15 +315,22 @@ class TestAppJsStructure:
             'radarr_sample_mode',
             'sonarr_sample_mode',
         ]
-        # Extract savePipelines body
-        match = re.search(r'async savePipelines\(\)(.*?)(?=\n    [a-zA-Z_]|\n  \})', js, re.DOTALL)
+        match = re.search(
+            r'_syncFullCfgFromUi\(\)\s*\{(.*?)\n    \},\n\n    async savePipelines',
+            js,
+            re.DOTALL,
+        )
         if not match:
-            pytest.skip("savePipelines() not found with expected pattern — check manually")
+            pytest.skip("_syncFullCfgFromUi / savePipelines block not found — check manually")
         body = match.group(1)
         missing = [f for f in required_fields if f not in body]
         assert not missing, (
-            f"savePipelines() missing cutoff fields (bug #2): {missing}"
+            f"_syncFullCfgFromUi() missing cutoff fields (bug #2): {missing}"
         )
+        assert re.search(
+            r'async savePipelines\(\)\s*\{[\s\S]*?_syncFullCfgFromUi\(\)',
+            js,
+        ), "savePipelines() must call _syncFullCfgFromUi() before POST"
 
     def test_refresh_imports_uses_data_entries(self):
         """refreshImports must read data.entries not data.items (bug #3)."""

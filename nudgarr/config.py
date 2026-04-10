@@ -147,9 +147,16 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                         be = overrides.get("backlog_enabled")
                         if be is not None and not isinstance(be, bool):
                             errs.append(f"instances.{app}[{i}].overrides.backlog_enabled must be boolean")
+                        ce = overrides.get("cutoff_enabled")
+                        if ce is not None and not isinstance(ce, bool):
+                            errs.append(f"instances.{app}[{i}].overrides.cutoff_enabled must be boolean")
                         ne = overrides.get("notifications_enabled")
                         if ne is not None and not isinstance(ne, bool):
                             errs.append(f"instances.{app}[{i}].overrides.notifications_enabled must be boolean")
+                        for _cfk in ("radarr_cf_score_enabled", "sonarr_cf_score_enabled"):
+                            _v = overrides.get(_cfk)
+                            if _v is not None and not isinstance(_v, bool):
+                                errs.append(f"instances.{app}[{i}].overrides.{_cfk} must be boolean")
 
     for bool_key in (
         "per_instance_overrides_enabled", "per_instance_overrides_seen",
@@ -157,6 +164,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
         "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",
         "cf_score_enabled",
+        "radarr_cf_score_enabled", "sonarr_cf_score_enabled",
         "radarr_cutoff_enabled", "sonarr_cutoff_enabled",
         "radarr_auto_exclude_enabled", "sonarr_auto_exclude_enabled",
     ):

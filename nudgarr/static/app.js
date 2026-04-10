@@ -7,6 +7,7 @@ function nudgarr() {
 
     // ── Navigation ──────────────────────────────────────────────────────
     panel: 'sweep',
+    mobileDrawerOpen: false,
 
     // ── Feature flags ───────────────────────────────────────────────────
     cfScoreEnabled: false,
@@ -15,7 +16,8 @@ function nudgarr() {
     // ── Unsaved-changes tracking per panel ──────────────────────────────
     unsaved: {
       settings: false, pipelines: false, overrides: false,
-      notifications: false, advanced: false, filters: false,
+      notifications: false, advanced: false,
+      filtersRadarr: false, filtersSonarr: false,
     },
 
     // ── Sweep / Status ───────────────────────────────────────────────────
@@ -24,6 +26,7 @@ function nudgarr() {
     schedulerEnabled: false,   // ONLY set from applyConfig() — never from scheduler_running
     lastRunUtc: null,
     nextRunUtc: null,
+    nextRunInMaintenanceWindow: false,
     containerTime: '',
     instanceHealth: {},
     sweepLifetime: {},
@@ -133,6 +136,8 @@ function nudgarr() {
     sonarrCfMax: 25,
     radarrCfSampleMode: 'largest_gap_first',
     sonarrCfSampleMode: 'largest_gap_first',
+    radarrCfScoreAppEnabled: true,
+    sonarrCfScoreAppEnabled: true,
 
     // ── Overrides ────────────────────────────────────────────────────────
     ovData: {},
@@ -251,7 +256,7 @@ function nudgarr() {
 
     get nextRunDisplay() {
       if (!this.schedulerEnabled) return 'Manual';
-      if (!this.nextRunUtc) return 'Off';
+      if (!this.nextRunUtc) return 'Unavailable';
       return this.formatRelative(new Date(this.nextRunUtc).getTime(), true);
     },
 
@@ -318,9 +323,26 @@ function nudgarr() {
     get overrideInstances() {
       if (!this.cfg) return [];
       const out = [];
-      (this.cfg.instances?.radarr || []).forEach((inst, idx) => out.push({ kind: 'radarr', idx, name: inst.name }));
-      (this.cfg.instances?.sonarr || []).forEach((inst, idx) => out.push({ kind: 'sonarr', idx, name: inst.name }));
+      (this.cfg.instances?.radarr || []).forEach((inst, idx) => out.push({ kind: 'radarr', idx, name: inst.name, enabled: inst.enabled }));
+      (this.cfg.instances?.sonarr || []).forEach((inst, idx) => out.push({ kind: 'sonarr', idx, name: inst.name, enabled: inst.enabled }));
       return out;
+    },
+
+    get overrideColumns() {
+      if (!this.cfg) {
+        return [
+          { title: 'Radarr Instances', insts: [] },
+          { title: 'Sonarr Instances', insts: [] },
+        ];
+      }
+      const rad = [];
+      (this.cfg.instances?.radarr || []).forEach((inst, idx) => rad.push({ kind: 'radarr', idx, name: inst.name, enabled: inst.enabled }));
+      const son = [];
+      (this.cfg.instances?.sonarr || []).forEach((inst, idx) => son.push({ kind: 'sonarr', idx, name: inst.name, enabled: inst.enabled }));
+      return [
+        { title: 'Radarr Instances', insts: rad },
+        { title: 'Sonarr Instances', insts: son },
+      ];
     },
 
     get radarrInstances() { return (this.cfg?.instances?.radarr || []); },
@@ -336,17 +358,44 @@ function nudgarr() {
     get onboardingIsFirst() { return this.onboardingStep === 0; },
     get onboardingIsLast() { return this.onboardingStep === this.onboardingTotal - 1; },
 
+    get cfCronRowInteractive() {
+      return this.cfEnabled && (this.radarrCfScoreAppEnabled || this.sonarrCfScoreAppEnabled);
+    },
+
     get cfStatusSyncCoverage() {
       if (!this.cfStatusData) return [];
       return (this.cfStatusData.instances || []).map(row => {
+        const sp = row.sync_progress;
         let coverage = 0;
-        if (row.sync_progress && row.sync_progress.total > 0) {
-          coverage = Math.round(row.sync_progress.processed / row.sync_progress.total * 100);
+        if (row.cf_enabled === false) {
+          coverage = 0;
+        } else if (sp && sp.total > 0) {
+          coverage = Math.min(100, Math.round((sp.processed / sp.total) * 100));
+        } else if (sp && sp.in_progress) {
+          coverage = 0;
+        } else if (sp && !sp.in_progress) {
+          // Sync finished for this instance (includes total===0 libraries)
+          coverage = 100;
         } else if (row.last_synced_at) {
           coverage = 100;
         }
         return { ...row, coverage };
       });
+    },
+
+    cfIndexLastSyncText(row) {
+      const t = row.last_synced_at;
+      if (!t) return 'Never';
+      return this.formatRelative(new Date(t).getTime(), false);
+    },
+
+    cfIndexStatusSubtitle(row) {
+      const sp = row.sync_progress;
+      if (sp && sp.in_progress && sp.total > 0) {
+        return (sp.processed ?? 0) + ' / ' + sp.total + ' scanned';
+      }
+      const b = row.below_cutoff ?? 0;
+      return b + ' Below CF Score \u00b7 Last Sync ' + this.cfIndexLastSyncText(row);
     },
 
     // ── Init ─────────────────────────────────────────────────────────────
@@ -416,6 +465,7 @@ function nudgarr() {
       this.queueDepthEnabled = !!this.cfg.queue_depth_enabled;
       this.queueDepthThreshold = this.cfg.queue_depth_threshold ?? 10;
       this.perInstanceOverridesEnabled = !!this.cfg.per_instance_overrides_enabled;
+      this.overridesInfoSeen = !!this.cfg.per_instance_overrides_seen;
       this.radarrAutoExclEnabled = !!this.cfg.radarr_auto_exclude_enabled;
       this.sonarrAutoExclEnabled = !!this.cfg.sonarr_auto_exclude_enabled;
       this.autoExclMoviesThreshold = this.cfg.auto_exclude_movies_threshold ?? 0;
@@ -444,6 +494,8 @@ function nudgarr() {
       this.sonarrCfMax = this.cfg.sonarr_cf_max_per_run ?? 25;
       this.radarrCfSampleMode = this.cfg.radarr_cf_sample_mode || 'largest_gap_first';
       this.sonarrCfSampleMode = this.cfg.sonarr_cf_sample_mode || 'largest_gap_first';
+      this.radarrCfScoreAppEnabled = this.cfg.radarr_cf_score_enabled !== false;
+      this.sonarrCfScoreAppEnabled = this.cfg.sonarr_cf_score_enabled !== false;
 
       this.notifyEnabled = !!this.cfg.notify_enabled;
       this.notifyUrl = this.cfg.notify_url || '';
@@ -471,6 +523,7 @@ function nudgarr() {
       this.sweeping = !!st.run_in_progress;
       this.lastRunUtc = st.last_run_utc || null;
       this.nextRunUtc = st.next_run_utc || null;
+      this.nextRunInMaintenanceWindow = !!st.next_run_in_maintenance_window;
       this.containerTime = st.container_time || '';
       this.instanceHealth = st.instance_health || {};
       this.sweepLifetime = st.sweep_lifetime || {};
@@ -492,6 +545,8 @@ function nudgarr() {
         this.version = st.version || this.version;
         const isRunning = !!st.run_in_progress;
         this.sweeping = isRunning;
+        this.nextRunUtc = st.next_run_utc || null;
+        this.nextRunInMaintenanceWindow = !!st.next_run_in_maintenance_window;
         this.instanceHealth = st.instance_health || {};
         this.sweepLifetime = st.sweep_lifetime || {};
         this.importsConfirmedSweep = st.imports_confirmed_sweep || { movies: 0, shows: 0 };
@@ -504,7 +559,6 @@ function nudgarr() {
         this.lastError = st.last_error || null;
         if (!isRunning) {
           this.lastRunUtc = st.last_run_utc || null;
-          this.nextRunUtc = st.next_run_utc || null;
           this.containerTime = st.container_time || '';
         }
         if (this._wasRunning && !isRunning) {
@@ -518,6 +572,13 @@ function nudgarr() {
           if (this.panel === 'library' && this.libView === 'history') this.refreshHistory();
           if (this.panel === 'library' && this.libView === 'imports') this.refreshImports();
         }
+        if (this.cfScoreEnabled && (
+          this.panel === 'pipelines' ||
+          (this.panel === 'library' && this.libView === 'cfscores') ||
+          (this.cfStatusData && this.cfStatusData.scan_in_progress)
+        )) {
+          await this.refreshCfStatusOnly();
+        }
       } catch (e) {
         console.warn('[poll] failed:', e.message);
       }
@@ -527,13 +588,15 @@ function nudgarr() {
 
     navigateTo(name) {
       this.panel = name;
+      this.mobileDrawerOpen = false;
       if (this.cfg && this.cfg.onboarding_complete) {
         try { localStorage.setItem('nudgarr_last_tab', name); } catch (_) {}
       }
       if (name === 'library' && this.libView === 'history') this.refreshHistory();
       if (name === 'library' && this.libView === 'imports') this.refreshImports();
       if (name === 'library' && this.libView === 'cfscores') this.refreshCfScores();
-      if (name === 'library' && this.libView === 'exclusions') this.refreshExclusions();
+      if (name === 'library' && this.libView === 'exclusions') void this.onExclusionsTabShown();
+      if (name === 'pipelines' && this.cfScoreEnabled) this.refreshCfStatusOnly();
       if (name === 'intel') this.refreshIntel();
       if (name === 'overrides') this._buildOverrideData();
     },
@@ -544,7 +607,7 @@ function nudgarr() {
       if (v === 'history') this.refreshHistory();
       if (v === 'imports') this.refreshImports();
       if (v === 'cfscores') this.refreshCfScores();
-      if (v === 'exclusions') { this.exclBadge = 0; this.refreshExclusions(); }
+      if (v === 'exclusions') void this.onExclusionsTabShown();
     },
 
     // ── Sweep ────────────────────────────────────────────────────────────
@@ -598,6 +661,15 @@ function nudgarr() {
 
     // ── Library — Exclusions ──────────────────────────────────────────────
 
+    /** Mark auto-exclusions as seen server-side so the badge stays cleared. */
+    async onExclusionsTabShown() {
+      try {
+        await this._api('/api/exclusions/acknowledge', { method: 'POST' });
+      } catch (e) { console.warn('[excl ack]', e.message); }
+      this.exclBadge = 0;
+      await this.refreshExclusions();
+    },
+
     async loadExclusions() {
       try {
         const data = await this._api('/api/exclusions');
@@ -616,9 +688,11 @@ function nudgarr() {
 
     isExcluded(title) { return this.exclusionsSet.has((title || '').toLowerCase()); },
 
-    async toggleExclusion(title) {
+    async toggleExclusion(title, searchCount) {
       const isExcl = this.isExcluded(title);
-      await this._api(isExcl ? '/api/exclusions/remove' : '/api/exclusions/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
+      const body = { title };
+      if (!isExcl && searchCount != null && searchCount !== '') body.search_count = searchCount;
+      await this._api(isExcl ? '/api/exclusions/remove' : '/api/exclusions/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       await this.loadExclusions();
       if (this.libView === 'history') this.refreshHistory();
     },
@@ -631,8 +705,8 @@ function nudgarr() {
         const sum = await this._api('/api/state/summary');
         this.summaryKpis = this.allInstances.map(inst => {
           const count = (sum.per_instance?.[inst.app]?.[inst.key]) || 0;
-          return { name: inst.name, count };
-        }).filter(k => k.count > 0);
+          return { name: inst.name, count, app: inst.app, key: inst.key };
+        });
 
         const limit = this.historyPageSize;
         const offset = this.historyPage * limit;
@@ -655,6 +729,18 @@ function nudgarr() {
 
     prevHistoryPage() { if (this.historyPage > 0) this.refreshHistory(this.historyPage - 1); },
     nextHistoryPage() { if (this.historyPage < this.historyPageCount - 1) this.refreshHistory(this.historyPage + 1); },
+
+    _goToLibraryPageInput(el, maxPages, refresh) {
+      const n = parseInt(String(el && el.value != null ? el.value : '').trim(), 10);
+      if (el) el.value = '';
+      if (Number.isNaN(n)) return;
+      const max = Math.max(1, Math.floor(maxPages));
+      refresh(Math.min(Math.max(1, n), max) - 1);
+    },
+    goToHistoryPageInput(el) { this._goToLibraryPageInput(el, this.historyPageCount, (p) => this.refreshHistory(p)); },
+    goToImportsPageInput(el) { this._goToLibraryPageInput(el, this.importsPageCount, (p) => this.refreshImports(p)); },
+    goToCfPageInput(el) { this._goToLibraryPageInput(el, this.cfPageCount, (p) => this.refreshCfScores(p)); },
+    goToExclPageInput(el) { this._goToLibraryPageInput(el, this.exclPageCount, (p) => this.refreshExclusions(p)); },
 
     async pruneState() {
       try { await this._api('/api/state/prune', { method: 'POST' }); this.historyPage = 0; this.refreshHistory(); }
@@ -728,6 +814,13 @@ function nudgarr() {
     },
 
     // ── Library — CF Score ────────────────────────────────────────────────
+
+    async refreshCfStatusOnly() {
+      if (!this.cfg?.cf_score_enabled) return;
+      try {
+        this.cfStatusData = await this._api('/api/cf-scores/status');
+      } catch (e) { console.warn('[cf-status]', e.message); }
+    },
 
     async refreshCfScores(page) {
       if (page !== undefined) this.cfPage = page;
@@ -901,74 +994,85 @@ function nudgarr() {
       } catch (e) { this.instMsg = 'Save failed: ' + e.message; this.instMsgClass = 'msg err'; }
     },
 
-    // ── Toggle auto-save helpers ──────────────────────────────────────────
+    // ── Panel toggles (local state only; use Save on each panel to persist) ──
 
-    async _autoSaveField(field, value) {
-      if (!this.cfg) return;
-      this.cfg[field] = value;
-      try {
-        await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
-        await this.loadAll();
-      } catch (e) { this.showAlert('Auto-save failed: ' + e.message, 'error'); }
+    toggleSchedulerEnabled(val) { this.schedulerEnabledUi = val; },
+    toggleMaintEnabled(val) { this.maintenanceEnabled = val; },
+
+    toggleQueueDepthEnabled(val) { this.queueDepthEnabled = val; },
+
+    toggleCfEnabled(val) { this.cfEnabled = val; this.cfScoreEnabled = val; },
+
+    toggleCfScoreAppEnabled(kind, val) {
+      if (kind === 'radarr') this.radarrCfScoreAppEnabled = val;
+      else this.sonarrCfScoreAppEnabled = val;
     },
 
-    async toggleSchedulerEnabled(val) { this.schedulerEnabledUi = val; await this._autoSaveField('scheduler_enabled', val); },
-    async toggleMaintEnabled(val) { this.maintenanceEnabled = val; await this._autoSaveField('maintenance_window_enabled', val); },
-
-    async toggleMaintDayAuto(d) {
-      if (this.maintenanceDays.includes(d)) this.maintenanceDays = this.maintenanceDays.filter(x => x !== d);
-      else this.maintenanceDays = [...this.maintenanceDays, d];
-      this.validateMaintTime();
-      if (!this.cfg) return;
-      this.cfg.maintenance_window_days = [...this.maintenanceDays];
-      try { await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) }); await this.loadAll(); }
-      catch (e) { this.showAlert('Auto-save failed: ' + e.message, 'error'); }
+    /** Per-app CF Score toggle in Pipelines (Radarr / Sonarr) — overrides are meaningless when this is off. */
+    ovCfAppGlobalOn(kind) {
+      return kind === 'radarr' ? this.radarrCfScoreAppEnabled : this.sonarrCfScoreAppEnabled;
     },
 
-    async toggleQueueDepthEnabled(val) { this.queueDepthEnabled = val; await this._autoSaveField('queue_depth_enabled', val); },
-
-    async toggleCfEnabled(val) {
-      this.cfEnabled = val; this.cfScoreEnabled = val;
-      if (!this.cfg) return;
-      this.cfg.cf_score_enabled = val;
-      try { await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) }); await this.loadAll(); this.unsaved.pipelines = false; }
-      catch (e) { this.showAlert('Auto-save failed: ' + e.message, 'error'); }
+    ovCutoffAppGlobalOn(kind) {
+      return kind === 'radarr' ? this.radarrCutoffEnabled : this.sonarrCutoffEnabled;
     },
 
-    async toggleCutoffEnabled(kind, val) {
-      if (kind === 'radarr') { this.radarrCutoffEnabled = val; await this._autoSaveField('radarr_cutoff_enabled', val); }
-      else { this.sonarrCutoffEnabled = val; await this._autoSaveField('sonarr_cutoff_enabled', val); }
+    ovCutoffFieldsActive(kind, idx) {
+      if (!this.ovCutoffAppGlobalOn(kind)) return false;
+      const d = this.ovGet(kind, idx);
+      const o = d.cutoff_enabled;
+      if (o !== null && o !== undefined) return !!o;
+      return true;
     },
 
-    async toggleBacklogEnabled(kind, val) {
-      if (kind === 'radarr') { this.radarrBacklogEnabled = val; await this._autoSaveField('radarr_backlog_enabled', val); }
-      else { this.sonarrBacklogEnabled = val; await this._autoSaveField('sonarr_backlog_enabled', val); }
+    ovBacklogAppGlobalOn(kind) {
+      return kind === 'radarr' ? this.radarrBacklogEnabled : this.sonarrBacklogEnabled;
     },
 
-    async toggleAutoExcl(kind, val) {
-      if (kind === 'radarr') { this.radarrAutoExclEnabled = val; await this._autoSaveField('radarr_auto_exclude_enabled', val); }
-      else { this.sonarrAutoExclEnabled = val; await this._autoSaveField('sonarr_auto_exclude_enabled', val); }
+    ovBacklogFieldsActive(kind, idx) {
+      if (!this.ovBacklogAppGlobalOn(kind)) return false;
+      const d = this.ovGet(kind, idx);
+      const o = d.backlog_enabled;
+      if (o !== null && o !== undefined) return !!o;
+      return true;
     },
 
-    async toggleShowSupportLink(val) { this.showSupportLink = val; await this._autoSaveField('show_support_link', val); },
-
-    async toggleNotifyEnabled(val) {
-      this.notifyEnabled = val;
-      if (!val) { await this._autoSaveField('notify_enabled', false); }
-      else if (this.notifyUrl.trim()) { await this._autoSaveField('notify_enabled', true); }
-      // No URL yet — update state only
+    ovCfFieldsActive(kind, idx) {
+      if (!this.cfScoreEnabled) return false;
+      const appOn = this.ovCfAppGlobalOn(kind);
+      if (!appOn) return false;
+      const d = this.ovGet(kind, idx);
+      const o = d.cf_score_enabled;
+      if (o !== null && o !== undefined) return !!o;
+      return true;
     },
 
-    async toggleNotifyOn(field, val) {
-      this[field] = val;
-      if (!this.notifyUrl.trim()) return;
-      const map = { notifyOnSweep:'notify_on_sweep_complete', notifyOnImport:'notify_on_import', notifyOnAutoExcl:'notify_on_auto_exclusion', notifyOnError:'notify_on_error', notifyOnQueueDepth:'notify_on_queue_depth_skip' };
-      if (map[field]) await this._autoSaveField(map[field], val);
+    toggleCutoffEnabled(kind, val) {
+      if (kind === 'radarr') this.radarrCutoffEnabled = val;
+      else this.sonarrCutoffEnabled = val;
     },
+
+    toggleBacklogEnabled(kind, val) {
+      if (kind === 'radarr') this.radarrBacklogEnabled = val;
+      else this.sonarrBacklogEnabled = val;
+    },
+
+    toggleAutoExcl(kind, val) {
+      if (kind === 'radarr') this.radarrAutoExclEnabled = val;
+      else this.sonarrAutoExclEnabled = val;
+    },
+
+    toggleShowSupportLink(val) { this.showSupportLink = val; },
+
+    toggleNotifyEnabled(val) { this.notifyEnabled = val; },
+
+    toggleNotifyOn(field, val) { this[field] = val; },
 
     _fadeSaveMsg(panel) {
       setTimeout(() => { this.saveMsg[panel] = ''; }, 3000);
     },
+
+    async testConnections() {
       try {
         const out = await this._api('/api/test', { method: 'POST' });
         const health = {};
@@ -983,30 +1087,74 @@ function nudgarr() {
 
     // ── Pipelines ─────────────────────────────────────────────────────────
 
+    // Copy every config-backed panel from Alpine state into cfg before POST.
+    _syncFullCfgFromUi() {
+      if (!this.cfg) return;
+      this.cfg.radarr_cutoff_enabled = this.radarrCutoffEnabled;
+      this.cfg.sonarr_cutoff_enabled = this.sonarrCutoffEnabled;
+      this.cfg.radarr_max_movies_per_run = parseInt(this.radarrMaxCutoff) || 25;
+      this.cfg.sonarr_max_episodes_per_run = parseInt(this.sonarrMaxCutoff) || 25;
+      this.cfg.radarr_sample_mode = this.radarrSampleMode;
+      this.cfg.sonarr_sample_mode = this.sonarrSampleMode;
+      this.cfg.radarr_backlog_enabled = this.radarrBacklogEnabled;
+      this.cfg.sonarr_backlog_enabled = this.sonarrBacklogEnabled;
+      this.cfg.radarr_missing_max = parseInt(this.radarrMissingMax) || 1;
+      this.cfg.sonarr_missing_max = parseInt(this.sonarrMissingMax) || 1;
+      this.cfg.radarr_missing_added_days = parseInt(this.radarrMissingAddedDays) || 14;
+      this.cfg.radarr_missing_grace_hours = parseInt(this.radarrMissingGraceHours) || 0;
+      this.cfg.sonarr_missing_grace_hours = parseInt(this.sonarrMissingGraceHours) || 0;
+      this.cfg.radarr_backlog_sample_mode = this.radarrBacklogSampleMode;
+      this.cfg.sonarr_backlog_sample_mode = this.sonarrBacklogSampleMode;
+      this.cfg.cf_score_enabled = this.cfEnabled;
+      this.cfg.cf_score_sync_cron = this.cfSyncCron;
+      this.cfg.radarr_cf_max_per_run = parseInt(this.radarrCfMax) || 25;
+      this.cfg.sonarr_cf_max_per_run = parseInt(this.sonarrCfMax) || 25;
+      this.cfg.radarr_cf_sample_mode = this.radarrCfSampleMode;
+      this.cfg.sonarr_cf_sample_mode = this.sonarrCfSampleMode;
+      this.cfg.radarr_cf_score_enabled = this.radarrCfScoreAppEnabled;
+      this.cfg.sonarr_cf_score_enabled = this.sonarrCfScoreAppEnabled;
+
+      this.cfg.scheduler_enabled = this.schedulerEnabledUi;
+      this.cfg.cron_expression = (this.cronExpr || '').trim();
+      this.cfg.cooldown_hours = parseInt(this.cooldownHours) || 48;
+      this.cfg.maintenance_window_enabled = this.maintenanceEnabled;
+      this.cfg.maintenance_window_start = this.maintenanceStart;
+      this.cfg.maintenance_window_end = this.maintenanceEnd;
+      this.cfg.maintenance_window_days = [...this.maintenanceDays];
+      this.cfg.batch_size = parseInt(this.batchSize) || 1;
+      this.cfg.sleep_seconds = parseFloat(this.sleepSeconds) || 5;
+      this.cfg.jitter_seconds = parseFloat(this.jitterSeconds) || 2;
+      this.cfg.queue_depth_enabled = this.queueDepthEnabled;
+      this.cfg.queue_depth_threshold = Math.max(1, parseInt(this.queueDepthThreshold) || 10);
+      this.cfg.per_instance_overrides_enabled = this.perInstanceOverridesEnabled;
+      this.cfg.per_instance_overrides_seen = this.overridesInfoSeen;
+      this.cfg.radarr_auto_exclude_enabled = this.radarrAutoExclEnabled;
+      this.cfg.sonarr_auto_exclude_enabled = this.sonarrAutoExclEnabled;
+      this.cfg.auto_exclude_movies_threshold = parseInt(this.autoExclMoviesThreshold) || 0;
+      this.cfg.auto_exclude_shows_threshold = parseInt(this.autoExclShowsThreshold) || 0;
+      this.cfg.auto_unexclude_movies_days = parseInt(this.autoUnexclMoviesDays) || 0;
+      this.cfg.auto_unexclude_shows_days = parseInt(this.autoUnexclShowsDays) || 0;
+
+      this.cfg.notify_enabled = this.notifyEnabled;
+      this.cfg.notify_url = this.notifyUrl.trim();
+      this.cfg.notify_on_sweep_complete = this.notifyOnSweep;
+      this.cfg.notify_on_import = this.notifyOnImport;
+      this.cfg.notify_on_auto_exclusion = this.notifyOnAutoExcl;
+      this.cfg.notify_on_error = this.notifyOnError;
+      this.cfg.notify_on_queue_depth_skip = this.notifyOnQueueDepth;
+
+      this.cfg.state_retention_days = parseInt(this.retentionDays) || 180;
+      this.cfg.auth_enabled = this.authEnabled;
+      this.cfg.auth_session_minutes = parseInt(this.sessionTimeout) || 60;
+      this.cfg.import_check_minutes = parseInt(this.importCheckMinutes) || 120;
+      this.cfg.log_level = this.logLevel;
+      this.cfg.default_tab = this.defaultTab;
+      this.cfg.show_support_link = this.showSupportLink;
+    },
+
     async savePipelines() {
       try {
-        // Bug #2: all cutoff fields required
-        this.cfg.radarr_cutoff_enabled = this.radarrCutoffEnabled;
-        this.cfg.sonarr_cutoff_enabled = this.sonarrCutoffEnabled;
-        this.cfg.radarr_max_movies_per_run = parseInt(this.radarrMaxCutoff) || 25;
-        this.cfg.sonarr_max_episodes_per_run = parseInt(this.sonarrMaxCutoff) || 25;
-        this.cfg.radarr_sample_mode = this.radarrSampleMode;
-        this.cfg.sonarr_sample_mode = this.sonarrSampleMode;
-        this.cfg.radarr_backlog_enabled = this.radarrBacklogEnabled;
-        this.cfg.sonarr_backlog_enabled = this.sonarrBacklogEnabled;
-        this.cfg.radarr_missing_max = parseInt(this.radarrMissingMax) || 1;
-        this.cfg.sonarr_missing_max = parseInt(this.sonarrMissingMax) || 1;
-        this.cfg.radarr_missing_added_days = parseInt(this.radarrMissingAddedDays) || 14;
-        this.cfg.radarr_missing_grace_hours = parseInt(this.radarrMissingGraceHours) || 0;
-        this.cfg.sonarr_missing_grace_hours = parseInt(this.sonarrMissingGraceHours) || 0;
-        this.cfg.radarr_backlog_sample_mode = this.radarrBacklogSampleMode;
-        this.cfg.sonarr_backlog_sample_mode = this.sonarrBacklogSampleMode;
-        this.cfg.cf_score_enabled = this.cfEnabled;
-        this.cfg.cf_score_sync_cron = this.cfSyncCron;
-        this.cfg.radarr_cf_max_per_run = parseInt(this.radarrCfMax) || 25;
-        this.cfg.sonarr_cf_max_per_run = parseInt(this.sonarrCfMax) || 25;
-        this.cfg.radarr_cf_sample_mode = this.radarrCfSampleMode;
-        this.cfg.sonarr_cf_sample_mode = this.sonarrCfSampleMode;
+        this._syncFullCfgFromUi();
         await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
@@ -1062,31 +1210,14 @@ function nudgarr() {
       if (this.maintenanceDays.includes(d)) this.maintenanceDays = this.maintenanceDays.filter(x => x !== d);
       else this.maintenanceDays = [...this.maintenanceDays, d];
       this.validateMaintTime();
+      this.unsaved.settings = true;
     },
 
     isDayActive(d) { return this.maintenanceDays.includes(d); },
 
     async saveSettings() {
       try {
-        this.cfg.scheduler_enabled = this.schedulerEnabledUi;
-        this.cfg.cron_expression = (this.cronExpr || '').trim();
-        this.cfg.cooldown_hours = parseInt(this.cooldownHours) || 48;
-        this.cfg.maintenance_window_enabled = this.maintenanceEnabled;
-        this.cfg.maintenance_window_start = this.maintenanceStart;
-        this.cfg.maintenance_window_end = this.maintenanceEnd;
-        this.cfg.maintenance_window_days = [...this.maintenanceDays];
-        this.cfg.batch_size = parseInt(this.batchSize) || 1;
-        this.cfg.sleep_seconds = parseFloat(this.sleepSeconds) || 5;
-        this.cfg.jitter_seconds = parseFloat(this.jitterSeconds) || 2;
-        this.cfg.queue_depth_enabled = this.queueDepthEnabled;
-        this.cfg.queue_depth_threshold = Math.max(1, parseInt(this.queueDepthThreshold) || 10);
-        this.cfg.per_instance_overrides_enabled = this.perInstanceOverridesEnabled;
-        this.cfg.radarr_auto_exclude_enabled = this.radarrAutoExclEnabled;
-        this.cfg.sonarr_auto_exclude_enabled = this.sonarrAutoExclEnabled;
-        this.cfg.auto_exclude_movies_threshold = parseInt(this.autoExclMoviesThreshold) || 0;
-        this.cfg.auto_exclude_shows_threshold = parseInt(this.autoExclShowsThreshold) || 0;
-        this.cfg.auto_unexclude_movies_days = parseInt(this.autoUnexclMoviesDays) || 0;
-        this.cfg.auto_unexclude_shows_days = parseInt(this.autoUnexclShowsDays) || 0;
+        this._syncFullCfgFromUi();
         await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
@@ -1098,25 +1229,25 @@ function nudgarr() {
 
     // ── Overrides ─────────────────────────────────────────────────────────
 
-    async disableOverrides() {
+    disableOverrides() {
       this.overridesEnabled = false;
       this.perInstanceOverridesEnabled = false;
-      await this._autoSaveField('per_instance_overrides_enabled', false);
-    },
-      this.overridesEnabled = true;
-      this.perInstanceOverridesEnabled = true;
-      if (!this.overridesInfoSeen) {
-        this.overridesInfoSeen = true;
-        this.openModal('overridesInfo');
-        // Save fires when modal is dismissed via closeOverridesInfoModal
-      } else {
-        this._autoSaveField('per_instance_overrides_enabled', true);
-      }
+      this.unsaved.settings = true;
     },
 
-    async closeOverridesInfoModal() {
+    enableOverrides() {
+      this.overridesEnabled = true;
+      this.perInstanceOverridesEnabled = true;
+      this.unsaved.settings = true;
+      if (!this.cfg?.per_instance_overrides_seen) this.openModal('overridesInfo');
+    },
+
+    closeOverridesInfoModal() {
       this.closeModal();
-      await this._autoSaveField('per_instance_overrides_enabled', true);
+      if (!this.cfg) return;
+      this.cfg.per_instance_overrides_seen = true;
+      this.overridesInfoSeen = true;
+      this.unsaved.settings = true;
     },
 
     _buildOverrideData() {
@@ -1125,22 +1256,35 @@ function nudgarr() {
       for (const kind of ['radarr', 'sonarr']) {
         (this.cfg.instances?.[kind] || []).forEach((inst, idx) => {
           const k = kind + '-' + idx;
+          const ov = inst.overrides || {};
           if (!this.ovData[k]) {
-            const ov = inst.overrides || {};
             newData[k] = {
               cooldown_hours: ov.cooldown_hours ?? null,
+              cutoff_enabled: ov.cutoff_enabled ?? null,
               cutoff_max: kind === 'radarr' ? (ov.radarr_max_movies_per_run ?? null) : (ov.sonarr_max_episodes_per_run ?? null),
               cutoff_sample_mode: (kind === 'radarr' ? ov.radarr_sample_mode : ov.sonarr_sample_mode) ?? '__global__',
               backlog_enabled: (kind === 'radarr' ? ov.radarr_backlog_enabled : ov.sonarr_backlog_enabled) ?? null,
               backlog_max: (kind === 'radarr' ? ov.radarr_missing_max : ov.sonarr_missing_max) ?? null,
               backlog_sample_mode: (kind === 'radarr' ? ov.radarr_backlog_sample_mode : ov.sonarr_backlog_sample_mode) ?? '__global__',
               missing_added_days: kind === 'radarr' ? (ov.radarr_missing_added_days ?? null) : null,
+              missing_grace_hours: ov.missing_grace_hours ?? null,
+              cf_max: (kind === 'radarr' ? ov.radarr_cf_max_per_run : ov.sonarr_cf_max_per_run) ?? null,
+              cf_score_enabled: (kind === 'radarr' ? ov.radarr_cf_score_enabled : ov.sonarr_cf_score_enabled) ?? null,
               cf_sample_mode: (kind === 'radarr' ? ov.radarr_cf_sample_mode : ov.sonarr_cf_sample_mode) ?? '__global__',
               notifications_enabled: ov.notifications_enabled ?? null,
             };
             newDirty[k] = false;
           } else {
-            newData[k] = this.ovData[k];
+            newData[k] = { ...this.ovData[k] };
+            if (newData[k].cf_max === undefined) {
+              newData[k].cf_max = (kind === 'radarr' ? ov.radarr_cf_max_per_run : ov.sonarr_cf_max_per_run) ?? null;
+            }
+            if (newData[k].cf_score_enabled === undefined) {
+              newData[k].cf_score_enabled = (kind === 'radarr' ? ov.radarr_cf_score_enabled : ov.sonarr_cf_score_enabled) ?? null;
+            }
+            if (newData[k].cutoff_enabled === undefined) {
+              newData[k].cutoff_enabled = ov.cutoff_enabled ?? null;
+            }
             newDirty[k] = this.ovDirty[k];
           }
         });
@@ -1160,13 +1304,19 @@ function nudgarr() {
       const d = this.ovGet(kind, idx);
       const ov = {};
       if (d.cooldown_hours !== null) ov.cooldown_hours = parseInt(d.cooldown_hours) || 0;
+      if (d.cutoff_enabled !== null) ov.cutoff_enabled = !!d.cutoff_enabled;
       if (d.cutoff_max !== null) { if (kind === 'radarr') ov.radarr_max_movies_per_run = parseInt(d.cutoff_max) || 1; else ov.sonarr_max_episodes_per_run = parseInt(d.cutoff_max) || 1; }
       if (d.cutoff_sample_mode !== '__global__') { if (kind === 'radarr') ov.radarr_sample_mode = d.cutoff_sample_mode; else ov.sonarr_sample_mode = d.cutoff_sample_mode; }
       if (d.backlog_enabled !== null) { if (kind === 'radarr') ov.radarr_backlog_enabled = !!d.backlog_enabled; else ov.sonarr_backlog_enabled = !!d.backlog_enabled; }
       if (d.backlog_max !== null) { if (kind === 'radarr') ov.radarr_missing_max = parseInt(d.backlog_max) || 1; else ov.sonarr_missing_max = parseInt(d.backlog_max) || 1; }
       if (d.backlog_sample_mode !== '__global__') { if (kind === 'radarr') ov.radarr_backlog_sample_mode = d.backlog_sample_mode; else ov.sonarr_backlog_sample_mode = d.backlog_sample_mode; }
       if (kind === 'radarr' && d.missing_added_days !== null) ov.radarr_missing_added_days = parseInt(d.missing_added_days) || 14;
+      if (d.missing_grace_hours !== null) ov.missing_grace_hours = parseInt(d.missing_grace_hours) || 0;
       if (d.cf_max !== null) { if (kind === 'radarr') ov.radarr_cf_max_per_run = parseInt(d.cf_max) || 1; else ov.sonarr_cf_max_per_run = parseInt(d.cf_max) || 1; }
+      if (d.cf_score_enabled !== null) {
+        if (kind === 'radarr') ov.radarr_cf_score_enabled = !!d.cf_score_enabled;
+        else ov.sonarr_cf_score_enabled = !!d.cf_score_enabled;
+      }
       if (d.cf_sample_mode !== '__global__') { if (kind === 'radarr') ov.radarr_cf_sample_mode = d.cf_sample_mode; else ov.sonarr_cf_sample_mode = d.cf_sample_mode; }
       if (d.notifications_enabled !== null) ov.notifications_enabled = !!d.notifications_enabled;
       try {
@@ -1205,8 +1355,10 @@ function nudgarr() {
         f.profiles = profilesData.profiles || [];
         const inst = (this.cfg?.instances?.[kind] || [])[f.instanceIdx];
         const sf = inst?.sweep_filters || {};
-        f.excludedTagIds = sf.excluded_tag_ids ? [...sf.excluded_tag_ids] : [];
-        f.excludedProfileIds = sf.excluded_profile_ids ? [...sf.excluded_profile_ids] : [];
+        const tagSrc = sf.excluded_tag_ids ?? sf.excluded_tags;
+        const profSrc = sf.excluded_profile_ids ?? sf.excluded_profiles;
+        f.excludedTagIds = tagSrc ? [...tagSrc] : [];
+        f.excludedProfileIds = profSrc ? [...profSrc] : [];
         f.loaded = true;
       } catch (e) { this.showAlert('Failed to load filter data: ' + e.message, 'error'); }
       finally { f.loading = false; }
@@ -1228,26 +1380,41 @@ function nudgarr() {
       const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
       const i = f.excludedTagIds.indexOf(id);
       if (i >= 0) f.excludedTagIds.splice(i, 1); else f.excludedTagIds.push(id);
-      this.unsaved.filters = true;
+      if (kind === 'radarr') this.unsaved.filtersRadarr = true; else this.unsaved.filtersSonarr = true;
     },
 
     toggleFilterProfile(kind, id) {
       const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
       const i = f.excludedProfileIds.indexOf(id);
       if (i >= 0) f.excludedProfileIds.splice(i, 1); else f.excludedProfileIds.push(id);
-      this.unsaved.filters = true;
+      if (kind === 'radarr') this.unsaved.filtersRadarr = true; else this.unsaved.filtersSonarr = true;
     },
 
     async saveFilters(kind) {
       const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
       const instances = this.cfg?.instances?.[kind];
       if (!instances || !instances[f.instanceIdx]) return;
-      const payload = { kind, idx: f.instanceIdx, sweep_filters: { excluded_tag_ids: [...f.excludedTagIds], excluded_profile_ids: [...f.excludedProfileIds] } };
+      const payload = {
+        kind, idx: f.instanceIdx,
+        sweep_filters: { excluded_tags: [...f.excludedTagIds], excluded_profiles: [...f.excludedProfileIds] },
+      };
       try {
         await this._api('/api/arr/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        // Only clear unsaved if both filters are saved
-        this.unsaved.filters = false;
+        if (this.cfg.instances?.[kind]?.[f.instanceIdx]) {
+          this.cfg.instances[kind][f.instanceIdx].sweep_filters = {
+            excluded_tags: [...f.excludedTagIds],
+            excluded_profiles: [...f.excludedProfileIds],
+          };
+        }
+        if (kind === 'radarr') this.unsaved.filtersRadarr = false; else this.unsaved.filtersSonarr = false;
+        const appCfOn = kind === 'radarr' ? this.radarrCfScoreAppEnabled : this.sonarrCfScoreAppEnabled;
+        if (this.cfScoreEnabled && appCfOn) this.openModal('cfFiltersSync');
       } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
+    },
+
+    async cfFiltersSyncNow() {
+      this.closeModal();
+      await this.scanCfLibrary();
     },
 
     // ── Notifications ─────────────────────────────────────────────────────
@@ -1268,14 +1435,7 @@ function nudgarr() {
     // Bug #7: saveNotifications must POST config
     async saveNotifications() {
       try {
-        this.cfg.notify_enabled = this.notifyEnabled;
-        this.cfg.notify_url = this.notifyUrl.trim();
-        // Bug #6: x-model bindings used in HTML
-        this.cfg.notify_on_sweep_complete = this.notifyOnSweep;
-        this.cfg.notify_on_import = this.notifyOnImport;
-        this.cfg.notify_on_auto_exclusion = this.notifyOnAutoExcl;
-        this.cfg.notify_on_error = this.notifyOnError;
-        this.cfg.notify_on_queue_depth_skip = this.notifyOnQueueDepth;
+        this._syncFullCfgFromUi();
         await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
@@ -1289,13 +1449,7 @@ function nudgarr() {
 
     async saveAdvanced() {
       try {
-        this.cfg.state_retention_days = parseInt(this.retentionDays) || 180;
-        this.cfg.auth_enabled = this.authEnabled;
-        this.cfg.auth_session_minutes = parseInt(this.sessionTimeout) || 60;
-        this.cfg.import_check_minutes = parseInt(this.importCheckMinutes) || 120;
-        this.cfg.log_level = this.logLevel;
-        this.cfg.default_tab = this.defaultTab;
-        this.cfg.show_support_link = this.showSupportLink;
+        this._syncFullCfgFromUi();
         await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
@@ -1337,6 +1491,10 @@ function nudgarr() {
 
     // Bug #11: openArrLink must exist in the Alpine object
     async openArrLink(app, instanceName, itemId, seriesId) {
+      if (!app || !instanceName || !itemId) {
+        this.showAlert('No Radarr/Sonarr link is stored for this row yet.', 'info');
+        return;
+      }
       try {
         let url = '/api/arr-link?app=' + encodeURIComponent(app) + '&instance=' + encodeURIComponent(instanceName) + '&item_id=' + encodeURIComponent(itemId);
         if (seriesId) url += '&series_id=' + encodeURIComponent(seriesId);
@@ -1471,6 +1629,16 @@ function nudgarr() {
       if (v < 10000) return v.toLocaleString();
       if (v < 1000000) return (v / 1000).toFixed(v < 100000 ? 1 : 0) + 'k';
       return (v / 1000000).toFixed(1) + 'M';
+    },
+
+    formatQualityHistoryLine(step) {
+      if (!step) return '\u2014';
+      const to = step.quality_to != null && String(step.quality_to).trim() !== '' ? String(step.quality_to).trim() : '';
+      const from = step.quality_from != null && String(step.quality_from).trim() !== '' ? String(step.quality_from).trim() : '';
+      const dash = '\u2014';
+      if (!to && !from) return dash;
+      if (!from) return 'Acquired \u2192 ' + (to || dash);
+      return from + ' \u2192 ' + (to || dash);
     },
 
     _cronIntervalMinutes(expr) {

@@ -19,8 +19,8 @@ JS_FILES = [
     'app.js',
 ]
 
-# v5: CSS is inlined in ui.html; no separate CSS files
-CSS_FILES = []
+# v5: base styles + responsive layer (see CONTRIBUTING.md)
+CSS_FILES = ['ui.css', 'ui-responsive.css']
 
 PASS = FAIL = 0
 
@@ -206,13 +206,19 @@ for f in sorted(glob.glob('nudgarr/db/*.py')):
 section("Static Files")
 
 try:
-    # v5: CSS_FILES is empty; inline styles are in ui.html
     for js_file in JS_FILES:
         path = os.path.join(STATIC_DIR, js_file)
         if os.path.exists(path):
             ok(f"{js_file} exists ({os.path.getsize(path)} bytes)")
         else:
             fail(f"{js_file} missing from nudgarr/static/")
+
+    for css_file in CSS_FILES:
+        path = os.path.join(STATIC_DIR, css_file)
+        if os.path.exists(path):
+            ok(f"{css_file} exists ({os.path.getsize(path)} bytes)")
+        else:
+            fail(f"{css_file} missing from nudgarr/static/")
 
     # Both JS files must be referenced in the HTML template
     for js_file in JS_FILES:
@@ -221,11 +227,17 @@ try:
         else:
             fail(f"HTML missing reference to: {js_file}")
 
-    # v5: inline <style> block IS expected (CSS lives in ui.html)
+    for css_file in CSS_FILES:
+        if css_file in content:
+            ok(f"HTML references: {css_file}")
+        else:
+            fail(f"HTML missing reference to: {css_file}")
+
+    # v5: stylesheet links — responsive rules live only in ui-responsive.css
     if '<style>' in content:
-        ok("Inline <style> block present in ui.html (v5 architecture)")
+        fail("Inline <style> block in ui.html — use static/ui.css + ui-responsive.css")
     else:
-        fail("Inline <style> block missing from ui.html")
+        ok("No inline <style> block in ui.html (CSS in static files)")
 
     # v5: no bare inline <script> blocks (only src= script tags allowed)
     bare_scripts = re.findall(r'<script(?![^>]*src)[^>]*>[^<]+</script>', content, re.DOTALL)
@@ -367,7 +379,7 @@ except FileNotFoundError: fail(f"{CONSTANTS_FILE} not found")
 
 clv = None
 try:
-    m = re.search(r'##\s+\[?v?(\d+\.\d+\.\d+)', open(CHANGELOG_FILE).read())
+    m = re.search(r'##\s+\[?v?(\d+\.\d+\.\d+)', open(CHANGELOG_FILE, encoding='utf-8').read())
     if m: clv = m.group(1); ok(f"CHANGELOG.md latest = {clv}")
     else: fail("Could not parse version from CHANGELOG.md")
 except FileNotFoundError: fail(f"{CHANGELOG_FILE} not found")

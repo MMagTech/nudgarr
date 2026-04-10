@@ -25,6 +25,14 @@ from nudgarr.utils import iso_z, parse_iso, utcnow
 logger = logging.getLogger(__name__)
 
 
+def _norm_quality_str(val: Optional[str]) -> Optional[str]:
+    """Normalize DB strings for API/JSON: empty or whitespace-only becomes None."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s if s else None
+
+
 def upsert_stat_entry(
     app: str,
     instance: str,
@@ -307,45 +315,73 @@ def get_unconfirmed_entries(check_minutes: int, now_ts: str) -> List[Dict]:
     return [dict(r) for r in rows]
 
 
+def _stat_type_to_sweep_label(entry_type: str) -> str:
+    """Map stat_entries.type to the same sweep labels used in search history UI."""
+    if entry_type == "Upgraded":
+        return "Cutoff Unmet"
+    if entry_type == "Acquired":
+        return "Backlog"
+    if entry_type == "CF Score":
+        return "CF Score"
+    return entry_type or ""
+
+
 def get_confirmed_entries(
     instance_url_filter: str = "",
     type_filter: str = "",
     offset: int = 0,
     limit: int = 25,
+    period_days: Optional[int] = None,
 ) -> Tuple[int, List[Dict], List[str]]:
     """Return paginated confirmed (imported) stat entries with optional filters.
     Returns a three-tuple: (total, entries, available_types) where total is the
-    unfiltered count, entries is the current page of dicts with a computed
-    turnaround field and quality_history list, and available_types is the
-    distinct list of entry types present for the current instance filter."""
+    count matching instance / type / period filters, entries is the current page
+    of dicts with a computed turnaround field and quality_history list, and
+    available_types is the distinct list of entry types present for the current
+    instance and period filters (type filter is not applied to that list).
+
+    When ``period_days`` is 7 or 30, only rows with ``imported_ts`` within the
+    last N days are included (same cutoff as ``get_period_totals``). When
+    ``None`` (lifetime), all confirmed entries are included."""
     conn = get_connection()
-    where = ["imported = 1"]
+    where = ["se.imported = 1"]
     params: list = []
     if instance_url_filter:
-        where.append("instance_url = ?")
+        where.append("se.instance_url = ?")
         params.append(instance_url_filter)
+    if period_days is not None:
+        cutoff = iso_z(utcnow() - timedelta(days=period_days))
+        where.append("se.imported_ts >= ?")
+        params.append(cutoff)
     where_sql = "WHERE " + " AND ".join(where)
 
     type_rows = conn.execute(
-        f"SELECT DISTINCT type FROM stat_entries {where_sql} ORDER BY type", params
+        f"SELECT DISTINCT se.type FROM stat_entries se {where_sql} ORDER BY se.type", params
     ).fetchall()
     available_types = [r["type"] for r in type_rows if r["type"]]
 
     if type_filter:
-        where.append("type = ?")
+        where.append("se.type = ?")
         params.append(type_filter)
         where_sql = "WHERE " + " AND ".join(where)
 
     total = conn.execute(
-        f"SELECT COUNT(*) FROM stat_entries {where_sql}", params
+        f"SELECT COUNT(*) FROM stat_entries se {where_sql}", params
     ).fetchone()[0]
 
+    # series_id via subquery — a JOIN on (app, instance_url, item_id) alone can match
+    # multiple search_history rows differing only by item_type, duplicating stat rows and
+    # breaking LIMIT/OFFSET and Alpine list keys.
     rows = conn.execute(
         f"""
-        SELECT id, app, instance, item_id, title, type, iteration,
-               first_searched_ts, last_searched_ts, imported_ts
-        FROM stat_entries {where_sql}
-        ORDER BY imported_ts DESC
+        SELECT se.id, se.app, se.instance, se.instance_url, se.item_id, se.title, se.type, se.iteration,
+               se.first_searched_ts, se.last_searched_ts, se.imported_ts,
+               (SELECT sh.series_id FROM search_history sh
+                 WHERE sh.app = se.app AND sh.instance_url = se.instance_url AND sh.item_id = se.item_id
+                 ORDER BY sh.rowid LIMIT 1) AS series_id
+        FROM stat_entries se
+        {where_sql}
+        ORDER BY se.imported_ts DESC
         LIMIT ? OFFSET ?
         """,
         params + [limit, offset]
@@ -369,14 +405,24 @@ def get_confirmed_entries(
         ).fetchall()
         for hr in history_rows:
             history_map[hr["entry_id"]].append({
-                "quality_from": hr["quality_from"],
-                "quality_to": hr["quality_to"],
+                "quality_from": _norm_quality_str(hr["quality_from"]),
+                "quality_to": _norm_quality_str(hr["quality_to"]),
                 "imported_ts": hr["imported_ts"],
             })
 
     entries = []
     for r in rows:
         entry = dict(r)
+        entry["instance_name"] = entry.get("instance") or ""
+        entry["sweep_type"] = _stat_type_to_sweep_label(entry.get("type") or "")
+        sid = entry.get("series_id")
+        entry["series_id"] = str(sid) if sid not in (None, "") else ""
+        entry["import_iteration"] = r["iteration"]
+        dt_f = parse_iso(r["first_searched_ts"])
+        dt_i = parse_iso(r["imported_ts"])
+        entry["turnaround_days"] = (
+            max(0.0, (dt_i - dt_f).total_seconds() / 86400) if dt_f and dt_i else None
+        )
         entry["turnaround"] = _calc_turnaround(r["first_searched_ts"], r["imported_ts"])
         entry["quality_history"] = history_map.get(r["id"], [])
         entries.append(entry)

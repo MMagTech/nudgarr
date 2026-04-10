@@ -6,306 +6,8 @@
 <meta name="nudgarr-version" content="{{ VERSION }}">
 <title>Nudgarr</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e1a'/%3E%3Ctext x='50%25' y='54%25' font-size='20' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' fill='%235b72f5'%3EN%3C/text%3E%3C/svg%3E"/>
-<style>
-@font-face{font-family:'Outfit';src:url('{{ url_for("static",filename="fonts/Outfit[wght].woff2") }}?v={{ VERSION }}') format('woff2');font-weight:100 900;font-display:swap;}
-@font-face{font-family:'JetBrains Mono';src:url('{{ url_for("static",filename="fonts/JetBrainsMono[wght].woff2") }}?v={{ VERSION }}') format('woff2');font-weight:100 900;font-display:swap;}
-:root{--bg:#0c0e1a;--surface:#0f1120;--card:#141626;--card-2:#181a2e;--border:rgba(255,255,255,.06);--border-md:rgba(255,255,255,.1);--muted:#4a5270;--dim:#7a84a8;--text:#e2e6f6;--accent:#5b72f5;--ac-lt:#8fa0fb;--ac-dim:rgba(91,114,245,.12);--ac-bdr:rgba(91,114,245,.3);--ok:#22c55e;--ok-dim:rgba(34,197,94,.1);--warn:#fbbf24;--warn-dim:rgba(251,191,36,.1);--bad:#ef4444;--bad-dim:rgba(239,68,68,.1);--bad-bdr:rgba(239,68,68,.28);--r:12px;--r-sm:8px;--sw:216px;}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100vh;overflow:hidden;}
-body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;display:flex;}
-[x-cloak]{display:none!important;}
-::-webkit-scrollbar{width:4px;height:4px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07);border-radius:2px;}
-.sb{width:var(--sw);min-width:var(--sw);height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
-.sb-brand{padding:22px 18px 18px;}
-.wordmark{font-size:19px;font-weight:800;font-style:italic;letter-spacing:.015em;background:linear-gradient(120deg,#c4cfff 0%,#5b72f5 45%,#8fa0fb 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:inline-block;}
-@keyframes sweepShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-.wordmark.sweeping{background:linear-gradient(90deg,#c4cfff 0%,#fff 35%,#5b72f5 50%,#8fa0fb 65%,#c4cfff 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:sweepShimmer 1.4s linear infinite;}
-.tagline{font-size:9.5px;color:rgba(143,160,251,.32);letter-spacing:.04em;margin-top:3px;text-transform:uppercase;font-weight:500;line-height:1.4;}
-.sb-nav{flex:1;overflow-y:auto;padding:4px 10px;}
-.nav-sect-label{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:12px 8px 5px;}
-.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7.5px 10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--dim);position:relative;transition:background .12s,color .12s;user-select:none;}
-.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text);}
-.nav-item.active{background:var(--ac-dim);color:var(--ac-lt);font-weight:600;}
-.nav-item.active::before{content:'';position:absolute;left:0;top:25%;bottom:25%;width:2px;border-radius:0 2px 2px 0;background:var(--accent);}
-.nav-sep{height:1px;background:var(--border);margin:6px 8px;}
-.nav-unsaved-dot{width:5px;height:5px;border-radius:50%;background:var(--warn);flex-shrink:0;}
-.excl-count{font-size:10px;font-weight:700;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;border-radius:999px;padding:1px 6px;line-height:1.4;}
-.sb-foot{padding:10px 12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;height:100vh;}
-.topbar{display:flex;align-items:center;gap:16px;padding:0 28px;height:56px;flex-shrink:0;border-bottom:1px solid var(--border);}
-.tb-title{font-size:14px;font-weight:700;letter-spacing:-.01em;}
-.tb-status{display:flex;align-items:center;gap:7px;margin-left:auto;}
-.tb-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;background:var(--ok);box-shadow:0 0 4px rgba(34,197,94,.5);}
-.tb-dot.warn{background:var(--warn);box-shadow:0 0 4px rgba(251,191,36,.5);animation:blink 1.2s infinite;}
-.tb-dot.muted{background:var(--muted);box-shadow:none;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-.tb-meta{font-size:11px;color:var(--muted);}
-.tb-meta strong{color:var(--dim);font-weight:600;}
-.tb-divider{color:rgba(255,255,255,.12);margin:0 2px;}
-.run-btn-tb{padding:6px 14px;background:var(--ac-dim);border:1px solid var(--ac-bdr);border-radius:7px;color:var(--ac-lt);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,box-shadow .15s;margin-left:6px;}
-.run-btn-tb:hover{background:rgba(91,114,245,.2);border-color:var(--accent);color:#cdd8ff;box-shadow:0 0 16px rgba(91,114,245,.2);}
-.content{flex:1;overflow-y:auto;padding:24px 28px 56px;}
-.panel{animation:fadein .14s ease;}
-@keyframes fadein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;}
-.card+.card{margin-top:14px;}
-.card-title{font-size:13.5px;font-weight:700;color:var(--text);margin:0 0 4px;letter-spacing:-.01em;}
-.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.section-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px;}
-.cols2{display:flex;gap:14px;align-items:stretch;}
-.cols2>*{flex:1;min-width:0;}
-.cols2>.card+.card,.sweep-grid>.card+.card,.cols3>.card+.card{margin-top:0;}
-.cols3{display:flex;gap:12px;align-items:stretch;}
-.cols3>*{flex:1;min-width:0;}
-.stk{display:flex;flex-direction:column;gap:14px;}
-.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.sp{flex:1;}
-.hr{height:1px;background:var(--border);margin:16px 0;}
-.mb{margin-bottom:14px;}
-.save-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:14px;}
-.btn{border:1px solid var(--border-md);background:transparent;color:var(--text);padding:6px 14px;border-radius:var(--r-sm);cursor:pointer;font-size:13px;font-weight:500;font-family:'Outfit',sans-serif;transition:background .12s,border-color .12s;white-space:nowrap;}
-.btn:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.15);}
-.btn.pri{background:var(--ac-dim);border-color:var(--ac-bdr);color:var(--ac-lt);}
-.btn.pri:hover{background:rgba(91,114,245,.2);border-color:var(--accent);color:#cdd8ff;}
-.btn.dng{background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5;}
-.btn.dng:hover{background:rgba(239,68,68,.18);}
-.btn.sm{padding:4px 10px;font-size:12px;border-radius:7px;}
-.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);}
-.btn.ghost:hover{color:var(--dim);border-color:var(--border);}
-.field{display:flex;flex-direction:column;gap:5px;}
-label{font-size:11.5px;color:var(--dim);font-weight:500;letter-spacing:.01em;}
-input,select,textarea{padding:7px 11px;border-radius:7px;border:1px solid var(--border-md);background:rgba(255,255,255,.03);color:var(--text);font-size:13px;font-family:'Outfit',sans-serif;width:100%;outline:none;transition:border-color .15s,box-shadow .15s;}
-input:focus,select:focus{border-color:rgba(91,114,245,.45);box-shadow:0 0 0 3px rgba(91,114,245,.08);}
-select option{background:var(--card);}
-.help{font-size:11px;color:var(--muted);line-height:1.5;}
-.mono{font-family:'JetBrains Mono',monospace;}
-.cron-hint{font-size:11px;color:var(--ok);margin-top:3px;}
-.cron-bad{color:var(--bad)!important;}
-.toggle{position:relative;width:34px;height:19px;flex-shrink:0;cursor:pointer;}
-.toggle input{opacity:0;width:0;height:0;position:absolute;}
-.toggle-track{position:absolute;inset:0;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--border-md);transition:background .2s,border-color .2s;}
-.toggle input:checked~.toggle-track{background:var(--accent);border-color:var(--accent);}
-.toggle-thumb{position:absolute;top:50%;left:3px;transform:translateY(-50%);width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.5);transition:left .18s,background .18s;}
-.toggle input:checked~.toggle-thumb{left:18px;background:#fff;}
-.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--muted);}
-.status-dot.ok{background:var(--ok);box-shadow:0 0 6px rgba(34,197,94,.45);}
-.status-dot.bad{background:var(--bad);}
-.status-dot.warn{background:var(--warn);}
-.status-dot.disabled{background:#4b5563;}
-.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.02em;}
-.pill.ok{background:var(--ok-dim);color:var(--ok);border:1px solid rgba(34,197,94,.22);}
-.pill.mut{background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--border-md);}
-.day-pill{padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--border-md);background:transparent;color:var(--muted);cursor:pointer;transition:all .12s;font-family:'Outfit',sans-serif;}
-.day-pill.on{background:var(--ac-dim);border-color:var(--ac-bdr);color:var(--ac-lt);}
-.vsw{display:inline-flex;background:rgba(255,255,255,.03);border:1px solid var(--border-md);border-radius:8px;overflow:hidden;padding:2px;gap:2px;}
-.vbtn{padding:5px 13px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:transparent;font-family:'Outfit',sans-serif;transition:all .12s;white-space:nowrap;border-radius:6px;}
-.vbtn.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.2);}
-table{width:100%;border-collapse:collapse;font-size:13px;}
-th,td{padding:9px 8px;border-bottom:1px solid var(--border);text-align:left;}
-th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap;}
-td{color:var(--text);}
-tr:last-child td{border-bottom:none;}
-tr:hover td{background:rgba(255,255,255,.013);}
-th.sortable{cursor:pointer;user-select:none;}
-th.sortable::after{content:' \2195';opacity:.25;font-size:10px;}
-th.sort-asc::after{content:' \2191';opacity:1;}
-th.sort-desc::after{content:' \2193';opacity:1;}
-.td-blue{color:#b0bcf0;}
-.td-blue-dim{color:rgba(176,188,240,.6);}
-.td-dim{color:#8e96b0;}
-.td-muted{color:var(--muted)!important;}
-.arr-link{cursor:pointer;transition:color .12s;color:var(--text);font-weight:500;}
-.arr-link:hover{color:var(--ac-lt)!important;}
-.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:var(--ac-dim);color:var(--ac-lt);border:1px solid var(--ac-bdr);}
-.tag.acquired{background:rgba(34,197,94,.10);color:#4ade80;border-color:rgba(34,197,94,.28);}
-.tag.cf-score{background:rgba(251,191,36,.10);color:var(--warn);border-color:rgba(251,191,36,.28);}
-.count-pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--ac-dim);color:var(--ac-lt);border:1px solid var(--ac-bdr);}
-.sw-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
-.sw-pill.cutoff{background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);}
-.sw-pill.backlog{background:var(--ok-dim);border:1px solid rgba(34,197,94,.22);color:var(--ok);}
-.sw-pill.cfscore{background:var(--warn-dim);border:1px solid rgba(251,191,36,.2);color:var(--warn);}
-.eligible-next-sweep{color:var(--ok);font-size:12px;font-weight:500;}
-.source-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;}
-.source-badge.manual{background:rgba(255,255,255,.05);border:1px solid var(--border-md);color:var(--muted);}
-.source-badge.auto{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);color:#fbbf24;}
-.kpis{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
-.kpi-card{flex:1;min-width:100px;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid var(--ac-bdr);background:rgba(91,114,245,.06);}
-.kpi-val{font-size:20px;font-weight:800;color:var(--ac-lt);}
-.kpi-lbl{font-size:11px;color:var(--dim);font-weight:500;}
-.excl-col{width:28px;text-align:center;}
-.excl-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;opacity:0;transition:opacity .15s,color .15s;padding:0;line-height:1;}
-.excl-btn:hover{color:var(--bad);}
-.excl-btn.excluded{opacity:1;color:#f87171;}
-.hist-row:hover .excl-btn{opacity:1;}
-.filter-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
-.filter-row .field{min-width:140px;margin:0;}
-.sweep-grid{display:flex;gap:12px;align-items:stretch;}
-.sweep-grid>*{flex:1;min-width:0;}
-.p-card{border-radius:var(--r);padding:17px;}
-.p-card.cutoff{background:rgba(91,114,245,.07);border:1px solid rgba(91,114,245,.2);}
-.p-card.backlog{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.17);}
-.p-card.cfscore{background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.17);}
-.p-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
-.p-name{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
-.p-card.cutoff .p-name{color:var(--ac-lt);}
-.p-card.backlog .p-name{color:var(--ok);}
-.p-card.cfscore .p-name{color:var(--warn);}
-.p-total-cell{padding:8px 7px;border-radius:6px;}
-.p-card.cutoff .p-total-cell{background:rgba(91,114,245,.1);border:1px solid rgba(91,114,245,.14);}
-.p-card.backlog .p-total-cell{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.12);}
-.p-card.cfscore .p-total-cell{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.12);}
-.p-total-lbl{font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;}
-.p-card.cutoff .p-total-lbl{color:rgba(143,160,251,.5);}
-.p-card.backlog .p-total-lbl{color:rgba(34,197,94,.45);}
-.p-card.cfscore .p-total-lbl{color:rgba(251,191,36,.45);}
-.p-total-val{font-size:19px;font-weight:800;line-height:1;}
-.p-total-val.dim{font-size:16px;color:rgba(255,255,255,.2);}
-.p-card.cutoff .p-total-val:not(.dim){color:var(--ac-lt);}
-.p-card.backlog .p-total-val:not(.dim){color:var(--ok);}
-.p-card.cfscore .p-total-val:not(.dim){color:var(--warn);}
-.p-divider{height:1px;margin:0 0 10px;}
-.p-card.cutoff .p-divider{background:rgba(91,114,245,.16);}
-.p-card.backlog .p-divider{background:rgba(34,197,94,.13);}
-.p-card.cfscore .p-divider{background:rgba(251,191,36,.13);}
-.p-inst-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
-.p-inst-row{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;margin-bottom:4px;gap:8px;}
-.p-inst-row:last-child{margin-bottom:0;}
-.p-card.cutoff .p-inst-row{background:rgba(91,114,245,.06);}
-.p-card.backlog .p-inst-row{background:rgba(34,197,94,.05);}
-.p-card.cfscore .p-inst-row{background:rgba(251,191,36,.05);}
-.p-inst-name{font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:7px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.p-inst-stats{display:flex;gap:14px;flex-shrink:0;}
-.p-inst-stat{display:flex;flex-direction:column;align-items:flex-end;}
-.p-inst-stat-lbl{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
-.p-inst-stat-val{font-size:12.5px;font-weight:700;}
-.p-card.cutoff .p-inst-stat-val{color:var(--ac-lt);}
-.p-card.backlog .p-inst-stat-val{color:var(--ok);}
-.p-card.cfscore .p-inst-stat-val{color:var(--warn);}
-.p-inst-stat-val.dim{color:rgba(255,255,255,.25);}
-.p-inst-disabled{font-size:11px;color:var(--muted);}
-.sh-banner{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;margin-bottom:12px;}
-.sh-banner.ok{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.18);}
-.sh-banner.warn{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.18);}
-.sh-banner.error{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);}
-.sh-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.sh-dot.ok{background:var(--ok);}
-.sh-dot.warn{background:var(--warn);}
-.sh-dot.error{background:var(--bad);}
-.import-split{display:flex;gap:8px;}
-.import-half{flex:1;padding:8px 10px;border-radius:8px;}
-.import-half.r{background:rgba(91,114,245,.08);border:1px solid rgba(91,114,245,.18);}
-.import-half.s{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.16);}
-.import-lbl{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;}
-.import-lbl.r{color:var(--ac-lt);}
-.import-lbl.s{color:var(--ok);}
-.import-val{font-size:18px;font-weight:800;margin-top:2px;line-height:1;}
-.import-val.r{color:var(--ac-lt);}
-.import-val.s{color:var(--ok);}
-.stat-lbl{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
-.inst-card{border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-top:8px;background:rgba(255,255,255,.02);transition:border-color .15s;}
-.inst-card:hover{border-color:var(--border-md);}
-.inst-card .inst-row1{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.inst-card .inst-row2{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;}
-.inst-card .inst-info{flex:1;min-width:0;}
-.inst-card .inst-name{font-size:13px;font-weight:600;color:var(--text);}
-.inst-card .inst-meta{font-size:11px;color:var(--muted);margin-top:1px;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.inst-card .inst-actions{display:flex;gap:4px;}
-.inst-health-pill{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;}
-.inst-health-pill.ok{background:var(--ok-dim);color:var(--ok);border:1px solid rgba(34,197,94,.22);}
-.inst-health-pill.bad{background:var(--bad-dim);color:#fca5a5;border:1px solid var(--bad-bdr);}
-.inst-health-pill.unknown{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border-md);}
-.ov-card{border:1px solid var(--border);background:var(--card);border-radius:var(--r);padding:16px;transition:border-color .2s;}
-.ov-card.ov-dirty{border-color:rgba(251,191,36,.35);}
-.ov-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.ov-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.04em;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);}
-.ov-badge.ov-sonarr{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.22);color:#86efac;}
-.ov-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;margin-bottom:10px;}
-.ov-bl-row{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:6px;}
-.notify-footer-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:rgba(255,255,255,.02);}
-.ov-card-foot{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);margin-top:10px;}
-.ov-rst-all{background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:0;font-family:'Outfit',sans-serif;}
-.ov-rst-all:hover{color:var(--bad);}
-input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
-.ov-sect{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid;}
-.filter-pill-area{min-height:24px;display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
-.filter-active-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:12px;height:22px;flex-shrink:0;background:var(--ac-dim);border:1px solid var(--ac-bdr);color:var(--ac-lt);cursor:pointer;}
-.filter-pill-x{color:var(--muted);font-size:14px;line-height:1;}
-.filter-section{flex:1;display:flex;flex-direction:column;min-height:0;}
-.filter-search{width:100%;background:var(--surface);border:1px solid var(--border-md);color:var(--text);border-radius:var(--r-sm);padding:6px 10px;font-size:12px;font-family:inherit;margin-bottom:4px;outline:none;}
-.filter-list{flex:1;overflow-y:auto;max-height:140px;}
-.filter-list-item{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--dim);transition:background .1s;}
-.filter-list-item:hover{background:rgba(255,255,255,.04);color:var(--text);}
-.filter-list-item.active-radarr{color:var(--ac-lt);background:var(--ac-dim);}
-.filter-list-item.active-sonarr{color:var(--ok);background:rgba(34,197,94,.1);}
-.filter-card-body{flex:1;display:flex;flex-direction:column;min-height:0;}
-.filter-box-fixed{height:520px;display:flex;flex-direction:column;}
-.app-hdr{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);color:var(--text);}
-.intel-headline-cell{background:rgba(255,255,255,.025);padding:14px 16px;display:flex;flex-direction:column;gap:3px;}
-.intel-headline-num{font-size:26px;font-weight:800;color:var(--text);line-height:1;}
-.intel-headline-num.ok{color:var(--ok);}
-.intel-headline-num.accent{color:var(--ac-lt);}
-.intel-headline-lbl{font-size:11px;color:var(--muted);font-weight:500;}
-.intel-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-.intel-table th{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:0 10px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
-.intel-table th:first-child{text-align:left;padding-left:0;}
-.intel-table td{padding:10px;border-bottom:1px solid var(--border);color:var(--dim);text-align:right;vertical-align:middle;}
-.intel-table td:first-child{text-align:left;padding-left:0;}
-.intel-table tr:last-child td{border-bottom:none;}
-.intel-table td strong{color:var(--text);font-weight:600;}
-.intel-qi-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.intel-qi-cell{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
-.intel-qi-num{font-size:24px;font-weight:800;color:var(--text);line-height:1;}
-.intel-qi-num.ac{color:var(--ac-lt);}
-.intel-qi-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
-.intel-upgrade-path{display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;margin-bottom:7px;}
-.intel-upgrade-path:last-child{margin-bottom:0;}
-.intel-up-from{font-size:11.5px;color:var(--dim);}
-.intel-up-arrow{color:var(--ac-lt);font-size:13px;flex-shrink:0;}
-.intel-up-to{font-size:11.5px;color:var(--text);font-weight:600;}
-.intel-up-count{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap;}
-.intel-stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);}
-.intel-stat-row:last-child{border-bottom:none;padding-bottom:0;}
-.intel-stat-label{font-size:12px;color:var(--dim);}
-.intel-stat-val{font-size:13px;font-weight:600;color:var(--text);}
-.intel-stat-val.ok{color:var(--ok);}
-.cold-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:64px 32px;gap:20px;}
-.cold-counter{display:flex;flex-direction:column;align-items:center;gap:6px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;padding:16px 28px;}
-.cold-num{font-size:30px;font-weight:800;line-height:1;color:var(--muted);}
-.cold-num.has{color:var(--ok);}
-.cold-unit{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
-.tooltip-wrap{position:relative;display:inline-flex;align-items:center;gap:5px;}
-.tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--ac-bdr);color:var(--accent);font-size:9px;font-style:italic;font-weight:700;cursor:default;flex-shrink:0;line-height:1;user-select:none;transition:background .15s;position:relative;}
-.tooltip-icon:hover{background:var(--ac-dim);border-color:var(--accent);}
-.tooltip-icon:hover .tooltip-box{opacity:1;pointer-events:auto;}
-.tooltip-box{position:absolute;left:calc(100% + 3px);bottom:0;background:#1e2038;border:1px solid var(--ac-bdr);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:400;font-style:normal;color:var(--dim);line-height:1.5;width:260px;z-index:201;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 12px 32px rgba(0,0,0,.6);}
-.tooltip-icon.tip-down .tooltip-box{top:calc(100% + 3px);bottom:auto;left:0;}
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
-.modal-backdrop.open{display:flex;}
-.modal{background:var(--card);border:1px solid var(--border-md);border-radius:14px;padding:22px;width:460px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto;}
-.modal h2{font-size:15px;font-weight:700;margin:0 0 16px;}
-.key-wrap{display:flex;gap:6px;}
-.key-wrap input{flex:1;}
-.key-toggle{padding:6px 12px;border-radius:7px;border:1px solid var(--border-md);background:transparent;color:var(--dim);cursor:pointer;font-size:12px;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background .12s;}
-.amber-warn-collapsible{overflow:hidden;padding:0 13px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.22);border-radius:10px;margin-top:6px;}
-.modal-test-result{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:14px;}
-.modal-test-result.ok{background:var(--ok-dim);border:1px solid rgba(34,197,94,.2);color:#4ade80;}
-.modal-test-result.err{background:var(--bad-dim);border:1px solid var(--bad-bdr);color:#fca5a5;}
-.excl-opt{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:8px;cursor:pointer;transition:border-color .15s;}
-.excl-opt:hover{border-color:var(--border-md);}
-.excl-opt.selected{border-color:var(--ac-bdr);background:var(--ac-dim);}
-.excl-radio{width:15px;height:15px;border-radius:50%;border:2px solid var(--border-md);flex-shrink:0;margin-top:2px;transition:border-color .15s,background .15s;}
-.excl-opt.selected .excl-radio{border-color:var(--accent);background:var(--accent);}
-.msg{font-size:12px;font-weight:500;}
-.msg.ok{color:var(--ok);}
-.msg.err{color:var(--bad);}
-.msg.unsaved{color:#fcd34d;}
-.pager{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
-.pager-info{font-size:12px;color:var(--muted);}
-.cov-track{height:5px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden;}
-.cov-fill{height:100%;border-radius:3px;background:var(--accent);}
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='ui.css') }}?v={{ VERSION }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='ui-responsive.css') }}?v={{ VERSION }}">
 </head>
 
 <body x-data="nudgarr()" x-init="
@@ -322,10 +24,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
   } catch(_) {}
   if (TAB_MIGRATION[defaultTab]) defaultTab = TAB_MIGRATION[defaultTab];
   if (!VALID_TABS_V5.includes(defaultTab)) defaultTab = 'sweep';
-" x-cloak>
+" x-cloak @keydown.escape.window="mobileDrawerOpen = false">
+
+<div class="nav-drawer-backdrop" x-show="mobileDrawerOpen" x-cloak @click="mobileDrawerOpen = false" aria-hidden="true"></div>
 
 <!-- SIDEBAR -->
-<nav class="sb">
+<nav class="sb" :class="{ 'drawer-open': mobileDrawerOpen }">
   <div class="sb-brand">
     <div class="wordmark" :class="{ sweeping: sweeping }">Nudgarr</div>
     <div class="tagline">Sweeping your library,<br>one nudge at a time</div>
@@ -351,7 +55,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
     </div>
     <div class="nav-item" :class="{ active: panel==='filters' }" @click="navigateTo('filters')" style="padding-left:20px;font-size:12.5px">
       Filters
-      <span class="nav-unsaved-dot" x-show="unsaved.filters"></span>
+      <span class="nav-unsaved-dot" x-show="unsaved.filtersRadarr || unsaved.filtersSonarr"></span>
     </div>
     <div class="nav-item" :class="{ active: panel==='settings' }" @click="navigateTo('settings')">
       Settings
@@ -382,9 +86,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
 <div class="main">
   <!-- Topbar: title + status strip + Run Now always visible -->
   <div class="topbar">
-    <div>
+    <button type="button" class="tb-menu-btn" @click="mobileDrawerOpen = true" aria-label="Open navigation" :aria-expanded="mobileDrawerOpen ? 'true' : 'false'">
+      <span class="tb-menu-ico" aria-hidden="true">&#9776;</span>
+    </button>
+    <div class="tb-head-text">
       <div class="tb-title" x-text="topbarTitle"></div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:1px" x-text="topbarSub"></div>
+      <div class="tb-sub" x-text="topbarSub"></div>
     </div>
     <div class="tb-status">
       <div class="tb-dot" :class="topbarDotClass"></div>
@@ -395,9 +102,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <span x-show="lastRunUtc" x-text="lastRunDisplay"></span>
           <span x-show="!lastRunUtc" style="color:var(--muted)">Never</span>
           <template x-if="schedulerEnabled">
-            <span>
+            <span style="display:inline-flex;align-items:flex-start;gap:0;vertical-align:middle">
               <span class="tb-divider"> &middot; </span>
-              <span :style="nextRunColor" x-text="nextRunDisplay"></span>
+              <span style="display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.2">
+                <span :style="nextRunColor" x-text="nextRunDisplay"></span>
+                <span x-show="nextRunInMaintenanceWindow" style="font-size:9.5px;color:var(--muted);margin-top:2px">Maintenance window active</span>
+              </span>
             </span>
           </template>
         </span>
@@ -445,27 +155,20 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                 <div class="import-half s"><div class="import-lbl s">Episodes</div><div class="import-val s" x-text="importsConfirmedSweep.shows||0"></div></div>
               </div>
             </div>
-            <div class="card">
-              <div class="stat-lbl" style="margin-bottom:10px">Last Sweep</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--border);border-radius:8px;overflow:hidden">
-                <div style="background:var(--card-2);padding:10px 14px"><div class="stat-lbl" style="margin-bottom:4px">Completed</div><div style="font-size:16px;font-weight:700" x-text="lastRunDisplay"></div><div class="help" x-text="_fmtTimePadded(lastRunUtc)"></div></div>
-                <div style="background:var(--card-2);padding:10px 14px;border-left:1px solid var(--border)"><div class="stat-lbl" style="margin-bottom:4px">Next Run</div><div style="font-size:16px;font-weight:700" :style="nextRunColor" x-text="nextRunDisplay"></div></div>
-              </div>
-            </div>
           </div>
           <!-- Pipeline cards -->
           <div class="sweep-grid mb">
             <div class="p-card cutoff">
-              <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Cutoff Unmet</span><span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds items with a file that haven't reached the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCutoffUtc ? _fmtTimePadded(lastRunCutoffUtc) : ''"></span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px">
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Searched<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.searched===0}" x-text="cutoffAgg.searched"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Cooldown<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.cooldown===0}" x-text="cutoffAgg.cooldown"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Capped<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance max was already reached this sweep.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.capped===0}" x-text="cutoffAgg.capped"></div></div>
+              <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Cutoff Unmet</span><span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds items with a file that haven't reached the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCutoffUtc ? _fmtTimePadded(lastRunCutoffUtc) : ''"></span></div>
+              <div class="sweep-stat-grid cols3">
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.searched===0}" x-text="cutoffAgg.searched"></div><div class="sweep-stat-lbl tooltip-wrap">Searched<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.cooldown===0}" x-text="cutoffAgg.cooldown"></div><div class="sweep-stat-lbl tooltip-wrap">Cooldown<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.capped===0}" x-text="cutoffAgg.capped"></div><div class="sweep-stat-lbl tooltip-wrap">Capped<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance max was already reached this sweep.</div></span></div></div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Excluded<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.excluded===0}" x-text="cutoffAgg.excluded"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Tag<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.tag===0}" x-text="cutoffAgg.tag"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Profile<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div><div class="p-total-val" :class="{dim:cutoffAgg.profile===0}" x-text="cutoffAgg.profile"></div></div>
+              <div class="sweep-stat-grid cols3">
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.excluded===0}" x-text="cutoffAgg.excluded"></div><div class="sweep-stat-lbl tooltip-wrap">Excluded<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.tag===0}" x-text="cutoffAgg.tag"></div><div class="sweep-stat-lbl tooltip-wrap">Tag<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.profile===0}" x-text="cutoffAgg.profile"></div><div class="sweep-stat-lbl tooltip-wrap">Profile<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in cutoffInstRows" :key="row.name">
@@ -481,16 +184,16 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </template>
             </div>
             <div class="p-card backlog">
-              <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Backlog</span><span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds missing movies and episodes never grabbed.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunBacklogUtc ? _fmtTimePadded(lastRunBacklogUtc) : ''"></span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px">
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Searched<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Missing items Nudgarr sent a search command for this sweep.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.searched===0}" x-text="backlogAgg.searched"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Cooldown<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.cooldown===0}" x-text="backlogAgg.cooldown"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Capped<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance max was already reached this sweep.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.capped===0}" x-text="backlogAgg.capped"></div></div>
+              <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">Backlog</span><span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds missing movies and episodes never grabbed.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunBacklogUtc ? _fmtTimePadded(lastRunBacklogUtc) : ''"></span></div>
+              <div class="sweep-stat-grid cols3">
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.searched===0}" x-text="backlogAgg.searched"></div><div class="sweep-stat-lbl tooltip-wrap">Searched<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Missing items Nudgarr sent a search command for this sweep.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.cooldown===0}" x-text="backlogAgg.cooldown"></div><div class="sweep-stat-lbl tooltip-wrap">Cooldown<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.capped===0}" x-text="backlogAgg.capped"></div><div class="sweep-stat-lbl tooltip-wrap">Capped<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance max was already reached this sweep.</div></span></div></div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Grace<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were added to your library within the grace period.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.grace===0}" x-text="backlogAgg.grace"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Tag<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.tag===0}" x-text="backlogAgg.tag"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Profile<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div><div class="p-total-val" :class="{dim:backlogAgg.profile===0}" x-text="backlogAgg.profile"></div></div>
+              <div class="sweep-stat-grid cols3">
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.grace===0}" x-text="backlogAgg.grace"></div><div class="sweep-stat-lbl tooltip-wrap">Grace<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were added to your library within the grace period.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.tag===0}" x-text="backlogAgg.tag"></div><div class="sweep-stat-lbl tooltip-wrap">Tag<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.profile===0}" x-text="backlogAgg.profile"></div><div class="sweep-stat-lbl tooltip-wrap">Profile<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in backlogInstRows" :key="row.name">
@@ -506,14 +209,14 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </template>
             </div>
             <div class="p-card cfscore" x-show="cfScoreEnabled">
-              <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">CF Score</span><span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds files where custom format score is below the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCfscoreUtc ? _fmtTimePadded(lastRunCfscoreUtc) : ''"></span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Searched<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep because their CF score was below the profile cutoff.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.searched===0}" x-text="cfscoreAgg.searched"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Cooldown<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.cooldown===0}" x-text="cfscoreAgg.cooldown"></div></div>
+              <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">CF Score</span><span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds files where custom format score is below the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCfscoreUtc ? _fmtTimePadded(lastRunCfscoreUtc) : ''"></span></div>
+              <div class="sweep-stat-grid cols2">
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.searched===0}" x-text="cfscoreAgg.searched"></div><div class="sweep-stat-lbl tooltip-wrap">Searched<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep because their custom format score was below the profile cutoff.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.cooldown===0}" x-text="cfscoreAgg.cooldown"></div><div class="sweep-stat-lbl tooltip-wrap">Cooldown<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div></div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:14px">
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Excluded<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.excluded===0}" x-text="cfscoreAgg.excluded"></div></div>
-                <div class="p-total-cell"><div class="p-total-lbl tooltip-wrap">Queued<span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were already in the download queue when this sweep ran.</div></span></div><div class="p-total-val" :class="{dim:cfscoreAgg.queued===0}" x-text="cfscoreAgg.queued"></div></div>
+              <div class="sweep-stat-grid cols2">
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.excluded===0}" x-text="cfscoreAgg.excluded"></div><div class="sweep-stat-lbl tooltip-wrap">Excluded<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.queued===0}" x-text="cfscoreAgg.queued"></div><div class="sweep-stat-lbl tooltip-wrap">Queued<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were already in the download queue when this sweep ran.</div></span></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in cfscoreInstRows" :key="row.name">
@@ -548,10 +251,15 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <div x-show="libView==='history'">
         <div class="card">
           <div class="card-hdr"><div class="card-title" style="margin:0">History</div></div>
-          <div class="kpis" x-show="summaryKpis.length > 0">
-            <template x-for="kpi in summaryKpis" :key="kpi.name">
-              <div class="kpi-card"><div><div class="kpi-val" x-text="formatCompact(kpi.count)"></div><div class="kpi-lbl" x-text="kpi.name"></div></div></div>
-            </template>
+          <div class="lib-kpi-strip" x-show="summaryKpis.length > 0">
+            <div class="sweep-stat-grid lib-kpi-cols" :style="'--lib-cols:' + summaryKpis.length">
+              <template x-for="kpi in summaryKpis" :key="kpi.key || kpi.name">
+                <div class="sweep-stat-cell" :class="kpi.app === 'sonarr' ? 'lib-kpi-cell-s' : 'lib-kpi-cell-r'">
+                  <div class="sweep-stat-num" :class="{ dim: kpi.count === 0, 'lib-num-r': kpi.app !== 'sonarr', 'lib-num-s': kpi.app === 'sonarr' }" x-text="formatCompact(kpi.count)"></div>
+                  <div class="sweep-stat-lbl" x-text="kpi.name"></div>
+                </div>
+              </template>
+            </div>
           </div>
           <p class="help" style="margin:0 0 10px">Hover a row to exclude or unexclude a title from future searches.</p>
           <div class="filter-row">
@@ -573,6 +281,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <button class="btn sm" @click="pruneState()">Prune Expired</button>
             <button class="btn sm dng" @click="openClearExclModal()">Clear Exclusions</button>
           </div>
+          <div class="table-wrap">
           <table>
             <thead><tr>
               <th class="sortable" :class="{'sort-asc':historySort.col==='title'&&historySort.dir==='asc','sort-desc':historySort.col==='title'&&historySort.dir==='desc'}" @click="sortHistory('title')">Title</th>
@@ -591,7 +300,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               <template x-for="item in historyItems" :key="item.key+(item.app||'')">
                 <tr class="hist-row">
                   <td class="arr-link" @click="openArrLink(item.app||'',item.instance_name||'',item.item_id||'',item.series_id||'')" x-text="item.title||item.key"></td>
-                  <td class="excl-col"><button class="excl-btn" :class="{excluded:isExcluded(item.title||item.key||'')}" @click="toggleExclusion(item.title||item.key||'')" title="Toggle exclusion">&#8856;</button></td>
+                  <td class="excl-col"><button class="excl-btn" :class="{excluded:isExcluded(item.title||item.key||'')}" @click="toggleExclusion(item.title||item.key||'', item.search_count)" title="Toggle exclusion">&#8856;</button></td>
                   <td class="td-dim" x-text="item.instance_name||''"></td>
                   <td><span class="tag" :class="{'acquired':item.sweep_type==='Backlog','cf-score':item.sweep_type==='CF Score'}" x-text="item.sweep_type||'Cutoff Unmet'"></span></td>
                   <td><span class="count-pill" x-show="item.search_count > 0" x-text="'\xd7' + item.search_count"></span></td>
@@ -602,10 +311,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </template>
             </tbody>
           </table>
+          </div>
           <div class="pager" x-show="historyTotal > 0">
             <button class="btn sm" @click="prevHistoryPage()" :disabled="historyPage===0">Prev</button>
             <button class="btn sm" @click="nextHistoryPage()" :disabled="historyPage>=historyPageCount-1">Next</button>
             <span class="pager-info" x-text="'Page ' + (historyPage+1) + ' of ' + historyPageCount + ' \u00b7 ' + formatCompact(historyTotal) + ' items'"></span>
+            <span class="pager-goto"><span class="pager-goto-lbl">Go to</span><input type="number" class="pager-goto-inp" min="1" :max="historyPageCount" inputmode="numeric" placeholder="#" title="Page number, then Enter" @keyup.enter="goToHistoryPageInput($event.target)"></span>
           </div>
         </div>
       </div>
@@ -614,17 +325,23 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <div x-show="libView==='imports'">
         <div class="card">
           <div class="card-hdr"><div class="card-title" style="margin:0">Imports Confirmed</div></div>
-          <div class="kpis">
-            <div class="kpi-card"><div><div class="kpi-val" x-text="formatCompact(importsMoviesTotal)"></div><div class="kpi-lbl">Movies</div></div></div>
-            <div class="kpi-card" style="background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.25);justify-content:center;text-align:center">
-              <div>
-                <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(16,185,129,.6);margin-bottom:6px">Confirmed</div>
-                <select x-model="importsPeriod" @change="importsPage=0;refreshImports()" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);color:rgba(16,185,129,.9);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;width:auto;display:block;margin:0 auto">
-                  <option value="lifetime">Lifetime</option><option value="30">Last 30 Days</option><option value="7">Last 7 Days</option>
+          <div class="lib-kpi-strip">
+            <div class="sweep-stat-grid cols3">
+              <div class="sweep-stat-cell lib-kpi-cell-r">
+                <div class="sweep-stat-num lib-num-r" x-text="formatCompact(importsMoviesTotal)"></div>
+                <div class="sweep-stat-lbl">Movies</div>
+              </div>
+              <div class="sweep-stat-cell lib-kpi-mid lib-kpi-cell-mid">
+                <div class="lib-kpi-mid-lbl">Confirmed</div>
+                <select class="lib-kpi-select" x-model="importsPeriod" @change="importsPage=0;refreshImports()">
+                  <option value="lifetime">Lifetime</option><option value="30">Monthly</option><option value="7">Weekly</option>
                 </select>
               </div>
+              <div class="sweep-stat-cell lib-kpi-cell-s">
+                <div class="sweep-stat-num lib-num-s" x-text="formatCompact(importsShowsTotal)"></div>
+                <div class="sweep-stat-lbl">Episodes</div>
+              </div>
             </div>
-            <div class="kpi-card"><div><div class="kpi-val" style="color:var(--ok)" x-text="formatCompact(importsShowsTotal)"></div><div class="kpi-lbl">Episodes</div></div></div>
           </div>
           <p class="help" style="margin:0 0 10px">Confirmed imports Nudgarr was responsible for. Lifetime total persists through Clear Stats.</p>
           <div class="filter-row">
@@ -642,44 +359,55 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="importsSearch" @input="importsPage=0;refreshImports()"></div>
             <button class="btn sm" @click="checkImportsNow()">Refresh</button>
           </div>
+          <div class="table-wrap">
           <table>
             <thead><tr>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='title'&&importsSort.dir==='asc','sort-desc':importsSort.col==='title'&&importsSort.dir==='desc'}" @click="sortImports('title')">Title</th>
               <th>Instance</th><th>Type</th>
-              <th style="text-align:center">Count</th>
-              <th style="text-align:center">Upgrade</th>
+              <th style="text-align:center">Passes</th>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='first_searched_ts'&&importsSort.dir==='asc','sort-desc':importsSort.col==='first_searched_ts'&&importsSort.dir==='desc'}" @click="sortImports('first_searched_ts')">Last Searched</th>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='imported_ts'&&importsSort.dir==='asc','sort-desc':importsSort.col==='imported_ts'&&importsSort.dir==='desc'}" @click="sortImports('imported_ts')">Imported</th>
               <th>Turnaround</th>
             </tr></thead>
             <tbody>
               <template x-if="importsItems.length === 0">
-                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-size:12px">No confirmed imports yet.</td></tr>
+                <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px 16px;font-size:12px">No Confirmed Imports</td></tr>
               </template>
-              <template x-for="item in importsItems" :key="item.key+(item.app||'')">
+              <template x-for="item in importsItems" :key="'imp'+item.id">
                 <tr>
                   <td class="arr-link" @click="openArrLink(item.app||'',item.instance_name||'',item.item_id||'',item.series_id||'')" x-text="item.title||item.key"></td>
                   <td class="td-dim" x-text="item.instance_name||''"></td>
                   <td><span class="tag" :class="{'acquired':item.sweep_type==='Backlog','cf-score':item.sweep_type==='CF Score'}" x-text="item.sweep_type||'Cutoff Unmet'"></span></td>
-                  <td style="text-align:center">
-                    <span class="iter-pill" x-show="item.import_iteration > 1" x-text="'\xd7' + item.import_iteration"></span>
-                    <span x-show="!item.import_iteration || item.import_iteration <= 1" class="td-muted">&mdash;</span>
-                  </td>
-                  <td style="text-align:center">
-                    <span x-show="item.import_iteration > 1" style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid var(--border-md);border-radius:5px;padding:1px 6px;color:var(--ac-lt);cursor:help" title="Quality upgrade — this item was imported more than once">i</span>
-                    <span x-show="!item.import_iteration || item.import_iteration <= 1" class="td-muted">&mdash;</span>
+                  <td class="passes-cell">
+                    <div class="passes-cell-inner">
+                      <span class="passes-num" x-text="item.import_iteration || 1"></span>
+                      <span class="tooltip-icon tip-up" tabindex="0" style="font-size:9px">i<div class="tooltip-box passes-tooltip-box">
+                        <template x-if="item.quality_history && item.quality_history.length > 0">
+                          <div>
+                            <template x-for="(step, qidx) in item.quality_history" :key="'q'+qidx">
+                              <div class="passes-q-line" x-text="formatQualityHistoryLine(step)"></div>
+                            </template>
+                          </div>
+                        </template>
+                        <template x-if="!item.quality_history || item.quality_history.length === 0">
+                          <p class="passes-fallback" x-text="(item.import_iteration || 1) > 1 ? 'This title was confirmed imported more than once. Quality names were not stored for every event.' : 'No quality path recorded for this import (Radarr/Sonarr may not have included a quality on the import event).'"></p>
+                        </template>
+                      </div></span>
+                    </div>
                   </td>
                   <td class="td-blue mono" style="font-size:12px" x-text="_fmtTime(item.first_searched_ts)"></td>
                   <td class="td-blue mono" style="font-size:12px" x-text="_fmtTime(item.imported_ts)"></td>
-                  <td class="td-muted" style="font-size:12px" x-text="item.turnaround_days ? item.turnaround_days.toFixed(1)+'d' : '\u2014'"></td>
+                  <td class="td-muted" style="font-size:12px" x-text="item.turnaround && item.turnaround !== '-' ? item.turnaround : '\u2014'"></td>
                 </tr>
               </template>
             </tbody>
           </table>
+          </div>
           <div class="pager" x-show="importsTotal > 0">
             <button class="btn sm" @click="prevImportsPage()" :disabled="importsPage===0">Prev</button>
             <button class="btn sm" @click="nextImportsPage()" :disabled="importsPage>=importsPageCount-1">Next</button>
             <span class="pager-info" x-text="'Page ' + (importsPage+1) + ' of ' + importsPageCount + ' \u00b7 ' + formatCompact(importsTotal) + ' imports'"></span>
+            <span class="pager-goto"><span class="pager-goto-lbl">Go to</span><input type="number" class="pager-goto-inp" min="1" :max="importsPageCount" inputmode="numeric" placeholder="#" title="Page number, then Enter" @keyup.enter="goToImportsPageInput($event.target)"></span>
           </div>
         </div>
       </div>
@@ -689,7 +417,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div class="card">
           <div class="card-hdr">
             <div class="card-title" style="margin:0">CF Score</div>
-            <span class="help" x-text="cfIndexedCount() + ' indexed \u00b7 Last sync ' + cfLastSync()"></span>
+            <span class="card-hdr-meta" x-text="cfIndexedCount() + ' Indexed \u00b7 Last Sync ' + cfLastSync()"></span>
           </div>
           <div class="filter-row">
             <div class="field"><select x-model="cfInstanceFilter" @change="cfPage=0;refreshCfScores()" style="min-width:140px">
@@ -699,6 +427,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="field"><select x-model.number="cfPageSize" @change="cfPage=0;refreshCfScores()" style="width:auto"><option value="25">25</option><option value="50">50</option></select></div>
             <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="cfSearch" @input="cfPage=0;refreshCfScores()"></div>
           </div>
+          <div class="table-wrap">
           <table>
             <thead><tr><th class="sortable">Title</th><th>Instance</th><th class="sortable">Score</th><th>Cutoff</th><th class="sortable">Gap</th></tr></thead>
             <tbody>
@@ -716,10 +445,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </template>
             </tbody>
           </table>
+          </div>
           <div class="pager" x-show="cfTotal > 0">
             <button class="btn sm" @click="prevCfPage()" :disabled="cfPage===0">Prev</button>
             <button class="btn sm" @click="nextCfPage()" :disabled="cfPage>=cfPageCount-1">Next</button>
             <span class="pager-info" x-text="'Page ' + (cfPage+1) + ' of ' + cfPageCount + ' \u00b7 ' + cfTotal + ' entries'"></span>
+            <span class="pager-goto"><span class="pager-goto-lbl">Go to</span><input type="number" class="pager-goto-inp" min="1" :max="cfPageCount" inputmode="numeric" placeholder="#" title="Page number, then Enter" @keyup.enter="goToCfPageInput($event.target)"></span>
           </div>
         </div>
       </div>
@@ -747,6 +478,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="exclSearch" @input="exclPage=0;refreshExclusions()"></div>
             <button class="btn sm dng" @click="openClearExclModal()">Clear Exclusions</button>
           </div>
+          <div class="table-wrap">
           <table>
             <thead><tr><th>Title</th><th>Type</th><th>Searches</th><th>Instance</th><th>Excluded</th><th></th></tr></thead>
             <tbody>
@@ -765,10 +497,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </template>
             </tbody>
           </table>
+          </div>
           <div class="pager" x-show="exclTotal > exclPageSize">
             <button class="btn sm" @click="prevExclPage()" :disabled="exclPage===0">Prev</button>
             <button class="btn sm" @click="nextExclPage()" :disabled="exclPage>=exclPageCount-1">Next</button>
             <span class="pager-info" x-text="'Page ' + (exclPage+1) + ' of ' + exclPageCount + ' \u00b7 ' + exclTotal + ' items'"></span>
+            <span class="pager-goto"><span class="pager-goto-lbl">Go to</span><input type="number" class="pager-goto-inp" min="1" :max="exclPageCount" inputmode="numeric" placeholder="#" title="Page number, then Enter" @keyup.enter="goToExclPageInput($event.target)"></span>
           </div>
         </div>
       </div>
@@ -802,32 +536,36 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         <div>
           <!-- Import Summary -->
           <div class="card mb">
-            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Import Summary <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime import activity across all pipelines. Turnaround and Searches per Import survive Clear History and Clear Stats.</div></span></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
+            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Import Summary <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime import activity across all pipelines. Turnaround and Searches per Import survive Clear History and Clear Stats.</div></span></div>
+            <div class="intel-import-metrics">
               <div class="intel-headline-cell"><div class="intel-headline-num ok" x-text="intelData.import_summary?.turnaround_avg_days?.toFixed(1) + 'd'"></div><div class="intel-headline-lbl">Avg Turnaround</div></div>
               <div class="intel-headline-cell"><div class="intel-headline-num accent" x-text="intelData.import_summary?.searches_per_import_avg?.toFixed(1)"></div><div class="intel-headline-lbl">Searches Per Import</div></div>
               <div class="intel-headline-cell"><div class="intel-headline-num" x-text="intelData.import_summary?.quality_upgrades_count||0"></div><div class="intel-headline-lbl">Quality Upgrades</div></div>
             </div>
+            <div class="table-wrap">
             <table class="intel-table"><thead><tr><th>Pipeline</th><th>Imports</th><th>Searches</th><th>Conversion</th></tr></thead>
             <tbody>
               <tr><td><span class="tag">Cutoff Unmet</span></td><td><strong x-text="intelData.import_summary?.cutoff_import_count||0"></strong></td><td><strong x-text="intelData.import_summary?.cutoff_search_count||0"></strong></td><td x-text="intelData.import_summary?.cutoff_search_count > 0 ? ((intelData.import_summary.cutoff_import_count/intelData.import_summary.cutoff_search_count*100).toFixed(1)+'%') : '\u2014'"></td></tr>
               <tr><td><span class="tag acquired">Backlog</span></td><td><strong x-text="intelData.import_summary?.backlog_import_count||0"></strong></td><td><strong x-text="intelData.import_summary?.backlog_search_count||0"></strong></td><td x-text="intelData.import_summary?.backlog_search_count > 0 ? ((intelData.import_summary.backlog_import_count/intelData.import_summary.backlog_search_count*100).toFixed(1)+'%') : '\u2014'"></td></tr>
               <tr><td><span class="tag cf-score">CF Score</span></td><td><strong x-text="intelData.import_summary?.cf_score_import_count||0"></strong></td><td><strong x-text="intelData.import_summary?.cf_score_search_count||0"></strong></td><td x-text="intelData.import_summary?.cf_score_search_count > 0 ? ((intelData.import_summary.cf_score_import_count/intelData.import_summary.cf_score_search_count*100).toFixed(1)+'%') : '\u2014'"></td></tr>
             </tbody></table>
+            </div>
           </div>
           <!-- Instance Performance -->
           <div class="card mb">
-            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Instance Performance <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime counts per instance since Nudgarr was first set up.</div></span></div>
+            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Instance Performance <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime counts per instance since Nudgarr was first set up.</div></span></div>
+            <div class="table-wrap">
             <table class="intel-table"><thead><tr><th>Instance</th><th>Sweep Runs</th><th>Total Searched</th><th>Confirmed Imports</th><th>Avg Turnaround</th></tr></thead>
             <tbody>
               <template x-for="row in (intelData.instance_performance||[])" :key="row.instance_name">
                 <tr><td><strong x-text="row.instance_name"></strong></td><td><strong x-text="row.runs||0"></strong></td><td><strong x-text="(row.searched||0).toLocaleString()"></strong></td><td><strong style="color:var(--ok)" x-text="row.confirmed_imports||0"></strong></td><td><strong x-text="row.turnaround_avg_days ? row.turnaround_avg_days.toFixed(1)+'d' : '\u2014'"></strong></td></tr>
               </template>
             </tbody></table>
+            </div>
           </div>
           <!-- Upgrade History -->
           <div class="card mb">
-            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Upgrade History <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Acquired is any title Nudgarr confirmed imported for the first time. Acquired then Upgraded is any title first grabbed via Backlog and later upgraded.</div></span></div>
+            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Upgrade History <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Acquired is any title Nudgarr confirmed imported for the first time. Acquired then Upgraded is any title first grabbed via Backlog and later upgraded.</div></span></div>
             <div class="intel-qi-split">
               <div class="intel-qi-cell"><div class="intel-qi-num" x-text="intelData.upgrade_history?.imported_once||0"></div><div class="intel-qi-label">Acquired</div></div>
               <div class="intel-qi-cell"><div class="intel-qi-num ac" x-text="intelData.upgrade_history?.upgraded||0"></div><div class="intel-qi-label">Acquired then Upgraded</div></div>
@@ -845,19 +583,19 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <!-- CF Score Health + Exclusion Intel -->
           <div class="cols2">
             <div class="card" x-show="cfScoreEnabled">
-              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">CF Score Health <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Live stats from the CF Score index. Not affected by Reset Intel.</div></span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px">
-                <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.cf_score_health?.total_indexed||0"></div><div class="help">Total Indexed</div></div>
-                <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.cf_score_health?.below_cutoff||0"></div><div class="help">Below Cutoff</div></div>
-                <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;color:var(--muted);margin-bottom:3px" x-text="(intelData.cf_score_health?.below_pct||0) + '%'"></div><div class="help">of Index</div></div>
+              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">CF Score Health <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Live stats from the CF index and last Scan Library run. <strong>Total scanned</strong> adds up each enabled instance&rsquo;s scan size (Radarr: movie files; Sonarr: series). <strong>Below CF Score</strong> is how many rows are in the index with the score still below the profile cutoff (after min-score and filter rules). <strong>%</strong> is below divided by total scanned. Not affected by resetting intel aggregates.</div></span></div>
+              <div class="intel-metric-grid cols3">
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.cf_score_health?.total_indexed||0"></div><div class="help">Total scanned</div></div>
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.cf_score_health?.below_cutoff||0"></div><div class="help">Below CF Score</div></div>
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--muted);margin-bottom:3px" x-text="(intelData.cf_score_health?.below_pct||0) + '%'"></div><div class="help">of scanned</div></div>
               </div>
               <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)"><span class="help">Last synced</span><span style="font-size:11.5px;color:var(--dim)" x-text="intelData.cf_score_health?.last_synced_at ? _fmtTime(intelData.cf_score_health.last_synced_at) : 'Never'"></span></div>
             </div>
             <div class="card">
-              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Exclusion Intel <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime summary of exclusion activity. Reset by Reset Intel.</div></span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px">
-                <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.exclusion_intel?.total||0"></div><div class="help">Total</div></div>
-                <div style="background:rgba(255,255,255,.02);padding:12px 14px"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.exclusion_intel?.auto_exclusions_this_month||0"></div><div class="help">Auto this month</div></div>
+              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Exclusion Intel <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime summary of exclusion activity. Cleared when you reset intel aggregates.</div></span></div>
+              <div class="intel-metric-grid cols2">
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.exclusion_intel?.total||0"></div><div class="help">Total</div></div>
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.exclusion_intel?.auto_exclusions_this_month||0"></div><div class="help">Auto this month</div></div>
               </div>
               <div class="intel-stat-row"><span class="intel-stat-label">Cycled through exclusions</span><span class="intel-stat-val" x-text="intelData.exclusion_intel?.titles_cycled||0"></span></div>
               <div class="intel-stat-row"><span class="intel-stat-label">Unexcluded and later imported</span><span class="intel-stat-val ok" x-text="intelData.exclusion_intel?.unexcluded_later_imported||0"></span></div>
@@ -880,8 +618,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <div class="row" style="margin-bottom:12px"><span class="section-title" style="margin:0">Radarr Instances</span><button class="btn sm pri" style="margin-left:auto" @click="openInstModal('radarr', -1)">+ Add</button></div>
           <p class="help" style="margin:0 0 8px">Add one or more Radarr instances.</p>
           <template x-for="(inst, idx) in radarrInstances" :key="'r'+idx">
-            <div class="inst-card" :style="inst.enabled===false ? 'opacity:.6' : ''">
-              <div class="inst-row1">
+            <div class="inst-card">
+              <div class="inst-row1" :style="inst.enabled===false ? 'opacity:.6' : ''">
                 <span class="status-dot" :class="instanceHealth['radarr|'+inst.name] || 'unknown'"></span>
                 <div class="inst-info"><div class="inst-name" x-text="inst.name"></div><div class="inst-meta" x-text="inst.url + ' \u00b7 Key: \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'"></div></div>
                 <span class="inst-health-pill" :class="instanceHealth['radarr|'+inst.name] === 'ok' ? 'ok' : instanceHealth['radarr|'+inst.name] === 'bad' ? 'bad' : 'unknown'" x-text="instanceHealth['radarr|'+inst.name] === 'ok' ? 'Connected' : instanceHealth['radarr|'+inst.name] === 'bad' ? 'Unreachable' : 'Unknown'"></span>
@@ -898,8 +636,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <div class="row" style="margin-bottom:12px"><span class="section-title" style="margin:0">Sonarr Instances</span><button class="btn sm pri" style="margin-left:auto" @click="openInstModal('sonarr', -1)">+ Add</button></div>
           <p class="help" style="margin:0 0 8px">Add one or more Sonarr instances.</p>
           <template x-for="(inst, idx) in sonarrInstances" :key="'s'+idx">
-            <div class="inst-card" :style="inst.enabled===false ? 'opacity:.6' : ''">
-              <div class="inst-row1">
+            <div class="inst-card">
+              <div class="inst-row1" :style="inst.enabled===false ? 'opacity:.6' : ''">
                 <span class="status-dot" :class="instanceHealth['sonarr|'+inst.name] || 'unknown'"></span>
                 <div class="inst-info"><div class="inst-name" x-text="inst.name"></div><div class="inst-meta" x-text="inst.url + ' \u00b7 Key: \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'"></div></div>
                 <span class="inst-health-pill" :class="instanceHealth['sonarr|'+inst.name] === 'ok' ? 'ok' : instanceHealth['sonarr|'+inst.name] === 'bad' ? 'bad' : 'unknown'" x-text="instanceHealth['sonarr|'+inst.name] === 'ok' ? 'Connected' : instanceHealth['sonarr|'+inst.name] === 'bad' ? 'Unreachable' : 'Unknown'"></span>
@@ -920,14 +658,14 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
     <div x-show="panel==='pipelines'" @change="unsaved.pipelines=true" class="panel">
       <!-- Cutoff Unmet -->
       <div class="card mb">
-        <div class="card-title" style="color:var(--ac-lt);display:flex;align-items:center;gap:6px;margin-bottom:16px">Cutoff Unmet <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files that have been downloaded but haven't reached the quality cutoff in your quality profile. On by default.</div></span></div>
+        <div class="card-title" style="color:var(--ac-lt);display:flex;align-items:center;gap:6px;margin-bottom:16px">Cutoff Unmet <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files that have been downloaded but haven't reached the quality cutoff in your quality profile. On by default.</div></span></div>
         <div class="cols2">
           <div><p class="app-hdr">Radarr</p>
             <div class="stk">
               <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="radarrCutoffEnabled" @change="toggleCutoffEnabled('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="radarrCutoffEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrMaxCutoff"></div>
-                <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Controls which eligible items are picked each run.<br><br><strong>Round Robin</strong> &mdash; items never searched go first (shuffled randomly). After those, picks whoever has been waiting longest. Recommended for even coverage.<br><br><strong>Random</strong> &mdash; shuffles the eligible pool randomly each run.<br><br><strong>Alphabetical</strong> &mdash; works A to Z.<br><br><strong>Oldest Added</strong> &mdash; targets items you've had longest.</div></span></label>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more titles qualify than your Max, this decides who gets a nudge first (Cutoff Unmet: you already have a file, but quality is still below your profile target).<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search. Good all-round rotation.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to Radarr or Sonarr the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added library items first. Missing add dates usually sort after entries that have a date.</div></span></label>
                 <select x-model="radarrSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
               </div></div>
             </div>
@@ -937,7 +675,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="sonarrCutoffEnabled" @change="toggleCutoffEnabled('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrCutoffEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="sonarrCutoffEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrMaxCutoff"></div>
-                <div class="field"><label>Sample Mode</label><select x-model="sonarrSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more titles qualify than your Max, this decides who gets a nudge first (Cutoff Unmet: you already have a file, but quality is still below your profile target).<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search. Good all-round rotation.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to Radarr or Sonarr the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added library items first. Missing add dates usually sort after entries that have a date.</div></span></label><select x-model="sonarrSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
               </div></div>
             </div>
           </div>
@@ -945,15 +683,15 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       </div>
       <!-- Backlog -->
       <div class="card mb">
-        <div class="card-title" style="color:var(--ok);display:flex;align-items:center;gap:6px;margin-bottom:16px">Backlog <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored movies and episodes you have never downloaded. Off by default.</div></span></div>
+        <div class="card-title" style="color:var(--ok);display:flex;align-items:center;gap:6px;margin-bottom:16px">Backlog <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored movies and episodes you have never downloaded. Off by default.</div></span></div>
         <div class="cols2">
           <div><p class="app-hdr">Radarr</p>
             <div class="stk">
               <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="radarrBacklogEnabled" @change="toggleBacklogEnabled('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="radarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrMissingMax"></div>
-                <div class="field"><label style="display:flex;align-items:center;gap:5px">Missing Added Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items added to your library at least this many days ago. 0 = no limit.</div></span></label><input type="number" min="0" x-model.number="radarrMissingAddedDays"></div>
-                <div class="field"><label>Sample Mode</label><select x-model="radarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Missing Added Days <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items added to your library at least this many days ago. 0 = no limit.</div></span></label><input type="number" min="0" x-model.number="radarrMissingAddedDays"></div>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more missing titles qualify than your Max, this decides which ones to try first.<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to your library the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added missing items first. Missing add dates usually sort after entries that have a date.</div></span></label><select x-model="radarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
                 <div class="field"><label>Grace Period (Hours)</label><input type="number" min="0" x-model.number="radarrMissingGraceHours"></div>
               </div></div>
             </div>
@@ -963,7 +701,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="sonarrBacklogEnabled" @change="toggleBacklogEnabled('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrBacklogEnabled ? 'Enabled' : 'Disabled'"></span></div>
               <div :style="sonarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrMissingMax"></div>
-                <div class="field"><label>Sample Mode</label><select x-model="sonarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more missing titles qualify than your Max, this decides which ones to try first.<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to your library the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added missing items first. Missing add dates usually sort after entries that have a date.</div></span></label><select x-model="sonarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
                 <div class="field"><label>Grace Period (Hours)</label><input type="number" min="0" x-model.number="sonarrMissingGraceHours"></div>
               </div></div>
             </div>
@@ -972,41 +710,56 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       </div>
       <!-- CF Score -->
       <div class="card mb">
-        <div class="card-hdr"><div class="card-title" style="margin:0;color:var(--warn);display:flex;align-items:center;gap:6px">CF Score <span class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files where the custom format score is below the cutoff for their quality profile. Off by default.</div></span></div>
+        <div class="card-hdr"><div class="card-title" style="margin:0;color:var(--warn);display:flex;align-items:center;gap:6px">CF Score <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds monitored files where the custom format score is below the cutoff for their quality profile. Off by default.</div></span></div>
           <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="cfEnabled" @change="toggleCfEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="cfEnabled ? 'Enabled' : 'Disabled'"></span></div>
         </div>
         <div x-show="cfEnabled" style="margin-top:4px">
           <div class="cols2 mb">
-            <div><p class="app-hdr">Radarr</p><div class="stk">
-              <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrCfMax"></div>
-              <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box"><strong>Largest Gap First</strong> &mdash; prioritizes items with the biggest gap between score and cutoff. This is the default and recommended mode for CF Score.<br><br><strong>Round Robin</strong> &mdash; never-searched items go first, then longest-waiting. Ignores gap size.<br><br><strong>Random</strong> &mdash; shuffles the eligible pool each run.</div></span></label>
-              <select x-model="radarrCfSampleMode"><option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option></select></div>
-            </div></div>
-            <div><p class="app-hdr">Sonarr</p><div class="stk">
-              <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrCfMax"></div>
-              <div class="field"><label>Sample Mode</label><select x-model="sonarrCfSampleMode"><option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option></select></div>
-            </div></div>
+            <div><p class="app-hdr">Radarr</p>
+              <div class="stk">
+                <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="radarrCfScoreAppEnabled" @change="toggleCfScoreAppEnabled('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="radarrCfScoreAppEnabled ? 'Enabled' : 'Disabled'"></span></div>
+                <div :style="radarrCfScoreAppEnabled ? '' : 'opacity:.35;pointer-events:none'"><div class="stk">
+                  <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrCfMax"></div>
+                  <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more titles qualify than your Max, this decides which CF candidates to search first (only titles still below the custom format cutoff in the index).<br><br><strong>Largest gap first</strong> &mdash; Puts the biggest gap between current score and your profile cutoff at the front so the worst shortfalls get attention first. If two titles have the same gap, never-searched ones are preferred (mixed order within that group), then titles that have gone longest since the last search. Missing title or add date usually sorts last.<br><br><strong>Round robin</strong> &mdash; Same fairness idea as other pipelines&mdash;never searched first (mixed order), then longest since last search&mdash;but it does <strong>not</strong> look at how large the gap is. Missing title or add date usually sorts last.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items in the library the longest by &ldquo;added&rdquo; date first. If that date is missing, those titles usually sort after ones with a known date.</div></span></label>
+                  <select x-model="radarrCfSampleMode"><option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option></select></div>
+                </div></div>
+              </div>
+            </div>
+            <div><p class="app-hdr">Sonarr</p>
+              <div class="stk">
+                <div class="row" style="gap:8px"><label class="toggle"><input type="checkbox" :checked="sonarrCfScoreAppEnabled" @change="toggleCfScoreAppEnabled('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label><span class="help" x-text="sonarrCfScoreAppEnabled ? 'Enabled' : 'Disabled'"></span></div>
+                <div :style="sonarrCfScoreAppEnabled ? '' : 'opacity:.35;pointer-events:none'"><div class="stk">
+                  <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrCfMax"></div>
+                  <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more titles qualify than your Max, this decides which CF candidates to search first (only titles still below the custom format cutoff in the index).<br><br><strong>Largest gap first</strong> &mdash; Puts the biggest gap between current score and your profile cutoff at the front so the worst shortfalls get attention first. If two titles have the same gap, never-searched ones are preferred (mixed order within that group), then titles that have gone longest since the last search. Missing title or add date usually sorts last.<br><br><strong>Round robin</strong> &mdash; Same fairness idea as other pipelines&mdash;never searched first (mixed order), then longest since last search&mdash;but it does <strong>not</strong> look at how large the gap is. Missing title or add date usually sorts last.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items in the library the longest by &ldquo;added&rdquo; date first. If that date is missing, those titles usually sort after ones with a known date.</div></span></label><select x-model="sonarrCfSampleMode"><option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option></select></div>
+                </div></div>
+              </div>
+            </div>
           </div>
           <div class="hr"></div>
           <div class="section-title" style="margin-bottom:10px">Sync Schedule</div>
-          <div style="max-width:320px"><div class="field"><label style="display:flex;align-items:center;gap:5px">Cron Expression <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Schedule for automatic CF Score index rebuilds. Manual Scan Library always runs regardless.</div></span></label>
-            <input class="mono" x-model="cfSyncCron" @input="validateCfCron()">
-            <div class="cron-hint" :class="cfCronValid===false ? 'cron-bad' : ''" x-text="cfCronHint"></div>
-          </div></div>
+          <div style="max-width:320px">
+            <div :style="cfCronRowInteractive ? '' : 'opacity:.35;pointer-events:none'">
+              <div class="field"><label style="display:flex;align-items:center;gap:5px">Cron Expression <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Schedule for automatic custom format score index rebuilds. Manual Scan Library always runs regardless of this schedule.</div></span></label>
+                <input class="mono" x-model="cfSyncCron" @input="validateCfCron()">
+                <div class="cron-hint" :class="cfCronValid===false ? 'cron-bad' : ''" x-text="cfCronHint"></div>
+              </div>
+            </div>
+          </div>
           <div class="hr"></div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div class="section-title" style="margin:0">Index Status</div>
+            <div class="section-title" style="margin:0;display:flex;align-items:center;gap:6px">Index Status <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box"><strong>Scanned</strong> (X / Y) is scan progress. <strong>Below CF Score</strong> counts titles already in the index and still below cutoff; it updates as rows save and can stay lower than scanned until the run finishes. At-or-above cutoff titles are not indexed.</div></span></div>
             <div style="display:flex;gap:8px"><button class="btn sm pri" @click="scanCfLibrary()">Scan Library</button><button class="btn sm dng" @click="resetCfIndex()">Reset Index</button></div>
           </div>
           <div x-show="cfStatusData" style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden">
             <template x-for="row in cfStatusSyncCoverage" :key="row.instance_name">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.015)">
+              <div :style="'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.015)' + (row.cf_enabled === false ? ';opacity:.72' : '')">
                 <div>
                   <div style="font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px">
                     <span x-text="row.instance_name"></span>
-                    <span style="font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid" :style="row.coverage >= 100 ? 'color:var(--ok);background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.25)' : 'color:var(--ac-lt);background:var(--ac-dim);border-color:var(--ac-bdr)'" x-text="(row.coverage||0) + '%'"></span>
+                    <span x-show="row.cf_enabled === false" style="font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;color:var(--muted);background:rgba(255,255,255,.04);border-color:var(--border)">CF Score Off</span>
+                    <span x-show="row.cf_enabled !== false" style="font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid" :style="row.coverage >= 100 ? 'color:var(--ok);background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.25)' : 'color:var(--ac-lt);background:var(--ac-dim);border-color:var(--ac-bdr)'" x-text="(row.coverage||0) + '%'"></span>
                   </div>
-                  <div class="help" style="margin-top:2px" x-text="(row.indexed||0) + ' indexed \u00b7 ' + (row.below_cutoff||0) + ' below cutoff'"></div>
+                  <div class="card-hdr-meta" style="margin-top:2px" x-text="cfIndexStatusSubtitle(row)"></div>
                 </div>
               </div>
             </template>
@@ -1021,38 +774,38 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <div class="cols2 mb">
         <!-- Left: Schedule + Quiet Hours -->
         <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-hd">
             <div class="section-title" style="margin:0">Schedule</div>
             <span class="mono" style="font-size:11px;color:var(--muted)" x-text="containerTime"></span>
           </div>
           <div class="stk">
             <div class="field"><label>Automatic Sweeps</label>
-              <div class="row" style="gap:8px;height:34px">
+              <div class="row ac" style="gap:8px;min-height:34px">
                 <label class="toggle"><input type="checkbox" :checked="schedulerEnabledUi" @change="toggleSchedulerEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
                 <span class="help" x-text="schedulerEnabledUi ? 'Enabled' : 'Manual'"></span>
               </div>
             </div>
             <div class="field" :style="schedulerEnabledUi ? '' : 'opacity:.38;pointer-events:none'">
-              <label style="display:flex;align-items:center;gap:5px">Cron Expression <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Cron fires at fixed clock times &mdash; missed schedules are skipped, not caught up. Set the TZ environment variable to control timezone. Defaults to UTC.</div></span></label>
+              <label style="display:flex;align-items:center;gap:5px">Cron Expression <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Scheduled sweeps fire at fixed clock times; if Nudgarr is down or the window is skipped, that run is not made up later. Set the host time zone with the <code>TZ</code> environment variable; if unset, times follow UTC.</div></span></label>
               <input class="mono" x-model="cronExpr" @input="validateCron()" :disabled="!schedulerEnabledUi">
               <div class="cron-hint" :class="cronValid===false ? 'cron-bad' : ''" x-text="cronHint"></div>
             </div>
             <div class="hr"></div>
-            <div class="section-title" style="display:flex;align-items:center;gap:5px;margin:0 0 10px">Quiet Hours <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Suppresses scheduled sweeps and CF Score syncs during the configured window. Manual runs always bypass it. Import checking continues.</div></span></div>
+            <div class="section-title" style="display:flex;align-items:center;gap:5px">Quiet Hours <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Suppresses scheduled sweeps and custom format score library syncs during this window. Manual runs always bypass quiet hours. Import checking continues.</div></span></div>
             <div class="field"><label>Suppress scheduled sweeps</label>
-              <div class="row" style="gap:8px;height:34px">
+              <div class="row ac" style="gap:8px;min-height:34px">
                 <label class="toggle"><input type="checkbox" :checked="maintenanceEnabled" @change="toggleMaintEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
                 <span class="help" x-text="maintenanceEnabled ? 'Enabled' : 'Disabled'"></span>
               </div>
             </div>
             <div :style="maintenanceEnabled ? '' : 'opacity:.38;pointer-events:none'">
-              <div class="cols2" style="gap:10px;margin-bottom:10px">
+              <div class="cols2">
                 <div class="field"><label>Start</label><input type="text" x-model="maintenanceStart" @input="validateMaintTime()" class="mono" placeholder="23:00"></div>
                 <div class="field"><label>End</label><input type="text" x-model="maintenanceEnd" @input="validateMaintTime()" class="mono" placeholder="07:00"></div>
               </div>
-              <div class="row" style="gap:4px;flex-wrap:wrap;margin-bottom:8px">
+              <div class="row quiet-hours-days" style="gap:4px;flex-wrap:wrap">
                 <template x-for="(d, i) in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="i">
-                  <button class="day-pill" :class="{ on: isDayActive(i) }" @click.prevent="toggleMaintDayAuto(i)" x-text="d"></button>
+                  <button class="day-pill" :class="{ on: isDayActive(i) }" @click.prevent="toggleMaintDay(i)" x-text="d"></button>
                 </template>
               </div>
               <div class="cron-hint" x-text="maintHint" x-show="maintHint"></div>
@@ -1064,13 +817,13 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <div class="section-title">Sweep Controls</div>
           <div class="stk">
             <div class="field">
-              <label style="display:flex;align-items:center;gap:5px">Cooldown (Hours) <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend 24-48 hours between searches for the same item.</div></span></label>
+              <label style="display:flex;align-items:center;gap:5px">Cooldown (Hours) <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How long Nudgarr waits before searching the same item again. Most indexers recommend 24-48 hours between searches for the same item.</div></span></label>
               <input type="number" min="0" x-model.number="cooldownHours">
               <div class="help">0 = No Cooldown</div>
             </div>
             <div class="hr"></div>
-            <div class="section-title" style="display:flex;align-items:center;gap:5px;margin:0 0 10px">Queue Depth <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Skip the sweep if the total download queue across all instances meets or exceeds the threshold. Useful when a large grab is in progress. Instances that fail the check contribute 0 to the total.</div></span></div>
-            <div class="row" style="gap:8px;margin-bottom:10px">
+            <div class="section-title" style="display:flex;align-items:center;gap:5px">Queue Depth <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Skip the sweep if the total download queue across all instances meets or exceeds the threshold. Useful when a large grab is in progress. Instances that fail the check contribute 0 to the total.</div></span></div>
+            <div class="row ac" style="gap:8px">
               <label class="toggle"><input type="checkbox" :checked="queueDepthEnabled" @change="toggleQueueDepthEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
               <span class="help" x-text="queueDepthEnabled ? 'Skip sweep if download queue is busy' : 'Disabled'"></span>
             </div>
@@ -1080,13 +833,13 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               <div class="help">Skip sweep if total queue meets or exceeds this</div>
             </div>
             <div class="hr"></div>
-            <div class="section-title" style="display:flex;align-items:center;gap:5px;margin:0 0 10px">Per-Instance Overrides <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or sample modes. Enable and disable without losing your saved overrides.</div></span></div>
-            <div style="display:flex;align-items:flex-start;justify-content:space-between">
-              <div :style="overridesEnabled ? '' : 'opacity:.38'">
+            <div class="section-title" style="display:flex;align-items:center;gap:5px">Per-Instance Overrides <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Override global settings per instance. Useful when different instances need different cooldowns, caps, or sample modes. Enable and disable without losing your saved overrides.</div></span></div>
+            <div class="toggle-line ac" :style="overridesEnabled ? '' : 'opacity:.38'">
+              <div>
                 <div style="font-size:13px;font-weight:500">Enable Per-Instance Overrides</div>
                 <div class="help">Unlocks the Overrides panel. Override cooldown, max, and sample mode per instance.</div>
               </div>
-              <label class="toggle" style="margin-top:2px;margin-left:16px;flex-shrink:0">
+              <label class="toggle">
                 <input type="checkbox" :checked="overridesEnabled" @change="overridesEnabled ? disableOverrides() : enableOverrides()">
                 <span class="toggle-track"></span><span class="toggle-thumb"></span>
               </label>
@@ -1097,17 +850,17 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <!-- Throttling (full-width) -->
       <div class="card mb">
         <div class="section-title">Throttling</div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap">
-          <div class="field" style="min-width:140px;flex:1">
-            <label style="display:flex;align-items:center;gap:5px">Batch Size <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How many search commands are sent at once. Batch size of 1 means each item is searched individually with a pause in between.</div></span></label>
+        <div class="throttle-fields">
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:5px">Batch Size <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How many search commands are sent at once. Batch size of 1 means each item is searched individually with a pause in between.</div></span></label>
             <input type="number" min="1" x-model.number="batchSize"><div class="help">Items per search command</div>
           </div>
-          <div class="field" style="min-width:140px;flex:1">
-            <label style="display:flex;align-items:center;gap:5px">Sleep Seconds <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches.</div></span></label>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:5px">Sleep Seconds <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How long Nudgarr pauses between each batch of searches.</div></span></label>
             <input type="number" min="0" x-model.number="sleepSeconds"><div class="help">Pause between searches</div>
           </div>
-          <div class="field" style="min-width:140px;flex:1">
-            <label style="display:flex;align-items:center;gap:5px">Jitter Seconds <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Adds a random delay on top of the sleep time. Makes Nudgarr's search pattern less predictable to indexers.</div></span></label>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:5px">Jitter Seconds <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Adds a random delay on top of the sleep time. Makes Nudgarr's search pattern less predictable to indexers.</div></span></label>
             <input type="number" min="0" x-model.number="jitterSeconds"><div class="help">Random variance added to sleep</div>
           </div>
         </div>
@@ -1115,26 +868,26 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <!-- Auto-Exclusion (full-width) -->
       <div class="card mb">
         <div class="section-title">Auto-Exclusion</div>
-        <p class="help" style="margin:0 0 14px">Auto-exclude titles repeatedly searched with no confirmed import.</p>
-        <div class="cols2" style="gap:20px">
+        <p class="help" style="margin:0 0 12px">Auto-exclude titles repeatedly searched with no confirmed import. Evaluated after each sweep and when import check runs; items still in the download queue are skipped.</p>
+        <div class="cols2">
           <div><p class="app-hdr">Radarr</p>
-            <div class="row" style="gap:8px;margin-bottom:10px">
+            <div class="row ac" style="gap:8px;margin-bottom:12px">
               <label class="toggle"><input type="checkbox" :checked="radarrAutoExclEnabled" @change="toggleAutoExcl('radarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
               <span class="help" x-text="radarrAutoExclEnabled ? 'Enabled' : 'Disabled'"></span>
             </div>
             <div :style="radarrAutoExclEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
-              <div class="field"><label style="display:flex;align-items:center;gap:5px">Exclude After X Searches <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. 0 disables auto-exclusion for movies.</div></span></label><input type="number" min="0" x-model.number="autoExclMoviesThreshold"></div>
-              <div class="field"><label style="display:flex;align-items:center;gap:5px">Unexclude After X Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Automatically remove from auto-exclusions after this many days. 0 = permanent until manually removed.</div></span></label><input type="number" min="0" x-model.number="autoUnexclMoviesDays"><div class="help">0 = Permanent until manually removed</div></div>
+              <div class="field"><label style="display:flex;align-items:center;gap:5px">Exclude After X Searches <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Auto-exclude a movie after this many searches with no confirmed import. 0 disables auto-exclusion for movies.</div></span></label><input type="number" min="0" x-model.number="autoExclMoviesThreshold"></div>
+              <div class="field"><label style="display:flex;align-items:center;gap:5px">Unexclude After X Days <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Automatically remove from auto-exclusions after this many days. 0 = permanent until manually removed.</div></span></label><input type="number" min="0" x-model.number="autoUnexclMoviesDays"><div class="help">0 = Permanent until manually removed</div></div>
             </div></div>
           </div>
           <div><p class="app-hdr">Sonarr</p>
-            <div class="row" style="gap:8px;margin-bottom:10px">
+            <div class="row ac" style="gap:8px;margin-bottom:12px">
               <label class="toggle"><input type="checkbox" :checked="sonarrAutoExclEnabled" @change="toggleAutoExcl('sonarr',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
               <span class="help" x-text="sonarrAutoExclEnabled ? 'Enabled' : 'Disabled'"></span>
             </div>
             <div :style="sonarrAutoExclEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
-              <div class="field"><label style="display:flex;align-items:center;gap:5px">Exclude After X Searches <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Auto-exclude an episode after this many searches with no confirmed import. 0 disables auto-exclusion for episodes.</div></span></label><input type="number" min="0" x-model.number="autoExclShowsThreshold"></div>
-              <div class="field"><label style="display:flex;align-items:center;gap:5px">Unexclude After X Days <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Automatically remove from auto-exclusions after this many days. 0 = permanent until manually removed.</div></span></label><input type="number" min="0" x-model.number="autoUnexclShowsDays"></div>
+              <div class="field"><label style="display:flex;align-items:center;gap:5px">Exclude After X Searches <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Auto-exclude an episode after this many searches with no confirmed import. 0 disables auto-exclusion for episodes.</div></span></label><input type="number" min="0" x-model.number="autoExclShowsThreshold"></div>
+              <div class="field"><label style="display:flex;align-items:center;gap:5px">Unexclude After X Days <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Automatically remove from auto-exclusions after this many days. 0 = permanent until manually removed.</div></span></label><input type="number" min="0" x-model.number="autoUnexclShowsDays"></div>
             </div></div>
           </div>
         </div>
@@ -1145,9 +898,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
     <!-- OVERRIDES PANEL -->
     <div x-show="panel==='overrides'" class="panel" x-init="if(panel==='overrides') _buildOverrideData()">
       <div style="margin-bottom:14px"><span style="font-size:13px;font-weight:600">Per-Instance Overrides</span><p class="help" style="margin:2px 0 0">Unchanged fields inherit global values.</p></div>
-      <div class="cols2">
-        <template x-for="inst in overrideInstances" :key="inst.kind+'-'+inst.idx">
-          <div class="ov-card" :class="{ 'ov-dirty': ovDirty[inst.kind+'-'+inst.idx] }">
+      <div class="cols2 cols-overrides">
+        <template x-for="col in overrideColumns" :key="col.title">
+          <div class="card override-col">
+            <div class="row" style="margin-bottom:12px"><span class="section-title" style="margin:0" x-text="col.title"></span></div>
+            <template x-for="inst in col.insts" :key="inst.kind+'-'+inst.idx">
+          <div class="ov-card" :class="{ 'ov-dirty': ovDirty[inst.kind+'-'+inst.idx] }" :style="inst.enabled===false ? 'opacity:.6' : ''">
             <div class="ov-card-hdr">
               <div class="row" style="gap:7px">
                 <div class="ov-badge" :class="{ 'ov-sonarr': inst.kind==='sonarr' }" x-text="inst.name"></div>
@@ -1170,7 +926,18 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="hr" style="margin:10px 0"></div>
             <!-- Cutoff Unmet section -->
             <div class="ov-sect" style="color:var(--ac-lt);border-color:rgba(91,114,245,.2)">Cutoff Unmet</div>
-            <div class="ov-fields" style="margin-bottom:10px">
+            <div class="ov-bl-row" style="margin-bottom:8px" :style="ovCutoffAppGlobalOn(inst.kind) ? '' : 'opacity:.45'" :title="ovCutoffAppGlobalOn(inst.kind) ? '' : 'Enable Cutoff Unmet for this app in Pipelines before per-instance overrides apply.'">
+              <span class="help" style="font-size:11px"
+                x-text="(ovGet(inst.kind,inst.idx).cutoff_enabled!==null ? (ovGet(inst.kind,inst.idx).cutoff_enabled?'On':'Off') : (inst.kind==='radarr'?(radarrCutoffEnabled?'On':'Off'):(sonarrCutoffEnabled?'On':'Off'))) + ' (Global: ' + (inst.kind==='radarr'?(radarrCutoffEnabled?'On':'Off'):(sonarrCutoffEnabled?'On':'Off')) + ')'"></span>
+              <label class="toggle">
+                <input type="checkbox"
+                  :disabled="!ovCutoffAppGlobalOn(inst.kind)"
+                  :checked="ovGet(inst.kind,inst.idx).cutoff_enabled !== null ? !!ovGet(inst.kind,inst.idx).cutoff_enabled : (inst.kind==='radarr' ? radarrCutoffEnabled : sonarrCutoffEnabled)"
+                  @change="ovGet(inst.kind,inst.idx).cutoff_enabled=$event.target.checked; ovMarkDirty(inst.kind,inst.idx)">
+                <span class="toggle-track"></span><span class="toggle-thumb"></span>
+              </label>
+            </div>
+            <div class="ov-fields" style="margin-bottom:10px" :style="ovCutoffFieldsActive(inst.kind,inst.idx) ? '' : 'opacity:.35;pointer-events:none'">
               <div class="field"><label>Max</label>
                 <input type="number" min="1"
                   :value="ovGet(inst.kind,inst.idx).cutoff_max"
@@ -1178,7 +945,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                   :class="{ 'ov-active': ovGet(inst.kind,inst.idx).cutoff_max !== null }"
                   :placeholder="inst.kind==='radarr' ? radarrMaxCutoff : sonarrMaxCutoff">
               </div>
-              <div class="field"><label>Sample Mode</label>
+              <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more titles qualify than your Max, this decides who gets a nudge first (Cutoff Unmet: you already have a file, but quality is still below your profile target).<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search. Good all-round rotation.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to Radarr or Sonarr the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added library items first. Missing add dates usually sort after entries that have a date.</div></span></label>
                 <select x-model="ovGet(inst.kind,inst.idx).cutoff_sample_mode" @change="ovMarkDirty(inst.kind,inst.idx)">
                   <option value="__global__" x-text="'Use Global (' + (inst.kind==='radarr' ? radarrSampleMode.replace(/_/g,' ') : sonarrSampleMode.replace(/_/g,' ')) + ')'"></option>
                   <option value="round_robin">Round Robin</option><option value="random">Random</option>
@@ -1190,48 +957,105 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
             <div class="hr" style="margin:10px 0"></div>
             <!-- Backlog section -->
             <div class="ov-sect" style="color:var(--ok);border-color:rgba(34,197,94,.2)">Backlog</div>
-            <div class="ov-bl-row" style="margin-bottom:8px">
+            <div class="ov-bl-row" style="margin-bottom:8px" :style="ovBacklogAppGlobalOn(inst.kind) ? '' : 'opacity:.45'" :title="ovBacklogAppGlobalOn(inst.kind) ? '' : 'Enable Backlog for this app in Pipelines before per-instance overrides apply.'">
               <span class="help" style="font-size:11px"
                 x-text="(ovGet(inst.kind,inst.idx).backlog_enabled!==null ? (ovGet(inst.kind,inst.idx).backlog_enabled?'On':'Off') : (inst.kind==='radarr'?(radarrBacklogEnabled?'On':'Off'):(sonarrBacklogEnabled?'On':'Off'))) + ' (Global: ' + (inst.kind==='radarr'?(radarrBacklogEnabled?'On':'Off'):(sonarrBacklogEnabled?'On':'Off')) + ')'"></span>
               <label class="toggle">
                 <input type="checkbox"
+                  :disabled="!ovBacklogAppGlobalOn(inst.kind)"
                   :checked="ovGet(inst.kind,inst.idx).backlog_enabled !== null ? !!ovGet(inst.kind,inst.idx).backlog_enabled : (inst.kind==='radarr' ? radarrBacklogEnabled : sonarrBacklogEnabled)"
                   @change="ovGet(inst.kind,inst.idx).backlog_enabled=$event.target.checked; ovMarkDirty(inst.kind,inst.idx)">
                 <span class="toggle-track"></span><span class="toggle-thumb"></span>
               </label>
             </div>
-            <div class="ov-fields" style="margin-bottom:6px">
-              <div class="field"><label>Max</label>
-                <input type="number" min="1"
-                  :value="ovGet(inst.kind,inst.idx).backlog_max"
-                  @input="ovGet(inst.kind,inst.idx).backlog_max=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
-                  :class="{ 'ov-active': ovGet(inst.kind,inst.idx).backlog_max !== null }"
-                  :placeholder="inst.kind==='radarr' ? radarrMissingMax : sonarrMissingMax">
-              </div>
-              <div class="field"><label>Sample Mode</label>
-                <select x-model="ovGet(inst.kind,inst.idx).backlog_sample_mode" @change="ovMarkDirty(inst.kind,inst.idx)">
-                  <option value="__global__" x-text="'Use Global (' + (inst.kind==='radarr' ? radarrBacklogSampleMode.replace(/_/g,' ') : sonarrBacklogSampleMode.replace(/_/g,' ')) + ')'"></option>
-                  <option value="round_robin">Round Robin</option><option value="random">Random</option>
-                  <option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option>
-                </select>
-              </div>
-            </div>
+            <div :style="ovBacklogFieldsActive(inst.kind,inst.idx) ? '' : 'opacity:.35;pointer-events:none'">
             <template x-if="inst.kind==='radarr'">
-              <div class="field" style="margin-bottom:8px">
-                <label>Missing Added Days</label>
-                <input type="number" min="0"
-                  :value="ovGet(inst.kind,inst.idx).missing_added_days"
-                  @input="ovGet(inst.kind,inst.idx).missing_added_days=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
-                  :class="{ 'ov-active': ovGet(inst.kind,inst.idx).missing_added_days !== null }"
-                  :placeholder="radarrMissingAddedDays">
+              <div class="ov-backlog-fields">
+                <div class="ov-fields" style="margin-bottom:6px">
+                  <div class="field"><label>Max</label>
+                    <input type="number" min="1"
+                      :value="ovGet(inst.kind,inst.idx).backlog_max"
+                      @input="ovGet(inst.kind,inst.idx).backlog_max=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                      :class="{ 'ov-active': ovGet(inst.kind,inst.idx).backlog_max !== null }"
+                      :placeholder="radarrMissingMax">
+                  </div>
+                  <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more missing titles qualify than your Max, this decides which ones to try first.<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to your library the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added missing items first. Missing add dates usually sort after entries that have a date.</div></span></label>
+                    <select x-model="ovGet(inst.kind,inst.idx).backlog_sample_mode" @change="ovMarkDirty(inst.kind,inst.idx)">
+                      <option value="__global__" x-text="'Use Global (' + radarrBacklogSampleMode.replace(/_/g,' ') + ')'"></option>
+                      <option value="round_robin">Round Robin</option><option value="random">Random</option>
+                      <option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option>
+                      <option value="newest_added">Newest Added</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="ov-fields" style="margin-bottom:8px">
+                  <div class="field"><label>Missing Added Days</label>
+                    <input type="number" min="0"
+                      :value="ovGet(inst.kind,inst.idx).missing_added_days"
+                      @input="ovGet(inst.kind,inst.idx).missing_added_days=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                      :class="{ 'ov-active': ovGet(inst.kind,inst.idx).missing_added_days !== null }"
+                      :placeholder="radarrMissingAddedDays">
+                    <span class="help" x-text="'Global: ' + radarrMissingAddedDays"></span>
+                  </div>
+                  <div class="field"><label style="display:flex;align-items:center;gap:5px">Grace Period (Hours) <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items whose release date is at least this many hours in the past. 0 = no grace window.</div></span></label>
+                    <input type="number" min="0"
+                      :value="ovGet(inst.kind,inst.idx).missing_grace_hours"
+                      @input="ovGet(inst.kind,inst.idx).missing_grace_hours=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                      :class="{ 'ov-active': ovGet(inst.kind,inst.idx).missing_grace_hours !== null }"
+                      :placeholder="radarrMissingGraceHours">
+                    <span class="help" x-text="'Global: ' + radarrMissingGraceHours"></span>
+                  </div>
+                </div>
               </div>
             </template>
+            <template x-if="inst.kind==='sonarr'">
+              <div class="ov-backlog-fields">
+                <div class="ov-fields" style="margin-bottom:8px">
+                  <div class="field"><label>Max</label>
+                    <input type="number" min="1"
+                      :value="ovGet(inst.kind,inst.idx).backlog_max"
+                      @input="ovGet(inst.kind,inst.idx).backlog_max=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                      :class="{ 'ov-active': ovGet(inst.kind,inst.idx).backlog_max !== null }"
+                      :placeholder="sonarrMissingMax">
+                  </div>
+                  <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more missing titles qualify than your Max, this decides which ones to try first.<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to your library the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added missing items first. Missing add dates usually sort after entries that have a date.</div></span></label>
+                    <select x-model="ovGet(inst.kind,inst.idx).backlog_sample_mode" @change="ovMarkDirty(inst.kind,inst.idx)">
+                      <option value="__global__" x-text="'Use Global (' + sonarrBacklogSampleMode.replace(/_/g,' ') + ')'"></option>
+                      <option value="round_robin">Round Robin</option><option value="random">Random</option>
+                      <option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option>
+                      <option value="newest_added">Newest Added</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field" style="margin-bottom:6px">
+                  <label style="display:flex;align-items:center;gap:5px">Grace Period (Hours) <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items whose release or air date is at least this many hours in the past. 0 = no grace window.</div></span></label>
+                  <input type="number" min="0"
+                    :value="ovGet(inst.kind,inst.idx).missing_grace_hours"
+                    @input="ovGet(inst.kind,inst.idx).missing_grace_hours=$event.target.value===''?null:parseInt($event.target.value); ovMarkDirty(inst.kind,inst.idx)"
+                    :class="{ 'ov-active': ovGet(inst.kind,inst.idx).missing_grace_hours !== null }"
+                    :placeholder="sonarrMissingGraceHours">
+                  <span class="help" x-text="'Global: ' + sonarrMissingGraceHours"></span>
+                </div>
+              </div>
+            </template>
+            </div>
             <!-- CF Score section (when enabled) -->
             <template x-if="cfScoreEnabled">
               <div>
                 <div class="hr" style="margin:10px 0"></div>
                 <div class="ov-sect" style="color:var(--warn);border-color:rgba(251,191,36,.2)">CF Score</div>
-                <div class="ov-fields" style="margin-bottom:10px">
+                <div class="ov-bl-row" style="margin-bottom:8px" :style="ovCfAppGlobalOn(inst.kind) ? '' : 'opacity:.45'" :title="ovCfAppGlobalOn(inst.kind) ? '' : 'Enable CF Score for this app in Pipelines before per-instance overrides apply.'">
+                  <span class="help" style="font-size:11px"
+                    x-text="(ovGet(inst.kind,inst.idx).cf_score_enabled!==null ? (ovGet(inst.kind,inst.idx).cf_score_enabled?'On':'Off') : (inst.kind==='radarr'?(radarrCfScoreAppEnabled?'On':'Off'):(sonarrCfScoreAppEnabled?'On':'Off'))) + ' (Global: ' + (inst.kind==='radarr'?(radarrCfScoreAppEnabled?'On':'Off'):(sonarrCfScoreAppEnabled?'On':'Off')) + ')'"></span>
+                  <label class="toggle">
+                    <input type="checkbox"
+                      :disabled="!ovCfAppGlobalOn(inst.kind)"
+                      :checked="ovGet(inst.kind,inst.idx).cf_score_enabled !== null ? !!ovGet(inst.kind,inst.idx).cf_score_enabled : (inst.kind==='radarr' ? radarrCfScoreAppEnabled : sonarrCfScoreAppEnabled)"
+                      @change="ovGet(inst.kind,inst.idx).cf_score_enabled=$event.target.checked; ovMarkDirty(inst.kind,inst.idx)">
+                    <span class="toggle-track"></span><span class="toggle-thumb"></span>
+                  </label>
+                </div>
+                <div class="ov-fields" style="margin-bottom:10px" :style="ovCfFieldsActive(inst.kind,inst.idx) ? '' : 'opacity:.35;pointer-events:none'">
                   <div class="field"><label>Max</label>
                     <input type="number" min="1"
                       :value="ovGet(inst.kind,inst.idx).cf_max"
@@ -1239,7 +1063,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                       :class="{ 'ov-active': ovGet(inst.kind,inst.idx).cf_max !== null }"
                       :placeholder="inst.kind==='radarr' ? radarrCfMax : sonarrCfMax">
                   </div>
-                  <div class="field"><label>Sample Mode</label>
+                  <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more titles qualify than your Max, this decides which CF candidates to search first (only titles still below the custom format cutoff in the index).<br><br><strong>Largest gap first</strong> &mdash; Puts the biggest gap between current score and your profile cutoff at the front so the worst shortfalls get attention first. If two titles have the same gap, never-searched ones are preferred (mixed order within that group), then titles that have gone longest since the last search. Missing title or add date usually sorts last.<br><br><strong>Round robin</strong> &mdash; Same fairness idea as other pipelines&mdash;never searched first (mixed order), then longest since last search&mdash;but it does <strong>not</strong> look at how large the gap is. Missing title or add date usually sorts last.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items in the library the longest by &ldquo;added&rdquo; date first. If that date is missing, those titles usually sort after ones with a known date.</div></span></label>
                     <select x-model="ovGet(inst.kind,inst.idx).cf_sample_mode" @change="ovMarkDirty(inst.kind,inst.idx)">
                       <option value="__global__" x-text="'Use Global (' + (inst.kind==='radarr' ? radarrCfSampleMode.replace(/_/g,' ') : sonarrCfSampleMode.replace(/_/g,' ')) + ')'"></option>
                       <option value="largest_gap_first">Largest Gap First</option><option value="round_robin">Round Robin</option>
@@ -1267,6 +1091,9 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               <button class="ov-rst-all" @click="resetOverrideCard(inst.kind,inst.idx)">Reset All to Global</button>
               <button class="btn sm pri" @click="applyOverrides(inst.kind,inst.idx)">Apply</button>
             </div>
+          </div>
+            </template>
+            <p class="help" x-show="col.insts.length === 0" style="margin:8px 0 0">No instances yet.</p>
           </div>
         </template>
       </div>
@@ -1327,8 +1154,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                 </template>
               </div>
             </div>
-            <div class="save-bar" style="margin-top:8px;flex-shrink:0">
-              <span class="msg unsaved" style="flex:1;font-size:12px" x-show="unsaved.filters">Unsaved Changes</span>
+            <div class="save-bar filter-apply" style="margin-top:8px;flex-shrink:0">
+              <span class="msg unsaved" style="font-size:12px" x-show="unsaved.filtersRadarr">Unsaved Changes</span>
               <button class="btn sm pri" @click="saveFilters('radarr')">Apply</button>
             </div>
           </div>
@@ -1383,7 +1210,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                 </template>
               </div>
             </div>
-            <div class="save-bar" style="margin-top:8px;flex-shrink:0">
+            <div class="save-bar filter-apply" style="margin-top:8px;flex-shrink:0">
+              <span class="msg unsaved" style="font-size:12px" x-show="unsaved.filtersSonarr">Unsaved Changes</span>
               <button class="btn sm pri" @click="saveFilters('sonarr')">Apply</button>
             </div>
           </div>
@@ -1399,14 +1227,15 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <div class="cols2">
         <div class="card">
           <div class="section-title">Notifications</div>
-          <div class="stk">
-            <div class="field"><label>Enable Notifications</label>
-              <div class="row" style="gap:8px;height:34px">
+          <div class="notif-config-inner">
+            <div class="field notif-enable-block">
+              <label>Enable Notifications</label>
+              <p class="notif-enable-sub" x-text="notifyEnabled ? 'Send via any Apprise-compatible service' : 'Disabled'"></p>
+              <div class="notif-toggle-row">
                 <label class="toggle"><input type="checkbox" :checked="notifyEnabled" @change="toggleNotifyEnabled($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-                <span class="help" x-text="notifyEnabled ? 'Send via any Apprise-compatible service' : 'Disabled'"></span>
               </div>
             </div>
-            <div :style="notifyEnabled ? '' : 'opacity:.38;pointer-events:none'">
+            <div class="notif-url-stack" :style="notifyEnabled ? '' : 'opacity:.38;pointer-events:none'">
               <div class="field">
                 <label>Notification URL</label>
                 <div style="position:relative">
@@ -1415,8 +1244,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
                 </div>
                 <div class="help">Supports any <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--ac-lt)">Apprise-compatible</a> URL.</div>
               </div>
-              <div class="row" style="gap:8px">
-                <button class="btn sm" @click.prevent="testNotification()">Send Test</button>
+              <div class="notif-test-row">
+                <button class="btn pri sm" @click.prevent="testNotification()">Send Test</button>
                 <span :class="notifTestMsgClass" x-text="notifTestMsg"></span>
               </div>
             </div>
@@ -1424,12 +1253,12 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         </div>
         <div class="card">
           <div class="section-title">Notify On</div>
-          <div style="display:flex;flex-direction:column">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnSweep" @change="toggleNotifyOn('notifyOnSweep',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnImport" @change="toggleNotifyOn('notifyOnImport',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnAutoExcl" @change="toggleNotifyOn('notifyOnAutoExcl',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnError" @change="toggleNotifyOn('notifyOnError',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnQueueDepth" @change="toggleNotifyOn('notifyOnQueueDepth',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+          <div class="notify-opt-list">
+            <div class="notify-opt"><div><div style="font-size:13px;font-weight:500">Sweep Complete</div><div class="help">Fires when sweep finishes with at least one search</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnSweep" @change="toggleNotifyOn('notifyOnSweep',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="notify-opt"><div><div style="font-size:13px;font-weight:500">Import Confirmed</div><div class="help">Fires when a searched item is confirmed imported</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnImport" @change="toggleNotifyOn('notifyOnImport',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="notify-opt"><div><div style="font-size:13px;font-weight:500">Auto-Exclusion</div><div class="help">Fires when search threshold is reached with no import</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnAutoExcl" @change="toggleNotifyOn('notifyOnAutoExcl',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="notify-opt"><div><div style="font-size:13px;font-weight:500">Error</div><div class="help">Fires when a sweep fails or instance becomes unreachable</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnError" @change="toggleNotifyOn('notifyOnError',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
+            <div class="notify-opt"><div><div style="font-size:13px;font-weight:500">Queue Depth Skip</div><div class="help">Fires when sweep is skipped due to queue limit</div></div><label class="toggle"><input type="checkbox" :checked="notifyOnQueueDepth" @change="toggleNotifyOn('notifyOnQueueDepth',$event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label></div>
           </div>
         </div>
       </div>
@@ -1441,18 +1270,18 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
       <div class="cols2" style="margin-bottom:14px">
         <div class="card">
           <div class="section-title">Security</div>
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
-            <div><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:5px">Require Login <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Adds a login screen to prevent unauthorized access. Not a substitute for network-level security &mdash; use a reverse proxy with HTTPS for remote access.</div></span></div><div class="help">Password-protect the UI.</div></div>
-            <label class="toggle" style="margin-top:2px;margin-left:16px;flex-shrink:0"><input type="checkbox" x-model="authEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+          <div class="toggle-line ac edge-b">
+            <div><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:5px">Require Login <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Adds a login screen to prevent unauthorized access. Not a substitute for network-level security &mdash; use a reverse proxy with HTTPS for remote access.</div></span></div><div class="help">Password-protect the UI.</div></div>
+            <label class="toggle"><input type="checkbox" x-model="authEnabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
           </div>
-          <div style="padding-top:12px;margin-bottom:16px" :style="authEnabled ? '' : 'opacity:.38;pointer-events:none'">
+          <div class="stk" style="padding-top:12px" :style="authEnabled ? '' : 'opacity:.38;pointer-events:none'">
             <div class="field"><label>Session Timeout (Minutes)</label><input type="number" min="1" x-model.number="sessionTimeout" style="max-width:160px" :disabled="!authEnabled"></div>
           </div>
           <div class="hr"></div>
-          <div class="section-title" style="margin-top:14px">UI Preferences</div>
+          <div class="section-title">UI Preferences</div>
           <div class="stk">
             <div class="field">
-              <label style="display:flex;align-items:center;gap:5px">Default Panel <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Panel shown when opening Nudgarr on a new browser or device. Within the same browser Nudgarr always remembers the last panel you visited.</div></span></label>
+              <label style="display:flex;align-items:center;gap:5px">Default Panel <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Panel shown when opening Nudgarr on a new browser or device. Within the same browser Nudgarr always remembers the last panel you visited.</div></span></label>
               <select x-model="defaultTab">
                 <option value="sweep">Sweep</option><option value="library">Library</option><option value="intel">Intel</option>
                 <option value="instances">Instances</option><option value="pipelines">Pipelines</option><option value="settings">Settings</option>
@@ -1460,9 +1289,9 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
               </select>
               <div class="help">Shown on a fresh browser. Within the same browser Nudgarr always remembers your last panel.</div>
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="toggle-line ac">
               <div><div style="font-size:13px;font-weight:500">Show Support Link</div><div class="help">Displays a support link in the sidebar</div></div>
-              <label class="toggle" style="margin-left:16px;flex-shrink:0"><input type="checkbox" :checked="showSupportLink" @change="toggleShowSupportLink($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              <label class="toggle"><input type="checkbox" :checked="showSupportLink" @change="toggleShowSupportLink($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
             </div>
           </div>
         </div>
@@ -1470,14 +1299,14 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
           <div class="section-title">Stats, Logging &amp; Data</div>
           <div class="stk">
             <div class="field">
-              <label style="display:flex;align-items:center;gap:5px">Import Check (Minutes) <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. 120 minutes is a safe default.</div></span></label>
+              <label style="display:flex;align-items:center;gap:5px">Import Check (Minutes) <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How often Nudgarr polls Radarr and Sonarr for import events on previously searched items. 120 minutes is a safe default.</div></span></label>
               <input type="number" min="1" x-model.number="importCheckMinutes">
               <div class="help">How often Nudgarr polls for confirmed imports</div>
             </div>
             <div class="field"><label>Log Level</label><select x-model="logLevel"><option>INFO</option><option>DEBUG</option><option>WARNING</option><option>ERROR</option></select></div>
             <div class="hr"></div>
             <div class="field">
-              <label style="display:flex;align-items:center;gap:5px">Days to Keep History &amp; Imports <span class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How many days Nudgarr keeps history and import records before pruning. Lifetime Intel aggregates are never affected. 0 = keep forever.</div></span></label>
+              <label style="display:flex;align-items:center;gap:5px">Days to Keep History &amp; Imports <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">How many days Nudgarr keeps history and import records before pruning. Lifetime Intel aggregates are never affected. 0 = keep forever.</div></span></label>
               <input type="number" min="0" x-model.number="retentionDays" style="max-width:160px">
               <div class="help">0 = keep forever</div>
             </div>
@@ -1485,7 +1314,7 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         </div>
       </div>
       <div class="card" style="margin-bottom:14px">
-        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><div class="section-title" style="margin:0">Support &amp; Diagnostics</div><span style="font-size:11px;color:var(--muted);font-weight:400" x-text="'v' + version"></span></div>
+        <div class="card-hd" style="margin-bottom:8px"><div class="section-title" style="margin:0">Support &amp; Diagnostics</div><span style="font-size:11px;color:var(--muted);font-weight:400" x-text="'v' + version"></span></div>
         <p class="help" style="margin:0 0 12px">Data backup and diagnostic tools.</p>
         <div class="row" style="gap:8px;flex-wrap:wrap">
           <button class="btn sm" @click.prevent="backupAll()">Backup All</button>
@@ -1495,8 +1324,8 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
         </div>
       </div>
       <div class="card" style="border-color:var(--bad-bdr);background:rgba(239,68,68,.03)">
-        <div class="section-title" style="color:#fca5a5;margin-bottom:4px">Danger Zone</div>
-        <p class="help" style="margin:0 0 14px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
+        <div class="section-title" style="color:#fca5a5">Danger Zone</div>
+        <p class="help" style="margin:0 0 12px;color:#fca5a5">These actions are irreversible and cannot be undone.</p>
         <div class="row" style="gap:8px;flex-wrap:wrap">
           <button class="btn sm dng" @click="danger('clearHistory')">Clear History</button>
           <button class="btn sm dng" @click="danger('clearImports')">Clear Imports</button>
@@ -1591,16 +1420,18 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
 <div class="modal-backdrop" :class="{ open: modal==='whatsNew' }" @click.self="dismissWhatsNew()">
   <div class="modal" @click.stop style="max-width:520px">
     <h2 style="margin:0 0 4px">What's New in v5.0</h2>
-    <p class="help" style="margin:0 0 18px">v5 is a full UI redesign. Everything still works the same way &mdash; this is what moved and where.</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:4px">Tabs replaced with a sidebar</div><div class="help">The horizontal tab bar is gone. Navigation is now a sidebar with Monitor, Configure, and System groups. Overrides and Filters sit as sub-items.</div></div>
-      <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:4px">History, Imports, CF Score, and Exclusions are now Library</div><div class="help">Four separate tabs are now one Library panel with a view switcher. Exclusions get their own dedicated view with filtering and pagination.</div></div>
-      <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:4px">Pipeline config moved to Pipelines</div><div class="help">Backlog and CF Score settings moved from Advanced and Settings into the Pipelines panel. Settings now covers Schedule, Sweep Controls, Throttling, and Auto-Exclusion only.</div></div>
-      <div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:4px">Unsaved changes indicator</div><div class="help">A small amber dot appears next to any nav item with unsaved changes. You can navigate freely between panels without losing pending edits.</div></div>
-      <div style="padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px"><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">No migration required</div><div class="help">No backend changes. Your config, history, exclusions, imports, and CF Score index are all untouched. The upgrade is a container restart.</div></div>
+    <p class="help" style="margin:0 0 18px">v5 is a full UI redesign. Everything works the same way &mdash; this is what moved and where.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Tabs Replaced with a Sidebar</div><div class="help">The horizontal tab bar is gone. Navigation is now a sidebar with Monitor, Configure, and System groups. Overrides and Filters sit as sub-items.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">History, Imports, CF Score, and Exclusions Are Now Library</div><div class="help">Four separate tabs are now one Library panel with a view switcher at the top. Exclusions get their own dedicated view with filtering, search, and pagination.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Pipeline Config Moved to Pipelines</div><div class="help">Backlog and CF Score settings moved from Advanced and Settings into the Pipelines panel. Settings now covers Schedule, Sweep Controls, Throttling, and Auto-Exclusion only.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">CF Score Per-App and Per-Instance Controls</div><div class="help">CF Score can now be toggled independently for Radarr and Sonarr. Per-instance overrides add a CF Score enable/disable toggle and sample mode per instance.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Unsaved Changes Indicator</div><div class="help">A small amber dot appears next to any nav item with unsaved changes. You can navigate freely between panels without losing pending edits.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Mobile Sidebar Drawer</div><div class="help">On narrow screens the sidebar opens as a slide-in drawer from a hamburger button in the topbar. All panels are accessible on mobile &mdash; no separate layout.</div></div>
+      <div style="padding:10px 13px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:10px"><div style="width:6px;height:6px;border-radius:50%;background:var(--ok);flex-shrink:0;margin-top:4px"></div><div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ok);margin-bottom:3px">No Migration Required</div><div class="help">No backend changes. Your config, history, cooldown records, exclusions, imports, Intel data, and CF Score index are all untouched. The upgrade is a container restart.</div></div></div>
     </div>
     <div class="row" style="justify-content:space-between;align-items:center;margin-top:20px">
-      <a href="https://mmagtech.github.io/nudgarr/" target="_blank" style="font-size:12px;color:var(--ac-lt);text-decoration:none">Full docs &amp; wiki &#8599;</a>
+      <a href="https://mmagtech.github.io/nudgarr/" target="_blank" style="font-size:12px;color:var(--ac-lt);text-decoration:none">Full docs &amp; changelog &#8599;</a>
       <button class="btn sm pri" @click="dismissWhatsNew()">Continue</button>
     </div>
   </div>
@@ -1675,6 +1506,18 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
     <div class="row" style="justify-content:flex-end;gap:8px">
       <button class="btn sm" @click="closeModal()">Cancel</button>
       <button class="btn sm" :class="_genericConfirmIsDanger ? 'dng' : 'pri'" @click="genericConfirmOk()" x-text="_genericConfirmOkLabel"></button>
+    </div>
+  </div>
+</div>
+
+<!-- After saving Filters: optional CF index rebuild -->
+<div class="modal-backdrop" :class="{ open: modal==='cfFiltersSync' }" @click.self="closeModal()">
+  <div class="modal" @click.stop style="max-width:440px;border-color:rgba(251,191,36,.22)">
+    <h2 style="margin:0 0 8px">Update CF index?</h2>
+    <p class="help" style="margin:0 0 20px;line-height:1.6">Tag and profile filters apply when Nudgarr builds the CF Score index. Sync Now to refresh it, or Sync Later &mdash; it will update on the next scheduled run or when you use Scan Library in Pipelines.</p>
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <button type="button" class="btn sm" @click="closeModal()">Sync Later</button>
+      <button type="button" class="btn sm pri" @click="cfFiltersSyncNow()">Sync Now</button>
     </div>
   </div>
 </div>

@@ -44,11 +44,19 @@ def api_get_stats():
     except ValueError:
         offset, limit = 0, 25
 
+    # Same window as KPI totals: list + count must match Movies/Episodes for 7/30/lifetime.
+    period_days = None
+    if period == "7":
+        period_days = 7
+    elif period == "30":
+        period_days = 30
+
     total, entries, available_types = db.get_confirmed_entries(
         instance_url_filter=instance_filter,
         type_filter=type_filter,
         offset=offset,
         limit=limit,
+        period_days=period_days,
     )
 
     # Resolve totals for the requested period.

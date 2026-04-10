@@ -44,3 +44,15 @@ def delete_state(key: str) -> None:
     conn = get_connection()
     conn.execute("DELETE FROM nudgarr_state WHERE key = ?", (key,))
     conn.commit()
+
+
+def delete_states_with_prefix(prefix: str) -> int:
+    """Remove all keys starting with ``prefix`` (for clearing a family of related rows).
+
+    Returns:
+        Number of rows deleted.
+    """
+    conn = get_connection()
+    cur = conn.execute("DELETE FROM nudgarr_state WHERE key LIKE ?", (prefix + "%",))
+    conn.commit()
+    return cur.rowcount or 0

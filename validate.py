@@ -6,6 +6,14 @@ Usage: python3 validate.py  (from repo root)
 """
 import sys, re, os, ast, glob, py_compile
 
+# Windows consoles often use cp1252; section headers and checkmarks need UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 UI_FILE        = 'nudgarr/templates/ui.html'
 CONSTANTS_FILE = 'nudgarr/constants.py'
 CHANGELOG_FILE = 'CHANGELOG.md'

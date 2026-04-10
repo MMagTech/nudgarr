@@ -277,8 +277,8 @@
               <option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
             </select></div>
             <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="historySearch" @input="historyPage=0;refreshHistory()"></div>
-            <button class="btn sm" @click="historyPage=0;refreshHistory()">Refresh</button>
-            <button class="btn sm" @click="pruneState()">Prune Expired</button>
+            <button class="btn sm ac" @click="historyPage=0;refreshHistory()">Refresh</button>
+            <button class="btn sm ac" @click="pruneState()">Prune Expired</button>
             <button class="btn sm dng" @click="openClearExclModal()">Clear Exclusions</button>
           </div>
           <div class="table-wrap">
@@ -357,7 +357,7 @@
               <option value="10">10</option><option value="25">25</option><option value="50">50</option>
             </select></div>
             <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="importsSearch" @input="importsPage=0;refreshImports()"></div>
-            <button class="btn sm" @click="checkImportsNow()">Refresh</button>
+            <button class="btn sm ac" @click="checkImportsNow()">Refresh</button>
           </div>
           <div class="table-wrap">
           <table>
@@ -625,8 +625,8 @@
                 <span class="inst-health-pill" :class="instanceHealth['radarr|'+inst.name] === 'ok' ? 'ok' : instanceHealth['radarr|'+inst.name] === 'bad' ? 'bad' : 'unknown'" x-text="instanceHealth['radarr|'+inst.name] === 'ok' ? 'Connected' : instanceHealth['radarr|'+inst.name] === 'bad' ? 'Unreachable' : 'Unknown'"></span>
               </div>
               <div class="inst-row2">
-                <button class="btn sm" :class="inst.enabled===false ? 'pri' : ''" @click="toggleInstance('radarr', idx)" x-text="inst.enabled===false ? 'Enable' : 'Disable'"></button>
-                <div class="inst-actions"><button class="btn sm" @click="openInstModal('radarr', idx)">Edit</button><button class="btn sm dng" @click="deleteInstance('radarr', idx)">Delete</button></div>
+                <button class="btn sm" :class="inst.enabled===false ? 'pri' : 'ac'" @click="toggleInstance('radarr', idx)" x-text="inst.enabled===false ? 'Enable' : 'Disable'"></button>
+                <div class="inst-actions"><button class="btn sm ac" @click="openInstModal('radarr', idx)">Edit</button><button class="btn sm dng" @click="deleteInstance('radarr', idx)">Delete</button></div>
               </div>
             </div>
           </template>
@@ -643,15 +643,15 @@
                 <span class="inst-health-pill" :class="instanceHealth['sonarr|'+inst.name] === 'ok' ? 'ok' : instanceHealth['sonarr|'+inst.name] === 'bad' ? 'bad' : 'unknown'" x-text="instanceHealth['sonarr|'+inst.name] === 'ok' ? 'Connected' : instanceHealth['sonarr|'+inst.name] === 'bad' ? 'Unreachable' : 'Unknown'"></span>
               </div>
               <div class="inst-row2">
-                <button class="btn sm" :class="inst.enabled===false ? 'pri' : ''" @click="toggleInstance('sonarr', idx)" x-text="inst.enabled===false ? 'Enable' : 'Disable'"></button>
-                <div class="inst-actions"><button class="btn sm" @click="openInstModal('sonarr', idx)">Edit</button><button class="btn sm dng" @click="deleteInstance('sonarr', idx)">Delete</button></div>
+                <button class="btn sm" :class="inst.enabled===false ? 'pri' : 'ac'" @click="toggleInstance('sonarr', idx)" x-text="inst.enabled===false ? 'Enable' : 'Disable'"></button>
+                <div class="inst-actions"><button class="btn sm ac" @click="openInstModal('sonarr', idx)">Edit</button><button class="btn sm dng" @click="deleteInstance('sonarr', idx)">Delete</button></div>
               </div>
             </div>
           </template>
           <p class="help" x-show="sonarrInstances.length === 0" style="margin:8px 0 0">No instances yet. Click + Add.</p>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="saveInstances()">Save Changes</button><button class="btn" @click="testConnections()">Test Connections</button><span :class="instMsgClass" x-text="instMsg"></span></div>
+      <div class="save-bar"><button class="btn pri" @click="saveInstances()">Save Changes</button><button class="btn ac" @click="testConnections()">Test Connections</button><span :class="instMsgClass" x-text="instMsg"></span></div>
     </div>
 
     <!-- PIPELINES PANEL -->
@@ -692,7 +692,7 @@
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="radarrMissingMax"></div>
                 <div class="field"><label style="display:flex;align-items:center;gap:5px">Missing Added Days <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items added to your library at least this many days ago. 0 = no limit.</div></span></label><input type="number" min="0" x-model.number="radarrMissingAddedDays"></div>
                 <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more missing titles qualify than your Max, this decides which ones to try first.<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to your library the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added missing items first. Missing add dates usually sort after entries that have a date.</div></span></label><select x-model="radarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
-                <div class="field"><label>Grace Period (Hours)</label><input type="number" min="0" x-model.number="radarrMissingGraceHours"></div>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Grace Period (Hours) <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items whose release date is at least this many hours in the past. 0 = no grace window.</div></span></label><input type="number" min="0" x-model.number="radarrMissingGraceHours"></div>
               </div></div>
             </div>
           </div>
@@ -702,7 +702,7 @@
               <div :style="sonarrBacklogEnabled ? '' : 'opacity:.38;pointer-events:none'"><div class="stk">
                 <div class="field"><label>Max (Per Instance)</label><input type="number" min="1" x-model.number="sonarrMissingMax"></div>
                 <div class="field"><label style="display:flex;align-items:center;gap:5px">Sample Mode <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">When more missing titles qualify than your Max, this decides which ones to try first.<br><br><strong>Round robin</strong> &mdash; Titles Nudgarr has never searched come first; within that group the order is mixed so the same few are not always on top. After that, titles that have gone the longest since the last search.<br><br><strong>Random</strong> &mdash; Shuffles the list each sweep so different titles can bubble up each run.<br><br><strong>Alphabetical</strong> &mdash; A&ndash;Z by title. If a title is missing or unclear, it usually ends up after titles with a proper name.<br><br><strong>Oldest added</strong> &mdash; Items added to your library the longest time ago first, using each title&rsquo;s &ldquo;added&rdquo; date. If that date is missing, those titles usually sort after ones with a known date.<br><br><strong>Newest added</strong> &mdash; Most recently added missing items first. Missing add dates usually sort after entries that have a date.</div></span></label><select x-model="sonarrBacklogSampleMode"><option value="round_robin">Round Robin</option><option value="random">Random</option><option value="alphabetical">Alphabetical</option><option value="oldest_added">Oldest Added</option><option value="newest_added">Newest Added</option></select></div>
-                <div class="field"><label>Grace Period (Hours)</label><input type="number" min="0" x-model.number="sonarrMissingGraceHours"></div>
+                <div class="field"><label style="display:flex;align-items:center;gap:5px">Grace Period (Hours) <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box">Only search for missing items whose release or air date is at least this many hours in the past. 0 = no grace window.</div></span></label><input type="number" min="0" x-model.number="sonarrMissingGraceHours"></div>
               </div></div>
             </div>
           </div>
@@ -1116,7 +1116,7 @@
                 <template x-for="(inst, i) in radarrInstances" :key="i"><option :value="i" x-text="inst.name"></option></template>
               </select>
             </div>
-            <button class="btn sm" @click="loadFilterData('radarr')" x-text="radarrFilters.loaded ? 'Reload' : 'Load Tags &amp; Profiles'"></button>
+            <button class="btn sm ac" @click="loadFilterData('radarr')" x-text="radarrFilters.loaded ? 'Reload' : 'Load Tags &amp; Profiles'"></button>
           </div>
           <div class="filter-card-body" x-show="radarrFilters.loaded">
             <div class="filter-section">
@@ -1172,7 +1172,7 @@
                 <template x-for="(inst, i) in sonarrInstances" :key="i"><option :value="i" x-text="inst.name"></option></template>
               </select>
             </div>
-            <button class="btn sm" @click="loadFilterData('sonarr')" x-text="sonarrFilters.loaded ? 'Reload' : 'Load Tags &amp; Profiles'"></button>
+            <button class="btn sm ac" @click="loadFilterData('sonarr')" x-text="sonarrFilters.loaded ? 'Reload' : 'Load Tags &amp; Profiles'"></button>
           </div>
           <div class="filter-card-body" x-show="sonarrFilters.loaded">
             <div class="filter-section">
@@ -1317,10 +1317,10 @@
         <div class="card-hd" style="margin-bottom:8px"><div class="section-title" style="margin:0">Support &amp; Diagnostics</div><span style="font-size:11px;color:var(--muted);font-weight:400" x-text="'v' + version"></span></div>
         <p class="help" style="margin:0 0 12px">Data backup and diagnostic tools.</p>
         <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button class="btn sm" @click.prevent="backupAll()">Backup All</button>
-          <button class="btn sm" @click.prevent="downloadDiagnostic()">Download Diagnostic</button>
-          <a class="btn sm" style="text-decoration:none" href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank">Open Issue &#8599;</a>
-          <a class="btn sm" style="text-decoration:none" href="https://mmagtech.github.io/nudgarr/" target="_blank">Documentation &#8599;</a>
+          <button class="btn sm ac" @click.prevent="backupAll()">Backup All</button>
+          <button class="btn sm ac" @click.prevent="downloadDiagnostic()">Download Diagnostic</button>
+          <a class="btn sm ac" style="text-decoration:none;display:inline-flex;align-items:center" href="https://github.com/MMagTech/nudgarr/issues/new" target="_blank">Open Issue &#8599;</a>
+          <a class="btn sm ac" style="text-decoration:none;display:inline-flex;align-items:center" href="https://mmagtech.github.io/nudgarr/" target="_blank">Documentation &#8599;</a>
         </div>
       </div>
       <div class="card" style="border-color:var(--bad-bdr);background:rgba(239,68,68,.03)">
@@ -1460,9 +1460,9 @@
       </div>
     </div>
     <div class="row" style="justify-content:space-between;margin-top:16px">
-      <button class="btn sm" @click.prevent="testInstConnection()">Test Connection</button>
+      <button class="btn sm ac" @click.prevent="testInstConnection()">Test Connection</button>
       <div class="row" style="gap:8px">
-        <button class="btn sm" @click="closeInstModal()">Cancel</button>
+        <button class="btn sm ac" @click="closeInstModal()">Cancel</button>
         <button class="btn sm pri" @click.prevent="saveInstModal()">Apply</button>
       </div>
     </div>
@@ -1566,7 +1566,7 @@
     <h2 style="margin:0 0 10px;font-size:15px;font-weight:700"
       :style="alertType==='error' ? 'color:#fca5a5' : 'color:#86efac'"
       x-text="alertType==='error' ? 'Something Went Wrong' : 'Done'"></h2>
-    <p style="margin:0 0 20px;font-size:13px;color:var(--dim);line-height:1.6" x-text="alertMsg"></p>
+    <p class="alert-msg-body" style="margin:0 0 20px;font-size:13px;color:var(--dim);line-height:1.6" x-text="alertMsg"></p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn sm" @click="closeModal()"
         :style="alertType==='error' ? 'background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5' : 'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.25);color:#86efac'">OK</button>

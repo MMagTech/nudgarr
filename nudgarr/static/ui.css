@@ -87,13 +87,16 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .sp{flex:1;}
 .hr{height:1px;background:var(--border);margin:16px 0;}
 .mb{margin-bottom:14px;}
-.save-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:14px;}
+.save-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:11px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:14px;}
 .save-bar.filter-apply{justify-content:flex-end;}
 .save-bar.filter-apply .msg.unsaved{margin-right:auto;}
 .btn{border:1px solid var(--border-md);background:transparent;color:var(--text);padding:6px 14px;border-radius:var(--r-sm);cursor:pointer;font-size:13px;font-weight:500;font-family:'Outfit',sans-serif;transition:background .12s,border-color .12s;white-space:nowrap;}
 .btn:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.15);}
 .btn.pri{background:var(--ac-dim);border-color:var(--ac-bdr);color:var(--ac-lt);}
 .btn.pri:hover{background:rgba(91,114,245,.2);border-color:var(--accent);color:#cdd8ff;}
+/* Secondary accent — Refresh, Edit, Test, Load, backup links, etc. */
+.btn.ac{background:rgba(91,114,245,.1);border-color:rgba(91,114,245,.38);color:#a8b9ff;}
+.btn.ac:hover{background:rgba(91,114,245,.18);border-color:var(--ac-bdr);color:#cdd8ff;}
 .btn.dng{background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5;}
 .btn.dng:hover{background:rgba(239,68,68,.18);}
 .btn.sm{padding:4px 10px;font-size:12px;border-radius:7px;}
@@ -351,8 +354,10 @@ input.ov-active{border-color:var(--ac-bdr);background:rgba(91,114,245,.06);}
 .excl-opt.selected .excl-radio{border-color:var(--accent);background:var(--accent);}
 .msg{font-size:12px;font-weight:500;}
 .msg.ok{color:var(--ok);}
-.msg.err{color:var(--bad);}
+.msg.err{color:var(--bad);white-space:pre-line;line-height:1.45;}
 .msg.unsaved{color:#fcd34d;}
+.save-bar .msg.err{flex:1;min-width:min(100%,12rem);max-width:100%;}
+.alert-msg-body{white-space:pre-line;}
 .pager{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
 .pager-info{font-size:12px;color:var(--muted);}
 .pager-goto{display:inline-flex;align-items:center;gap:6px;margin-left:4px;}

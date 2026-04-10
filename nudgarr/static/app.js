@@ -2,6 +2,27 @@
 // Single data object; loaded as nudgarr/static/app.js.
 // ui.html: <body x-data="nudgarr()" x-init="...">
 
+/** Turn JSON error bodies into readable text (supports { error } and { errors: [] }). */
+function httpErrorMessage(data) {
+  if (typeof data === 'string') {
+    const s = data.trim();
+    return s || 'Request failed';
+  }
+  if (!data || typeof data !== 'object') return 'Request failed';
+  if (typeof data.error === 'string' && data.error.trim()) return data.error.trim();
+  if (Array.isArray(data.errors) && data.errors.length) {
+    const parts = data.errors.map((e) => (e == null ? '' : String(e).trim())).filter(Boolean);
+    if (parts.length === 0) return 'Validation failed';
+    if (parts.length === 1) return parts[0];
+    return parts.length + ' issues:\n' + parts.map((p, i) => (i + 1) + '. ' + p).join('\n');
+  }
+  try {
+    return JSON.stringify(data);
+  } catch (_) {
+    return 'Request failed';
+  }
+}
+
 function nudgarr() {
   return {
 
@@ -426,7 +447,7 @@ function nudgarr() {
       if (r.status === 401) { window.location.href = '/login'; return; }
       const ct = r.headers.get('content-type') || '';
       const data = ct.includes('application/json') ? await r.json() : await r.text();
-      if (!r.ok) throw new Error(typeof data === 'string' ? data : (data.error || JSON.stringify(data)));
+      if (!r.ok) throw new Error(httpErrorMessage(data));
       return data;
     },
 
@@ -925,16 +946,43 @@ function nudgarr() {
     },
 
     async testInstConnection() {
-      const { name, url, key, kind } = this.instModal;
+      const { name, url, key, kind, idx } = this.instModal;
       if (!url.trim()) { this.instModal.testStatus = 'err'; this.instModal.testMsg = 'Enter a URL first.'; return; }
+      let k = (key || '').trim();
+      if (!k && idx >= 0) {
+        const existing = this.cfg?.instances?.[kind]?.[idx];
+        if (existing?.key) k = existing.key;
+      }
       this.instModal.testStatus = 'loading'; this.instModal.testMsg = 'Testing\u2026'; this.instModal.testDone = false;
       try {
-        const payload = { kind, name: name || 'test', url: url.trim(), key: key.trim() };
-        const r = await this._api('/api/test-single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        this.instModal.testDone = true; this.instModal.testOk = !!r.ok;
-        if (r.ok) { this.instModal.testStatus = 'ok'; this.instModal.testMsg = '\u2713 ' + (r.version ? 'Connected \u00b7 v' + r.version : 'Connected'); }
-        else { this.instModal.testStatus = 'err'; this.instModal.testMsg = '\u2717 ' + (r.error || 'Connection failed'); }
-      } catch (e) { this.instModal.testDone = true; this.instModal.testOk = false; this.instModal.testStatus = 'err'; this.instModal.testMsg = '\u2717 ' + e.message; }
+        const inst = { name: (name || 'test').trim(), url: url.trim(), key: k, enabled: true };
+        const payload = {
+          kind,
+          instances: {
+            radarr: kind === 'radarr' ? [inst] : [],
+            sonarr: kind === 'sonarr' ? [inst] : [],
+          },
+          update_status: false,
+        };
+        const r = await this._api('/api/test-instance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const row = (r.results?.[kind] || [])[0];
+        this.instModal.testDone = true;
+        if (row && row.disabled) {
+          this.instModal.testOk = true;
+          this.instModal.testStatus = 'ok';
+          this.instModal.testMsg = '\u2713 Instance is disabled (skipped)';
+        } else if (row && row.ok) {
+          this.instModal.testOk = true;
+          this.instModal.testStatus = 'ok';
+          this.instModal.testMsg = '\u2713 ' + (row.version ? 'Connected \u00b7 v' + row.version : 'Connected');
+        } else {
+          this.instModal.testOk = false;
+          this.instModal.testStatus = 'err';
+          this.instModal.testMsg = '\u2717 ' + (row?.error || 'Connection failed');
+        }
+      } catch (e) {
+        this.instModal.testDone = true; this.instModal.testOk = false; this.instModal.testStatus = 'err'; this.instModal.testMsg = '\u2717 ' + e.message;
+      }
     },
 
     async saveInstModal() {
@@ -1073,6 +1121,8 @@ function nudgarr() {
     },
 
     async testConnections() {
+      this.instMsg = 'Testing connections\u2026';
+      this.instMsgClass = 'msg';
       try {
         const out = await this._api('/api/test', { method: 'POST' });
         const health = {};
@@ -1082,7 +1132,32 @@ function nudgarr() {
           }
         }
         this.instanceHealth = { ...this.instanceHealth, ...health };
-      } catch (e) { this.showAlert('Test failed: ' + e.message, 'error'); }
+        let ok = 0, bad = 0, dis = 0;
+        for (const kind of ['radarr', 'sonarr']) {
+          for (const r of (out.results?.[kind] || [])) {
+            if (r.disabled) dis++;
+            else if (r.ok) ok++;
+            else bad++;
+          }
+        }
+        const n = ok + bad + dis;
+        const parts = ['Test Complete:'];
+        if (n === 0) parts.push('No Instances to test.');
+        else {
+          parts.push(String(n), n === 1 ? 'Instance' : 'Instances', '\u2014');
+          const bits = [];
+          if (ok) bits.push(ok + ' Okay');
+          if (dis) bits.push(dis + ' Disabled');
+          if (bad) bits.push(bad + ' failed');
+          parts.push(bits.join(', ') + '.');
+        }
+        this.instMsg = parts.join(' ');
+        this.instMsgClass = 'msg ok';
+        this._fadeMsg('instMsg');
+      } catch (e) {
+        this.instMsg = 'Test failed: ' + e.message;
+        this.instMsgClass = 'msg err';
+      }
     },
 
     // ── Pipelines ─────────────────────────────────────────────────────────

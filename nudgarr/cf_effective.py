@@ -101,4 +101,3 @@ def prune_cf_entries_on_effective_disable_transition(previous_cfg: Dict[str, Any
                 db.delete_state(_CF_SYNC_PROGRESS_PREFIX + aid)
             except Exception:
                 logger.exception("CF Score: failed to clear sync progress for %s (non-fatal)", aid)
-

@@ -1491,7 +1491,7 @@
     <p class="help" style="margin:0 0 20px;line-height:1.6"
       x-text="({ clearHistory:'This will permanently delete all search history. Cooldown records will be reset — every item becomes eligible immediately. Consider using Backup All in Support &amp; Diagnostics first.', clearImports:'This will permanently clear all import records from the Imports tab. Lifetime totals are preserved. Consider using Backup All in Support &amp; Diagnostics first.', clearLog:'This will clear the active nudgarr.log file. The log will resume writing immediately on the next sweep.', resetIntel:'This will permanently reset your Intel dashboard, including all lifetime performance data and exclusion event history. This cannot be undone.' })[confirmAction] || ''"></p>
     <div class="row" style="justify-content:flex-end;gap:8px">
-      <button class="btn sm" @click="closeModal()">Cancel</button>
+      <button class="btn sm ac" @click="closeModal()">Cancel</button>
       <button class="btn sm dng" @click="executeDanger()"
         x-text="({ clearHistory:'Clear', clearImports:'Clear', clearLog:'Clear', resetIntel:'Reset Intel' })[confirmAction] || 'Confirm'"></button>
     </div>
@@ -1504,7 +1504,7 @@
     <h2 x-text="_genericConfirmTitle"></h2>
     <p class="help" style="margin:0 0 20px;line-height:1.6" x-text="_genericConfirmMsg"></p>
     <div class="row" style="justify-content:flex-end;gap:8px">
-      <button class="btn sm" @click="closeModal()">Cancel</button>
+      <button class="btn sm ac" @click="closeModal()">Cancel</button>
       <button class="btn sm" :class="_genericConfirmIsDanger ? 'dng' : 'pri'" @click="genericConfirmOk()" x-text="_genericConfirmOkLabel"></button>
     </div>
   </div>
@@ -1536,6 +1536,10 @@
     </div>
     <div class="row" style="justify-content:flex-end;margin-top:18px">
       <button class="btn sm pri" @click="closeOverridesInfoModal()">Continue</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" :class="{ open: modal==='noInstances' }" @click.self="closeModal()">
   <div class="modal" @click.stop style="max-width:400px">
     <h2 style="margin:0 0 8px">No Instances Configured</h2>
@@ -1553,7 +1557,7 @@
     <h2 style="color:#fca5a5">Reset Config</h2>
     <p class="help" style="margin:0 0 20px;line-height:1.6">This will reset all settings to factory defaults and permanently delete all data &mdash; history, imports, exclusions, CF Score index, and Intel. This cannot be undone. Use Backup All first if you want to preserve anything.</p>
     <div class="row" style="justify-content:flex-end;gap:8px">
-      <button class="btn sm" @click="closeModal()">Cancel</button>
+      <button class="btn sm ac" @click="closeModal()">Cancel</button>
       <button class="btn sm dng" style="border-color:rgba(239,68,68,.5)" @click="executeResetConfig()">Reset</button>
     </div>
   </div>

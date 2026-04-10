@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.7.0">
 <title data-rh="true">Radarr &amp; Sonarr Backlog | Nudgarr</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://mmagtech.github.io/nudgarr/docs/radarr-and-sonarr-backlog"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Radarr &amp; Sonarr Backlog | Nudgarr"><meta data-rh="true" name="description" content="The Backlog pipeline searches for missing content — movies and episodes that are monitored in your library but have never been successfully grabbed."><meta data-rh="true" property="og:description" content="The Backlog pipeline searches for missing content — movies and episodes that are monitored in your library but have never been successfully grabbed."><link data-rh="true" rel="icon" href="/nudgarr/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://mmagtech.github.io/nudgarr/docs/radarr-and-sonarr-backlog"><link data-rh="true" rel="alternate" href="https://mmagtech.github.io/nudgarr/docs/radarr-and-sonarr-backlog" hreflang="en"><link data-rh="true" rel="alternate" href="https://mmagtech.github.io/nudgarr/docs/radarr-and-sonarr-backlog" hreflang="x-default"><link rel="stylesheet" href="/nudgarr/assets/css/styles.7c9a9976.css">
-<script src="/nudgarr/assets/js/runtime~main.37a36963.js" defer="defer"></script>
+<script src="/nudgarr/assets/js/runtime~main.f27f6524.js" defer="defer"></script>
 <script src="/nudgarr/assets/js/main.e841632e.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -13,12 +13,12 @@
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="what-it-does">What it does<a href="#what-it-does" class="hash-link" aria-label="Direct link to What it does" title="Direct link to What it does">​</a></h2>
 <p>Cutoff Unmet targets items you have but want better. Backlog targets items you do not have yet at all.</p>
 <p>When Backlog is enabled for Radarr, Nudgarr tells each enabled Radarr instance to search for missing movies, filters the results, and nudges up to the configured maximum. The same applies independently for Sonarr.</p>
-<p>Backlog and Cutoff Unmet are separate. They run within the same sweep but use different caps and record different history entries — <strong>Backlog</strong> vs <strong>Cutoff</strong> in the History tab.</p>
+<p>Backlog and Cutoff Unmet are separate. They run within the same sweep but use different caps and record different history entries — <strong>Backlog</strong> vs <strong>Cutoff</strong> in the Library panel History view.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="enabling-backlog">Enabling Backlog<a href="#enabling-backlog" class="hash-link" aria-label="Direct link to Enabling Backlog" title="Direct link to Enabling Backlog">​</a></h2>
 <p>Backlog is off by default. To enable it:</p>
 <ol>
-<li>Open the <strong>Advanced</strong> tab</li>
+<li>Open the <strong>Advanced</strong> panel</li>
 <li>Toggle <strong>Radarr Backlog</strong> and/or <strong>Sonarr Backlog</strong> to on</li>
 <li>Adjust <strong>Missing Max</strong> and other settings as needed</li>
 <li>Save</li>
@@ -34,7 +34,7 @@
 <p>Setting this to <code>0</code> disables the age filter — all missing items are eligible regardless of when they were added.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="backlog-sample-mode">Backlog Sample Mode<a href="#backlog-sample-mode" class="hash-link" aria-label="Direct link to Backlog Sample Mode" title="Direct link to Backlog Sample Mode">​</a></h3>
 <p>Controls the order in which eligible missing items are picked for searching. Set independently for Radarr and Sonarr and independent of the Cutoff Unmet Sample Mode.</p>
-<table><thead><tr><th>Mode</th><th>Behaviour</th></tr></thead><tbody><tr><td><strong>Random</strong></td><td>Picks items in a random order each run (default)</td></tr><tr><td><strong>Alphabetical</strong></td><td>Picks items sorted A to Z by title</td></tr><tr><td><strong>Oldest Added</strong></td><td>Prioritises items added to your library first</td></tr><tr><td><strong>Newest Added</strong></td><td>Prioritises items added most recently</td></tr></tbody></table>
+<table><thead><tr><th>Mode</th><th>Behaviour</th></tr></thead><tbody><tr><td><strong>Random</strong></td><td>Picks items in a random order each run (default)</td></tr><tr><td><strong>Alphabetical</strong></td><td>Picks items sorted A to Z by title</td></tr><tr><td><strong>Oldest Added</strong></td><td>Prioritises items added to your library first</td></tr><tr><td><strong>Newest Added</strong></td><td>Prioritises items added most recently</td></tr><tr><td><strong>Round Robin</strong></td><td>Picks whoever has been waiting longest since their last search. Items never searched go first in random order.</td></tr></tbody></table>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="grace-period-radarr-only">Grace Period (Radarr only)<a href="#grace-period-radarr-only" class="hash-link" aria-label="Direct link to Grace Period (Radarr only)" title="Direct link to Grace Period (Radarr only)">​</a></h3>
 <p>Waits a configured number of hours after a missing movie&#x27;s availability date before Nudgarr&#x27;s first search. Useful when indexers need time to populate after a release. <code>0</code> disables the grace period — Nudgarr searches immediately once the item becomes available and passes the Missing Added Days filter.</p>
 <hr>
@@ -42,7 +42,7 @@
 <p>After fetching missing items and applying the age filter, grace period, and exclusions list, Nudgarr applies the same cooldown check as Cutoff Unmet. Items already present in the download queue are silently skipped and do not consume a Backlog slot.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="history-labels">History labels<a href="#history-labels" class="hash-link" aria-label="Direct link to History labels" title="Direct link to History labels">​</a></h2>
-<p>In the History tab, Backlog searches appear with the label <strong>Backlog</strong>. In the Imports tab they show an <strong>Acquired</strong> badge (green) — meaning the item was a first-time grab rather than a quality upgrade on something you already had.</p>
+<p>In the Library panel History view, Backlog searches appear with the label <strong>Backlog</strong>. In the Imports view they show an <strong>Acquired</strong> badge (green) — meaning the item was a first-time grab rather than a quality upgrade on something you already had.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="recommendations">Recommendations<a href="#recommendations" class="hash-link" aria-label="Direct link to Recommendations" title="Direct link to Recommendations">​</a></h2>
 <ul>

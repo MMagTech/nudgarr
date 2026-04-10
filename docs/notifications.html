@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.7.0">
 <title data-rh="true">Notifications (Apprise) | Nudgarr</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://mmagtech.github.io/nudgarr/docs/notifications"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Notifications (Apprise) | Nudgarr"><meta data-rh="true" name="description" content="Nudgarr uses Apprise to send push notifications. Apprise supports over 80 notification services through a unified URL syntax — the same configuration field works for Telegram, Discord, Slack, Gotify, Pushover, ntfy, and many others."><meta data-rh="true" property="og:description" content="Nudgarr uses Apprise to send push notifications. Apprise supports over 80 notification services through a unified URL syntax — the same configuration field works for Telegram, Discord, Slack, Gotify, Pushover, ntfy, and many others."><link data-rh="true" rel="icon" href="/nudgarr/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://mmagtech.github.io/nudgarr/docs/notifications"><link data-rh="true" rel="alternate" href="https://mmagtech.github.io/nudgarr/docs/notifications" hreflang="en"><link data-rh="true" rel="alternate" href="https://mmagtech.github.io/nudgarr/docs/notifications" hreflang="x-default"><link rel="stylesheet" href="/nudgarr/assets/css/styles.7c9a9976.css">
-<script src="/nudgarr/assets/js/runtime~main.37a36963.js" defer="defer"></script>
+<script src="/nudgarr/assets/js/runtime~main.f27f6524.js" defer="defer"></script>
 <script src="/nudgarr/assets/js/main.e841632e.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -13,7 +13,7 @@
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="enabling-notifications">Enabling notifications<a href="#enabling-notifications" class="hash-link" aria-label="Direct link to Enabling notifications" title="Direct link to Enabling notifications">​</a></h2>
 <ol>
-<li>Open the <strong>Notifications</strong> tab</li>
+<li>Open the <strong>Notifications</strong> panel in the sidebar</li>
 <li>Toggle <strong>Notifications Enabled</strong> to on</li>
 <li>Enter one or more Apprise URLs (one per line)</li>
 <li>Choose which events should trigger a notification</li>
@@ -42,7 +42,7 @@
 <p><strong>Notifications aren&#x27;t arriving</strong></p>
 <ul>
 <li>Check that <strong>Notifications Enabled</strong> is toggled on</li>
-<li>Use the <strong>Test</strong> button on the Notifications tab — this sends a test message immediately</li>
+<li>Use the <strong>Test</strong> button on the Notifications panel — this sends a test message immediately</li>
 <li>Verify your Apprise URL is correct for your service; refer to the Apprise wiki for the exact format</li>
 <li>Check the container logs (<code>docker logs nudgarr</code>) for <code>[Notify]</code> lines — these show whether Apprise attempted delivery and whether it succeeded</li>
 </ul>

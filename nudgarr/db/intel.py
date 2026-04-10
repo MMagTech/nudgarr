@@ -7,16 +7,39 @@ intel_aggregate and exclusion_events tables -- read, write, and reset helpers.
   update_intel_aggregate()     -- apply a partial update dict to the aggregate row
   reset_intel()                -- clear intel_aggregate and exclusion_events; Reset Intel only
   get_pipeline_search_counts() -- live search counts per pipeline from search_history (v4.3.0)
-  get_cf_score_health()        -- live CF Score index health from cf_score_entries (v4.3.0)
+  get_cf_score_health()        -- live CF Score health (index + per-instance scan totals) (v4.3.0)
 """
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Set
 
+from nudgarr.cf_effective import CF_SCAN_SNAPSHOT_PREFIX
+from nudgarr.cf_score_syncer import CF_SYNC_PROGRESS_PREFIX
+from nudgarr.db.appstate import get_state
 from nudgarr.db.connection import get_connection
 
 logger = logging.getLogger(__name__)
+
+
+def _cf_scanned_total_for_instance(instance_id: str) -> int:
+    """Last completed scan size for Intel (Radarr files or Sonarr series), with progress fallback."""
+    raw = get_state(CF_SCAN_SNAPSHOT_PREFIX + instance_id)
+    if raw:
+        try:
+            j = json.loads(raw)
+            return max(0, int(j.get("scanned", 0)))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+    raw2 = get_state(CF_SYNC_PROGRESS_PREFIX + instance_id)
+    if raw2:
+        try:
+            j = json.loads(raw2)
+            if j and not j.get("in_progress") and j.get("total") is not None:
+                return max(0, int(j["total"]))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+    return 0
 
 
 def get_intel_aggregate() -> Dict[str, Any]:
@@ -140,17 +163,20 @@ def get_pipeline_search_counts() -> Dict[str, int]:
     return result
 
 
-def get_cf_score_health() -> Dict[str, Any]:
-    """Return live CF Score index health stats from cf_score_entries.
+def get_cf_score_health(allowed_instance_ids: Optional[Set[str]] = None) -> Dict[str, Any]:
+    """Return live CF Score index health stats from cf_score_entries plus scan totals.
 
-    These are current-state metrics queried directly from the index table.
-    They are not stored in intel_aggregate and are not affected by Reset Intel.
-    The CF Score Health card on the Intel tab explicitly notes this.
+    These are current-state metrics; they are not stored in intel_aggregate and are not
+    affected by Reset Intel. The CF Score Health card on the Intel tab notes this.
+
+    When allowed_instance_ids is set, only those arr_instance_id rows are included
+    (v5.0.0 — matches effective CF Score enablement).
 
     Returns a dict with:
-      total_indexed:  Total monitored items in the index
-      below_cutoff:   Items where current_score < cutoff_score
-      below_pct:      Percentage of indexed items below cutoff (0-100 int)
+      total_indexed:  Sum of last-scan sizes across enabled instances (Radarr movie
+                      files + Sonarr series counted in Scan Library), not row count
+      below_cutoff:   Rows where current_score < cutoff_score (the CF index proper)
+      below_pct:      below_cutoff as a percentage of total_indexed when that sum > 0
       avg_gap:        Average (cutoff_score - current_score) across below-cutoff items
       worst_gap:      Largest single gap in the index
       radarr_below:   Below-cutoff count for item_type = 'movie'
@@ -158,10 +184,27 @@ def get_cf_score_health() -> Dict[str, Any]:
       last_synced_at: Most recent last_synced_at across all entries (ISO-Z string)
     """
     conn = get_connection()
+    if allowed_instance_ids is not None and len(allowed_instance_ids) == 0:
+        return {
+            "total_indexed": 0,
+            "below_cutoff": 0,
+            "below_pct": 0,
+            "avg_gap": 0,
+            "worst_gap": 0,
+            "radarr_below": 0,
+            "sonarr_below": 0,
+            "last_synced_at": "",
+        }
+    extra = ""
+    params: tuple = ()
+    if allowed_instance_ids is not None:
+        ph = ",".join("?" * len(allowed_instance_ids))
+        extra = f" AND arr_instance_id IN ({ph})"
+        params = tuple(allowed_instance_ids)
     row = conn.execute(
-        """
+        f"""
         SELECT
-            COUNT(*) AS total_indexed,
+            COUNT(*) AS row_count,
             SUM(CASE WHEN current_score < cutoff_score AND is_monitored = 1 THEN 1 ELSE 0 END)
                 AS below_cutoff,
             AVG(CASE WHEN current_score < cutoff_score AND is_monitored = 1
@@ -178,11 +221,12 @@ def get_cf_score_health() -> Dict[str, Any]:
                 AS sonarr_below,
             MAX(last_synced_at) AS last_synced_at
         FROM cf_score_entries
-        WHERE is_monitored = 1
-        """
+        WHERE is_monitored = 1{extra}
+        """,
+        params,
     ).fetchone()
 
-    if not row or not row["total_indexed"]:
+    if not row:
         return {
             "total_indexed": 0,
             "below_cutoff": 0,
@@ -194,12 +238,16 @@ def get_cf_score_health() -> Dict[str, Any]:
             "last_synced_at": "",
         }
 
-    total = row["total_indexed"] or 0
     below = row["below_cutoff"] or 0
+    scanned_sum = 0
+    if allowed_instance_ids is not None:
+        for aid in allowed_instance_ids:
+            scanned_sum += _cf_scanned_total_for_instance(aid)
+
     return {
-        "total_indexed": total,
+        "total_indexed": scanned_sum,
         "below_cutoff": below,
-        "below_pct": round((below / total) * 100) if total > 0 else 0,
+        "below_pct": round((below / scanned_sum) * 100) if scanned_sum > 0 else 0,
         "avg_gap": round(row["avg_gap"] or 0),
         "worst_gap": row["worst_gap"] or 0,
         "radarr_below": row["radarr_below"] or 0,

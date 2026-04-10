@@ -7,6 +7,9 @@ Background sweep engine.
   start_ui_server     -- blocking Flask server call (run in a thread)
   import_check_loop   -- independent import-check timer (runs in a daemon thread)
   scheduler_loop      -- main sweep loop, runs on interval + handles run-now requests
+
+Idle intervals use threading.Event.wait() in 1-second slices so SIGINT/SIGTERM
+can unblock within ~1s instead of blocking on time.sleep(60).
 """
 
 import datetime as _dt
@@ -15,7 +18,7 @@ import logging
 import os
 import threading
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import requests
 from croniter import croniter
@@ -32,6 +35,21 @@ from nudgarr.sweep import run_sweep
 from nudgarr.utils import iso_z, utcnow
 
 logger = logging.getLogger(__name__)
+
+
+def _wait_interruptible(shutdown: threading.Event, total_seconds: float, tick: float = 1.0) -> bool:
+    """Sleep up to ``total_seconds``, waking every ``tick`` or immediately when ``shutdown`` is set.
+
+    Returns True if the caller should stop (shutdown was set during the wait).
+    """
+    deadline = time.monotonic() + total_seconds
+    while time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        if shutdown.wait(timeout=min(tick, remaining)):
+            return True
+    return False
 
 
 def print_banner(cfg: Dict[str, Any]) -> None:
@@ -92,8 +110,7 @@ def import_check_loop(shutdown: threading.Event) -> None:
 
     try:
         while not shutdown.is_set():
-            time.sleep(60)
-            if shutdown.is_set():
+            if _wait_interruptible(shutdown, 60):
                 break
 
             cfg = load_or_init_config()
@@ -272,6 +289,142 @@ def _next_cron_utc(expression: str) -> str:
     return iso_z(next_utc)
 
 
+def _get_cron_tz():
+    """ZoneInfo (or UTC) used for cron evaluation — matches _next_cron_utc / _cron_due."""
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        import zoneinfo
+        return zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        return _dt.timezone.utc
+
+
+def _local_datetime_in_maintenance_window(cfg: Dict[str, Any], local_dt: _dt.datetime) -> bool:
+    """Return True if local_dt falls inside the configured maintenance window.
+
+    local_dt must be timezone-aware. Uses the same rules as the former body of
+    _in_maintenance_window() for the current instant — extracted so upcoming
+    cron fire times can be tested without duplicating overnight/weekday logic.
+    """
+    if not cfg.get("maintenance_window_enabled", False):
+        return False
+
+    selected_days = set(cfg.get("maintenance_window_days") or [])
+    if not selected_days:
+        return False
+
+    start_str = cfg.get("maintenance_window_start", "00:00")
+    end_str = cfg.get("maintenance_window_end", "00:00")
+    if start_str == end_str:
+        return False
+
+    try:
+        sh, sm = int(start_str[:2]), int(start_str[3:])
+        eh, em = int(end_str[:2]), int(end_str[3:])
+    except (ValueError, IndexError):
+        return False
+
+    start_mins = sh * 60 + sm
+    end_mins = eh * 60 + em
+    overnight = start_mins > end_mins
+
+    today = local_dt.date()
+    start_today = local_dt.replace(hour=sh, minute=sm, second=0, microsecond=0)
+    end_today = local_dt.replace(hour=eh, minute=em, second=0, microsecond=0)
+
+    if overnight:
+        window_a_open = start_today - _dt.timedelta(days=1)
+        window_a_close = end_today
+        window_b_open = start_today
+        window_b_close = end_today + _dt.timedelta(days=1)
+
+        if window_a_open <= local_dt < window_a_close:
+            yesterday = (today - _dt.timedelta(days=1)).weekday()
+            return yesterday in selected_days
+        if window_b_open <= local_dt < window_b_close:
+            return today.weekday() in selected_days
+        return False
+    else:
+        if start_today <= local_dt < end_today:
+            return today.weekday() in selected_days
+        return False
+
+
+def next_run_in_maintenance_window(cfg: Dict[str, Any], next_run_utc_iso: Optional[str]) -> bool:
+    """True when next_run_utc falls inside the active maintenance window.
+
+    The status API uses this so the UI only shows next-run maintenance copy when
+    the displayed time actually occurs during suppression on a selected day —
+    not merely when maintenance_window_enabled is on (which previously implied
+    the next run was during the window even though _next_sweep_run_utc skips
+    those fires).
+    """
+    if not next_run_utc_iso:
+        return False
+    try:
+        dt_utc = _dt.datetime.fromisoformat(next_run_utc_iso.replace("Z", "+00:00"))
+        if dt_utc.tzinfo is None:
+            dt_utc = dt_utc.replace(tzinfo=_dt.timezone.utc)
+        else:
+            dt_utc = dt_utc.astimezone(_dt.timezone.utc)
+        tz = _get_cron_tz()
+        local_dt = dt_utc.astimezone(tz)
+        return _local_datetime_in_maintenance_window(cfg, local_dt)
+    except Exception:
+        return False
+
+
+_LOOKAHEAD_MAX = _dt.timedelta(days=7)
+
+
+def _next_sweep_run_utc(cfg: Dict[str, Any]) -> Optional[str]:
+    """UTC ISO-Z time of the next automatic sweep that will run (not maintenance-suppressed).
+
+    Returns None if the scheduler is off, no cron expression, or no qualifying
+    fire time exists within _LOOKAHEAD_MAX (edge case: window covers all fires).
+    When maintenance cannot suppress sweeps, this matches _next_cron_utc().
+    """
+    if not cfg.get("scheduler_enabled", False):
+        return None
+    cron_expression = (cfg.get("cron_expression") or "").strip()
+    if not cron_expression:
+        return None
+
+    tz = _get_cron_tz()
+    now_utc = utcnow().replace(tzinfo=_dt.timezone.utc)
+    limit_utc = now_utc + _LOOKAHEAD_MAX
+
+    # Fast path — same behaviour as before when quiet hours cannot apply
+    if not cfg.get("maintenance_window_enabled", False):
+        return _next_cron_utc(cron_expression)
+    if not cfg.get("maintenance_window_days"):
+        return _next_cron_utc(cron_expression)
+    s0, s1 = cfg.get("maintenance_window_start", "00:00"), cfg.get("maintenance_window_end", "00:00")
+    if s0 == s1:
+        return _next_cron_utc(cron_expression)
+
+    try:
+        now_local = now_utc.astimezone(tz)
+        cron = croniter(cron_expression, now_local)
+        next_local = cron.get_next(_dt.datetime)
+    except Exception:
+        return None
+
+    for _ in range(10000):
+        next_utc = next_local.astimezone(_dt.timezone.utc)
+        if next_utc > limit_utc:
+            return None
+        if not _local_datetime_in_maintenance_window(cfg, next_local):
+            return iso_z(next_utc)
+        try:
+            step = next_local + _dt.timedelta(microseconds=1)
+            cron = croniter(cron_expression, step)
+            next_local = cron.get_next(_dt.datetime)
+        except Exception:
+            return None
+    return None
+
+
 def _cron_due(expression: str) -> bool:
     """Return True if the cron expression should have fired since last checked (within 60s window)."""
     tz_name = os.environ.get("TZ", "UTC")
@@ -320,63 +473,12 @@ def _in_maintenance_window(cfg: Dict[str, Any]) -> bool:
       maintenance_window_end     -- "HH:MM" 24-hour string
       maintenance_window_days    -- list of ints 0-6 (Monday=0, Sunday=6)
     """
-    if not cfg.get("maintenance_window_enabled", False):
-        return False
-
-    selected_days = set(cfg.get("maintenance_window_days") or [])
-    if not selected_days:
-        # Empty day list — window never fires regardless of toggle state
-        return False
-
-    start_str = cfg.get("maintenance_window_start", "00:00")
-    end_str = cfg.get("maintenance_window_end", "00:00")
-    if start_str == end_str:
-        return False
-
-    # Resolve local time using TZ, consistent with _cron_due
-    tz_name = os.environ.get("TZ", "UTC")
+    tz = _get_cron_tz()
     try:
-        import zoneinfo
-        tz = zoneinfo.ZoneInfo(tz_name)
         now = _dt.datetime.now(tz)
     except Exception:
-        now = _dt.datetime.utcnow()
-
-    try:
-        sh, sm = int(start_str[:2]), int(start_str[3:])
-        eh, em = int(end_str[:2]), int(end_str[3:])
-    except (ValueError, IndexError):
-        return False
-
-    start_mins = sh * 60 + sm
-    end_mins = eh * 60 + em
-    overnight = start_mins > end_mins
-
-    today = now.date()
-    start_today = now.replace(hour=sh, minute=sm, second=0, microsecond=0)
-    end_today = now.replace(hour=eh, minute=em, second=0, microsecond=0)
-
-    if overnight:
-        # Two candidate windows — the window that opened yesterday (tail end)
-        # and the window that opens today (opening side).
-        window_a_open = start_today - _dt.timedelta(days=1)
-        window_a_close = end_today
-        window_b_open = start_today
-        window_b_close = end_today + _dt.timedelta(days=1)
-
-        if window_a_open <= now < window_a_close:
-            # Active window opened yesterday — check yesterday's weekday
-            yesterday = (today - _dt.timedelta(days=1)).weekday()
-            return yesterday in selected_days
-        if window_b_open <= now < window_b_close:
-            # Active window opened today
-            return today.weekday() in selected_days
-        return False
-    else:
-        # Same-day window
-        if start_today <= now < end_today:
-            return today.weekday() in selected_days
-        return False
+        now = utcnow().astimezone(tz)
+    return _local_datetime_in_maintenance_window(cfg, now)
 
 
 def cf_score_sync_loop(shutdown: threading.Event) -> None:
@@ -437,8 +539,7 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
 
     try:
         while not shutdown.is_set():
-            time.sleep(60)
-            if shutdown.is_set():
+            if _wait_interruptible(shutdown, 60):
                 break
 
             cfg = load_or_init_config()
@@ -476,13 +577,6 @@ def cf_score_sync_loop(shutdown: threading.Event) -> None:
             if first_enable:
                 logger.info("[CF Sync] CF Score enabled -- triggering immediate sync")
             elif not cron_fired:
-                remaining = next_fire - now_aware
-                hours, rem = divmod(int(remaining.total_seconds()), 3600)
-                mins = rem // 60
-                logger.debug(
-                    "[CF Sync] Next scheduled sync in %dh %dm (cron: %s) -- skipping",
-                    hours, mins, cron_expr,
-                )
                 was_enabled = True
                 continue
 
@@ -573,14 +667,11 @@ def scheduler_loop(shutdown: threading.Event) -> None:
         if persisted:
             STATUS[pipeline_key] = persisted
 
-    # Set initial next_run_utc
+    # Set initial next_run_utc (first fire that will actually execute — outside maintenance)
     if scheduler_enabled and cron_expression:
-        STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
+        STATUS["next_run_utc"] = _next_sweep_run_utc(cfg)
     else:
         STATUS["next_run_utc"] = None
-
-    _prev_scheduler_enabled = scheduler_enabled
-    _prev_cron_expression = cron_expression
 
     try:
         while not shutdown.is_set():
@@ -588,15 +679,11 @@ def scheduler_loop(shutdown: threading.Event) -> None:
             scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
             cron_expression = cfg.get("cron_expression", "0 */6 * * *")
 
-            # Recalculate next_run_utc immediately if config changed
-            config_changed = (
-                scheduler_enabled != _prev_scheduler_enabled
-                or cron_expression != _prev_cron_expression
-            )
-            if config_changed:
-                STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
-                _prev_scheduler_enabled = scheduler_enabled
-                _prev_cron_expression = cron_expression
+            # Always refresh — picks up cron, maintenance, and quiet-hours changes without restart
+            if scheduler_enabled and cron_expression:
+                STATUS["next_run_utc"] = _next_sweep_run_utc(cfg)
+            else:
+                STATUS["next_run_utc"] = None
 
             should_run = False
 
@@ -661,6 +748,13 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                                 )
                                 db.set_state("imports_confirmed_sweep", json.dumps(STATUS["imports_confirmed_sweep"]))
                             notify_sweep_complete(summary, cfg)
+                            # Auto-exclusion otherwise only runs on the import-check timer (can be
+                            # hours apart). Evaluate after each sweep so thresholds match search_history
+                            # as soon as Nudgarr has searched and recorded counts.
+                            try:
+                                _run_auto_exclusion_check(session, load_or_init_config())
+                            except Exception:
+                                logger.exception("[Auto-Exclude] Check failed after sweep")
                             for app_name in ("radarr", "sonarr"):
                                 for inst in summary.get(app_name, []):
                                     if "error" in inst and inst.get("notifications_enabled", True):
@@ -671,7 +765,7 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                         notify_error("Sweep failed — check logs.", cfg)
                     finally:
                         STATUS["run_in_progress"] = False
-                        STATUS["next_run_utc"] = _next_cron_utc(cron_expression) if scheduler_enabled and cron_expression else None
+                        STATUS["next_run_utc"] = _next_sweep_run_utc(cfg) if scheduler_enabled and cron_expression else None
 
             if shutdown.is_set():
                 break
@@ -682,7 +776,11 @@ def scheduler_loop(shutdown: threading.Event) -> None:
                 with RUN_LOCK:
                     if STATUS.get("run_requested"):
                         break
-                time.sleep(1)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                if shutdown.wait(timeout=min(1.0, remaining)):
+                    break
 
     finally:
         STATUS["scheduler_running"] = False

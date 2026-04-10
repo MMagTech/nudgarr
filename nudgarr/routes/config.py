@@ -21,6 +21,7 @@ from flask import Blueprint, jsonify, request
 
 from nudgarr.auth import requires_auth
 from nudgarr import db
+from nudgarr.cf_effective import prune_cf_entries_on_effective_disable_transition
 from nudgarr.config import deep_copy, load_or_init_config, validate_config
 from nudgarr.constants import CONFIG_FILE, VERSION
 from nudgarr.globals import STATUS
@@ -106,6 +107,10 @@ def api_set_config():
     except Exception:
         logger.exception("Failed to write config in api_set_config")
         return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
+    try:
+        prune_cf_entries_on_effective_disable_transition(stored, cfg)
+    except Exception:
+        logger.exception("CF Score prune on config save failed (non-fatal)")
     # Apply renames to history and imports
     for app_name, url, new_name in renames:
         db.rename_instance_in_history(app_name, url, new_name)
@@ -116,8 +121,8 @@ def api_set_config():
     scheduler_enabled = bool(cfg.get("scheduler_enabled", False))
     if scheduler_enabled and cron_expression:
         try:
-            from nudgarr.scheduler import _next_cron_utc
-            STATUS["next_run_utc"] = _next_cron_utc(cron_expression)
+            from nudgarr.scheduler import _next_sweep_run_utc
+            STATUS["next_run_utc"] = _next_sweep_run_utc(cfg)
         except Exception:
             pass
     else:
@@ -215,6 +220,7 @@ def api_instance_toggle():
     if kind not in ("radarr", "sonarr") or not isinstance(idx, int) or idx < 0:
         return jsonify({"ok": False, "error": "Invalid kind or idx"}), 400
     cfg = load_or_init_config()
+    stored = deep_copy(cfg)
     instances = cfg.get("instances", {}).get(kind, [])
     if idx >= len(instances):
         return jsonify({"ok": False, "error": "Instance not found"}), 404
@@ -227,6 +233,10 @@ def api_instance_toggle():
     except Exception:
         logger.exception("Failed to write config in api_instance_toggle")
         return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
+    try:
+        prune_cf_entries_on_effective_disable_transition(stored, cfg)
+    except Exception:
+        logger.exception("CF Score prune after instance toggle failed (non-fatal)")
     name = inst.get("name", "")
     key = f"{kind}|{name}"
     if now_enabled:
@@ -262,6 +272,7 @@ def api_instance_overrides():
     if not isinstance(overrides, dict):
         return jsonify({"ok": False, "error": "overrides must be an object"}), 400
     cfg = load_or_init_config()
+    stored = deep_copy(cfg)
     instances = cfg.get("instances", {}).get(kind, [])
     if idx >= len(instances):
         return jsonify({"ok": False, "error": "Instance not found"}), 404
@@ -274,6 +285,10 @@ def api_instance_overrides():
     except Exception:
         logger.exception("Failed to write config in api_instance_overrides")
         return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
+    try:
+        prune_cf_entries_on_effective_disable_transition(stored, cfg)
+    except Exception:
+        logger.exception("CF Score prune after overrides save failed (non-fatal)")
     return jsonify({"ok": True})
 
 
@@ -290,6 +305,7 @@ def api_overrides_toggle():
     if not isinstance(enabled, bool):
         return jsonify({"ok": False, "error": "enabled must be boolean"}), 400
     cfg = load_or_init_config()
+    stored = deep_copy(cfg)
     cfg["per_instance_overrides_enabled"] = enabled
     if enabled and not cfg.get("per_instance_overrides_seen", False):
         cfg["per_instance_overrides_seen"] = True
@@ -298,4 +314,8 @@ def api_overrides_toggle():
     except Exception:
         logger.exception("Failed to write config in api_overrides_toggle")
         return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
+    try:
+        prune_cf_entries_on_effective_disable_transition(stored, cfg)
+    except Exception:
+        logger.exception("CF Score prune after overrides toggle failed (non-fatal)")
     return jsonify({"ok": True, "enabled": enabled})

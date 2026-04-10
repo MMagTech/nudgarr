@@ -4,6 +4,68 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.0.0
+
+**Full frontend rewrite to Alpine.js sidebar UI.**
+
+- Replaced 14-file vanilla JS split with single app.js + ui.html (Alpine.js v3.15.11 self-hosted)
+- Sidebar navigation replaces horizontal tab bar (Monitor / Configure / System groups)
+- Library panel consolidates History, Imports, CF Score, and Exclusions with view switcher
+- Pipeline config moved to Pipelines panel; Settings covers Schedule, Throttling, Auto-Exclusion only
+- Unsaved changes amber dot indicator on nav items
+- Toggle controls auto-save immediately; Save Changes only required for field inputs
+- Instance modal tests connection before saving; green dot appears without manual Test step
+- Eligible Again column uses human-relative format (In 6h, Tomorrow, In 3 days)
+- Imports table adds Count and Upgrade columns
+- Exclusions view adds filtering, search, and pagination
+- CF Score entries table shows correct score/cutoff/gap values; coverage % computed from sync progress
+- Overrides cards include Backlog Max, Sample Mode, and Missing Added Days fields
+- Sweep pipeline cards show tooltips on each stat explaining what the number means
+- Version number in sidebar footer reflects installed version automatically
+
+**CF Score per-app and per-instance controls**
+
+- New config keys `radarr_cf_score_enabled` and `sonarr_cf_score_enabled` (default `true`) — CF Score can be turned off independently for Radarr and Sonarr in the Pipelines panel.
+- Per-instance overrides can enable or disable CF Score per instance (stored as `radarr_cf_score_enabled` / `sonarr_cf_score_enabled` in overrides), following the same pattern as backlog.
+- The CF sync job, manual Scan Library, sweep, Intel CF Score Health, and Pipelines index stats respect effective enablement (master → per-app → per-instance). Rows for disabled or removed instances are pruned when the index sync runs and when config transitions turn CF Score off for an instance.
+- Existing installs default to enabled for both app types (missing keys behave as `true`).
+
+**`cf_effective.py` — effective enablement module**
+
+- New `nudgarr/cf_effective.py` module extracts CF Score effective enablement logic into a single authoritative location used by the syncer, sweep pipeline, Intel, and config-save pruning paths.
+- `effective_cf_score_enabled(cfg, app, inst)` — walks the three-level hierarchy (master → per-app → per-instance override) and returns `True` only when all levels permit CF Score for the given instance.
+- `allowed_cf_score_instance_ids(cfg)` — returns the set of `arr_instance_id` values that should retain rows in `cf_score_entries`. Used by the syncer end-of-run prune and the config-save prune path.
+- `prune_cf_entries_on_effective_disable_transition(previous_cfg, new_cfg)` — called on every config save. Deletes `cf_score_entries` for any instance that transitioned from effectively enabled to disabled (toggle turned off, instance removed, or instance disabled in Instances panel). Preserves `last_synced_at` to `nudgarr_state` under `CF_LAST_INSTANCE_SYNC_PREFIX` before deleting so the UI can still show the last sync time for a re-enabled instance.
+- `CF_LAST_INSTANCE_SYNC_PREFIX` and `CF_SCAN_SNAPSHOT_PREFIX` constants defined here and imported by the syncer and Intel DB layer to keep key strings consistent across the codebase.
+
+**CF Score scan snapshot**
+
+- `_write_cf_scan_snapshot(instance_id, scanned)` added to `cf_score_syncer.py`. Writes per-instance scan counts (`{"scanned": N}`) to `nudgarr_state` under `CF_SCAN_SNAPSHOT_PREFIX` at the start and end of each sync run, and on reset. Value is the total movies or series stepped during the sync.
+- `db/intel.py` reads the scan snapshot for each instance when building the Intel CF Score Health payload — surfaced as a per-instance scanned count for the Intel tab.
+
+**DB state management additions**
+
+- `delete_state(key)` added to `nudgarr/db/appstate.py` — removes a single key/value row from `nudgarr_state`. Used by the CF Score prune path to clear stale sync progress keys when an instance is disabled.
+- `delete_states_with_prefix(prefix)` added to `nudgarr/db/appstate.py` — removes all rows whose key starts with the given prefix and returns the deleted row count. Used by Reset CF Index to clean up all sync progress, last instance sync, and scan snapshot state in a single call.
+
+**CF Score instance lifecycle DB functions**
+
+- `delete_cf_scores_for_instance(arr_instance_id)` added to `nudgarr/db/cf_scores.py` — deletes all `cf_score_entries` rows for a given instance. Used by `prune_cf_entries_on_effective_disable_transition` and the end-of-run prune in the syncer.
+- `get_cf_max_last_synced_at_for_instance(arr_instance_id)` added to `nudgarr/db/cf_scores.py` — returns `MAX(last_synced_at)` for the instance before its rows are pruned, so the last sync time can be preserved in `nudgarr_state`.
+
+**`/api/whats-new/dismiss` endpoint**
+
+- New `POST /api/whats-new/dismiss` endpoint in `routes/config.py` handles What's New modal dismissal. Updates `last_seen_version` in config and persists it to disk. The Alpine.js frontend calls this endpoint when the user closes the modal rather than doing an inline config write.
+
+**Logic and coverage tests**
+
+- `tests/test_cf_effective.py` (9 tests) — covers `effective_cf_score_enabled` master/per-app/per-instance flag combinations and `allowed_cf_score_instance_ids` set building including disabled instances and missing URL edge cases.
+- `tests/test_schedule_maintenance.py` (6 tests) — covers `_local_datetime_in_maintenance_window`, `_next_cron_utc`, `_next_sweep_run_utc` (disabled scheduler, maintenance inactive, maintenance blocking next fire), and `next_run_in_maintenance_window`.
+- `tests/test_stats.py` (24 tests) — covers `pick_items_with_cooldown` max_per_run behaviour (0 = all eligible, cap respected, empty pool), sample mode branches (random, alphabetical, oldest_added, newest_added, round_robin), and cooldown filtering with a real temp SQLite database via `batch_upsert_search_history`.
+- validate.py: 359 checks (up from 355).
+
+---
+
 ## v4.3.0
 
 **Intel Tab Redesign, Sample Mode Overhaul, Auto-Exclusion Queue Fix, KPI Number Formatting, Default Tab, Queue Depth Awareness, Label Consistency, Sweep Tab Redesign, Logic Unit Tests.**

@@ -146,7 +146,14 @@ def api_add_exclusion():
     title = (data.get("title") or "").strip()
     if not title:
         return jsonify({"error": "title required"}), 400
-    db.add_exclusion(title)
+    raw_sc = data.get("search_count")
+    search_count = None
+    if raw_sc is not None and raw_sc != "":
+        try:
+            search_count = int(raw_sc)
+        except (TypeError, ValueError):
+            search_count = None
+    db.add_exclusion(title, search_count=search_count)
     return jsonify({"ok": True})
 
 

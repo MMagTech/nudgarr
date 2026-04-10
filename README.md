@@ -14,7 +14,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v4.3.0` · `4.3.0` · `4.3` · `v4.2.0` · `4.2.0` · `4.2` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
+**Tags:** `latest` · `v5.0.0` · `5.0.0` · `5.0` · `5` · `v4.3.0` · `4.3.0` · `4.3` · `v4.2.0` · `4.2.0` · `4.2` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -55,10 +55,11 @@ The interface covers everything in one place: instance management, sweep status 
 - Radarr minimumAvailability filter — movies that haven't reached their availability threshold are automatically skipped
 
 **UI**
-- Web UI with Instances, Sweep, Settings, Filters, History, Imports, Intel, Notifications, Advanced, and Overrides tabs
-- Sticky header — wordmark, status bar, and tab bar pin to the top of the viewport on all tabs; tab content scrolls beneath
-- Sweep tab — three pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and per-instance breakdowns; Sweep Health, Last Sweep, and Imports Confirmed summary cards; full-width paginated feed of every item searched in the current sweep with pipeline badges
-- Intel tab — lifetime performance dashboard showing Import Summary (turnaround, searches per import, pipeline breakdown with conversion rate), Instance Performance, Upgrade History, CF Score Health, and Exclusion Intel. All stats are hard facts derived directly from the database.
+- Web UI with sidebar navigation — Monitor group (Sweep, Library, Intel), Configure group (Instances, Pipelines, Settings, Overrides, Filters, Notifications), System group (Advanced)
+- Sidebar is always visible; unsaved changes shown as an amber dot on the relevant nav item
+- Sweep panel — three pipeline cards (Cutoff Unmet, Backlog, CF Score) with aggregate totals and per-instance breakdowns; Sweep Health, Last Sweep, and Imports Confirmed summary cards; full-width paginated feed of every item searched in the current sweep with pipeline badges
+- Library panel — consolidated view switcher for History, Imports, CF Score, and Exclusions in one place
+- Intel panel — lifetime performance dashboard showing Import Summary (turnaround, searches per import, pipeline breakdown with conversion rate), Instance Performance, Upgrade History, CF Score Health, and Exclusion Intel. All stats are hard facts derived directly from the database.
 - Search history with sweep type, instance, library added date, search count, sortable columns, and title search
 - Clickable titles in History and Imports — opens the item directly in the configured Radarr or Sonarr instance
 - Auto-exclusion badge and confirmed import tracking with lifetime totals, period toggle, type filtering, title search, and quality upgrade history per item
@@ -69,7 +70,7 @@ The interface covers everything in one place: instance management, sweep status 
 
 **Mobile**
 - Fully responsive desktop UI — all features available on any screen size, no separate layout or URL
-- Tab bar scrolls horizontally on narrow screens; pipeline cards, grids, and tables reflow at phone width
+- Sidebar collapses to a compact nav on narrow screens; pipeline cards, grids, and tables reflow at phone width
 - Tables (History, Imports, CF Score) scroll horizontally with the title column pinned
 - iOS and Android browser toolbar matches the app via `theme-color`
 
@@ -134,6 +135,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 ---
 
 ## Upgrade notes
+
+**v5.0.0** is a full frontend rewrite to Alpine.js with a sidebar navigation layout. The 14-file vanilla JS split is replaced by a single `app.js` and `ui.html`. The horizontal tab bar is gone -- navigation is now a sidebar with Monitor, Configure, and System groups. History, Imports, CF Score, and Exclusions are consolidated into a single Library panel with a view switcher. CF Score can now be toggled independently per app (Radarr/Sonarr) and per instance. No config changes required. Pull the new image and restart. New config keys are injected automatically on first start.
 
 **v4.3.0** rebuilds the Intel tab with five focused cards showing hard facts from your database with no scoring or assumptions. Includes the sample mode overhaul (Round Robin across all pipelines, full CF Score mode control), auto-exclusion queue fix, and KPI number formatting for mobile. No config changes required. Pull the new image and restart. New config keys are injected automatically on first start.
 

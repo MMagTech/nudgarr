@@ -27,18 +27,24 @@ Public functions:
   get_cf_score_entries          -- list entries for the UI table
   get_cf_score_stats            -- aggregate counts for stat cards
   get_cf_score_instance_stats   -- per-instance coverage for UI rings
+  get_cf_max_last_synced_at_for_instance -- MAX(last_synced_at) before prune
   get_cf_scores_for_sweep       -- worst-gap-first items for the sweep pipeline
   batch_upsert_cf_scores        -- bulk insert/update, 200 rows per DB batch
   clear_cf_score_index          -- truncate the table (Reset CF Index)
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
+from nudgarr.cf_effective import CF_LAST_INSTANCE_SYNC_PREFIX, CF_SCAN_SNAPSHOT_PREFIX
+from nudgarr.db.appstate import delete_states_with_prefix
 from nudgarr.db.connection import get_connection
 from nudgarr.utils import iso_z, utcnow
 
 logger = logging.getLogger(__name__)
+
+# Same prefix as cf_score_syncer.CF_SYNC_PROGRESS_PREFIX — clears per-instance ring state.
+_CF_SYNC_STATE_PREFIX = "cf_sync_progress|"
 
 
 def _upsert_cf_score_entry(
@@ -165,6 +171,32 @@ def _delete_cf_score_entry(
     conn.commit()
 
 
+def prune_cf_scores_not_in_allowed_instances(allowed_ids: Set[str]) -> int:
+    """Remove index rows for instances that are not in the allowed set.
+
+    Used at CF sync start: drops disabled, removed, or renamed instances.
+    If allowed_ids is empty, deletes all rows (nothing should remain indexed).
+    """
+    conn = get_connection()
+    if not allowed_ids:
+        cur = conn.execute("DELETE FROM cf_score_entries")
+        n = cur.rowcount
+        conn.commit()
+        if n:
+            logger.info("[CF Scores] Pruned all %d entries (no allowed instances)", n)
+        return n
+    placeholders = ",".join("?" * len(allowed_ids))
+    cur = conn.execute(
+        f"DELETE FROM cf_score_entries WHERE arr_instance_id NOT IN ({placeholders})",
+        tuple(allowed_ids),
+    )
+    conn.commit()
+    removed = cur.rowcount
+    if removed:
+        logger.info("[CF Scores] Pruned %d entries not in allowed instance set", removed)
+    return removed
+
+
 def delete_cf_scores_for_instance(arr_instance_id: str) -> int:
     """Remove all CF score entries for a given instance.
 
@@ -274,24 +306,36 @@ def get_cf_score_entries(
     return [dict(r) for r in rows]
 
 
-def get_cf_score_stats() -> Dict[str, int]:
+def get_cf_score_stats(allowed_instance_ids: Optional[Set[str]] = None) -> Dict[str, int]:
     """Return aggregate counts for the CF Score tab stat cards.
 
     Returns a dict with:
       total_indexed:  Total monitored items in the index
       below_cutoff:   Items where current_score < cutoff_score
       passing:        total_indexed - below_cutoff
+
+    When allowed_instance_ids is set, only rows with arr_instance_id in that set
+    are counted (v5.0.0 — excludes per-app / per-instance disabled instances).
     """
     conn = get_connection()
+    if allowed_instance_ids is not None and len(allowed_instance_ids) == 0:
+        return {"total_indexed": 0, "below_cutoff": 0, "passing": 0}
+    extra = ""
+    params: tuple = ()
+    if allowed_instance_ids is not None:
+        ph = ",".join("?" * len(allowed_instance_ids))
+        extra = f" AND arr_instance_id IN ({ph})"
+        params = tuple(allowed_instance_ids)
     row = conn.execute(
-        """
+        f"""
         SELECT
             COUNT(*) AS total_indexed,
             SUM(CASE WHEN current_score < cutoff_score THEN 1 ELSE 0 END)
                 AS below_cutoff
         FROM cf_score_entries
-        WHERE is_monitored = 1
-        """
+        WHERE is_monitored = 1{extra}
+        """,
+        params,
     ).fetchone()
     if not row:
         return {"total_indexed": 0, "below_cutoff": 0, "passing": 0}
@@ -304,7 +348,7 @@ def get_cf_score_stats() -> Dict[str, int]:
     }
 
 
-def get_cf_score_instance_stats() -> List[Dict[str, Any]]:
+def get_cf_score_instance_stats(allowed_instance_ids: Optional[Set[str]] = None) -> List[Dict[str, Any]]:
     """Return per-instance stats for the Sync Coverage rings in the UI.
 
     Each dict in the returned list corresponds to one distinct
@@ -313,10 +357,20 @@ def get_cf_score_instance_stats() -> List[Dict[str, Any]]:
       total_indexed:   Total monitored entries for this instance
       below_cutoff:    Entries below cutoff for this instance
       last_synced_at:  Most recent last_synced_at for this instance
+
+    When allowed_instance_ids is set, only those instance IDs are included.
     """
     conn = get_connection()
+    if allowed_instance_ids is not None and len(allowed_instance_ids) == 0:
+        return []
+    extra = ""
+    params: tuple = ()
+    if allowed_instance_ids is not None:
+        ph = ",".join("?" * len(allowed_instance_ids))
+        extra = f" AND arr_instance_id IN ({ph})"
+        params = tuple(allowed_instance_ids)
     rows = conn.execute(
-        """
+        f"""
         SELECT
             arr_instance_id,
             COUNT(*) AS total_indexed,
@@ -324,11 +378,28 @@ def get_cf_score_instance_stats() -> List[Dict[str, Any]]:
                 AS below_cutoff,
             MAX(last_synced_at) AS last_synced_at
         FROM cf_score_entries
-        WHERE is_monitored = 1
+        WHERE is_monitored = 1{extra}
         GROUP BY arr_instance_id
-        """
+        """,
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_cf_max_last_synced_at_for_instance(arr_instance_id: str) -> Optional[str]:
+    """Return MAX(last_synced_at) for an instance, or None if no rows."""
+    conn = get_connection()
+    row = conn.execute(
+        """
+        SELECT MAX(last_synced_at) AS m
+        FROM cf_score_entries
+        WHERE arr_instance_id = ?
+        """,
+        (arr_instance_id,),
+    ).fetchone()
+    if not row or not row["m"]:
+        return None
+    return str(row["m"])
 
 
 def get_cf_scores_for_sweep(
@@ -451,4 +522,16 @@ def clear_cf_score_index() -> int:
     conn.commit()
     removed = cur.rowcount
     logger.info("[CF Scores] Index cleared -- %d entries removed", removed)
+    try:
+        pr = delete_states_with_prefix(_CF_SYNC_STATE_PREFIX)
+        if pr:
+            logger.info("[CF Scores] Cleared %d per-instance sync progress key(s)", pr)
+        pr2 = delete_states_with_prefix(CF_LAST_INSTANCE_SYNC_PREFIX)
+        if pr2:
+            logger.info("[CF Scores] Cleared %d per-instance last-sync key(s)", pr2)
+        pr3 = delete_states_with_prefix(CF_SCAN_SNAPSHOT_PREFIX)
+        if pr3:
+            logger.info("[CF Scores] Cleared %d per-instance scan snapshot key(s)", pr3)
+    except Exception:
+        logger.exception("[CF Scores] Failed to clear sync progress state (non-fatal)")
     return removed

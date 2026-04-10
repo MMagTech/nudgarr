@@ -39,6 +39,7 @@ from nudgarr.arr_clients import (
     sonarr_search_episodes,
     _sonarr_get_series_meta,
 )
+from nudgarr.cf_effective import effective_cf_score_enabled
 from nudgarr.cf_score_syncer import _make_instance_id
 from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES
 from nudgarr.globals import STATUS
@@ -87,6 +88,7 @@ def _sweep_instance(
     missing_added_days: int = 0,
     missing_grace_hours: int = 0,
     backlog_sample_mode: str = "random",
+    cutoff_enabled: bool = True,
 ) -> Dict[str, Any]:
     """Run one Radarr or Sonarr instance through a full sweep cycle.
 
@@ -110,6 +112,10 @@ def _sweep_instance(
     missing_grace_hours delays the first missing search for an item until at
     least that many hours have elapsed since its release/availability date.
     Applies to both Radarr and Sonarr. 0 disables the filter.
+
+    cutoff_enabled gates the Cutoff Unmet pipeline for this instance — False
+    skips all cutoff fetches/searches (global + per-instance override, resolved
+    in run_sweep).
 
     Returns a summary dict consumed by run_sweep and ultimately /api/status.
     """
@@ -163,10 +169,6 @@ def _sweep_instance(
     skipped_unavailable: List[Any] = []
     searched = 0
     chosen_items: List[Dict[str, Any]] = []
-
-    cutoff_enabled = bool(cfg.get(
-        "radarr_cutoff_enabled" if app == "radarr" else "sonarr_cutoff_enabled", True
-    ))
 
     if cutoff_enabled:
         if app == "radarr":
@@ -459,7 +461,11 @@ def _sweep_instance(
         " (override)" if cf_sample_mode != global_cf_sample_mode else " (global)",
     )
 
-    if cfg.get("cf_score_enabled", False) and cf_max > 0:
+    if (
+        cfg.get("cf_score_enabled", False)
+        and cf_max > 0
+        and effective_cf_score_enabled(cfg, app, inst)
+    ):
         cf_instance_id = _make_instance_id(app, inst_url)
         cf_item_type = item_type  # 'movie' for Radarr, 'episode' for Sonarr
 
@@ -761,9 +767,6 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             if inst_sample_mode not in VALID_SAMPLE_MODES:
                 inst_sample_mode = global_mode
             inst_missing_max = _resolve(inst, cfg, overrides_enabled, "max_backlog", global_missing_max)
-            inst_backlog_enabled = _resolve(
-                inst, cfg, overrides_enabled, "backlog_enabled",
-                bool(cfg.get(f"{app}_backlog_enabled", False)))
             inst_notifications_enabled = _resolve(
                 inst, cfg, overrides_enabled, "notifications_enabled",
                 bool(cfg.get("notify_enabled", False)))
@@ -782,6 +785,22 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
             logger.debug("[%s:%s] backlog_sample_mode resolved: %s%s",
                          APP, name, inst_backlog_mode,
                          " (override)" if inst_backlog_mode != global_backlog_mode else " (global)")
+            global_bl = bool(cfg.get(f"{app}_backlog_enabled", False))
+            if not global_bl:
+                inst_backlog_enabled = False
+            else:
+                inst_backlog_enabled = _resolve(
+                    inst, cfg, overrides_enabled, "backlog_enabled", True
+                )
+            global_cutoff = bool(cfg.get(
+                "radarr_cutoff_enabled" if app == "radarr" else "sonarr_cutoff_enabled", True
+            ))
+            if not global_cutoff:
+                inst_cutoff_enabled = False
+            else:
+                inst_cutoff_enabled = _resolve(
+                    inst, cfg, overrides_enabled, "cutoff_enabled", True
+                )
             try:
                 inst_summary = _sweep_instance(
                     session, inst, cfg, excluded_titles,
@@ -793,6 +812,7 @@ def run_sweep(cfg: Dict[str, Any], session: requests.Session) -> Dict[str, Any]:
                     missing_added_days=inst_missing_days,
                     missing_grace_hours=inst_missing_grace,
                     backlog_sample_mode=inst_backlog_mode,
+                    cutoff_enabled=inst_cutoff_enabled,
                 )
                 summary[app].append(inst_summary)
                 lk = f"{app}|{state_key(name, url)}"

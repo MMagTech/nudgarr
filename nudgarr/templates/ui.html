@@ -135,24 +135,26 @@
       <!-- Normal content -->
       <template x-if="hasInstances">
         <div>
-          <div class="sweep-grid mb">
-            <div class="card">
-              <div class="stat-lbl" style="margin-bottom:10px">Sweep Health</div>
-              <div class="sh-banner" :class="sweepHealthState" style="margin-bottom:12px"><div class="sh-dot" :class="sweepHealthState"></div><span style="font-size:12.5px;font-weight:600" x-text="sweepHealthMsg"></span></div>
-              <div style="display:flex;gap:20px">
-                <div><div class="stat-lbl">Lifetime Runs</div><div style="font-size:18px;font-weight:800;margin-top:2px" x-text="lifetimeRuns.toLocaleString()"></div></div>
-                <div><div class="stat-lbl">Avg / Run</div><div style="font-size:18px;font-weight:800;margin-top:2px" x-text="lifetimeAvgPerRun"></div></div>
+          <div class="sweep-dash-pair mb">
+            <div class="card sweep-dash-card">
+              <div class="stat-lbl sweep-dash-hdr">Sweep Health</div>
+              <div class="sh-banner" :class="sweepHealthState"><div class="sh-dot" :class="sweepHealthState"></div><span style="font-size:12.5px;font-weight:600" x-text="sweepHealthMsg"></span></div>
+              <div class="import-split sweep-dash-kpis">
+                <div class="import-half n sweep-dash-kpi"><div class="import-val n" x-text="lifetimeRuns.toLocaleString()"></div><div class="import-lbl sweep-dash-kpi-lbl">Lifetime Sweeps</div></div>
+                <div class="import-half n sweep-dash-kpi"><div class="import-val n" x-text="lifetimeAvgPerRun"></div><div class="import-lbl sweep-dash-kpi-lbl">Avg Nudges Per Pass</div></div>
               </div>
             </div>
-            <div class="card">
-              <div class="stat-lbl" style="margin-bottom:10px">Imports Confirmed</div>
-              <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px">
-                <span style="font-size:32px;font-weight:800;line-height:1" x-text="(importsConfirmedSweep.movies||0)+(importsConfirmedSweep.shows||0)"></span>
-                <span class="help">this sweep</span>
+            <div class="card sweep-dash-card">
+              <div class="stat-lbl sweep-dash-hdr">Imports Confirmed</div>
+              <div class="sweep-dash-strip sweep-dash-strip-imports">
+                <div class="import-half n sweep-dash-total sweep-dash-kpi">
+                  <span class="import-val n sweep-total-num" x-text="(importsConfirmedSweep.movies||0)+(importsConfirmedSweep.shows||0)"></span>
+                  <div class="import-lbl sweep-dash-kpi-lbl">This Sweep</div>
+                </div>
               </div>
-              <div class="import-split">
-                <div class="import-half r"><div class="import-lbl r">Movies</div><div class="import-val r" x-text="importsConfirmedSweep.movies||0"></div></div>
-                <div class="import-half s"><div class="import-lbl s">Episodes</div><div class="import-val s" x-text="importsConfirmedSweep.shows||0"></div></div>
+              <div class="import-split sweep-dash-kpis">
+                <div class="import-half r sweep-dash-kpi"><div class="import-val r" x-text="importsConfirmedSweep.movies||0"></div><div class="import-lbl sweep-dash-kpi-lbl">Movies</div></div>
+                <div class="import-half s sweep-dash-kpi"><div class="import-val s" x-text="importsConfirmedSweep.shows||0"></div><div class="import-lbl sweep-dash-kpi-lbl">Episodes</div></div>
               </div>
             </div>
           </div>
@@ -514,7 +516,7 @@
         <div class="card">
           <div class="cold-card">
             <div style="font-size:44px;line-height:1">&#128225;</div>
-            <div><div class="card-title" style="font-size:18px;margin:0">Intel is Building&hellip;</div></div>
+            <div><div class="card-title" style="font-size:18px;margin:0">Intel Is Building&hellip;</div></div>
             <p class="help" style="max-width:440px;font-size:13px;color:var(--dim);line-height:1.6">Nudgarr needs a minimum amount of data before producing meaningful numbers.</p>
             <div style="display:flex;align-items:center;gap:24px">
               <div class="cold-counter">
@@ -522,7 +524,7 @@
                 <div class="cold-unit">Confirmed Imports</div>
                 <div class="help">Need 25</div>
               </div>
-              <span style="color:var(--muted);font-size:18px">or</span>
+              <span style="color:var(--muted);font-size:18px">Or</span>
               <div class="cold-counter">
                 <div class="cold-num" :class="{ has: intelData.total_runs >= 50 }" x-text="intelData.total_runs||0"></div>
                 <div class="cold-unit">Sweep Runs</div>
@@ -536,9 +538,9 @@
         <div>
           <!-- Import Summary -->
           <div class="card mb">
-            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Import Summary <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime import activity across all pipelines. Turnaround and Searches per Import survive Clear History and Clear Stats.</div></span></div>
+            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Import Summary <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime import activity across all pipelines. Avg Turnaround to Import and Searches per Import survive Clear History and Clear Stats.</div></span></div>
             <div class="intel-import-metrics">
-              <div class="intel-headline-cell"><div class="intel-headline-num ok" x-text="intelData.import_summary?.turnaround_avg_days?.toFixed(1) + 'd'"></div><div class="intel-headline-lbl">Avg Turnaround</div></div>
+              <div class="intel-headline-cell"><div class="intel-headline-num ok" x-text="formatTurnaroundDays(intelData.import_summary?.turnaround_avg_days, intelData.import_summary?.turnaround_count)"></div><div class="intel-headline-lbl">Avg Turnaround to Import</div></div>
               <div class="intel-headline-cell"><div class="intel-headline-num accent" x-text="intelData.import_summary?.searches_per_import_avg?.toFixed(1)"></div><div class="intel-headline-lbl">Searches Per Import</div></div>
               <div class="intel-headline-cell"><div class="intel-headline-num" x-text="intelData.import_summary?.quality_upgrades_count||0"></div><div class="intel-headline-lbl">Quality Upgrades</div></div>
             </div>
@@ -555,20 +557,20 @@
           <div class="card mb">
             <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Instance Performance <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime counts per instance since Nudgarr was first set up.</div></span></div>
             <div class="table-wrap">
-            <table class="intel-table"><thead><tr><th>Instance</th><th>Sweep Runs</th><th>Total Searched</th><th>Confirmed Imports</th><th>Avg Turnaround</th></tr></thead>
+            <table class="intel-table"><thead><tr><th>Instance</th><th>Sweep Runs</th><th>Total Searched</th><th>Confirmed Imports</th><th>Avg Turnaround to Import</th></tr></thead>
             <tbody>
               <template x-for="row in (intelData.instance_performance||[])" :key="row.instance_name">
-                <tr><td><strong x-text="row.instance_name"></strong></td><td><strong x-text="row.runs||0"></strong></td><td><strong x-text="(row.searched||0).toLocaleString()"></strong></td><td><strong style="color:var(--ok)" x-text="row.confirmed_imports||0"></strong></td><td><strong x-text="row.turnaround_avg_days ? row.turnaround_avg_days.toFixed(1)+'d' : '\u2014'"></strong></td></tr>
+                <tr><td><strong x-text="row.instance_name"></strong></td><td><strong x-text="row.runs||0"></strong></td><td><strong x-text="(row.searched||0).toLocaleString()"></strong></td><td><strong style="color:var(--ok)" x-text="row.confirmed_imports||0"></strong></td><td><strong x-text="formatTurnaroundDays(row.turnaround_avg_days, row.turnaround_count)"></strong></td></tr>
               </template>
             </tbody></table>
             </div>
           </div>
           <!-- Upgrade History -->
           <div class="card mb">
-            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Upgrade History <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Acquired is any title Nudgarr confirmed imported for the first time. Acquired then Upgraded is any title first grabbed via Backlog and later upgraded.</div></span></div>
+            <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Upgrade History <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Acquired is any title Nudgarr confirmed imported for the first time. Acquired Then Upgraded is any title first grabbed via Backlog and later upgraded.</div></span></div>
             <div class="intel-qi-split">
               <div class="intel-qi-cell"><div class="intel-qi-num" x-text="intelData.upgrade_history?.imported_once||0"></div><div class="intel-qi-label">Acquired</div></div>
-              <div class="intel-qi-cell"><div class="intel-qi-num ac" x-text="intelData.upgrade_history?.upgraded||0"></div><div class="intel-qi-label">Acquired then Upgraded</div></div>
+              <div class="intel-qi-cell"><div class="intel-qi-num ac" x-text="intelData.upgrade_history?.upgraded||0"></div><div class="intel-qi-label">Acquired Then Upgraded</div></div>
             </div>
             <template x-for="path in intelUpgradePaths()" :key="path.from+path.to">
               <div class="intel-upgrade-path">
@@ -583,22 +585,22 @@
           <!-- CF Score Health + Exclusion Intel -->
           <div class="cols2">
             <div class="card" x-show="cfScoreEnabled">
-              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">CF Score Health <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Live stats from the CF index and last Scan Library run. <strong>Total scanned</strong> adds up each enabled instance&rsquo;s scan size (Radarr: movie files; Sonarr: series). <strong>Below CF Score</strong> is how many rows are in the index with the score still below the profile cutoff (after min-score and filter rules). <strong>%</strong> is below divided by total scanned. Not affected by resetting intel aggregates.</div></span></div>
+              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">CF Score Health <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Live stats from the CF index and last Scan Library run. <strong>Total Scanned</strong> adds up each enabled instance&rsquo;s scan size (Radarr: movie files; Sonarr: series). <strong>Below CF Score</strong> is how many rows are in the index with the score still below the profile cutoff (after min-score and filter rules). <strong>%</strong> is below divided by total scanned. Not affected by resetting Intel aggregates.</div></span></div>
               <div class="intel-metric-grid cols3">
-                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.cf_score_health?.total_indexed||0"></div><div class="help">Total scanned</div></div>
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.cf_score_health?.total_indexed||0"></div><div class="help">Total Scanned</div></div>
                 <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.cf_score_health?.below_cutoff||0"></div><div class="help">Below CF Score</div></div>
-                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--muted);margin-bottom:3px" x-text="(intelData.cf_score_health?.below_pct||0) + '%'"></div><div class="help">of scanned</div></div>
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--muted);margin-bottom:3px" x-text="(intelData.cf_score_health?.below_pct||0) + '%'"></div><div class="help">Of Scanned</div></div>
               </div>
-              <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)"><span class="help">Last synced</span><span style="font-size:11.5px;color:var(--dim)" x-text="intelData.cf_score_health?.last_synced_at ? _fmtTime(intelData.cf_score_health.last_synced_at) : 'Never'"></span></div>
+              <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)"><span class="help">Last Synced</span><span style="font-size:11.5px;color:var(--dim)" x-text="intelData.cf_score_health?.last_synced_at ? _fmtTime(intelData.cf_score_health.last_synced_at) : 'Never'"></span></div>
             </div>
             <div class="card">
-              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Exclusion Intel <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime summary of exclusion activity. Cleared when you reset intel aggregates.</div></span></div>
+              <div class="card-title" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">Exclusion Intel <span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Lifetime summary of exclusion activity. Cleared when you reset Intel aggregates.</div></span></div>
               <div class="intel-metric-grid cols2">
                 <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;margin-bottom:3px" x-text="intelData.exclusion_intel?.total||0"></div><div class="help">Total</div></div>
-                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.exclusion_intel?.auto_exclusions_this_month||0"></div><div class="help">Auto this month</div></div>
+                <div class="intel-metric-cell"><div style="font-size:22px;font-weight:800;color:var(--warn);margin-bottom:3px" x-text="intelData.exclusion_intel?.auto_exclusions_this_month||0"></div><div class="help">Auto This Month</div></div>
               </div>
-              <div class="intel-stat-row"><span class="intel-stat-label">Cycled through exclusions</span><span class="intel-stat-val" x-text="intelData.exclusion_intel?.titles_cycled||0"></span></div>
-              <div class="intel-stat-row"><span class="intel-stat-label">Unexcluded and later imported</span><span class="intel-stat-val ok" x-text="intelData.exclusion_intel?.unexcluded_later_imported||0"></span></div>
+              <div class="intel-stat-row"><span class="intel-stat-label">Cycled Through Exclusions</span><span class="intel-stat-val" x-text="intelData.exclusion_intel?.titles_cycled||0"></span></div>
+              <div class="intel-stat-row"><span class="intel-stat-label">Unexcluded and Later Imported</span><span class="intel-stat-val ok" x-text="intelData.exclusion_intel?.unexcluded_later_imported||0"></span></div>
             </div>
           </div>
           <div class="card" style="margin-top:14px;display:flex;justify-content:flex-end">
@@ -607,7 +609,7 @@
         </div>
       </template>
       <template x-if="!intelData">
-        <div class="card"><div class="help" style="text-align:center;padding:20px">Loading intel data&hellip;</div></div>
+        <div class="card"><div class="help" style="text-align:center;padding:20px">Loading Intel Data&hellip;</div></div>
       </template>
     </div>
 
@@ -651,7 +653,7 @@
           <p class="help" x-show="sonarrInstances.length === 0" style="margin:8px 0 0">No instances yet. Click + Add.</p>
         </div>
       </div>
-      <div class="save-bar"><button class="btn pri" @click="saveInstances()">Save Changes</button><button class="btn ac" @click="testConnections()">Test Connections</button><span :class="instMsgClass" x-text="instMsg"></span></div>
+      <div class="save-bar"><button class="btn pri" @click="saveInstances()">Save Changes</button><button class="btn ac" @click="testConnections()">Test Connections</button><span :class="instMsgClass"><template x-if="instMsgParts"><span><span x-text="instMsgParts.before"></span><span class="msg-fail-hl" x-text="instMsgParts.fail"></span><span x-text="instMsgParts.after"></span></span></template><template x-if="!instMsgParts"><span x-text="instMsg"></span></template></span></div>
     </div>
 
     <!-- PIPELINES PANEL -->

@@ -107,6 +107,7 @@ def _build_intel_payload():
 
     import_summary = {
         "turnaround_avg_days": turnaround_avg,
+        "turnaround_count": agg["turnaround_count"],
         "searches_per_import_avg": searches_per_import_avg,
         "quality_upgrades_count": agg["quality_upgrades_count"],
         "total_imports": total_imports,
@@ -162,6 +163,7 @@ def _build_intel_payload():
             "searched": sh_count,
             "confirmed_imports": confirmed,
             "turnaround_avg_days": inst_turnaround,
+            "turnaround_count": inst_ta["count"] or 0,
             "enabled": url_to_enabled.get(inst_url, True),
         })
 

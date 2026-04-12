@@ -130,9 +130,11 @@ function nudgarr() {
     cfSearch: '',
     cfInstanceFilter: '',
     cfStatusData: null,
+    cfSort: { col: 'gap', dir: 'desc' },
 
     // Exclusions view
     exclusionItems: [],
+    exclSort: { col: 'excluded_at', dir: 'desc' },
     exclSearch: '',
     exclInstance: '',
     exclType: '',
@@ -856,7 +858,10 @@ function nudgarr() {
 
     sortImports(col) {
       if (this.importsSort.col === col) this.importsSort.dir = this.importsSort.dir === 'asc' ? 'desc' : 'asc';
-      else { this.importsSort.col = col; this.importsSort.dir = 'asc'; }
+      else {
+        this.importsSort.col = col;
+        this.importsSort.dir = col === 'turnaround_days' ? 'desc' : 'asc';
+      }
       this.importsPage = 0;
       this.refreshImports();
     },
@@ -884,11 +889,22 @@ function nudgarr() {
         let url = '/api/cf-scores/entries?offset=' + (this.cfPage * this.cfPageSize) + '&limit=' + this.cfPageSize;
         if (this.cfInstanceFilter) url += '&instance_id=' + encodeURIComponent(this.cfInstanceFilter);
         if (this.cfSearch) url += '&search=' + encodeURIComponent(this.cfSearch);
+        url += '&sort=' + encodeURIComponent(this.cfSort.col) + '&dir=' + encodeURIComponent(this.cfSort.dir);
         const data = await this._api(url);
         this.cfEntries = data.entries || [];
         this.cfTotal = data.total || 0;
         this.cfStatusData = await this._api('/api/cf-scores/status');
       } catch (e) { console.warn('[cfscores]', e.message); }
+    },
+
+    sortCfScores(col) {
+      if (this.cfSort.col === col) this.cfSort.dir = this.cfSort.dir === 'asc' ? 'desc' : 'asc';
+      else {
+        this.cfSort.col = col;
+        this.cfSort.dir = col === 'title' ? 'asc' : 'desc';
+      }
+      this.cfPage = 0;
+      this.refreshCfScores();
     },
 
     prevCfPage() { if (this.cfPage > 0) this.refreshCfScores(this.cfPage - 1); },
@@ -919,9 +935,20 @@ function nudgarr() {
       if (this.exclInstance) items = items.filter(e => (e.instance_name || e.instance || '') === this.exclInstance);
       if (this.exclType) items = items.filter(e => this.exclType === 'auto' ? e.source === 'auto' : e.source !== 'auto');
       if (this.exclSearch) { const q = this.exclSearch.toLowerCase(); items = items.filter(e => (e.title || '').toLowerCase().includes(q)); }
+      items = this._sortItems(items, this.exclSort.col, this.exclSort.dir);
       this.exclTotal = items.length;
       const start = this.exclPage * this.exclPageSize;
       this.exclusionItems = items.slice(start, start + this.exclPageSize);
+    },
+
+    sortExclusions(col) {
+      if (this.exclSort.col === col) this.exclSort.dir = this.exclSort.dir === 'asc' ? 'desc' : 'asc';
+      else {
+        this.exclSort.col = col;
+        this.exclSort.dir = col === 'title' ? 'asc' : 'desc';
+      }
+      this.exclPage = 0;
+      this.refreshExclusions();
     },
 
     prevExclPage() { if (this.exclPage > 0) this.refreshExclusions(this.exclPage - 1); },
@@ -929,8 +956,7 @@ function nudgarr() {
 
     async unexcludeItem(title) {
       await this._api('/api/exclusions/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
-      await this.loadExclusions();
-      this.exclusionItems = this.exclusionsData;
+      await this.refreshExclusions(this.exclPage);
     },
 
     // ── Intel ─────────────────────────────────────────────────────────────
@@ -1747,6 +1773,18 @@ function nudgarr() {
 
     _sortItems(items, col, dir) {
       return [...items].sort((a, b) => {
+        if (col === 'turnaround_days') {
+          const na = a.turnaround_days;
+          const nb = b.turnaround_days;
+          const hasA = na != null && na !== '';
+          const hasB = nb != null && nb !== '';
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          const fa = Number(na);
+          const fb = Number(nb);
+          return dir === 'asc' ? fa - fb : fb - fa;
+        }
         let av = a[col], bv = b[col];
         if (av == null) av = ''; if (bv == null) bv = '';
         if (typeof av === 'number' && typeof bv === 'number') return dir === 'asc' ? av - bv : bv - av;

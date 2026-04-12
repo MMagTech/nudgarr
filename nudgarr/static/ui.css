@@ -99,6 +99,8 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .btn.ac:hover{background:rgba(91,114,245,.18);border-color:var(--ac-bdr);color:#cdd8ff;}
 .btn.dng{background:var(--bad-dim);border-color:var(--bad-bdr);color:#fca5a5;}
 .btn.dng:hover{background:rgba(239,68,68,.18);}
+.btn.ok{background:var(--ok-dim);border-color:rgba(34,197,94,.32);color:#4ade80;}
+.btn.ok:hover{background:rgba(34,197,94,.16);border-color:rgba(34,197,94,.45);color:#86efac;}
 .btn.sm{padding:4px 10px;font-size:12px;border-radius:7px;}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted);}
 .btn.ghost:hover{color:var(--dim);border-color:var(--border);}

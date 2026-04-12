@@ -129,8 +129,11 @@ def api_cf_scores_entries():
       app         -- filter by 'radarr' or 'sonarr' (optional; omit for all)
       limit       -- max rows to return (optional; 0 or omit for all rows)
       offset      -- row offset for pagination (default 0)
+      search      -- case-insensitive substring on title (optional)
+      sort        -- title | current_score | cutoff_score | gap (default gap)
+      dir         -- asc | desc (default desc for gap)
 
-    Results are ordered worst gap first (largest gap = furthest below cutoff).
+    Total count matches filters (for pagination); ordering follows sort/dir.
     """
     try:
         cfg = load_or_init_config()
@@ -141,6 +144,12 @@ def api_cf_scores_entries():
             offset = max(int(request.args.get("offset", 0)), 0)
         except (ValueError, TypeError):
             limit, offset = 0, 0
+
+        search = request.args.get("search", "").strip()
+        sort_col = request.args.get("sort", "gap").strip().lower()
+        sort_dir = request.args.get("dir", "desc").strip().lower()
+        if sort_dir not in ("asc", "desc"):
+            sort_dir = "desc"
 
         # instance_id filter takes priority over app filter
         if instance_id_filter:
@@ -153,11 +162,19 @@ def api_cf_scores_entries():
                 item_type = "movie"
             elif app_filter == "sonarr":
                 item_type = "episode"
+        total = db.count_cf_score_entries(
+            arr_instance_id=arr_instance_id,
+            item_type=item_type,
+            search=search or None,
+        )
         entries = db.get_cf_score_entries(
             arr_instance_id=arr_instance_id,
             item_type=item_type,
             limit=limit,
             offset=offset,
+            search=search or None,
+            sort_col=sort_col,
+            sort_dir=sort_dir,
         )
 
         # Enrich entries with human-readable instance name
@@ -185,7 +202,7 @@ def api_cf_scores_entries():
             sid = entry.get("series_id")
             entry["series_id"] = str(sid) if sid not in (None, "", 0) else ""
 
-        return jsonify({"entries": entries, "total": len(entries)})
+        return jsonify({"entries": entries, "total": total})
     except Exception:
         logger.exception("[CF Scores] GET /api/cf-scores/entries failed")
         return jsonify({"error": "Entries unavailable -- check logs for details."}), 500

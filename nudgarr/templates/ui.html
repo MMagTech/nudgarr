@@ -369,7 +369,7 @@
               <th style="text-align:center">Passes</th>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='first_searched_ts'&&importsSort.dir==='asc','sort-desc':importsSort.col==='first_searched_ts'&&importsSort.dir==='desc'}" @click="sortImports('first_searched_ts')">Last Searched</th>
               <th class="sortable" :class="{'sort-asc':importsSort.col==='imported_ts'&&importsSort.dir==='asc','sort-desc':importsSort.col==='imported_ts'&&importsSort.dir==='desc'}" @click="sortImports('imported_ts')">Imported</th>
-              <th>Turnaround</th>
+              <th class="sortable" :class="{'sort-asc':importsSort.col==='turnaround_days'&&importsSort.dir==='asc','sort-desc':importsSort.col==='turnaround_days'&&importsSort.dir==='desc'}" @click="sortImports('turnaround_days')">Turnaround</th>
             </tr></thead>
             <tbody>
               <template x-if="importsItems.length === 0">
@@ -431,7 +431,7 @@
           </div>
           <div class="table-wrap">
           <table>
-            <thead><tr><th class="sortable">Title</th><th>Instance</th><th class="sortable">Score</th><th>Cutoff</th><th class="sortable">Gap</th></tr></thead>
+            <thead><tr><th class="sortable" :class="{'sort-asc':cfSort.col==='title'&&cfSort.dir==='asc','sort-desc':cfSort.col==='title'&&cfSort.dir==='desc'}" @click="sortCfScores('title')">Title</th><th>Instance</th><th class="sortable" :class="{'sort-asc':cfSort.col==='current_score'&&cfSort.dir==='asc','sort-desc':cfSort.col==='current_score'&&cfSort.dir==='desc'}" @click="sortCfScores('current_score')">Score</th><th class="sortable" :class="{'sort-asc':cfSort.col==='cutoff_score'&&cfSort.dir==='asc','sort-desc':cfSort.col==='cutoff_score'&&cfSort.dir==='desc'}" @click="sortCfScores('cutoff_score')">Cutoff</th><th class="sortable" :class="{'sort-asc':cfSort.col==='gap'&&cfSort.dir==='asc','sort-desc':cfSort.col==='gap'&&cfSort.dir==='desc'}" @click="sortCfScores('gap')">Gap</th></tr></thead>
             <tbody>
               <template x-if="cfEntries.length === 0">
                 <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;font-size:12px">No CF Score entries. Run a library scan first.</td></tr>
@@ -482,7 +482,7 @@
           </div>
           <div class="table-wrap">
           <table>
-            <thead><tr><th>Title</th><th>Type</th><th>Searches</th><th>Instance</th><th>Excluded</th><th></th></tr></thead>
+            <thead><tr><th class="sortable" :class="{'sort-asc':exclSort.col==='title'&&exclSort.dir==='asc','sort-desc':exclSort.col==='title'&&exclSort.dir==='desc'}" @click="sortExclusions('title')">Title</th><th>Type</th><th class="sortable" :class="{'sort-asc':exclSort.col==='search_count'&&exclSort.dir==='asc','sort-desc':exclSort.col==='search_count'&&exclSort.dir==='desc'}" @click="sortExclusions('search_count')">Searches</th><th>Instance</th><th class="sortable" :class="{'sort-asc':exclSort.col==='excluded_at'&&exclSort.dir==='asc','sort-desc':exclSort.col==='excluded_at'&&exclSort.dir==='desc'}" @click="sortExclusions('excluded_at')">Excluded</th><th></th></tr></thead>
             <tbody>
               <template x-if="exclusionItems.length === 0">
                 <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-size:12px">No exclusions.</td></tr>
@@ -494,7 +494,7 @@
                   <td class="mono" x-text="e.search_count||0"></td>
                   <td class="td-dim" x-text="e.instance_name||e.instance||''"></td>
                   <td class="mono td-muted" style="font-size:12px" x-text="_fmtTime(e.excluded_at)"></td>
-                  <td><button class="btn sm" @click="unexcludeItem(e.title)">Unexclude</button></td>
+                  <td><button type="button" class="btn sm ok" @click="unexcludeItem(e.title)">Unexclude</button></td>
                 </tr>
               </template>
             </tbody>

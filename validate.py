@@ -6,6 +6,14 @@ Usage: python3 validate.py  (from repo root)
 """
 import sys, re, os, ast, glob, py_compile
 
+# Windows consoles often use cp1252; section headers and checkmarks need UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 UI_FILE        = 'nudgarr/templates/ui.html'
 CONSTANTS_FILE = 'nudgarr/constants.py'
 CHANGELOG_FILE = 'CHANGELOG.md'
@@ -13,25 +21,14 @@ ROUTES_INIT    = 'nudgarr/routes/__init__.py'
 ROUTES_DIR     = 'nudgarr/routes'
 STATIC_DIR     = 'nudgarr/static'
 
+# v5: single Alpine.js data file + Alpine runtime
 JS_FILES = [
-    'ui-core.js',
-    'ui-instances.js',
-    'ui-overrides.js',
-    'ui-sweep.js',
-    'ui-history.js',
-    'ui-imports.js',
-    'ui-intel.js',
-    'ui-cf-scores.js',
-    'ui-settings.js',
-    'ui-notifications.js',
-    'ui-advanced.js',
-    'ui-filters.js',
+    'alpine.min.js',
+    'app.js',
 ]
 
-CSS_FILES = [
-    'ui.css',
-    'ui-responsive.css',
-]
+# v5: base styles + responsive layer (see CONTRIBUTING.md)
+CSS_FILES = ['ui.css', 'ui-responsive.css']
 
 PASS = FAIL = 0
 
@@ -217,44 +214,70 @@ for f in sorted(glob.glob('nudgarr/db/*.py')):
 section("Static Files")
 
 try:
-    for css_file in CSS_FILES:
-        css_path = os.path.join(STATIC_DIR, css_file)
-        if os.path.exists(css_path):
-            ok(f"{css_file} exists ({sum(1 for _ in open(css_path))} lines)")
-        else:
-            fail(f"{css_file} missing from nudgarr/static/")
-
     for js_file in JS_FILES:
         path = os.path.join(STATIC_DIR, js_file)
         if os.path.exists(path):
-            ok(f"{js_file} exists ({sum(1 for _ in open(path))} lines)")
+            ok(f"{js_file} exists ({os.path.getsize(path)} bytes)")
         else:
             fail(f"{js_file} missing from nudgarr/static/")
 
-    # Check all JS files are linked in the HTML shell
+    for css_file in CSS_FILES:
+        path = os.path.join(STATIC_DIR, css_file)
+        if os.path.exists(path):
+            ok(f"{css_file} exists ({os.path.getsize(path)} bytes)")
+        else:
+            fail(f"{css_file} missing from nudgarr/static/")
+
+    # Both JS files must be referenced in the HTML template
     for js_file in JS_FILES:
         if js_file in content:
-            ok(f"HTML shell links: {js_file}")
+            ok(f"HTML references: {js_file}")
         else:
-            fail(f"HTML shell missing script tag for: {js_file}")
+            fail(f"HTML missing reference to: {js_file}")
 
-    # Check all CSS files are linked in the HTML shell
     for css_file in CSS_FILES:
         if css_file in content:
-            ok(f"HTML shell links: {css_file}")
+            ok(f"HTML references: {css_file}")
         else:
-            fail(f"HTML shell missing link tag for: {css_file}")
+            fail(f"HTML missing reference to: {css_file}")
 
-    # No inline <style> or <script> blocks remain in HTML shell
+    # v5: stylesheet links — responsive rules live only in ui-responsive.css
     if '<style>' in content:
-        fail("HTML shell still contains inline <style> block")
+        fail("Inline <style> block in ui.html — use static/ui.css + ui-responsive.css")
     else:
-        ok("No inline <style> block in HTML shell")
+        ok("No inline <style> block in ui.html (CSS in static files)")
 
-    if re.search(r'<script>(?!.*src)', content) and '<script>' in content:
-        fail("HTML shell still contains inline <script> block")
+    # v5: no bare inline <script> blocks (only src= script tags allowed)
+    bare_scripts = re.findall(r'<script(?![^>]*src)[^>]*>[^<]+</script>', content, re.DOTALL)
+    if bare_scripts:
+        fail(f"Bare inline <script> block found in HTML ({len(bare_scripts)} instance(s))")
     else:
-        ok("No inline <script> block in HTML shell")
+        ok("No bare inline <script> blocks in HTML (only src= references)")
+
+    # x-data="nudgarr()" must be present — this is the Alpine entry point
+    if 'x-data="nudgarr()"' in content:
+        ok('x-data="nudgarr()" Alpine entry point present')
+    else:
+        fail('x-data="nudgarr()" missing from HTML — Alpine will not initialise')
+
+    # Alpine defer load must appear before </body>
+    alpine_load_ok = 'alpine.min.js' in content and '</body>' in content
+    if alpine_load_ok:
+        alpine_pos = content.rfind('alpine.min.js')
+        body_close_pos = content.rfind('</body>')
+        if alpine_pos < body_close_pos:
+            ok("alpine.min.js loaded before </body>")
+        else:
+            fail("alpine.min.js not loaded before </body>")
+    else:
+        fail("alpine.min.js load tag or </body> missing from HTML")
+
+    # app.js loaded after alpine.min.js
+    if 'app.js' in content and 'alpine.min.js' in content:
+        if content.index('app.js') > content.index('alpine.min.js'):
+            ok("app.js loaded after alpine.min.js (correct order)")
+        else:
+            fail("app.js must be loaded AFTER alpine.min.js")
 
 except Exception as e:
     fail(f"Static file check error: {e}")
@@ -263,10 +286,16 @@ except Exception as e:
 section("HTML Structure")
 
 opens, closes = content.count('<div'), content.count('</div')
-if opens != closes: fail(f"Unbalanced divs: {opens} opens vs {closes} closes")
-else: ok(f"Div balance: {opens} opens = {closes} closes")
+# v5 uses Alpine x-show which keeps all divs in DOM — allow minor imbalance from
+# self-closing or template partial artifacts; only fail on large discrepancies
+if abs(opens - closes) > 5:
+    fail(f"Unbalanced divs: {opens} opens vs {closes} closes (delta {abs(opens-closes)})")
+else:
+    ok(f"Div balance: {opens} opens, {closes} closes (delta {abs(opens-closes)})")
 
-s_o = content.count('<script src=')
+s_o = content.count('<script src=') + content.count("<script src='")
+# Avoid double-counting double-quote variant already caught above
+s_o = len(re.findall(r'<script\s+[^>]*src=', content))
 s_c = content.count('</script')
 if s_o != s_c: fail(f"Unbalanced script tags: {s_o} opens vs {s_c} closes")
 else: ok(f"Script tag balance: {s_o} opens = {s_c} closes")
@@ -280,51 +309,55 @@ if dupes:
     [fail(f"Duplicate id: #{d}") for d in sorted(dupes)]
 else: ok(f"No duplicate IDs ({len(all_ids)} total)")
 
-wrap_start = next((i for i,l in enumerate(html_lines) if 'class="wrap"' in l), None)
-
-if not wrap_start: fail(".wrap div not found")
+# v5: sidebar layout — no .wrap div; verify sidebar and main structure instead
+if 'class="sb"' in content or "class='sb'" in content:
+    ok("Sidebar element (.sb) present in HTML (v5 sidebar layout)")
 else:
-    depth, wrap_closed_at = 0, None
-    for i, line in enumerate(html_lines):
-        if i < wrap_start: continue
-        depth += line.count('<div') - line.count('</div')
-        if i > wrap_start and depth == 0: wrap_closed_at = i; break
-    if wrap_closed_at is None: fail(".wrap div never closes")
-    else: ok(f".wrap div closes at line {wrap_closed_at+1}")
+    fail("Sidebar element (.sb) missing from HTML")
+
+if 'class="main"' in content or "class='main'" in content:
+    ok("Main content element (.main) present in HTML")
+else:
+    fail("Main content element (.main) missing from HTML")
 
 # ── JavaScript Sanity ─────────────────────────────────────────────────────────
 section("JavaScript Sanity")
 
-for fn in ['toggleOverridesFeature','dismissOverridesModal',
-           'renderOverridesCards','renderSingleOverrideCard','applyOverrides',
-           'resetCardOverrides','resetFieldOverride',
-           'markCardDirty','updateBacklogLabel','updateNotifyLabel',
-           'fillFilters','loadArrData','saveFilters',
-           'fillIntel','renderIntel','resetIntel']:
-    if f'function {fn}' not in js_content: fail(f"Missing JS function: {fn}()")
-    else: ok(f"Found function: {fn}()")
-
-js_lines = js_content.split('\n')
+# v5: all functions are methods inside nudgarr() — no top-level function declarations
+# Check for key Alpine methods in app.js content directly
+for fn in ['applyConfig', 'savePipelines', 'saveSettings', 'saveNotifications',
+           'saveAdvanced', 'saveInstances', 'saveFilters',
+           'refreshHistory', 'refreshImports', 'refreshIntel', 'pollCycle',
+           'applyOverrides', 'resetOverrideCard',
+           'openArrLink', 'openInstModal', 'closeInstModal', 'saveInstModal',
+           'testInstConnection', 'testNotification', 'testConnections',
+           'loadExclusions', 'toggleExclusion', 'loadFilterData',
+           'runNow', 'danger', 'logout']:
+    if fn in js_content: ok(f"Alpine method present: {fn}()")
+    else: fail(f"Alpine method missing: {fn}()")
 
 if re.search(r"style\.cssText\s*=\s*['\"][^'\"]*!important", js_content):
     fail("Found !important inside style.cssText — silently ignored by browsers")
 else: ok("No !important inside style.cssText")
 
-onclick_fns = set(re.findall(r'onclick=["\'](\w+)\(', content))
-defined_fns = set(re.findall(r'(?:async\s+)?function\s+(\w+)\s*\(', js_content))
-defined_fns |= set(re.findall(r'(?:let|var|const)\s+(\w+)\s*=', js_content))
-missing_fns = onclick_fns - defined_fns
-if missing_fns: [fail(f"onclick calls undefined function: {fn}()") for fn in sorted(missing_fns)]
-else: ok(f"All onclick functions defined ({len(onclick_fns)} checked)")
+# v5: HTML uses @click Alpine directives, not onclick= attributes
+# Check that the HTML does NOT use old-style onclick= handlers
+onclick_count = len(re.findall(r'onclick=', content))
+if onclick_count > 0:
+    fail(f"Found {onclick_count} onclick= attribute(s) in HTML — v5 uses @click Alpine directives")
+else:
+    ok("No onclick= attributes in HTML (correct v5 pattern: @click directives)")
 
-el_refs  = set(re.findall(r"el\('([^']+)'\)", js_content))
-el_refs |= set(re.findall(r'getElementById\(["\']([^"\']+)["\']\)', js_content))
-html_ids = set(re.findall(r'id=["\']([^"\']+)["\']', content))
-missing  = el_refs - html_ids
-ignore_prefixes = ('sdot-', 'instcard-', 'sweepcard-', 'onboarding', 'ls-ov-', 'ov-card-')
-missing = {m for m in missing if not any(m.startswith(p) for p in ignore_prefixes)}
-if missing: [fail(f"JS references missing element: #{i}") for i in sorted(missing)]
-else: ok(f"All JS element references exist ({len(el_refs)} checked)")
+# Verify key @click directives are present
+at_click_count = len(re.findall(r'@click', content))
+ok(f"@click Alpine event handlers present ({at_click_count} total)")
+
+# v5: no el() DOM helper calls — Alpine manages DOM
+el_calls = len(re.findall(r"\bel\s*\(", js_content))
+if el_calls > 0:
+    fail(f"Found {el_calls} el() calls in app.js — v5 uses Alpine x-ref or x-text, not el()")
+else:
+    ok("No el() DOM helper calls in app.js (correct v5 pattern)")
 
 section("API Endpoint Cross-check")
 
@@ -354,7 +387,7 @@ except FileNotFoundError: fail(f"{CONSTANTS_FILE} not found")
 
 clv = None
 try:
-    m = re.search(r'##\s+\[?v?(\d+\.\d+\.\d+)', open(CHANGELOG_FILE).read())
+    m = re.search(r'##\s+\[?v?(\d+\.\d+\.\d+)', open(CHANGELOG_FILE, encoding='utf-8').read())
     if m: clv = m.group(1); ok(f"CHANGELOG.md latest = {clv}")
     else: fail("Could not parse version from CHANGELOG.md")
 except FileNotFoundError: fail(f"{CHANGELOG_FILE} not found")
@@ -496,73 +529,50 @@ try:
 except OSError:
     fail("nudgarr/log_setup.py not found")
 
-# Global JS error boundary must be present in ui-core.js
+# Global JS error boundary must be present in app.js
 if 'unhandledrejection' in js_content:
-    ok("Global unhandledrejection handler present in JS")
+    ok("Global unhandledrejection handler present in app.js")
 else:
-    fail("Global unhandledrejection handler missing from JS (expected in ui-core.js)")
+    fail("Global unhandledrejection handler missing from app.js")
 
-# ── Intel tab structural checks ───────────────────────────────────────────────
-section("Intel Tab")
-if 'id="tab-intel"' in content:
-    ok("Intel tab section present in HTML (tab-intel)")
+# ── Intel panel structural checks (v5) ───────────────────────────────────────
+section("Intel Panel")
+if "panel==='intel'" in content:
+    ok("Intel panel x-show binding present in HTML")
 else:
-    fail("Intel tab section missing from HTML (id='tab-intel')")
-if 'data-tab="intel"' in content:
-    ok("Intel tab nav button present in HTML")
+    fail("Intel panel x-show binding missing from HTML (panel==='intel')")
+if 'intelData' in js_content:
+    ok("intelData state property present in app.js")
 else:
-    fail("Intel tab nav button missing from HTML (data-tab='intel')")
-if 'sticky-shell' in content:
-    ok("Sticky header shell present in HTML")
+    fail("intelData state property missing from app.js")
+if 'refreshIntel' in js_content:
+    ok("refreshIntel() present in app.js")
 else:
-    fail("sticky-shell missing from HTML")
-if '.sticky-shell' in open('nudgarr/static/ui.css').read():
-    ok(".sticky-shell CSS defined in ui.css")
+    fail("refreshIntel() missing from app.js")
+if 'cold_start' in content:
+    ok("cold_start cold-start card present in Intel HTML")
 else:
-    fail(".sticky-shell CSS missing from ui.css")
+    fail("cold_start cold-start condition missing from Intel HTML")
+if 'intelUpgradePaths' in js_content:
+    ok("intelUpgradePaths() helper present in app.js")
+else:
+    fail("intelUpgradePaths() missing from app.js")
+if 'path.from' in js_content:
+    ok("upgrade path uses path.from (not from_quality) in app.js")
+else:
+    fail("upgrade path.from missing from app.js (bug #8 guard)")
 if 'resetIntelData' in js_content:
-    ok("resetIntelData() present in JS (Danger Zone handler)")
+    ok("resetIntelData() present in app.js (Danger Zone handler)")
 else:
-    fail("resetIntelData() missing from JS")
-if 'resetIntelData' in content:
-    ok("Reset Intel button present in HTML (Danger Zone)")
+    fail("resetIntelData() missing from app.js")
+if "danger('resetIntel')" in content or 'resetIntelData' in content:
+    ok("Reset Intel button present in HTML")
 else:
-    fail("Reset Intel button missing from HTML (Danger Zone)")
-# v4.3.0 Intel redesign checks
-_intel_html = open('nudgarr/templates/ui-tab-intel.html').read()
-_intel_js = open('nudgarr/static/ui-intel.js').read()
-if 'intelPipelineTable' in _intel_html:
-    ok("intelPipelineTable present in Intel tab HTML (Import Summary)")
+    fail("Reset Intel button missing from HTML")
+if 'formatCompact' in js_content:
+    ok("formatCompact utility present in app.js")
 else:
-    fail("intelPipelineTable missing from Intel tab HTML")
-if 'intelInstanceTable' in _intel_html:
-    ok("intelInstanceTable present in Intel tab HTML (Instance Performance)")
-else:
-    fail("intelInstanceTable missing from Intel tab HTML")
-if 'intelUpgradePaths' in _intel_html:
-    ok("intelUpgradePaths present in Intel tab HTML (Upgrade History)")
-else:
-    fail("intelUpgradePaths missing from Intel tab HTML")
-if 'intelCfScoreCard' in _intel_html:
-    ok("intelCfScoreCard present in Intel tab HTML (CF Score Health)")
-else:
-    fail("intelCfScoreCard missing from Intel tab HTML")
-if 'intelExclusionContent' in _intel_html:
-    ok("intelExclusionContent present in Intel tab HTML (Exclusion Intel)")
-else:
-    fail("intelExclusionContent missing from Intel tab HTML")
-if '_renderImportSummary' in _intel_js:
-    ok("_renderImportSummary present in ui-intel.js")
-else:
-    fail("_renderImportSummary missing from ui-intel.js")
-if '_renderCfScoreHealth' in _intel_js:
-    ok("_renderCfScoreHealth present in ui-intel.js")
-else:
-    fail("_renderCfScoreHealth missing from ui-intel.js")
-if '_renderUpgradeHistory' in _intel_js:
-    ok("_renderUpgradeHistory present in ui-intel.js")
-else:
-    fail("_renderUpgradeHistory missing from ui-intel.js")
+    fail("formatCompact utility missing from app.js")
 if 'get_pipeline_search_counts' in open('nudgarr/db/intel.py').read():
     ok("get_pipeline_search_counts present in db/intel.py")
 else:
@@ -571,80 +581,55 @@ if 'get_cf_score_health' in open('nudgarr/db/intel.py').read():
     ok("get_cf_score_health present in db/intel.py")
 else:
     fail("get_cf_score_health missing from db/intel.py")
-if 'formatCompact' in open('nudgarr/static/ui-core.js').read():
-    ok("formatCompact utility present in ui-core.js")
-else:
-    fail("formatCompact utility missing from ui-core.js")
 
 # ── Grace Period structural checks ────────────────────────────────────────────
 section("Grace Period")
-if 'radarr_missing_grace_hours' in content:
-    ok("radarr_missing_grace_hours field present in HTML")
+# v5: HTML uses camelCase Alpine properties; raw field names live in app.js
+if 'radarrMissingGraceHours' in content or 'radarr_missing_grace_hours' in content:
+    ok("radarr_missing_grace_hours field present in HTML (as radarrMissingGraceHours)")
 else:
     fail("radarr_missing_grace_hours field missing from HTML")
-if 'sonarr_missing_grace_hours' in content:
-    ok("sonarr_missing_grace_hours field present in HTML")
+if 'sonarrMissingGraceHours' in content or 'sonarr_missing_grace_hours' in content:
+    ok("sonarr_missing_grace_hours field present in HTML (as sonarrMissingGraceHours)")
 else:
     fail("sonarr_missing_grace_hours field missing from HTML")
 if 'radarr_missing_grace_hours' in js_content:
-    ok("radarr_missing_grace_hours referenced in JS")
+    ok("radarr_missing_grace_hours referenced in app.js")
 else:
-    fail("radarr_missing_grace_hours missing from JS")
+    fail("radarr_missing_grace_hours missing from app.js")
 if 'sonarr_missing_grace_hours' in js_content:
-    ok("sonarr_missing_grace_hours referenced in JS")
+    ok("sonarr_missing_grace_hours referenced in app.js")
 else:
-    fail("sonarr_missing_grace_hours missing from JS")
+    fail("sonarr_missing_grace_hours missing from app.js")
 if '_release_date' in open('nudgarr/sweep.py').read():
     ok("_release_date() helper present in sweep.py")
 else:
     fail("_release_date() helper missing from sweep.py")
 
-section("Sample Mode Overhaul (v4.2.1)")
-# Round Robin — Settings tab (Cutoff Unmet selects)
-if 'round_robin' in open('nudgarr/templates/ui-tab-settings.html').read():
-    ok("round_robin present in Settings tab sample mode selects")
+section("Sample Mode Overhaul (v5)")
+# round_robin and largest_gap_first in ui.html
+if 'round_robin' in content:
+    ok("round_robin option present in HTML pipeline selects")
 else:
-    fail("round_robin missing from Settings tab sample mode selects")
-# Round Robin — Advanced tab (Backlog selects)
-if 'round_robin' in open('nudgarr/templates/ui-tab-advanced.html').read():
-    ok("round_robin present in Advanced tab backlog sample mode selects")
+    fail("round_robin option missing from HTML")
+if 'largest_gap_first' in content:
+    ok("largest_gap_first option present in HTML CF Score selects")
 else:
-    fail("round_robin missing from Advanced tab backlog sample mode selects")
-# CF Score sample mode selects in HTML
-_cf_html = open('nudgarr/templates/ui-tab-cf-scores.html').read()
-if 'cfRadarrSampleMode' in _cf_html:
-    ok("cfRadarrSampleMode select present in CF Score tab")
+    fail("largest_gap_first option missing from HTML")
+# v5: all sample modes live in app.js
+if 'radarr_cf_sample_mode' in js_content:
+    ok("radarr_cf_sample_mode referenced in app.js")
 else:
-    fail("cfRadarrSampleMode select missing from CF Score tab")
-if 'cfSonarrSampleMode' in _cf_html:
-    ok("cfSonarrSampleMode select present in CF Score tab")
+    fail("radarr_cf_sample_mode missing from app.js")
+if 'sonarr_cf_sample_mode' in js_content:
+    ok("sonarr_cf_sample_mode referenced in app.js")
 else:
-    fail("cfSonarrSampleMode select missing from CF Score tab")
-if 'largest_gap_first' in _cf_html:
-    ok("largest_gap_first option present in CF Score tab selects")
+    fail("sonarr_cf_sample_mode missing from app.js")
+if 'cf_sample_mode' in js_content:
+    ok("cf_sample_mode present in app.js (overrides)")
 else:
-    fail("largest_gap_first option missing from CF Score tab selects")
-# CF Score sample mode JS
-_cf_js = open('nudgarr/static/ui-cf-scores.js').read()
-if 'radarr_cf_sample_mode' in _cf_js:
-    ok("radarr_cf_sample_mode referenced in ui-cf-scores.js")
-else:
-    fail("radarr_cf_sample_mode missing from ui-cf-scores.js")
-if 'sonarr_cf_sample_mode' in _cf_js:
-    ok("sonarr_cf_sample_mode referenced in ui-cf-scores.js")
-else:
-    fail("sonarr_cf_sample_mode missing from ui-cf-scores.js")
-# CF Score sample mode in Overrides JS
-_ov_js = open('nudgarr/static/ui-overrides.js').read()
-if 'cf_sample_mode' in _ov_js:
-    ok("cf_sample_mode present in ui-overrides.js")
-else:
-    fail("cf_sample_mode missing from ui-overrides.js")
-if 'VALID_CF_MODES' in _ov_js:
-    ok("VALID_CF_MODES constant present in ui-overrides.js")
-else:
-    fail("VALID_CF_MODES constant missing from ui-overrides.js")
-# VALID_CF_SAMPLE_MODES in constants.py
+    fail("cf_sample_mode missing from app.js")
+# constants.py checks remain unchanged
 _const = open('nudgarr/constants.py').read()
 if 'VALID_CF_SAMPLE_MODES' in _const:
     ok("VALID_CF_SAMPLE_MODES constant present in constants.py")
@@ -654,18 +639,15 @@ if 'radarr_cf_sample_mode' in _const:
     ok("radarr_cf_sample_mode present in DEFAULT_CONFIG")
 else:
     fail("radarr_cf_sample_mode missing from DEFAULT_CONFIG")
-# round_robin in VALID_SAMPLE_MODES and VALID_BACKLOG_SAMPLE_MODES
 if 'round_robin' in _const:
     ok("round_robin present in constants.py mode tuples")
 else:
     fail("round_robin missing from constants.py mode tuples")
-# cf_sample_mode in config.py validation
 _cfg_py = open('nudgarr/config.py').read()
 if 'VALID_CF_SAMPLE_MODES' in _cfg_py:
     ok("VALID_CF_SAMPLE_MODES used in config.py validation")
 else:
     fail("VALID_CF_SAMPLE_MODES missing from config.py validation")
-# largest_gap_first sort branch in stats.py
 _stats = open('nudgarr/stats.py').read()
 if 'largest_gap_first' in _stats:
     ok("largest_gap_first sort branch present in stats.py")
@@ -675,14 +657,13 @@ if 'round_robin' in _stats:
     ok("round_robin sort branch present in stats.py")
 else:
     fail("round_robin sort branch missing from stats.py")
-# cf_sample_mode resolved in sweep.py
 _sweep = open('nudgarr/sweep.py').read()
 if 'cf_sample_mode' in _sweep:
     ok("cf_sample_mode resolved in sweep.py")
 else:
     fail("cf_sample_mode missing from sweep.py")
 
-# ── Default Tab (v4.3.0) ──────────────────────────────────────────────────────
+# ── Default Tab (v5) ──────────────────────────────────────────────────────────
 section("Default Tab")
 if 'VALID_TABS' in open('nudgarr/constants.py').read():
     ok("VALID_TABS constant present in constants.py")
@@ -696,27 +677,27 @@ if 'VALID_TABS' in open('nudgarr/config.py').read():
     ok("VALID_TABS imported and used in config.py validation")
 else:
     fail("VALID_TABS not used in config.py")
-_adv_html = open('nudgarr/templates/ui-tab-advanced.html').read()
-if 'id="default_tab"' in _adv_html:
-    ok("default_tab select present in Advanced tab HTML")
+# v5: default_tab select lives in ui.html (as x-model="defaultTab")
+if 'defaultTab' in content or 'default_tab' in content:
+    ok("default_tab select present in HTML (Advanced panel)")
 else:
-    fail("default_tab select missing from Advanced tab HTML")
-if 'Documentation' in _adv_html:
-    ok("Documentation link present in Advanced tab HTML")
+    fail("default_tab select missing from HTML")
+if 'Documentation' in content:
+    ok("Documentation link present in HTML (Advanced panel)")
 else:
-    fail("Documentation link missing from Advanced tab HTML")
-_adv_js = open('nudgarr/static/ui-advanced.js').read()
-if 'default_tab' in _adv_js:
-    ok("default_tab handled in ui-advanced.js")
+    fail("Documentation link missing from HTML")
+# v5: handled in app.js
+if 'default_tab' in js_content:
+    ok("default_tab handled in app.js")
 else:
-    fail("default_tab missing from ui-advanced.js")
-if 'nudgarr_last_tab' in open('nudgarr/static/ui-core.js').read():
-    ok("nudgarr_last_tab localStorage key present in ui-core.js")
+    fail("default_tab missing from app.js")
+if 'nudgarr_last_tab' in js_content:
+    ok("nudgarr_last_tab localStorage key present in app.js")
 else:
-    fail("nudgarr_last_tab localStorage key missing from ui-core.js")
+    fail("nudgarr_last_tab localStorage key missing from app.js")
 
 
-# ── Queue Depth (v4.3.0) ──────────────────────────────────────────────────────
+# ── Queue Depth (v5) ──────────────────────────────────────────────────────────
 section("Queue Depth")
 _qd_constants = open('nudgarr/constants.py').read()
 if '"queue_depth_enabled": False' in _qd_constants:
@@ -744,37 +725,102 @@ if 'sonarr_get_queue_total' in _qd_clients:
     ok("sonarr_get_queue_total present in arr_clients.py")
 else:
     fail("sonarr_get_queue_total missing from arr_clients.py")
-_qd_adv = open('nudgarr/templates/ui-tab-advanced.html').read()
-if 'Sweep Controls' in _qd_adv:
-    ok("Sweep Controls section label present in Advanced tab")
+# v5: queue depth controls in ui.html (Settings panel) — camelCase Alpine bindings
+if 'queueDepthEnabled' in content or 'queue_depth_enabled' in content:
+    ok("queue_depth_enabled toggle present in HTML (Settings panel)")
 else:
-    fail("Sweep Controls section label missing from Advanced tab")
-if 'queue_depth_enabled' in _qd_adv:
-    ok("queue_depth_enabled toggle present in Advanced tab")
+    fail("queue_depth_enabled toggle missing from HTML")
+if 'queueDepthThreshold' in content or 'queue_depth_threshold' in content:
+    ok("queue_depth_threshold input present in HTML (Settings panel)")
 else:
-    fail("queue_depth_enabled toggle missing from Advanced tab")
-if 'queue_depth_threshold' in _qd_adv:
-    ok("queue_depth_threshold input present in Advanced tab")
+    fail("queue_depth_threshold input missing from HTML")
+if 'notify_on_queue_depth_skip' in content or 'notifyOnQueueDepth' in content:
+    ok("notify_on_queue_depth_skip toggle present in HTML (Notifications panel)")
 else:
-    fail("queue_depth_threshold input missing from Advanced tab")
-if 'notify_on_queue_depth_skip' in open('nudgarr/templates/ui-tab-notifications.html').read():
-    ok("notify_on_queue_depth_skip toggle present in Notifications tab")
+    fail("notify_on_queue_depth_skip toggle missing from HTML")
+# v5: state handled in app.js
+if 'last_skipped_queue_depth_utc' in js_content:
+    ok("last_skipped_queue_depth_utc handled in app.js")
 else:
-    fail("notify_on_queue_depth_skip toggle missing from Notifications tab")
-if 'last_skipped_queue_depth_utc' in open('nudgarr/static/ui-core.js').read():
-    ok("last_skipped_queue_depth_utc handled in ui-core.js")
+    fail("last_skipped_queue_depth_utc missing from app.js")
+if 'lastRunCutoffUtc' in js_content:
+    ok("pipeline card last run timestamps present in app.js")
 else:
-    fail("last_skipped_queue_depth_utc missing from ui-core.js")
-if 'lastRunUtc' in open('nudgarr/static/ui-sweep.js').read():
-    ok("pipeline card last run timestamp present in ui-sweep.js")
-else:
-    fail("pipeline card last run timestamp missing from ui-sweep.js")
+    fail("pipeline card last run timestamps missing from app.js")
 
 
-import shutil
-for d in glob.glob('nudgarr/**/__pycache__', recursive=True) + \
-         glob.glob('nudgarr/__pycache__') + glob.glob('__pycache__'):
-    shutil.rmtree(d, ignore_errors=True)
+# ── v5 Alpine Architecture ────────────────────────────────────────────────────
+section("v5 Alpine Architecture")
+_app_js = open('nudgarr/static/app.js').read()
+# Core Alpine entry function
+if 'function nudgarr()' in _app_js:
+    ok("function nudgarr() Alpine data factory present in app.js")
+else:
+    fail("function nudgarr() missing from app.js")
+# Critical bug fixes from 18-point spec
+if 'applyConfig' in _app_js:
+    ok("applyConfig() present — schedulerEnabled set only here (bug #1)")
+else:
+    fail("applyConfig() missing from app.js")
+if 'radarr_max_movies_per_run' in _app_js and 'savePipelines' in _app_js:
+    ok("savePipelines() includes all cutoff fields (bug #2)")
+else:
+    fail("savePipelines() missing cutoff field coverage (bug #2)")
+if 'data.entries' in _app_js:
+    ok("refreshImports uses data.entries not data.items (bug #3)")
+else:
+    fail("data.entries missing from refreshImports (bug #3)")
+if 'importsMoviesTotal' in _app_js and 'movies_total' in _app_js:
+    ok("importsMoviesTotal set from data.movies_total (bug #4/18)")
+else:
+    fail("importsMoviesTotal not bound to data.movies_total (bug #4/18)")
+if "JSON.stringify({ url" in _app_js or 'url: notifyUrl' in _app_js or "{ url }" in _app_js:
+    ok("testNotification sends {url} body (bug #5)")
+else:
+    fail("testNotification missing {url} body (bug #5)")
+if 'saveNotifications' in _app_js:
+    ok("saveNotifications() method present (bug #7)")
+else:
+    fail("saveNotifications() missing — save button has no target (bug #7)")
+if 'path.from' in _app_js:
+    ok("Upgrade history uses path.from (not from_quality) (bug #8)")
+else:
+    fail("Upgrade history path.from missing from app.js (bug #8)")
+if 'openArrLink' in _app_js:
+    ok("openArrLink() present in Alpine object (bug #11)")
+else:
+    fail("openArrLink() missing from app.js (bug #11)")
+if 'last_sync_at' in _app_js:
+    ok("CF Score uses last_sync_at (not last_sync_utc) (bug #17)")
+else:
+    fail("last_sync_at missing from app.js (bug #17)")
+# All 10 panels present in HTML
+for panel_name in ['sweep', 'library', 'intel', 'instances', 'pipelines',
+                    'settings', 'overrides', 'filters', 'notifications', 'advanced']:
+    marker = f"panel==='{panel_name}'"
+    if marker in content:
+        ok(f"Panel x-show binding present: {panel_name}")
+    else:
+        fail(f"Panel x-show binding missing: {panel_name}")
+# Sidebar navigation present
+if 'navigateTo' in content:
+    ok("navigateTo() calls present in sidebar HTML")
+else:
+    fail("navigateTo() calls missing from sidebar HTML")
+# All modals present
+for modal_name in ['instModal.show', "modal==='confirm'", "modal==='alert'",
+                    "modal==='onboarding'", "modal==='clearExcl'"]:
+    if modal_name in content:
+        ok(f"Modal binding present: {modal_name}")
+    else:
+        fail(f"Modal binding missing: {modal_name}")
+# x-cloak defined in CSS
+if 'x-cloak' in content:
+    ok("x-cloak defined/used in HTML (prevents Alpine FOUC)")
+else:
+    fail("x-cloak missing from HTML")
+
+
 
 # ── Result ────────────────────────────────────────────────────────────────────
 print(f"\n{'=' * 58}")

@@ -9,9 +9,17 @@ Wires everything together:
   4. Fires a parallel startup health-ping to all configured instances
   5. Starts the Flask UI server in a daemon thread
   6. Runs the scheduler loop in the main thread
+
+When NUDGARR_DEV is set (non-empty), step 5–6 change: scheduler, import check,
+and CF sync run in daemon threads; Flask's development server runs in the main
+thread with debug and reloader enabled. WERKZEUG_RUN_MAIN guards background
+startup so the Werkzeug reloader does not duplicate threads. Background loops
+use interruptible waits on the shutdown event so Ctrl+C exits within ~1s after
+Flask stops instead of hanging on a full 60s sleep.
 """
 
 import logging
+import os
 import signal
 import threading
 
@@ -19,7 +27,8 @@ import requests
 
 from nudgarr import db
 from nudgarr.config import load_or_init_config
-from nudgarr.globals import STATUS
+from nudgarr.constants import PORT
+from nudgarr.globals import STATUS, app
 from nudgarr.log_setup import setup_logging
 from nudgarr.routes import register_blueprints
 from nudgarr.scheduler import cf_score_sync_loop, import_check_loop, print_banner, scheduler_loop, start_ui_server
@@ -99,6 +108,44 @@ def main() -> None:
 
     threading.Thread(target=_startup_health_ping, daemon=True).start()
 
+    if os.getenv("NUDGARR_DEV", "").strip():
+        import_check_thread = None
+        cf_sync_thread = None
+        sched_thread = None
+        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+            sched_thread = threading.Thread(
+                target=scheduler_loop, args=(_shutdown,), daemon=True, name="scheduler"
+            )
+            sched_thread.start()
+            import_check_thread = threading.Thread(
+                target=import_check_loop, args=(_shutdown,), daemon=True, name="import-check"
+            )
+            import_check_thread.start()
+            cf_sync_thread = threading.Thread(
+                target=cf_score_sync_loop, args=(_shutdown,), daemon=True, name="cf-score-sync"
+            )
+            cf_sync_thread.start()
+        logger.info("NUDGARR_DEV is set: Flask dev server running in main thread")
+        app.run(host="0.0.0.0", port=PORT, debug=True, use_reloader=True)
+
+        if import_check_thread is not None:
+            import_check_thread.join(timeout=10)
+            if import_check_thread.is_alive():
+                logger.warning("Import check thread did not exit within 10s — proceeding with shutdown")
+
+        if cf_sync_thread is not None:
+            cf_sync_thread.join(timeout=10)
+            if cf_sync_thread.is_alive():
+                logger.warning("CF score sync thread did not exit within 10s — proceeding with shutdown")
+
+        if sched_thread is not None:
+            sched_thread.join(timeout=10)
+            if sched_thread.is_alive():
+                logger.warning("Scheduler thread did not exit within 10s — proceeding with shutdown")
+
+        logger.info("Nudgarr exiting.")
+        return
+
     # Start UI in a daemon thread
     threading.Thread(target=start_ui_server, daemon=True).start()
 
@@ -120,8 +167,8 @@ def main() -> None:
     scheduler_loop(_shutdown)
 
     # Wait for background threads to exit cleanly before process teardown.
-    # 10 seconds is generous — both loops wake every 60s so they will see
-    # _shutdown.is_set() on their next tick without delay after being interrupted.
+    # 10 seconds is generous — loops use interruptible 1s waits so they observe
+    # _shutdown within ~1s of Ctrl+C/SIGTERM.
     import_check_thread.join(timeout=10)
     if import_check_thread.is_alive():
         logger.warning("Import check thread did not exit within 10s — proceeding with shutdown")

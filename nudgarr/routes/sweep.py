@@ -20,6 +20,7 @@ from nudgarr import db
 from nudgarr.auth import requires_auth
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import RUN_LOCK, STATUS
+from nudgarr.scheduler import _next_sweep_run_utc, next_run_in_maintenance_window
 from nudgarr.utils import mask_url, req, is_safe_url
 
 import logging
@@ -48,6 +49,12 @@ def _container_time_str() -> str:
 @requires_auth
 def api_status():
     payload = dict(STATUS)
+    cfg = load_or_init_config()
+    payload["next_run_utc"] = _next_sweep_run_utc(cfg)
+    payload["maintenance_window_enabled"] = bool(cfg.get("maintenance_window_enabled", False))
+    payload["next_run_in_maintenance_window"] = next_run_in_maintenance_window(
+        cfg, payload["next_run_utc"]
+    )
     payload["sweep_lifetime"] = db.get_sweep_lifetime()
     payload["container_time"] = _container_time_str()
     return jsonify(payload)

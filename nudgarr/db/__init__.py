@@ -73,7 +73,7 @@ from nudgarr.db.lifetime import (
 
 from nudgarr.db.backup import export_as_json_dict
 
-from nudgarr.db.appstate import get_state, set_state
+from nudgarr.db.appstate import get_state, set_state, delete_state, delete_states_with_prefix
 
 from nudgarr.db.intel import (
     get_intel_aggregate,
@@ -85,10 +85,13 @@ from nudgarr.db.intel import (
 
 from nudgarr.db.cf_scores import (
     delete_cf_scores_for_instance,
+    prune_cf_scores_not_in_allowed_instances,
     prune_stale_cf_scores,
+    count_cf_score_entries,
     get_cf_score_entries,
     get_cf_score_stats,
     get_cf_score_instance_stats,
+    get_cf_max_last_synced_at_for_instance,
     get_cf_scores_for_sweep,
     batch_upsert_cf_scores,
     clear_cf_score_index,
@@ -143,6 +146,7 @@ __all__ = [
     "get_state",
     "set_state",
     "delete_state",
+    "delete_states_with_prefix",
     # intel
     "get_intel_aggregate",
     "update_intel_aggregate",
@@ -151,10 +155,13 @@ __all__ = [
     "get_cf_score_health",
     # cf_scores (v4.2.0)
     "delete_cf_scores_for_instance",
+    "prune_cf_scores_not_in_allowed_instances",
     "prune_stale_cf_scores",
+    "count_cf_score_entries",
     "get_cf_score_entries",
     "get_cf_score_stats",
     "get_cf_score_instance_stats",
+    "get_cf_max_last_synced_at_for_instance",
     "get_cf_scores_for_sweep",
     "batch_upsert_cf_scores",
     "clear_cf_score_index",

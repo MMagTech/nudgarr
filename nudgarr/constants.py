@@ -10,7 +10,7 @@ No imports from within the nudgarr package — stdlib only.
 import os
 from typing import Any, Dict
 
-VERSION = "4.3.0"
+VERSION = "5.0.0"
 
 CONFIG_FILE = os.getenv("CONFIG_FILE", "/config/nudgarr-config.json")
 DB_FILE = os.getenv("DB_FILE", "/config/nudgarr.db")
@@ -118,6 +118,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # own schedule; the sweep OR-conditions against it. Feature is fully dormant
     # until cf_score_enabled is set to True — no background work runs otherwise.
     "cf_score_enabled": False,        # master toggle — disables all CF score activity when False
+    "radarr_cf_score_enabled": True,   # per-app CF Score for Radarr (v5.0.0); existing configs default True
+    "sonarr_cf_score_enabled": True,   # per-app CF Score for Sonarr (v5.0.0)
     "cf_score_sync_cron": "0 0 * * *",  # cron schedule for automatic index re-syncs (default: midnight daily)
     "radarr_cf_max_per_run": 1,       # max CF-score-only Radarr items searched per sweep
     "sonarr_cf_max_per_run": 1,       # max CF-score-only Sonarr items searched per sweep

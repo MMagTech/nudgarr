@@ -21,6 +21,11 @@ from flask import Blueprint, jsonify, request
 
 from nudgarr import db
 from nudgarr.auth import requires_auth
+from nudgarr.cf_effective import (
+    CF_LAST_INSTANCE_SYNC_PREFIX,
+    allowed_cf_score_instance_ids,
+    effective_cf_score_enabled,
+)
 from nudgarr.cf_score_syncer import CF_SYNC_PROGRESS_PREFIX, CustomFormatScoreSyncer
 from nudgarr.config import load_or_init_config
 from nudgarr.globals import STATUS
@@ -45,69 +50,59 @@ def api_cf_scores_status():
     Includes:
       enabled:         Whether cf_score_enabled is True in config
       stats:           Aggregate counts (total_indexed, below_cutoff, passing)
-      instances:       Per-instance sync coverage for the ring charts
+      instances:       Per-instance rows for Index Status (cf_enabled, below_cutoff,
+                       last_synced_at from DB or persisted state when CF is off)
       scan_in_progress: Whether a manual Scan Library is currently running
     """
     try:
         cfg = load_or_init_config()
         enabled = bool(cfg.get("cf_score_enabled", False))
-        stats = db.get_cf_score_stats()
-        instances = db.get_cf_score_instance_stats()
+        allowed_ids = allowed_cf_score_instance_ids(cfg)
+        stats = db.get_cf_score_stats(allowed_ids)
+        db_rows = db.get_cf_score_instance_stats(None)
+        db_by_id = {r["arr_instance_id"]: r for r in db_rows}
 
-        # Enrich per-instance data with human-readable name and app from config
-        instance_map = {}
-        for app_name in ("radarr", "sonarr"):
-            for inst in cfg.get("instances", {}).get(app_name, []):
-                key = f"{app_name}|{inst['url'].rstrip('/')}"
-                instance_map[key] = {
-                    "app": app_name,
-                    "name": inst.get("name", key),
-                }
+        def _resolve_last_synced_at(arr_instance_id: str, db_last):
+            if isinstance(db_last, str) and db_last.strip():
+                return db_last
+            stored = db.get_state(CF_LAST_INSTANCE_SYNC_PREFIX + arr_instance_id)
+            if isinstance(stored, str) and stored.strip():
+                return stored
+            return None
 
         enriched_instances = []
-        seen_ids = set()
-
-        # First pass: enrich instances that already have rows in cf_score_entries
-        for row in instances:
-            meta = instance_map.get(row["arr_instance_id"], {})
-            # Read live sync progress from nudgarr_state for the ring chart
-            progress_raw = db.get_state(CF_SYNC_PROGRESS_PREFIX + row["arr_instance_id"])
-            try:
-                sync_progress = json.loads(progress_raw) if progress_raw else None
-            except (ValueError, TypeError):
-                sync_progress = None
-            enriched_instances.append({
-                **row,
-                "app": meta.get("app", "unknown"),
-                "instance_name": meta.get("name", row["arr_instance_id"]),
-                "sync_progress": sync_progress,
-            })
-            seen_ids.add(row["arr_instance_id"])
-
-        # Second pass: if a scan is in progress, also include configured instances
-        # that have no rows yet (e.g. immediately after a reset). This ensures the
-        # progress rings are visible from the start of the first scan rather than
-        # only appearing after the first entries are written.
-        if _scan_lock.locked():
-            for instance_id, meta in instance_map.items():
-                if instance_id in seen_ids:
+        for app_name in ("radarr", "sonarr"):
+            for inst in cfg.get("instances", {}).get(app_name, []):
+                url = (inst.get("url") or "").strip()
+                if not url:
                     continue
-                progress_raw = db.get_state(CF_SYNC_PROGRESS_PREFIX + instance_id)
-                try:
-                    sync_progress = json.loads(progress_raw) if progress_raw else None
-                except (ValueError, TypeError):
-                    sync_progress = None
-                if sync_progress:
-                    enriched_instances.append({
-                        "arr_instance_id": instance_id,
+                aid = f"{app_name}|{url.rstrip('/')}"
+                base = db_by_id.get(aid)
+                if base:
+                    row = dict(base)
+                else:
+                    row = {
+                        "arr_instance_id": aid,
                         "total_indexed": 0,
                         "below_cutoff": 0,
                         "passing": 0,
                         "last_synced_at": None,
-                        "app": meta.get("app", "unknown"),
-                        "instance_name": meta.get("name", instance_id),
-                        "sync_progress": sync_progress,
-                    })
+                    }
+                row["last_synced_at"] = _resolve_last_synced_at(aid, row.get("last_synced_at"))
+                total = row.get("total_indexed") or 0
+                below = row.get("below_cutoff") or 0
+                row["passing"] = total - below
+
+                progress_raw = db.get_state(CF_SYNC_PROGRESS_PREFIX + aid)
+                try:
+                    sync_progress = json.loads(progress_raw) if progress_raw else None
+                except (ValueError, TypeError):
+                    sync_progress = None
+                row["app"] = app_name
+                row["instance_name"] = inst.get("name", aid)
+                row["sync_progress"] = sync_progress
+                row["cf_enabled"] = effective_cf_score_enabled(cfg, app_name, inst)
+                enriched_instances.append(row)
 
         return jsonify({
             "enabled": enabled,
@@ -134,8 +129,11 @@ def api_cf_scores_entries():
       app         -- filter by 'radarr' or 'sonarr' (optional; omit for all)
       limit       -- max rows to return (optional; 0 or omit for all rows)
       offset      -- row offset for pagination (default 0)
+      search      -- case-insensitive substring on title (optional)
+      sort        -- title | current_score | cutoff_score | gap (default gap)
+      dir         -- asc | desc (default desc for gap)
 
-    Results are ordered worst gap first (largest gap = furthest below cutoff).
+    Total count matches filters (for pagination); ordering follows sort/dir.
     """
     try:
         cfg = load_or_init_config()
@@ -146,6 +144,12 @@ def api_cf_scores_entries():
             offset = max(int(request.args.get("offset", 0)), 0)
         except (ValueError, TypeError):
             limit, offset = 0, 0
+
+        search = request.args.get("search", "").strip()
+        sort_col = request.args.get("sort", "gap").strip().lower()
+        sort_dir = request.args.get("dir", "desc").strip().lower()
+        if sort_dir not in ("asc", "desc"):
+            sort_dir = "desc"
 
         # instance_id filter takes priority over app filter
         if instance_id_filter:
@@ -158,11 +162,19 @@ def api_cf_scores_entries():
                 item_type = "movie"
             elif app_filter == "sonarr":
                 item_type = "episode"
+        total = db.count_cf_score_entries(
+            arr_instance_id=arr_instance_id,
+            item_type=item_type,
+            search=search or None,
+        )
         entries = db.get_cf_score_entries(
             arr_instance_id=arr_instance_id,
             item_type=item_type,
             limit=limit,
             offset=offset,
+            search=search or None,
+            sort_col=sort_col,
+            sort_dir=sort_dir,
         )
 
         # Enrich entries with human-readable instance name
@@ -176,8 +188,21 @@ def api_cf_scores_entries():
             entry["instance_name"] = instance_map.get(
                 entry.get("arr_instance_id", ""), entry.get("arr_instance_id", "")
             )
+            aid = entry.get("arr_instance_id") or ""
+            if "|" in aid:
+                entry["app"] = aid.split("|", 1)[0]
+            it = entry.get("item_type") or ""
+            if it == "movie":
+                entry["app"] = entry.get("app") or "radarr"
+            elif it == "episode":
+                entry["app"] = entry.get("app") or "sonarr"
+            eid = entry.get("external_item_id")
+            if eid is not None:
+                entry["item_id"] = str(eid)
+            sid = entry.get("series_id")
+            entry["series_id"] = str(sid) if sid not in (None, "", 0) else ""
 
-        return jsonify({"entries": entries, "total": len(entries)})
+        return jsonify({"entries": entries, "total": total})
     except Exception:
         logger.exception("[CF Scores] GET /api/cf-scores/entries failed")
         return jsonify({"error": "Entries unavailable -- check logs for details."}), 500

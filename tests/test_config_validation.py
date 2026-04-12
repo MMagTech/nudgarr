@@ -257,6 +257,19 @@ def test_override_backlog_enabled_non_bool_fails():
     assert any("backlog_enabled" in e for e in errs)
 
 
+def test_override_cutoff_enabled_non_bool_fails():
+    cfg = _valid_cfg()
+    cfg["instances"] = {
+        "radarr": [{
+            "name": "R", "url": "http://radarr", "key": "abc",
+            "overrides": {"cutoff_enabled": "yes"},
+        }],
+        "sonarr": [],
+    }
+    errs = _errs(cfg)
+    assert any("cutoff_enabled" in e for e in errs)
+
+
 # ---------------------------------------------------------------------------
 # validate_config return type contract
 # ---------------------------------------------------------------------------

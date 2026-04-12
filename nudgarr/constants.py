@@ -161,10 +161,22 @@ VALID_BACKLOG_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_
 VALID_CF_SAMPLE_MODES = ("random", "alphabetical", "oldest_added", "newest_added", "round_robin", "largest_gap_first")
 
 # Valid tab names for the default_tab config key (v4.4.0).
-# All navigable tabs are included — conditional tabs (overrides, cf-scores, filters)
-# are in the list since a user may deliberately set one as their default.
-# The frontend falls back to "sweep" if the saved tab is not currently visible.
+# Must match top-level panel names used by navigateTo() / sidebar (v5 adds
+# library, pipelines). Legacy names kept so older configs still validate until
+# the user saves again (history/imports/cf-scores merged into library/pipelines in UI).
 VALID_TABS = (
-    "instances", "overrides", "settings", "cf-scores", "filters",
-    "sweep", "history", "imports", "intel", "notifications", "advanced",
+    "sweep",
+    "library",
+    "intel",
+    "instances",
+    "pipelines",
+    "overrides",
+    "filters",
+    "settings",
+    "notifications",
+    "advanced",
+    # legacy (pre–v5)
+    "history",
+    "imports",
+    "cf-scores",
 )

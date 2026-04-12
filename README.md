@@ -89,17 +89,6 @@ The interface covers everything in one place: instance management, sweep status 
 
 Full documentation is available on the [Nudgarr Wiki](https://github.com/MMagTech/nudgarr/wiki), including:
 
-- [Setup & Configuration](https://github.com/MMagTech/nudgarr/wiki/Setup-&-Configuration)
-- [How Nudgarr Works](https://github.com/MMagTech/nudgarr/wiki/How-Nudgarr-Works)
-- [Settings Reference](https://github.com/MMagTech/nudgarr/wiki/Settings-Reference)
-- [Per-Instance Overrides](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
-- [Tag & Quality Profile Filters](https://github.com/MMagTech/nudgarr/wiki/Filters)
-- [Radarr & Sonarr Backlog](https://github.com/MMagTech/nudgarr/wiki/Radarr-and-Sonarr-Backlog)
-- [Exclusions](https://github.com/MMagTech/nudgarr/wiki/Exclusions)
-- [Notifications (Apprise)](https://github.com/MMagTech/nudgarr/wiki/Notifications-(Apprise))
-- [FAQ & Troubleshooting](https://github.com/MMagTech/nudgarr/wiki/FAQ-&-Troubleshooting)
-- [Glossary](https://github.com/MMagTech/nudgarr/wiki/Glossary)
-
 ---
 
 ## PUID / PGID

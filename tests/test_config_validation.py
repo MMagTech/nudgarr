@@ -181,6 +181,11 @@ def test_valid_default_tab_passes():
     assert _ok(_valid_cfg(default_tab="sweep"))
 
 
+def test_valid_default_tab_v5_panels_pass():
+    assert _ok(_valid_cfg(default_tab="library"))
+    assert _ok(_valid_cfg(default_tab="pipelines"))
+
+
 def test_invalid_default_tab_fails():
     errs = _errs(_valid_cfg(default_tab="nonexistent"))
     assert any("default_tab" in e for e in errs)

@@ -34,7 +34,7 @@ Public functions:
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from nudgarr.cf_effective import CF_LAST_INSTANCE_SYNC_PREFIX, CF_SCAN_SNAPSHOT_PREFIX
 from nudgarr.db.appstate import delete_states_with_prefix
@@ -251,13 +251,56 @@ def prune_stale_cf_scores(arr_instance_id: str, sync_started_at: str) -> int:
     return cur.rowcount
 
 
+_CF_SORT_COLS = frozenset({"title", "current_score", "cutoff_score", "gap"})
+
+
+def _cf_score_entries_where(
+    arr_instance_id: Optional[str],
+    item_type: Optional[str],
+    search: Optional[str],
+) -> Tuple[str, List[Any]]:
+    clauses = ["current_score < cutoff_score", "is_monitored = 1"]
+    params: List[Any] = []
+
+    if arr_instance_id:
+        clauses.append("arr_instance_id = ?")
+        params.append(arr_instance_id)
+    if item_type:
+        clauses.append("item_type = ?")
+        params.append(item_type)
+    q = (search or "").strip()
+    if q:
+        clauses.append("LOWER(title) LIKE ?")
+        params.append("%" + q.lower() + "%")
+
+    return " AND ".join(clauses), params
+
+
+def count_cf_score_entries(
+    arr_instance_id: Optional[str] = None,
+    item_type: Optional[str] = None,
+    search: Optional[str] = None,
+) -> int:
+    """Count rows matching the same filters as get_cf_score_entries."""
+    where, params = _cf_score_entries_where(arr_instance_id, item_type, search)
+    conn = get_connection()
+    row = conn.execute(
+        f"SELECT COUNT(*) AS n FROM cf_score_entries WHERE {where}",
+        params,
+    ).fetchone()
+    return int(row["n"] or 0) if row else 0
+
+
 def get_cf_score_entries(
     arr_instance_id: Optional[str] = None,
     item_type: Optional[str] = None,
     limit: int = 200,
     offset: int = 0,
+    search: Optional[str] = None,
+    sort_col: str = "gap",
+    sort_dir: str = "desc",
 ) -> List[Dict[str, Any]]:
-    """Fetch CF score entries for the UI table, ordered worst gap first.
+    """Fetch CF score entries for the UI table.
 
     Only returns entries where current_score < cutoff_score.  Optionally
     filtered by instance and/or item type for the All/Radarr/Sonarr filter
@@ -268,22 +311,23 @@ def get_cf_score_entries(
         item_type:       Filter to 'movie' or 'episode' (None = both)
         limit:           Maximum rows to return; 0 or None means no limit
         offset:          Row offset for pagination
+        search:          Case-insensitive substring filter on title
+        sort_col:        One of: title, current_score, cutoff_score, gap
+        sort_dir:        asc or desc
 
     Returns:
-        List of row dicts ordered by gap descending (worst gap first)
+        List of row dicts with computed gap
     """
-    conn = get_connection()
-    clauses = ["current_score < cutoff_score", "is_monitored = 1"]
-    params: List[Any] = []
-
-    if arr_instance_id:
-        clauses.append("arr_instance_id = ?")
-        params.append(arr_instance_id)
-    if item_type:
-        clauses.append("item_type = ?")
-        params.append(item_type)
-
-    where = " AND ".join(clauses)
+    where, params = _cf_score_entries_where(arr_instance_id, item_type, search)
+    col = sort_col if sort_col in _CF_SORT_COLS else "gap"
+    asc = (sort_dir or "").lower() == "asc"
+    gap_expr = "(cutoff_score - current_score)"
+    if col == "title":
+        order = f"title COLLATE NOCASE {'ASC' if asc else 'DESC'}"
+    elif col == "gap":
+        order = f"{gap_expr} {'ASC' if asc else 'DESC'}, title COLLATE NOCASE ASC"
+    else:
+        order = f"{col} {'ASC' if asc else 'DESC'}, title COLLATE NOCASE ASC"
 
     if limit and limit > 0:
         params.extend([limit, offset])
@@ -292,13 +336,14 @@ def get_cf_score_entries(
         params.append(offset)
         limit_clause = "LIMIT -1 OFFSET ?"
 
+    conn = get_connection()
     rows = conn.execute(
         f"""
         SELECT *,
-               (cutoff_score - current_score) AS gap
+               {gap_expr} AS gap
         FROM cf_score_entries
         WHERE {where}
-        ORDER BY gap DESC, title ASC
+        ORDER BY {order}
         {limit_clause}
         """,
         params,

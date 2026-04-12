@@ -23,6 +23,32 @@ function httpErrorMessage(data) {
   }
 }
 
+/** Intel: format average turnaround (fractional days) — minutes/hours under a day, then days (+ h, + m). */
+function formatTurnaroundDays(days, sampleCount) {
+  if (sampleCount !== undefined && sampleCount !== null && Number(sampleCount) <= 0) {
+    return '\u2014';
+  }
+  if (days == null || !isFinite(days) || days < 0) return '\u2014';
+  const totalMin = Math.round(days * 24 * 60);
+  if (totalMin < 1) {
+    if (days <= 0) return '0m';
+    return '<1m';
+  }
+  if (totalMin < 60) return totalMin + 'm';
+  if (totalMin < 1440) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return m ? h + 'h ' + m + 'm' : h + 'h';
+  }
+  const d = Math.floor(totalMin / 1440);
+  const rem = totalMin % 1440;
+  const h = Math.floor(rem / 60);
+  const m = rem % 60;
+  if (h === 0 && m === 0) return d + 'd';
+  if (m === 0) return d + 'd ' + h + 'h';
+  return d + 'd ' + h + 'h ' + m + 'm';
+}
+
 function nudgarr() {
   return {
 
@@ -61,6 +87,8 @@ function nudgarr() {
     lastError: null,
     _wasRunning: false,
     _autoRefreshLast: 0,
+    /** Bumped every 60s so topbar relative times (next run, last run) re-render without a full refresh. */
+    _uiClockTick: 0,
 
     // ── Library ──────────────────────────────────────────────────────────
     libView: 'history',
@@ -102,9 +130,11 @@ function nudgarr() {
     cfSearch: '',
     cfInstanceFilter: '',
     cfStatusData: null,
+    cfSort: { col: 'gap', dir: 'desc' },
 
     // Exclusions view
     exclusionItems: [],
+    exclSort: { col: 'excluded_at', dir: 'desc' },
     exclSearch: '',
     exclInstance: '',
     exclType: '',
@@ -122,6 +152,8 @@ function nudgarr() {
     // ── Instances ────────────────────────────────────────────────────────
     instMsg: '',
     instMsgClass: '',
+    /** When set, Instances save-bar shows Test result with Failed count in red (see template). */
+    instMsgParts: null,
     instModal: {
       show: false, kind: 'radarr', idx: -1,
       name: '', url: '', key: '', keyVisible: false,
@@ -270,18 +302,21 @@ function nudgarr() {
 
     // Topbar status
     get lastRunDisplay() {
+      void this._uiClockTick;
       if (this.lastSkippedQueueDepthUtc) return 'Queue Skip';
       if (!this.lastRunUtc) return 'Never';
       return this.formatRelative(new Date(this.lastRunUtc).getTime(), false);
     },
 
     get nextRunDisplay() {
+      void this._uiClockTick;
       if (!this.schedulerEnabled) return 'Manual';
       if (!this.nextRunUtc) return 'Unavailable';
       return this.formatRelative(new Date(this.nextRunUtc).getTime(), true);
     },
 
     get nextRunColor() {
+      void this._uiClockTick;
       if (!this.schedulerEnabled) return 'color:var(--muted)';
       if (!this.nextRunUtc) return 'color:var(--muted)';
       if (new Date(this.nextRunUtc).getTime() < Date.now()) return 'color:var(--warn)';
@@ -289,6 +324,7 @@ function nudgarr() {
     },
 
     get topbarDotClass() {
+      void this._uiClockTick;
       if (this.sweeping) return 'warn';
       if (!this.schedulerEnabled) return 'muted';
       if (this.nextRunUtc && new Date(this.nextRunUtc).getTime() < Date.now()) return 'warn';
@@ -438,6 +474,7 @@ function nudgarr() {
       }
 
       setInterval(() => this.pollCycle(), 5000);
+      setInterval(() => { this._uiClockTick++; }, 60000);
     },
 
     // ── API helper ───────────────────────────────────────────────────────
@@ -821,7 +858,10 @@ function nudgarr() {
 
     sortImports(col) {
       if (this.importsSort.col === col) this.importsSort.dir = this.importsSort.dir === 'asc' ? 'desc' : 'asc';
-      else { this.importsSort.col = col; this.importsSort.dir = 'asc'; }
+      else {
+        this.importsSort.col = col;
+        this.importsSort.dir = col === 'turnaround_days' ? 'desc' : 'asc';
+      }
       this.importsPage = 0;
       this.refreshImports();
     },
@@ -849,11 +889,22 @@ function nudgarr() {
         let url = '/api/cf-scores/entries?offset=' + (this.cfPage * this.cfPageSize) + '&limit=' + this.cfPageSize;
         if (this.cfInstanceFilter) url += '&instance_id=' + encodeURIComponent(this.cfInstanceFilter);
         if (this.cfSearch) url += '&search=' + encodeURIComponent(this.cfSearch);
+        url += '&sort=' + encodeURIComponent(this.cfSort.col) + '&dir=' + encodeURIComponent(this.cfSort.dir);
         const data = await this._api(url);
         this.cfEntries = data.entries || [];
         this.cfTotal = data.total || 0;
         this.cfStatusData = await this._api('/api/cf-scores/status');
       } catch (e) { console.warn('[cfscores]', e.message); }
+    },
+
+    sortCfScores(col) {
+      if (this.cfSort.col === col) this.cfSort.dir = this.cfSort.dir === 'asc' ? 'desc' : 'asc';
+      else {
+        this.cfSort.col = col;
+        this.cfSort.dir = col === 'title' ? 'asc' : 'desc';
+      }
+      this.cfPage = 0;
+      this.refreshCfScores();
     },
 
     prevCfPage() { if (this.cfPage > 0) this.refreshCfScores(this.cfPage - 1); },
@@ -884,9 +935,20 @@ function nudgarr() {
       if (this.exclInstance) items = items.filter(e => (e.instance_name || e.instance || '') === this.exclInstance);
       if (this.exclType) items = items.filter(e => this.exclType === 'auto' ? e.source === 'auto' : e.source !== 'auto');
       if (this.exclSearch) { const q = this.exclSearch.toLowerCase(); items = items.filter(e => (e.title || '').toLowerCase().includes(q)); }
+      items = this._sortItems(items, this.exclSort.col, this.exclSort.dir);
       this.exclTotal = items.length;
       const start = this.exclPage * this.exclPageSize;
       this.exclusionItems = items.slice(start, start + this.exclPageSize);
+    },
+
+    sortExclusions(col) {
+      if (this.exclSort.col === col) this.exclSort.dir = this.exclSort.dir === 'asc' ? 'desc' : 'asc';
+      else {
+        this.exclSort.col = col;
+        this.exclSort.dir = col === 'title' ? 'asc' : 'desc';
+      }
+      this.exclPage = 0;
+      this.refreshExclusions();
     },
 
     prevExclPage() { if (this.exclPage > 0) this.refreshExclusions(this.exclPage - 1); },
@@ -894,8 +956,7 @@ function nudgarr() {
 
     async unexcludeItem(title) {
       await this._api('/api/exclusions/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
-      await this.loadExclusions();
-      this.exclusionItems = this.exclusionsData;
+      await this.refreshExclusions(this.exclPage);
     },
 
     // ── Intel ─────────────────────────────────────────────────────────────
@@ -1009,6 +1070,7 @@ function nudgarr() {
         await new Promise(r => setTimeout(r, 400));
         await this.testConnections();
         this.closeInstModal();
+        this.instMsgParts = null;
         this.instMsg = 'Saved'; this.instMsgClass = 'msg ok';
         this._fadeMsg('instMsg');
       } catch (e) {
@@ -1029,6 +1091,7 @@ function nudgarr() {
       const ok = await this._showConfirm('Delete Instance', 'Remove ' + name + ' from Nudgarr? This cannot be undone.', 'Delete', true);
       if (!ok) return;
       this.cfg.instances[kind].splice(idx, 1);
+      this.instMsgParts = null;
       this.instMsg = 'Unsaved Changes'; this.instMsgClass = 'msg unsaved';
     },
 
@@ -1037,9 +1100,13 @@ function nudgarr() {
         await this._api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
         await this.loadAll();
         await new Promise(r => setTimeout(r, 400));
+        this.instMsgParts = null;
         this.instMsg = 'Saved'; this.instMsgClass = 'msg ok';
         this._fadeMsg('instMsg');
-      } catch (e) { this.instMsg = 'Save failed: ' + e.message; this.instMsgClass = 'msg err'; }
+      } catch (e) {
+        this.instMsgParts = null;
+        this.instMsg = 'Save failed: ' + e.message; this.instMsgClass = 'msg err';
+      }
     },
 
     // ── Panel toggles (local state only; use Save on each panel to persist) ──
@@ -1121,7 +1188,8 @@ function nudgarr() {
     },
 
     async testConnections() {
-      this.instMsg = 'Testing connections\u2026';
+      this.instMsgParts = null;
+      this.instMsg = 'Testing Connections\u2026';
       this.instMsgClass = 'msg';
       try {
         const out = await this._api('/api/test', { method: 'POST' });
@@ -1141,20 +1209,33 @@ function nudgarr() {
           }
         }
         const n = ok + bad + dis;
-        const parts = ['Test Complete:'];
-        if (n === 0) parts.push('No Instances to test.');
-        else {
-          parts.push(String(n), n === 1 ? 'Instance' : 'Instances', '\u2014');
-          const bits = [];
-          if (ok) bits.push(ok + ' Okay');
-          if (dis) bits.push(dis + ' Disabled');
-          if (bad) bits.push(bad + ' failed');
-          parts.push(bits.join(', ') + '.');
+        if (n === 0) {
+          this.instMsgParts = null;
+          this.instMsg = 'Test Complete: No Instances to Test';
+        } else {
+          const head = 'Test Complete: ' + n + ' ' + (n === 1 ? 'Instance' : 'Instances') + ' \u2014 ';
+          if (bad > 0) {
+            const beforeFail = [];
+            if (ok) beforeFail.push(ok + ' Okay');
+            if (dis) beforeFail.push(dis + ' Disabled');
+            this.instMsgParts = {
+              before: head + (beforeFail.length ? beforeFail.join(', ') + ', ' : ''),
+              fail: bad + ' Failed',
+              after: '',
+            };
+            this.instMsg = '';
+          } else {
+            this.instMsgParts = null;
+            const bits = [];
+            if (ok) bits.push(ok + ' Okay');
+            if (dis) bits.push(dis + ' Disabled');
+            this.instMsg = head + bits.join(', ');
+          }
         }
-        this.instMsg = parts.join(' ');
         this.instMsgClass = 'msg ok';
         this._fadeMsg('instMsg');
       } catch (e) {
+        this.instMsgParts = null;
         this.instMsg = 'Test failed: ' + e.message;
         this.instMsgClass = 'msg err';
       }
@@ -1692,6 +1773,18 @@ function nudgarr() {
 
     _sortItems(items, col, dir) {
       return [...items].sort((a, b) => {
+        if (col === 'turnaround_days') {
+          const na = a.turnaround_days;
+          const nb = b.turnaround_days;
+          const hasA = na != null && na !== '';
+          const hasB = nb != null && nb !== '';
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          const fa = Number(na);
+          const fb = Number(nb);
+          return dir === 'asc' ? fa - fb : fb - fa;
+        }
         let av = a[col], bv = b[col];
         if (av == null) av = ''; if (bv == null) bv = '';
         if (typeof av === 'number' && typeof bv === 'number') return dir === 'asc' ? av - bv : bv - av;
@@ -1748,7 +1841,11 @@ function nudgarr() {
     },
 
     _fadeMsg(prop) {
-      setTimeout(() => { this[prop] = ''; this[prop + 'Class'] = ''; }, 3000);
+      setTimeout(() => {
+        this[prop] = '';
+        this[prop + 'Class'] = '';
+        if (prop === 'instMsg') this.instMsgParts = null;
+      }, 3000);
     },
 
     sweepPipePill(sweepType) {
@@ -1762,5 +1859,7 @@ function nudgarr() {
       if (!ts) return '\u2014';
       try { return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ts; }
     },
+
+    formatTurnaroundDays,
   };
 }

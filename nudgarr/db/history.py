@@ -5,7 +5,7 @@ search_history table — all read/write operations.
 
   batch_upsert_search_history() -- batch insert or update rows
   get_last_searched_ts_bulk()   -- batch cooldown lookup
-  get_search_history()         -- paginated history with cooldown metadata
+  get_search_history()         -- paginated history with cooldown, type, title filters
   get_search_history_summary() -- entry counts per instance
   get_high_search_count_unconfirmed() -- titles above threshold with no confirmed import
   reset_search_count_by_title() -- reset search_count to 0 on auto-unexclude
@@ -59,6 +59,8 @@ def get_search_history(
     instance_name_map: Optional[Dict[str, str]] = None,
     cooldown_map: Optional[Dict[str, int]] = None,
     since: str = "",
+    type_filter: str = "",
+    title_search: str = "",
 ) -> Tuple[int, List[Dict]]:
     """Return paginated search history rows with computed cooldown metadata.
     instance_key accepts the composite 'name|url' format and extracts the URL
@@ -67,6 +69,9 @@ def get_search_history(
     This ensures per-instance cooldown overrides are reflected in the display.
     since filters to rows whose last_searched_ts >= since (ISO UTC string).
     Used by the Sweep tab feed to show only items searched in the current sweep.
+    type_filter matches Library History dropdown: 'Cutoff Unmet', 'Backlog', 'CF Score'
+    (DB stores 'Cutoff' for cutoff pipeline; empty legacy rows count as Cutoff Unmet).
+    title_search is a case-insensitive substring on sh.title.
     Returns (total, items)."""
     conn = get_connection()
     params: list = []
@@ -85,6 +90,21 @@ def get_search_history(
     if since:
         where.append("sh.last_searched_ts >= ?")
         params.append(since)
+    tf = (type_filter or "").strip()
+    if tf == "Cutoff Unmet":
+        where.append(
+            "(TRIM(COALESCE(sh.sweep_type, '')) = '' OR sh.sweep_type IN ('Cutoff', 'Cutoff Unmet'))"
+        )
+    elif tf == "Backlog":
+        where.append("sh.sweep_type = ?")
+        params.append("Backlog")
+    elif tf == "CF Score":
+        where.append("sh.sweep_type = ?")
+        params.append("CF Score")
+    q = (title_search or "").strip()
+    if q:
+        where.append("LOWER(sh.title) LIKE ?")
+        params.append("%" + q.lower() + "%")
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     total = conn.execute(

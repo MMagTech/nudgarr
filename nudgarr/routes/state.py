@@ -72,6 +72,9 @@ def api_state_items():
             else:
                 cooldown_map[url] = cooldown_hours
 
+    type_filter = request.args.get("type", "").strip()
+    title_search = request.args.get("search", "").strip()
+
     total, items = db.get_search_history(
         app_filter=app_name,
         instance_key=inst_key,
@@ -81,6 +84,8 @@ def api_state_items():
         instance_name_map=name_map,
         cooldown_map=cooldown_map,
         since=request.args.get("since", ""),
+        type_filter=type_filter,
+        title_search=title_search,
     )
     return jsonify({"total": total, "items": items})
 

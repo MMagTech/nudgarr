@@ -7,7 +7,9 @@ Confirmed import stats endpoints.
   POST /api/stats/clear          -- clear all stat entries (preserves lifetime totals)
   POST /api/stats/check-imports  -- manually trigger import check now
 
-The GET endpoint accepts an optional `period` query param (lifetime, 30, 7).
+The GET endpoint accepts optional query params: `period` (lifetime, 30, 7),
+`instance`, `type`, `search` (case-insensitive title substring on confirmed imports),
+plus `offset` and `limit` for pagination.
 Lifetime returns the persistent lifetime totals; 30 and 7 return rolling window
 counts calculated from imported_ts in stat_entries.
 """
@@ -51,12 +53,15 @@ def api_get_stats():
     elif period == "30":
         period_days = 30
 
+    title_search = request.args.get("search", "").strip()
+
     total, entries, available_types = db.get_confirmed_entries(
         instance_url_filter=instance_filter,
         type_filter=type_filter,
         offset=offset,
         limit=limit,
         period_days=period_days,
+        title_search=title_search,
     )
 
     # Resolve totals for the requested period.

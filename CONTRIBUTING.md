@@ -8,7 +8,7 @@ Nudgarr is a lightweight project -- the goal is to keep it that way. If you're c
 
 ## Project structure
 
-As of v5.0.0, Nudgarr uses a SQLite database for all persistence via the `nudgarr/db/` package and an Alpine.js single-file frontend.
+As of v5.0.0, Nudgarr uses a SQLite database for all persistence via the `nudgarr/db/` package and an Alpine.js single-file frontend. Patch releases (v5.0.1, etc.) are listed at the top of `CHANGELOG.md`; `constants.py` `VERSION` must match the latest changelog heading (enforced by `validate.py`).
 
 ```
 nudgarr/                    <- Python package
@@ -24,8 +24,10 @@ nudgarr/                    <- Python package
   db/                       <- SQLite persistence layer (package)
     __init__.py             <- public API -- re-exports everything below
     connection.py           <- thread-local connection, _SCHEMA_SQL, init_db, close_connection
-    history.py              <- search_history table; get_search_history() accepts an optional
-                               since param (ISO UTC string) to filter by last_searched_ts
+    history.py              <- search_history table; get_search_history() accepts optional
+                               since (ISO UTC, last_searched_ts), type_filter (Cutoff Unmet /
+                               Backlog / CF Score), and title_search (substring on title).
+                               Used by Library History and any caller of /api/state/items
     entries.py              <- stat_entries table; get_imports_since(since_utc) counts confirmed
                                imports by app since a UTC timestamp
     exclusions.py           <- exclusions table
@@ -38,8 +40,11 @@ nudgarr/                    <- Python package
                                get_cf_score_health. Also reads CF_SCAN_SNAPSHOT_PREFIX from
                                cf_effective for per-instance scan count display in Intel.
     cf_scores.py            <- cf_score_entries table; upsert, query, reset;
-                               delete_cf_scores_for_instance(arr_instance_id) -- removes all
-                               rows for a disabled or removed instance;
+                               count_cf_score_entries() / get_cf_score_entries() support
+                               search (title LIKE), sort_col/sort_dir, and arr_instance_id
+                               filter (composite key must match cf_score_syncer:
+                               radarr|url or sonarr|url, trailing slash stripped);
+                               delete_cf_scores_for_instance(arr_instance_id);
                                get_cf_max_last_synced_at_for_instance(arr_instance_id) -- MAX
                                last_synced_at before prune, used to preserve last sync time
   state.py                  <- exclusions and history helpers built on top of nudgarr.db;
@@ -75,11 +80,13 @@ nudgarr/                    <- Python package
     arr.py                  <- /api/arr/tags, /api/arr/profiles
     sweep.py                <- /api/status, /api/run-now, /api/test, /api/test-instance
     state.py                <- /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*,
-                               /api/arr-link
-    stats.py                <- /api/stats, /api/stats/clear, check-imports
+                               /api/arr-link; GET /api/state/items passes type & search query
+                               params through to get_search_history()
+    stats.py                <- /api/stats (instance, type, search, period, pagination),
+                               /api/stats/clear, check-imports
     intel.py                <- /api/intel, /api/intel/reset
-    cf_scores.py            <- /api/cf-scores/status, /api/cf-scores/entries,
-                               /api/cf-scores/scan, /api/cf-scores/reset
+    cf_scores.py            <- /api/cf-scores/status, /api/cf-scores/entries (instance_id,
+                               search, sort, dir), /api/cf-scores/scan, /api/cf-scores/reset
     notifications.py        <- /api/notifications/test
     diagnostics.py          <- /api/diagnostic, /api/log/clear
   static/                   <- JS and CSS served as static assets
@@ -305,6 +312,10 @@ The frontend is a two-file Alpine.js app -- no build step required. `nudgarr/tem
 Each panel section in `ui.html` is wrapped in `<div x-show="panel==='panelName'" class="panel">`. The sidebar nav items use `:class="{ active: panel==='panelName' }"` and `@click="navigateTo('panelName')"`.
 
 The Library panel has a sub-view switcher (`this.libView`). Valid values are `'history'`, `'imports'`, `'cfscores'`, `'exclusions'`. Use `setLibView(v)` to switch between them.
+
+**Instance dropdown keys (`allInstances` computed in `app.js`)**
+
+Each row includes `key` (`InstanceName|normalisedUrl`) for endpoints that resolve the instance by URL (e.g. `GET /api/state/items?instance=...`). It also includes `cfKey` (`radarr|url` or `sonarr|url`, same shape as `cf_score_syncer._make_instance_id`) for `GET /api/cf-scores/entries?instance_id=...`, which must match `cf_score_entries.arr_instance_id`. Use `inst.key` in History filters and `inst.cfKey` in the CF Score instance dropdown — they are not interchangeable.
 
 **Unsaved changes tracking**
 

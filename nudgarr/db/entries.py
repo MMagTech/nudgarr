@@ -6,7 +6,8 @@ stat_entries table — all read/write operations.
   upsert_stat_entry()       -- insert or update the active (unimported) row
   confirm_stat_entry()      -- mark a row as imported; insert quality_history row
   get_unconfirmed_entries() -- entries eligible for import checking
-  get_confirmed_entries()   -- paginated confirmed imports with quality history
+  get_confirmed_entries()   -- paginated confirmed imports with quality history;
+                               optional title_search (substring)
   get_period_totals()       -- confirmed import counts for a rolling day window
   rename_instance_in_history() -- update instance name after a rename
   clear_stat_entries()      -- delete all rows
@@ -332,13 +333,14 @@ def get_confirmed_entries(
     offset: int = 0,
     limit: int = 25,
     period_days: Optional[int] = None,
+    title_search: str = "",
 ) -> Tuple[int, List[Dict], List[str]]:
     """Return paginated confirmed (imported) stat entries with optional filters.
     Returns a three-tuple: (total, entries, available_types) where total is the
-    count matching instance / type / period filters, entries is the current page
+    count matching instance / type / period / title_search filters, entries is the current page
     of dicts with a computed turnaround field and quality_history list, and
     available_types is the distinct list of entry types present for the current
-    instance and period filters (type filter is not applied to that list).
+    instance and period filters (type filter and title_search are not applied to that list).
 
     When ``period_days`` is 7 or 30, only rows with ``imported_ts`` within the
     last N days are included (same cutoff as ``get_period_totals``). When
@@ -363,7 +365,11 @@ def get_confirmed_entries(
     if type_filter:
         where.append("se.type = ?")
         params.append(type_filter)
-        where_sql = "WHERE " + " AND ".join(where)
+    q = (title_search or "").strip()
+    if q:
+        where.append("LOWER(COALESCE(se.title, '')) LIKE ?")
+        params.append("%" + q.lower() + "%")
+    where_sql = "WHERE " + " AND ".join(where)
 
     total = conn.execute(
         f"SELECT COUNT(*) FROM stat_entries se {where_sql}", params

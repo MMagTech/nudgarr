@@ -359,8 +359,14 @@ function nudgarr() {
     get allInstances() {
       if (!this.cfg) return [];
       const out = [];
-      (this.cfg.instances?.radarr || []).forEach(i => out.push({ key: i.name + '|' + (i.url || '').replace(/\/$/, ''), name: i.name, app: 'radarr' }));
-      (this.cfg.instances?.sonarr || []).forEach(i => out.push({ key: i.name + '|' + (i.url || '').replace(/\/$/, ''), name: i.name, app: 'sonarr' }));
+      (this.cfg.instances?.radarr || []).forEach(i => {
+        const u = (i.url || '').replace(/\/$/, '');
+        out.push({ key: i.name + '|' + u, cfKey: 'radarr|' + u, name: i.name, app: 'radarr' });
+      });
+      (this.cfg.instances?.sonarr || []).forEach(i => {
+        const u = (i.url || '').replace(/\/$/, '');
+        out.push({ key: i.name + '|' + u, cfKey: 'sonarr|' + u, name: i.name, app: 'sonarr' });
+      });
       return out;
     },
 

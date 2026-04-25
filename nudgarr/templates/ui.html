@@ -278,7 +278,7 @@
             <div class="field"><select x-model.number="historyPageSize" @change="historyPage=0;refreshHistory()" style="width:auto">
               <option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
             </select></div>
-            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="historySearch" @input="historyPage=0;refreshHistory()"></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model="historySearch" @input.debounce.400ms="historyPage=0;refreshHistory()"></div>
             <button class="btn sm ac" @click="historyPage=0;refreshHistory()">Refresh</button>
             <button class="btn sm ac" @click="pruneState()">Prune Expired</button>
             <button class="btn sm dng" @click="openClearExclModal()">Clear Exclusions</button>
@@ -424,7 +424,7 @@
           <div class="filter-row">
             <div class="field"><select x-model="cfInstanceFilter" @change="cfPage=0;refreshCfScores()" style="min-width:140px">
               <option value="">All Instances</option>
-              <template x-for="inst in allInstances" :key="inst.key"><option :value="inst.key" x-text="inst.name"></option></template>
+              <template x-for="inst in allInstances" :key="inst.cfKey"><option :value="inst.cfKey" x-text="inst.name"></option></template>
             </select></div>
             <div class="field"><select x-model.number="cfPageSize" @change="cfPage=0;refreshCfScores()" style="width:auto"><option value="25">25</option><option value="50">50</option></select></div>
             <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="cfSearch" @input="cfPage=0;refreshCfScores()"></div>

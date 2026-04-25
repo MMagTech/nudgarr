@@ -358,7 +358,7 @@
             <div class="field"><select x-model.number="importsPageSize" @change="importsPage=0;refreshImports()" style="width:auto">
               <option value="10">10</option><option value="25">25</option><option value="50">50</option>
             </select></div>
-            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="importsSearch" @input="importsPage=0;refreshImports()"></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model="importsSearch" @input.debounce.400ms="importsPage=0;refreshImports()"></div>
             <button class="btn sm ac" @click="checkImportsNow()">Refresh</button>
           </div>
           <div class="table-wrap">
@@ -427,7 +427,7 @@
               <template x-for="inst in allInstances" :key="inst.cfKey"><option :value="inst.cfKey" x-text="inst.name"></option></template>
             </select></div>
             <div class="field"><select x-model.number="cfPageSize" @change="cfPage=0;refreshCfScores()" style="width:auto"><option value="25">25</option><option value="50">50</option></select></div>
-            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="cfSearch" @input="cfPage=0;refreshCfScores()"></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model="cfSearch" @input.debounce.400ms="cfPage=0;refreshCfScores()"></div>
           </div>
           <div class="table-wrap">
           <table>
@@ -477,7 +477,7 @@
             <div class="field"><select x-model.number="exclPageSize" @change="exclPage=0;refreshExclusions()" style="width:auto">
               <option value="10">10</option><option value="25">25</option><option value="50">50</option>
             </select></div>
-            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model.debounce.400ms="exclSearch" @input="exclPage=0;refreshExclusions()"></div>
+            <div class="field" style="flex:1;min-width:180px"><input type="text" placeholder="Search title&hellip;" x-model="exclSearch" @input.debounce.400ms="exclPage=0;refreshExclusions()"></div>
             <button class="btn sm dng" @click="openClearExclModal()">Clear Exclusions</button>
           </div>
           <div class="table-wrap">

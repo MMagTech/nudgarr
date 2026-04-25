@@ -82,7 +82,8 @@ nudgarr/                    <- Python package
     state.py                <- /api/state/*, /api/state/clear, /api/file/*, /api/exclusions*,
                                /api/arr-link; GET /api/state/items passes type & search query
                                params through to get_search_history()
-    stats.py                <- /api/stats, /api/stats/clear, check-imports
+    stats.py                <- /api/stats (instance, type, search, period, pagination),
+                               /api/stats/clear, check-imports
     intel.py                <- /api/intel, /api/intel/reset
     cf_scores.py            <- /api/cf-scores/status, /api/cf-scores/entries (instance_id,
                                search, sort, dir), /api/cf-scores/scan, /api/cf-scores/reset

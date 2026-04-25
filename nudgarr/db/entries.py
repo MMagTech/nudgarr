@@ -367,7 +367,7 @@ def get_confirmed_entries(
         params.append(type_filter)
     q = (title_search or "").strip()
     if q:
-        where.append("LOWER(se.title) LIKE ?")
+        where.append("LOWER(COALESCE(se.title, '')) LIKE ?")
         params.append("%" + q.lower() + "%")
     where_sql = "WHERE " + " AND ".join(where)
 

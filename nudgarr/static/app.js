@@ -99,6 +99,8 @@ function nudgarr() {
     historyPage: 0,
     historyPageSize: 25,
     historySearch: '',
+    /** Debounce timers for Library title search (Alpine @input.debounce can race x-model). */
+    _searchDebounceTimers: { history: null, imports: null, cf: null, excl: null },
     historyInstance: '',
     historyType: '',
     historySort: { col: 'last_searched', dir: 'desc' },
@@ -763,6 +765,18 @@ function nudgarr() {
 
     // ── Library — History ────────────────────────────────────────────────
 
+    _scheduleLibrarySearchRefresh(kind) {
+      const T = this._searchDebounceTimers;
+      if (T[kind]) clearTimeout(T[kind]);
+      T[kind] = setTimeout(() => {
+        T[kind] = null;
+        if (kind === 'history') { this.historyPage = 0; void this.refreshHistory(); }
+        else if (kind === 'imports') { this.importsPage = 0; void this.refreshImports(); }
+        else if (kind === 'cf') { this.cfPage = 0; void this.refreshCfScores(); }
+        else if (kind === 'excl') { this.exclPage = 0; void this.refreshExclusions(); }
+      }, 400);
+    },
+
     async refreshHistory(page) {
       if (page !== undefined) this.historyPage = page;
       try {
@@ -777,7 +791,8 @@ function nudgarr() {
         let url = '/api/state/items?limit=' + limit + '&offset=' + offset;
         if (this.historyInstance) url += '&instance=' + encodeURIComponent(this.historyInstance);
         if (this.historyType) url += '&type=' + encodeURIComponent(this.historyType);
-        if (this.historySearch) url += '&search=' + encodeURIComponent(this.historySearch);
+        const hq = (this.historySearch || '').trim();
+        if (hq) url += '&search=' + encodeURIComponent(hq);
         const data = await this._api(url);
         this.historyItems = this._sortItems(data.items || [], this.historySort.col, this.historySort.dir);
         this.historyTotal = data.total || 0;
@@ -849,6 +864,8 @@ function nudgarr() {
         let url = '/api/stats?offset=' + offset + '&limit=' + limit + '&period=' + encodeURIComponent(this.importsPeriod);
         if (this.importsInstance) url += '&instance=' + encodeURIComponent(this.importsInstance);
         if (this.importsType) url += '&type=' + encodeURIComponent(this.importsType);
+        const iq = (this.importsSearch || '').trim();
+        if (iq) url += '&search=' + encodeURIComponent(iq);
         // Bug #3: /api/stats returns data.entries
         const data = await this._api(url);
         this.importsItems = data.entries || [];
@@ -894,7 +911,8 @@ function nudgarr() {
       try {
         let url = '/api/cf-scores/entries?offset=' + (this.cfPage * this.cfPageSize) + '&limit=' + this.cfPageSize;
         if (this.cfInstanceFilter) url += '&instance_id=' + encodeURIComponent(this.cfInstanceFilter);
-        if (this.cfSearch) url += '&search=' + encodeURIComponent(this.cfSearch);
+        const cq = (this.cfSearch || '').trim();
+        if (cq) url += '&search=' + encodeURIComponent(cq);
         url += '&sort=' + encodeURIComponent(this.cfSort.col) + '&dir=' + encodeURIComponent(this.cfSort.dir);
         const data = await this._api(url);
         this.cfEntries = data.entries || [];

@@ -4,6 +4,14 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## Unreleased
+
+- **Security:** Bump `flask` to 3.1.3 (fixes CVE-2026-27205).
+- **Security:** Bump `requests` to 2.33.0 (fixes CVE-2026-25645).
+- **Security:** Upgrade `pip` during Docker build to >= 26.1 (addresses multiple pip CVEs affecting older versions).
+
+---
+
 ## v5.0.1
 
 **Library, CF Score, and config follow-ups**

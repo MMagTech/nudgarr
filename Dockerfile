@@ -5,7 +5,8 @@ RUN apk upgrade --no-cache
 
 # Install dependencies including su-exec for privilege dropping
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --no-compile -r /app/requirements.txt \
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1" \
+    && pip install --no-cache-dir --no-compile -r /app/requirements.txt \
     && apk add --no-cache su-exec
 
 WORKDIR /app

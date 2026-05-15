@@ -14,7 +14,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v5.0.1` · `5.0.1` · `v5.0.0` · `5.0.0` · `5.0` · `5` · `v4.3.0` · `4.3.0` · `4.3` · `v4.2.0` · `4.2.0` · `4.2` · `v4.1.0` · `4.1.0` · `4.1` · `v4.0.0` · `4.0.0` · `4.0`
+**Tags:** `latest` · `v5.0.1` · `5.0.1`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`

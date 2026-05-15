@@ -8,7 +8,7 @@ Nudgarr is a lightweight project -- the goal is to keep it that way. If you're c
 
 ## Project structure
 
-As of v5.0.0, Nudgarr uses a SQLite database for all persistence via the `nudgarr/db/` package and an Alpine.js single-file frontend. Patch releases (v5.0.1, etc.) are listed at the top of `CHANGELOG.md`; `constants.py` `VERSION` must match the latest changelog heading (enforced by `validate.py`).
+As of v5.0.0, Nudgarr uses a SQLite database for all persistence via the `nudgarr/db/` package and an Alpine.js single-file frontend. Patch releases (v5.0.2, etc.) are listed at the top of `CHANGELOG.md`; `constants.py` `VERSION` must match the latest changelog heading (enforced by `validate.py`).
 
 ```
 nudgarr/                    <- Python package

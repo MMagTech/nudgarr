@@ -1,11 +1,11 @@
-FROM python:3.12-alpine
+FROM python:3.12.13-alpine3.24
 
-# Upgrade all Alpine packages to pull latest security patches at build time
-RUN apk upgrade --no-cache
+# Refresh Alpine packages (openssl, sqlite-libs, busybox, etc.) at build time
+RUN apk update && apk upgrade --no-cache
 
 # Install dependencies including su-exec for privilege dropping
 COPY requirements.txt /app/requirements.txt
-RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1" \
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1.2" \
     && pip install --no-cache-dir --no-compile -r /app/requirements.txt \
     && apk add --no-cache su-exec
 

@@ -4,6 +4,16 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.0.3
+
+**Alpine base and OS package security updates**
+
+- **Security:** Pin Docker base to `python:3.12.13-alpine3.24` (Alpine 3.24 ships patched `openssl` 3.5.7-r0 and `sqlite-libs` 3.53.2-r0).
+- **Security:** Run `apk update && apk upgrade` at build time so fixable Alpine CVEs are pulled on rebuild.
+- **Security:** Upgrade build-time `pip` to >= 26.1.2 (addresses pip CVEs flagged on older bundled versions).
+
+---
+
 ## v5.0.2
 
 **Dependency and container security updates**

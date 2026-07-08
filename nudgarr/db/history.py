@@ -111,18 +111,29 @@ def get_search_history(
         f"SELECT COUNT(*) FROM search_history sh {where_sql}", params
     ).fetchone()[0]
 
+    # Import status join.  stat_entries keys imports at the movie level for
+    # Radarr (item_id = movie id) but at the SERIES level for Sonarr
+    # (item_id = series id, see batch_record_stat_entries). search_history keys
+    # Sonarr rows by episode id, so the join must match Sonarr episodes on
+    # sh.series_id. Falls back to sh.item_id when series_id is empty (legacy
+    # rows) and for all Radarr rows.
     rows = conn.execute(
         f"""
         SELECT sh.app, sh.instance_name, sh.instance_url, sh.item_type, sh.item_id, sh.series_id,
                sh.title, sh.sweep_type, sh.library_added,
                sh.last_searched_ts, sh.search_count,
-               se.iteration AS import_iteration
+               se.iteration AS import_iteration,
+               se.imported_ts AS import_ts
         FROM search_history sh
         LEFT JOIN stat_entries se
           ON se.app = sh.app
          AND se.instance_url = sh.instance_url
-         AND se.item_id = sh.item_id
          AND se.imported = 1
+         AND se.item_id = CASE
+                              WHEN sh.app = 'sonarr' AND sh.series_id != ''
+                              THEN sh.series_id
+                              ELSE sh.item_id
+                          END
         {where_sql}
         ORDER BY sh.last_searched_ts DESC
         LIMIT ? OFFSET ?
@@ -139,6 +150,24 @@ def get_search_history(
             url = r["instance_url"].rstrip("/")
             row_cooldown = (cooldown_map or {}).get(url, cooldown_hours)
             eligible = "Next Sweep" if row_cooldown <= 0 else iso_z(dt + timedelta(hours=row_cooldown))
+
+        # Confirmed-import status overrides the cooldown-derived label so the UI
+        # can distinguish "imported and done" from "still waiting to search".
+        # Because Sonarr imports are tracked per SERIES, a series-level import
+        # could otherwise be attributed to a sibling episode that is still being
+        # searched. Guard against that: only treat the row as imported when the
+        # confirmed import happened at or after this row's last search. A still
+        # pending sibling keeps advancing last_searched_ts past the import
+        # timestamp and therefore correctly stays "Next Sweep".
+        imported = False
+        import_ts = r["import_ts"]
+        if r["import_iteration"] and import_ts:
+            di = parse_iso(import_ts)
+            if di is not None and (dt is None or di >= dt):
+                imported = True
+        if imported:
+            eligible = "Imported"
+
         sk = f"{r['instance_name']}|{r['instance_url']}"
         friendly = (instance_name_map or {}).get(sk, r["instance_name"])
         items.append({
@@ -155,6 +184,7 @@ def get_search_history(
             "library_added": r["library_added"],
             "search_count": r["search_count"],
             "import_iteration": r["import_iteration"] or 0,
+            "imported": imported,
         })
     return total, items
 

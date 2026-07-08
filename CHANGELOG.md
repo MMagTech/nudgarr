@@ -4,6 +4,17 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.0.4
+
+**Library History import status (issue #13)**
+
+- **Library History:** Confirmed imports now show **Imported** in the Eligible Again column instead of **Next Sweep**, so resolved items are no longer indistinguishable from genuinely pending ones for the full retention window.
+- **Sonarr:** `get_search_history()` joins episode rows to series-level `stat_entries` via `series_id` (imports are tracked per series, not per episode). A guard uses `imported_ts >= last_searched_ts` so sibling episodes still being searched are not falsely marked imported.
+- **API:** `GET /api/state/items` response items include `imported` (bool). When confirmed, `eligible_again` is `"Imported"` rather than a cooldown timestamp or `"Next Sweep"`.
+- **Tests:** `tests/test_import_status.py` covers Radarr/Sonarr Backlog, Cutoff upgrade, unconfirmed cooldown regression, and Sonarr sibling-episode guard.
+
+---
+
 ## v5.0.3
 
 **Alpine base and OS package security updates**

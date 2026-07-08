@@ -27,6 +27,9 @@ nudgarr/                    <- Python package
     history.py              <- search_history table; get_search_history() accepts optional
                                since (ISO UTC, last_searched_ts), type_filter (Cutoff Unmet /
                                Backlog / CF Score), and title_search (substring on title).
+                               Each row includes eligible_again, import_iteration, and imported
+                               (bool). Confirmed imports set eligible_again to "Imported".
+                               Sonarr rows join stat_entries on series_id (imports are per-series).
                                Used by Library History and any caller of /api/state/items
     entries.py              <- stat_entries table; get_imports_since(since_utc) counts confirmed
                                imports by app since a UTC timestamp

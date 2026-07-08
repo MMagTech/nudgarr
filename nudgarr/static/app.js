@@ -836,6 +836,9 @@ function nudgarr() {
     },
 
     eligibleDisplay(item) {
+      // Confirmed imports are done — show a distinct status so they are not
+      // mistaken for items still waiting to be searched (issue #13).
+      if (item.imported) return { cls: 'eligible-imported', text: 'Imported' };
       const title = item.title || item.key || '';
       if (!this.isExcluded(title)) {
         if (item.eligible_again === 'Next Sweep') return { cls: 'eligible-next-sweep', text: 'Next Sweep' };

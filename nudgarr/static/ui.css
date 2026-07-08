@@ -158,6 +158,7 @@ th.sort-desc::after{content:' \2193';opacity:1;}
 .sw-pill.backlog{background:var(--ok-dim);border:1px solid rgba(34,197,94,.22);color:var(--ok);}
 .sw-pill.cfscore{background:var(--warn-dim);border:1px solid rgba(251,191,36,.2);color:var(--warn);}
 .eligible-next-sweep{color:var(--ok);font-size:12px;font-weight:500;}
+.eligible-imported{color:var(--ac-lt);font-size:12px;font-weight:600;}
 .source-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;}
 .source-badge.manual{background:rgba(255,255,255,.05);border:1px solid var(--border-md);color:var(--muted);}
 .source-badge.auto{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);color:#fbbf24;}

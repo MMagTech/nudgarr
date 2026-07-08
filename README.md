@@ -14,7 +14,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v5.0.3` · `5.0.3`
+**Tags:** `latest` · `v5.0.4` · `5.0.4`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -126,6 +126,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 ## Upgrade notes
 
 **v5.0.0** is a full frontend rewrite to Alpine.js with a sidebar navigation layout. The 14-file vanilla JS split is replaced by a single `app.js` and `ui.html`. The horizontal tab bar is gone -- navigation is now a sidebar with Monitor, Configure, and System groups. History, Imports, CF Score, and Exclusions are consolidated into a single Library panel with a view switcher. CF Score can now be toggled independently per app (Radarr/Sonarr) and per instance. No config changes required. Pull the new image and restart. New config keys are injected automatically on first start.
+
+**v5.0.4** is a patch release: Library History shows **Imported** in Eligible Again for confirmed imports (issue #13), including a Sonarr episode/series join fix. No config changes required. Pull the new image and restart.
 
 **v5.0.3** is a patch release: Docker base pinned to Alpine 3.24 with build-time `apk upgrade` for fixable OS package CVEs (openssl, sqlite-libs), and pip upgraded to >= 26.1.2. No config changes required. Pull the new image and restart.
 

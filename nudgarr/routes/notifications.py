@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 
 from nudgarr.auth import requires_auth
 from nudgarr.notifications import APPRISE_AVAILABLE
-from nudgarr.utils import is_safe_url
+from nudgarr.utils import is_safe_notification_url
 
 import logging
 
@@ -27,8 +27,8 @@ def api_test_notification():
     url = str(data.get("url", "")).strip()
     if not url:
         return jsonify({"ok": False, "error": "No URL provided"}), 400
-    if not is_safe_url(url):
-        return jsonify({"ok": False, "error": "Invalid or disallowed URL"}), 400
+    if not is_safe_notification_url(url):
+        return jsonify({"ok": False, "error": "Link-local addresses are not allowed"}), 400
     if not APPRISE_AVAILABLE:
         return jsonify({"ok": False, "error": "Apprise is not installed in this container"}), 500
     try:

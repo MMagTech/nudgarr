@@ -5,7 +5,7 @@ Stateless helpers used throughout the package.
 
   Time     : utcnow, iso_z, parse_iso
   File I/O : ensure_dir, load_json, save_json_atomic
-  Network  : mask_url, req
+  Network  : is_safe_url, is_safe_notification_url, mask_url, req
   Timing   : jitter_sleep
 
 No imports from within the nudgarr package — stdlib + requests only.
@@ -84,27 +84,59 @@ def save_json_atomic(path: str, data: Any, *, pretty: bool) -> None:
 # ── Network ───────────────────────────────────────────────────────────
 
 
+def _host_is_link_local(host: str) -> bool:
+    """
+    Return True if host is a link-local address (169.254.x.x, fe80::/10).
+
+    A blank host or a domain name is never link-local: domains are not
+    resolved here, and some URL schemes omit the host entirely.
+    """
+    import ipaddress
+    if not host:
+        return False
+    try:
+        return ipaddress.ip_address(host).is_link_local
+    except ValueError:
+        # hostname is a domain name, not a bare IP — allow it
+        return False
+
+
 def is_safe_url(url: str) -> bool:
     """
     Return True if the URL is safe to make an outbound request to.
     Blocks non-HTTP schemes and link-local addresses (169.254.x.x)
     to prevent cloud metadata endpoint probing. RFC 1918 private
     ranges are allowed — arr instances live on the LAN.
+
+    For Apprise notification URLs use is_safe_notification_url instead:
+    Apprise registers ~180 non-HTTP schemes that this function rejects.
     """
-    import ipaddress
     from urllib.parse import urlparse
     try:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https"):
             return False
-        host = parsed.hostname or ""
-        addr = ipaddress.ip_address(host)
-        if addr.is_link_local:  # 169.254.x.x — cloud metadata
-            return False
-        return True
-    except ValueError:
-        # hostname is a domain name, not a bare IP — allow it
-        return True
+        return not _host_is_link_local(parsed.hostname or "")
+    except Exception:
+        return False
+
+
+def is_safe_notification_url(url: str) -> bool:
+    """
+    Return True if an Apprise notification URL is safe to dispatch.
+
+    No scheme allowlist is applied. Apprise registers ~180 schemes —
+    ntfy://, gotify://, mailto://, plus hostless desktop transports such
+    as dbus:// — and deciding which are valid is Apprise's job: it rejects
+    anything it cannot handle. Link-local addresses are still blocked to
+    prevent cloud metadata endpoint probing.
+
+    A blank host is allowed: several schemes omit it and let Apprise
+    supply the default (ntfys:///topic targets ntfy.sh).
+    """
+    from urllib.parse import urlparse
+    try:
+        return not _host_is_link_local(urlparse(url).hostname or "")
     except Exception:
         return False
 

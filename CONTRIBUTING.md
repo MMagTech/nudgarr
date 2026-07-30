@@ -346,7 +346,7 @@ Five places must all be touched in concert.
 2. **Sidebar nav item** -- add a `<div class="nav-item" :class="{ active: panel==='myPanel' }" @click="navigateTo('myPanel')">My Panel</div>` in the appropriate sidebar group (Monitor / Configure / System).
 3. **State in `nudgarr()`** -- add a state section comment and declare any properties your panel needs.
 4. **navigateTo hook (if needed)** -- if your panel needs a data fetch when first opened, add `if (name === 'myPanel') this.refreshMyPanel();` inside `navigateTo()` in `app.js`.
-5. **validate.py and tests** -- add the panel name to the `VALID_PANELS` list in `validate.py` and update `EXPECTED_CHECK_COUNT` in `tests/test_frontend_structure.py` to match the new check count.
+5. **validate.py and tests** -- add the panel name to the `VALID_PANELS` list in `validate.py`. The structural suite range-checks validate.py's total, so there is no count constant to update.
 
 If your panel has unsaved changes, add a `myPanel: false` entry to the `unsaved` object at the top of `nudgarr()` and add `@change="unsaved.myPanel = true"` on the panel wrapper div in `ui.html`.
 
@@ -387,9 +387,9 @@ Run the structural test suite to verify file ownership, Alpine bindings, and spl
 pytest tests/test_frontend_structure.py -v
 ```
 
-The test suite must pass at exactly the expected check count. If you add or remove files, Alpine panel `x-show` bindings, or validate.py checks, update `EXPECTED_CHECK_COUNT` in `tests/test_frontend_structure.py` to match the new count.
+The suite runs `validate.py` as a subprocess, asserts it reports no failures, then range-checks how many checks it ran against `MIN_CHECKS` / `MAX_CHECKS` in `test_validate_py_check_count_in_range`. The range absorbs minor drift, so adding a route file, Alpine panel binding, or modal binding does not require updating a count by hand -- widen `MIN_CHECKS` / `MAX_CHECKS` only when checks are substantially added or removed.
 
-The current expected check count is **359** (defined at the top of `tests/test_frontend_structure.py`). If validate.py gains or loses checks -- which happens when you add new route files, new Alpine panel bindings, or new required modal bindings -- update this constant or the test will fail with a count mismatch even though validate.py itself passes.
+validate.py currently reports **364** checks.
 
 This checks:
 

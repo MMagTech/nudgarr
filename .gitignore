@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 /config/*
+.claude/
+.pytest_cache/

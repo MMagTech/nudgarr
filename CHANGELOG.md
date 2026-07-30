@@ -4,6 +4,17 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.0.5
+
+**Notification URL validation rejected all Apprise schemes**
+
+- **Notifications:** Send Test no longer rejects Apprise URLs that use a non-HTTP scheme. `ntfy://`, `gotify://`, `pover://`, `mailto://` and the rest of the Apprise catalogue now reach Apprise instead of being blocked by Nudgarr's own URL check. Previously only `https://` webhook URLs covered by Apprise native-URL support (Discord, Slack) could be tested, which is why the gap went unnoticed.
+- **Security:** Link-local addresses (`169.254.x.x`, `fe80::/10`) remain blocked on both notification and instance URLs — the metadata-probe protection added in v3.0.0 (H2) is unchanged. `is_safe_url` keeps its `http`/`https` allowlist for Radarr and Sonarr URLs; notification URLs now use `is_safe_notification_url`, which checks the host only and leaves scheme validation to Apprise.
+- **UI:** Notification URL help text now reads "Supports any network-based Apprise URL". Desktop-only transports (`dbus://`, `gnome://`, `macosx://`) cannot work inside the container regardless of validation.
+- **Tests:** `tests/test_notification_url.py` covers Apprise scheme acceptance, host-less URLs, native https webhooks, link-local blocking on both checks, and a structural guard against wiring the endpoint back to `is_safe_url`.
+
+---
+
 ## v5.0.4
 
 **Library History import status (issue #13)**

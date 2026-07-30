@@ -1244,7 +1244,7 @@
                   <input :type="notifyUrlVisible ? 'text' : 'password'" x-model="notifyUrl" style="padding-right:52px" placeholder="discord://webhookid/token">
                   <button class="btn sm ghost" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:11px" @click.prevent="notifyUrlVisible=!notifyUrlVisible" x-text="notifyUrlVisible ? 'Hide' : 'Show'"></button>
                 </div>
-                <div class="help">Supports any <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--ac-lt)">Apprise-compatible</a> URL.</div>
+                <div class="help">Supports any network-based <a href="https://github.com/caronc/apprise/wiki" target="_blank" style="color:var(--ac-lt)">Apprise</a> URL</div>
               </div>
               <div class="notif-test-row">
                 <button class="btn pri sm" @click.prevent="testNotification()">Send Test</button>

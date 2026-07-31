@@ -49,7 +49,7 @@ V5_CSS_FILES = ['ui.css', 'ui-responsive.css']
 # ── Line-count ceilings ───────────────────────────────────────────────────────
 
 LINE_COUNT_CEILINGS = {
-    'app.js':        1900,  # v5 single-file Alpine data object
+    'app.js':        2100,  # v5 single-file Alpine data object (raised for v5.1 Filter Pipeline Scope)
     'alpine.min.js': 5,     # minified — always 1-2 lines
     'ui.css':        450,
     'ui-responsive.css': 200,

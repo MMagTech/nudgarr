@@ -169,8 +169,8 @@
               </div>
               <div class="sweep-stat-grid cols3">
                 <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.excluded===0}" x-text="cutoffAgg.excluded"></div><div class="sweep-stat-lbl tooltip-wrap">Excluded<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div></div>
-                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.tag===0}" x-text="cutoffAgg.tag"></div><div class="sweep-stat-lbl tooltip-wrap">Tag<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div></div>
-                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.profile===0}" x-text="cutoffAgg.profile"></div><div class="sweep-stat-lbl tooltip-wrap">Profile<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.tag===0}" x-text="cutoffAgg.tag"></div><div class="sweep-stat-lbl tooltip-wrap">Tag<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match a tag filtered from this pipeline in your Filters.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cutoffAgg.profile===0}" x-text="cutoffAgg.profile"></div><div class="sweep-stat-lbl tooltip-wrap">Profile<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match a quality profile filtered from this pipeline in your Filters.</div></span></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in cutoffInstRows" :key="row.name">
@@ -194,8 +194,8 @@
               </div>
               <div class="sweep-stat-grid cols3">
                 <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.grace===0}" x-text="backlogAgg.grace"></div><div class="sweep-stat-lbl tooltip-wrap">Grace<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were added to your library within the grace period.</div></span></div></div>
-                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.tag===0}" x-text="backlogAgg.tag"></div><div class="sweep-stat-lbl tooltip-wrap">Tag<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded tag in your Filters.</div></span></div></div>
-                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.profile===0}" x-text="backlogAgg.profile"></div><div class="sweep-stat-lbl tooltip-wrap">Profile<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match an excluded quality profile in your Filters.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.tag===0}" x-text="backlogAgg.tag"></div><div class="sweep-stat-lbl tooltip-wrap">Tag<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match a tag filtered from this pipeline in your Filters.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:backlogAgg.profile===0}" x-text="backlogAgg.profile"></div><div class="sweep-stat-lbl tooltip-wrap">Profile<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they match a quality profile filtered from this pipeline in your Filters.</div></span></div></div>
               </div>
               <div class="p-divider"></div><div class="p-inst-lbl">Per Instance</div>
               <template x-for="row in backlogInstRows" :key="row.name">
@@ -212,9 +212,10 @@
             </div>
             <div class="p-card cfscore" x-show="cfScoreEnabled">
               <div class="p-hdr"><div style="display:flex;align-items:center;gap:6px"><span class="p-name">CF Score</span><span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Finds files where custom format score is below the quality profile cutoff.</div></span></div><span class="mono" style="font-size:10px;color:var(--muted)" x-text="lastRunCfscoreUtc ? _fmtTimePadded(lastRunCfscoreUtc) : ''"></span></div>
-              <div class="sweep-stat-grid cols2">
+              <div class="sweep-stat-grid cols3">
                 <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.searched===0}" x-text="cfscoreAgg.searched"></div><div class="sweep-stat-lbl tooltip-wrap">Searched<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items Nudgarr sent a search command for this sweep because their custom format score was below the profile cutoff.</div></span></div></div>
                 <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.cooldown===0}" x-text="cfscoreAgg.cooldown"></div><div class="sweep-stat-lbl tooltip-wrap">Cooldown<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they were searched too recently — within your cooldown window.</div></span></div></div>
+                <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.capped===0}" x-text="cfscoreAgg.capped"></div><div class="sweep-stat-lbl tooltip-wrap">Capped<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items eligible but not searched because the per-instance CF Score max was already reached this sweep.</div></span></div></div>
               </div>
               <div class="sweep-stat-grid cols2">
                 <div class="sweep-stat-cell"><div class="sweep-stat-num" :class="{dim:cfscoreAgg.excluded===0}" x-text="cfscoreAgg.excluded"></div><div class="sweep-stat-lbl tooltip-wrap">Excluded<span tabindex="0" class="tooltip-icon tip-down" style="font-size:9px">i<div class="tooltip-box">Items skipped because they are on the exclusion list.</div></span></div></div>
@@ -1104,9 +1105,19 @@
 
     <!-- FILTERS PANEL -->
     <div x-show="panel==='filters'" class="panel">
-      <div style="margin-bottom:16px">
-        <div style="font-size:14px;font-weight:600;margin-bottom:3px">Tag &amp; Quality Profile Filters</div>
-        <p class="help">Exclude items from sweep by tag or quality profile. Applied per instance.</p>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:3px">Tag &amp; Quality Profile Filters</div>
+          <p class="help">Exclude items from sweep by tag or quality profile. Applied per instance.</p>
+          <p class="help" x-show="filterScopeEnabled" style="margin-top:4px"><span style="color:#fca5a5">Red</span> = blocked in that pipeline &middot; grey = untouched. <strong>C</strong> Cutoff Unmet &middot; <strong>B</strong> Backlog &middot; <strong>F</strong> CF Score.</p>
+        </div>
+        <div class="toggle-line ac" style="flex-shrink:0;gap:10px;padding:7px 11px;border-radius:10px;border:1px solid var(--border-md)" :style="filterScopeEnabled ? 'border-color:var(--ac-bdr);background:var(--ac-dim)' : ''">
+          <div style="text-align:right">
+            <div style="font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:5px;justify-content:flex-end">Pipeline Scope <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box" style="left:auto;right:0">Choose which pipelines each tag or profile filter applies to. Off means every filter applies to all three &mdash; the classic behaviour. Scope choices are kept when you turn this off.</div></span></div>
+            <div class="help" x-text="filterScopeEnabled ? 'On — choose pipelines per filter' : 'Off — filters apply to all pipelines'"></div>
+          </div>
+          <label class="toggle"><input type="checkbox" :checked="filterScopeEnabled" @change="toggleFilterScope($event.target.checked)"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+        </div>
       </div>
       <div class="cols2">
         <!-- Radarr -->
@@ -1127,6 +1138,11 @@
                 <template x-for="id in radarrFilters.excludedTagIds" :key="id">
                   <span class="filter-active-pill" @click="toggleFilterTag('radarr', id)">
                     <span x-text="(radarrFilters.tags.find(t=>t.id===id)||{label:id}).label"></span>
+                    <span class="fscope-seg" x-show="filterScopeEnabled" @click.stop>
+                      <template x-for="pl in filterPipelines" :key="pl">
+                        <span :class="{ on: scopeApplies('radarr','tag',id,pl) }" @click="toggleScopeSegment('radarr','tag',id,pl)" x-text="pl==='cutoff'?'C':(pl==='backlog'?'B':'F')" :title="(scopeApplies('radarr','tag',id,pl)?'Blocked in ':'Not blocked in ')+(pl==='cutoff'?'Cutoff Unmet':(pl==='backlog'?'Backlog':'CF Score'))+' — click to toggle'"></span>
+                      </template>
+                    </span>
                     <span class="filter-pill-x">&times;</span>
                   </span>
                 </template>
@@ -1145,6 +1161,11 @@
                 <template x-for="id in radarrFilters.excludedProfileIds" :key="id">
                   <span class="filter-active-pill" @click="toggleFilterProfile('radarr', id)">
                     <span x-text="(radarrFilters.profiles.find(p=>p.id===id)||{name:id}).name"></span>
+                    <span class="fscope-seg" x-show="filterScopeEnabled" @click.stop>
+                      <template x-for="pl in filterPipelines" :key="pl">
+                        <span :class="{ on: scopeApplies('radarr','profile',id,pl) }" @click="toggleScopeSegment('radarr','profile',id,pl)" x-text="pl==='cutoff'?'C':(pl==='backlog'?'B':'F')" :title="(scopeApplies('radarr','profile',id,pl)?'Blocked in ':'Not blocked in ')+(pl==='cutoff'?'Cutoff Unmet':(pl==='backlog'?'Backlog':'CF Score'))+' — click to toggle'"></span>
+                      </template>
+                    </span>
                     <span class="filter-pill-x">&times;</span>
                   </span>
                 </template>
@@ -1183,6 +1204,11 @@
                 <template x-for="id in sonarrFilters.excludedTagIds" :key="id">
                   <span class="filter-active-pill filter-pill-sonarr" @click="toggleFilterTag('sonarr', id)">
                     <span x-text="(sonarrFilters.tags.find(t=>t.id===id)||{label:id}).label"></span>
+                    <span class="fscope-seg" x-show="filterScopeEnabled" @click.stop>
+                      <template x-for="pl in filterPipelines" :key="pl">
+                        <span :class="{ on: scopeApplies('sonarr','tag',id,pl) }" @click="toggleScopeSegment('sonarr','tag',id,pl)" x-text="pl==='cutoff'?'C':(pl==='backlog'?'B':'F')" :title="(scopeApplies('sonarr','tag',id,pl)?'Blocked in ':'Not blocked in ')+(pl==='cutoff'?'Cutoff Unmet':(pl==='backlog'?'Backlog':'CF Score'))+' — click to toggle'"></span>
+                      </template>
+                    </span>
                     <span class="filter-pill-x">&times;</span>
                   </span>
                 </template>
@@ -1201,6 +1227,11 @@
                 <template x-for="id in sonarrFilters.excludedProfileIds" :key="id">
                   <span class="filter-active-pill filter-pill-sonarr" @click="toggleFilterProfile('sonarr', id)">
                     <span x-text="(sonarrFilters.profiles.find(p=>p.id===id)||{name:id}).name"></span>
+                    <span class="fscope-seg" x-show="filterScopeEnabled" @click.stop>
+                      <template x-for="pl in filterPipelines" :key="pl">
+                        <span :class="{ on: scopeApplies('sonarr','profile',id,pl) }" @click="toggleScopeSegment('sonarr','profile',id,pl)" x-text="pl==='cutoff'?'C':(pl==='backlog'?'B':'F')" :title="(scopeApplies('sonarr','profile',id,pl)?'Blocked in ':'Not blocked in ')+(pl==='cutoff'?'Cutoff Unmet':(pl==='backlog'?'Backlog':'CF Score'))+' — click to toggle'"></span>
+                      </template>
+                    </span>
                     <span class="filter-pill-x">&times;</span>
                   </span>
                 </template>
@@ -1421,16 +1452,14 @@
 <!-- What's New -->
 <div class="modal-backdrop" :class="{ open: modal==='whatsNew' }" @click.self="dismissWhatsNew()">
   <div class="modal" @click.stop style="max-width:520px">
-    <h2 style="margin:0 0 4px">What's New in v5.0</h2>
-    <p class="help" style="margin:0 0 18px">v5 is a full UI redesign. Everything works the same way &mdash; this is what moved and where.</p>
+    <h2 style="margin:0 0 4px">What's New in v5.1</h2>
+    <p class="help" style="margin:0 0 18px">One new power feature, off by default &mdash; and two Sweep panel fixes. Nothing changes until you turn it on.</p>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Tabs Replaced with a Sidebar</div><div class="help">The horizontal tab bar is gone. Navigation is now a sidebar with Monitor, Configure, and System groups. Overrides and Filters sit as sub-items.</div></div>
-      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">History, Imports, CF Score, and Exclusions Are Now Library</div><div class="help">Four separate tabs are now one Library panel with a view switcher at the top. Exclusions get their own dedicated view with filtering, search, and pagination.</div></div>
-      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Pipeline Config Moved to Pipelines</div><div class="help">Backlog and CF Score settings moved from Advanced and Settings into the Pipelines panel. Settings now covers Schedule, Sweep Controls, Throttling, and Auto-Exclusion only.</div></div>
-      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">CF Score Per-App and Per-Instance Controls</div><div class="help">CF Score can now be toggled independently for Radarr and Sonarr. Per-instance overrides add a CF Score enable/disable toggle and sample mode per instance.</div></div>
-      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Unsaved Changes Indicator</div><div class="help">A small amber dot appears next to any nav item with unsaved changes. You can navigate freely between panels without losing pending edits.</div></div>
-      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Mobile Sidebar Drawer</div><div class="help">On narrow screens the sidebar opens as a slide-in drawer from a hamburger button in the topbar. All panels are accessible on mobile &mdash; no separate layout.</div></div>
-      <div style="padding:10px 13px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:10px"><div style="width:6px;height:6px;border-radius:50%;background:var(--ok);flex-shrink:0;margin-top:4px"></div><div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ok);margin-bottom:3px">No Migration Required</div><div class="help">No backend changes. Your config, history, cooldown records, exclusions, imports, Intel data, and CF Score index are all untouched. The upgrade is a container restart.</div></div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Filter Pipeline Scope</div><div class="help">Tag and profile filters can now apply to only the pipelines you choose &mdash; block a series from CF Score while Backlog still grabs new episodes and Cutoff Unmet still upgrades old ones. Enable it from the toggle on the Filters panel.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Scope Badges on Filter Pills</div><div class="help">With scope enabled, each filter pill shows a <span class="fscope-seg" style="vertical-align:-2px"><span class="on">C</span><span>B</span><span class="on">F</span></span> selector &mdash; red means blocked in that pipeline, grey means untouched. New filters start blocked everywhere, exactly like before.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Smarter CF Index Prompt</div><div class="help">Saving filters only offers a CF index rebuild when your change actually affects CF Score &mdash; and the prompt now says whether titles are being added back or removed.</div></div>
+      <div style="padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><div style="font-weight:600;font-size:13px;margin-bottom:3px">Sweep Panel Accuracy</div><div class="help">The Backlog card's per-instance Excl column now counts real exclusion-list skips (it previously showed tag and profile skips), and the CF Score card gains a Capped stat showing how many eligible items are waiting behind your per-run limit.</div></div>
+      <div style="padding:10px 13px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:10px"><div style="width:6px;height:6px;border-radius:50%;background:var(--ok);flex-shrink:0;margin-top:4px"></div><div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ok);margin-bottom:3px">No Migration Required</div><div class="help">No database changes. Existing filters keep working exactly as they did &mdash; scope is off until you enable it, and switching back to an earlier version is safe at any time.</div></div></div>
     </div>
     <div class="row" style="justify-content:space-between;align-items:center;margin-top:20px">
       <a href="https://mmagtech.github.io/nudgarr/" target="_blank" style="font-size:12px;color:var(--ac-lt);text-decoration:none">Full docs &amp; changelog &#8599;</a>
@@ -1516,7 +1545,7 @@
 <div class="modal-backdrop" :class="{ open: modal==='cfFiltersSync' }" @click.self="closeModal()">
   <div class="modal" @click.stop style="max-width:440px;border-color:rgba(251,191,36,.22)">
     <h2 style="margin:0 0 8px">Update CF index?</h2>
-    <p class="help" style="margin:0 0 20px;line-height:1.6">Tag and profile filters apply when Nudgarr builds the CF Score index. Sync Now to refresh it, or Sync Later &mdash; it will update on the next scheduled run or when you use Scan Library in Pipelines.</p>
+    <p class="help" style="margin:0 0 20px;line-height:1.6" x-text="cfSyncMsg || 'Tag and profile filters apply when Nudgarr builds the CF Score index. Sync Now to refresh it, or Sync Later — it will update on the next scheduled run or when you use Scan Library in Pipelines.'"></p>
     <div class="row" style="justify-content:flex-end;gap:8px">
       <button type="button" class="btn sm" @click="closeModal()">Sync Later</button>
       <button type="button" class="btn sm pri" @click="cfFiltersSyncNow()">Sync Now</button>

@@ -4,6 +4,19 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.1.0
+
+**Filter Pipeline Scope**
+
+- **Filters:** Tag and quality profile filters can now apply to any combination of the three pipelines (Cutoff Unmet, Backlog, CF Score) instead of always all three. Enable via the **Pipeline Scope** toggle on the Filters panel; each filter pill then shows a C/B/F selector — red segments are blocked pipelines, grey are untouched. Off by default: existing filters behave exactly as before, and scope choices are preserved when the toggle is off.
+- **Config:** New `filter_pipeline_scope_enabled` key and optional `sweep_filters.tag_pipelines` / `profile_pipelines` maps per instance. An id absent from its map applies to all pipelines, so pre-5.1 configs are byte-identical in behaviour — no migration, and downgrading is safe (older versions ignore the maps and apply filters to all pipelines).
+- **API:** `POST /api/filter-scope/toggle`; `POST /api/arr/filters` accepts the scope maps and now merge-preserves unknown `sweep_filters` keys so older clients cannot clobber scope data.
+- **CF Score:** The "Update CF index?" prompt after saving filters now fires only when the change affects CF Score membership, with directional copy (titles being added back vs. removed). Silent for Cutoff/Backlog-only changes.
+- **Sweep panel:** Backlog's per-instance **Excl** column now shows real exclusion-list skips via the new `skipped_excluded_backlog` counter (it previously displayed tag+profile skips). CF Score card gains a **Capped** stat (eligible minus searched). Tag/Profile tooltips reworded for per-pipeline accuracy.
+- **Tests:** `tests/test_filter_scope.py` — resolver backward-compatibility, merge/clobber protection, config validation, and per-pipeline sweep integration.
+
+---
+
 ## v5.0.5
 
 **Notification URL validation rejected all Apprise schemes**

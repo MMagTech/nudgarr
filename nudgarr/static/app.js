@@ -200,8 +200,11 @@ function nudgarr() {
     overridesInfoSeen: false,
 
     // ── Filters ──────────────────────────────────────────────────────────
-    radarrFilters: { loaded: false, instanceIdx: 0, tags: [], profiles: [], excludedTagIds: [], excludedProfileIds: [], tagSearch: '', profileSearch: '', loading: false },
-    sonarrFilters: { loaded: false, instanceIdx: 0, tags: [], profiles: [], excludedTagIds: [], excludedProfileIds: [], tagSearch: '', profileSearch: '', loading: false },
+    radarrFilters: { loaded: false, instanceIdx: 0, tags: [], profiles: [], excludedTagIds: [], excludedProfileIds: [], tagScopes: {}, profileScopes: {}, tagSearch: '', profileSearch: '', loading: false },
+    sonarrFilters: { loaded: false, instanceIdx: 0, tags: [], profiles: [], excludedTagIds: [], excludedProfileIds: [], tagScopes: {}, profileScopes: {}, tagSearch: '', profileSearch: '', loading: false },
+    filterScopeEnabled: false,
+    filterPipelines: ['cutoff', 'backlog', 'cfscore'],
+    cfSyncMsg: '',
 
     // ── Settings ─────────────────────────────────────────────────────────
     schedulerEnabledUi: false,
@@ -517,6 +520,7 @@ function nudgarr() {
       this.schedulerEnabled = !!this.cfg.scheduler_enabled;
       this.cfScoreEnabled = !!this.cfg.cf_score_enabled;
       this.overridesEnabled = !!this.cfg.per_instance_overrides_enabled;
+      this.filterScopeEnabled = !!this.cfg.filter_pipeline_scope_enabled;
 
       this.schedulerEnabledUi = !!this.cfg.scheduler_enabled;
       this.cronExpr = this.cfg.cron_expression || '0 */6 * * *';
@@ -690,8 +694,8 @@ function nudgarr() {
         for (const s of all) { r.searched += s.searched_missing||0; r.cooldown += s.skipped_missing_cooldown||0; r.capped += Math.max(0,(s.eligible_missing||0)-(s.searched_missing||0)); r.grace += s.skipped_grace||0; r.tag += s.skipped_tag_backlog||0; r.profile += s.skipped_profile_backlog||0; }
         return r;
       }
-      const r = { searched: 0, cooldown: 0, excluded: 0, queued: 0 };
-      for (const s of all) { r.searched += s.searched_cf||0; r.cooldown += s.skipped_cf_cooldown||0; r.excluded += s.skipped_cf_excluded||0; r.queued += s.skipped_cf_queued||0; }
+      const r = { searched: 0, cooldown: 0, capped: 0, excluded: 0, queued: 0 };
+      for (const s of all) { r.searched += s.searched_cf||0; r.cooldown += s.skipped_cf_cooldown||0; r.capped += Math.max(0,(s.eligible_cf||0)-(s.searched_cf||0)); r.excluded += s.skipped_cf_excluded||0; r.queued += s.skipped_cf_queued||0; }
       return r;
     },
 
@@ -707,7 +711,7 @@ function nudgarr() {
           const disabled = inst.enabled === false;
           let v1, v2, v3;
           if (type === 'cutoff') { v1 = s?(s.searched||0):null; v2 = s?(s.skipped_cooldown||0):null; v3 = s?(s.skipped_excluded_cutoff||0):null; }
-          else if (type === 'backlog') { v1 = s?(s.searched_missing||0):null; v2 = s?(s.skipped_missing_cooldown||0):null; v3 = s?((s.skipped_tag_backlog||0)+(s.skipped_profile_backlog||0)):null; }
+          else if (type === 'backlog') { v1 = s?(s.searched_missing||0):null; v2 = s?(s.skipped_missing_cooldown||0):null; v3 = s?(s.skipped_excluded_backlog||0):null; }
           else { v1 = s?(s.searched_cf||0):null; v2 = s?(s.skipped_cf_cooldown||0):null; v3 = s?(s.skipped_cf_excluded||0):null; }
           rows.push({ name: inst.name, dot, disabled, v1, v2, v3 });
         }
@@ -1542,6 +1546,8 @@ function nudgarr() {
         const profSrc = sf.excluded_profile_ids ?? sf.excluded_profiles;
         f.excludedTagIds = tagSrc ? [...tagSrc] : [];
         f.excludedProfileIds = profSrc ? [...profSrc] : [];
+        f.tagScopes = JSON.parse(JSON.stringify(sf.tag_pipelines || {}));
+        f.profileScopes = JSON.parse(JSON.stringify(sf.profile_pipelines || {}));
         f.loaded = true;
       } catch (e) { this.showAlert('Failed to load filter data: ' + e.message, 'error'); }
       finally { f.loading = false; }
@@ -1562,39 +1568,110 @@ function nudgarr() {
     toggleFilterTag(kind, id) {
       const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
       const i = f.excludedTagIds.indexOf(id);
-      if (i >= 0) f.excludedTagIds.splice(i, 1); else f.excludedTagIds.push(id);
+      if (i >= 0) { f.excludedTagIds.splice(i, 1); delete f.tagScopes[String(id)]; }
+      else f.excludedTagIds.push(id);
       if (kind === 'radarr') this.unsaved.filtersRadarr = true; else this.unsaved.filtersSonarr = true;
     },
 
     toggleFilterProfile(kind, id) {
       const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
       const i = f.excludedProfileIds.indexOf(id);
-      if (i >= 0) f.excludedProfileIds.splice(i, 1); else f.excludedProfileIds.push(id);
+      if (i >= 0) { f.excludedProfileIds.splice(i, 1); delete f.profileScopes[String(id)]; }
+      else f.excludedProfileIds.push(id);
       if (kind === 'radarr') this.unsaved.filtersRadarr = true; else this.unsaved.filtersSonarr = true;
+    },
+
+    // ── Filter Pipeline Scope ────────────────────────────────────────────
+
+    async toggleFilterScope(checked) {
+      try {
+        await this._api('/api/filter-scope/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: checked }) });
+        this.filterScopeEnabled = checked;
+        if (this.cfg) this.cfg.filter_pipeline_scope_enabled = checked;
+      } catch (e) { this.showAlert('Failed to toggle pipeline scope: ' + e.message, 'error'); }
+    },
+
+    // A filter blocks a pipeline when its scope entry lists that pipeline,
+    // or when it has no entry at all (absence = blocked everywhere).
+    scopeApplies(kind, type, id, pipeline) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const entry = (type === 'tag' ? f.tagScopes : f.profileScopes)[String(id)];
+      return Array.isArray(entry) ? entry.includes(pipeline) : true;
+    },
+
+    toggleScopeSegment(kind, type, id, pipeline) {
+      const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
+      const scopes = type === 'tag' ? f.tagScopes : f.profileScopes;
+      const key = String(id);
+      let entry = Array.isArray(scopes[key]) ? [...scopes[key]] : [...this.filterPipelines];
+      if (entry.includes(pipeline)) entry = entry.filter(p => p !== pipeline);
+      else entry.push(pipeline);
+      // Full scope equals absence — keep the stored shape minimal.
+      if (entry.length === this.filterPipelines.length) delete scopes[key];
+      else scopes[key] = entry;
+      if (kind === 'radarr') this.unsaved.filtersRadarr = true; else this.unsaved.filtersSonarr = true;
+    },
+
+    // Set of ids (as strings) whose filter currently applies to CF Score.
+    _cfApplicableIds(ids, scopes) {
+      return new Set(ids.map(String).filter(id => {
+        const entry = scopes ? scopes[id] : undefined;
+        return Array.isArray(entry) ? entry.includes('cfscore') : true;
+      }));
     },
 
     async saveFilters(kind) {
       const f = kind === 'radarr' ? this.radarrFilters : this.sonarrFilters;
       const instances = this.cfg?.instances?.[kind];
       if (!instances || !instances[f.instanceIdx]) return;
-      const payload = {
-        kind, idx: f.instanceIdx,
-        sweep_filters: { excluded_tags: [...f.excludedTagIds], excluded_profiles: [...f.excludedProfileIds] },
-      };
+
+      // Snapshot which filters applied to CF Score BEFORE this save, so the
+      // sync prompt only fires when the CF dimension actually changed — and
+      // can say in which direction.
+      const oldSf = instances[f.instanceIdx].sweep_filters || {};
+      const cfSet = (tagIds, profIds, tagScopes, profScopes) => new Set([
+        ...[...this._cfApplicableIds(tagIds || [], tagScopes)].map(id => 't' + id),
+        ...[...this._cfApplicableIds(profIds || [], profScopes)].map(id => 'p' + id),
+      ]);
+      const oldCf = cfSet(oldSf.excluded_tags, oldSf.excluded_profiles, oldSf.tag_pipelines, oldSf.profile_pipelines);
+      const newCf = cfSet(f.excludedTagIds, f.excludedProfileIds,
+                          this.filterScopeEnabled ? f.tagScopes : {},
+                          this.filterScopeEnabled ? f.profileScopes : {});
+      const cfAdded = [...newCf].some(k => !oldCf.has(k));
+      const cfRemoved = [...oldCf].some(k => !newCf.has(k));
+
+      const sfPayload = { excluded_tags: [...f.excludedTagIds], excluded_profiles: [...f.excludedProfileIds] };
+      if (this.filterScopeEnabled) {
+        sfPayload.tag_pipelines = JSON.parse(JSON.stringify(f.tagScopes));
+        sfPayload.profile_pipelines = JSON.parse(JSON.stringify(f.profileScopes));
+      }
+      const payload = { kind, idx: f.instanceIdx, sweep_filters: sfPayload };
       try {
         await this._api('/api/arr/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (this.cfg.instances?.[kind]?.[f.instanceIdx]) {
           // Merge, never replace — sweep_filters may carry pipeline scope maps
-          // (tag_pipelines / profile_pipelines) that this save doesn't touch.
-          this.cfg.instances[kind][f.instanceIdx].sweep_filters = {
+          // (tag_pipelines / profile_pipelines) an older save path doesn't touch.
+          const merged = {
             ...(this.cfg.instances[kind][f.instanceIdx].sweep_filters || {}),
             excluded_tags: [...f.excludedTagIds],
             excluded_profiles: [...f.excludedProfileIds],
           };
+          if (this.filterScopeEnabled) {
+            merged.tag_pipelines = JSON.parse(JSON.stringify(f.tagScopes));
+            merged.profile_pipelines = JSON.parse(JSON.stringify(f.profileScopes));
+          }
+          this.cfg.instances[kind][f.instanceIdx].sweep_filters = merged;
         }
         if (kind === 'radarr') this.unsaved.filtersRadarr = false; else this.unsaved.filtersSonarr = false;
         const appCfOn = kind === 'radarr' ? this.radarrCfScoreAppEnabled : this.sonarrCfScoreAppEnabled;
-        if (this.cfScoreEnabled && appCfOn) this.openModal('cfFiltersSync');
+        // Prompt for an index rebuild only when this save changed which
+        // titles belong in the CF index — silent for C/B-only changes.
+        if (this.cfScoreEnabled && appCfOn && (cfAdded || cfRemoved)) {
+          this.cfSyncMsg = cfAdded
+            ? 'Titles matching this filter are now excluded from CF Score, but they stay in the index until it rebuilds and may be searched one more time. Sync Now to remove them right away, or Sync Later — it updates on the next scheduled run.'
+            : 'Titles matching this filter are no longer excluded from CF Score. They’ll be added back to the index on the next sync. Sync Now to add them right away, or Sync Later — it updates on the next scheduled run.';
+          this.openModal('cfFiltersSync');
+        }
       } catch (e) { this.showAlert('Save failed: ' + e.message, 'error'); }
     },
 

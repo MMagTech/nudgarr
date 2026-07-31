@@ -3,11 +3,16 @@ FROM python:3.12.13-alpine3.24
 # Refresh Alpine packages (openssl, sqlite-libs, busybox, etc.) at build time
 RUN apk update && apk upgrade --no-cache
 
-# Install dependencies including su-exec for privilege dropping
+# Install dependencies including su-exec for privilege dropping.
+# pip, setuptools, and wheel are removed afterwards: they are build-time
+# tooling the running app never imports, they account for ~11 MB, and
+# their vendored libraries (e.g. pip's bundled msgpack) show up in image
+# CVE scans despite never executing at runtime.
 COPY requirements.txt /app/requirements.txt
 RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1.2" \
     && pip install --no-cache-dir --no-compile -r /app/requirements.txt \
-    && apk add --no-cache su-exec
+    && apk add --no-cache su-exec \
+    && python -m pip uninstall -y pip setuptools wheel
 
 WORKDIR /app
 COPY main.py /app/main.py

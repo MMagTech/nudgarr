@@ -14,6 +14,7 @@ All notable changes to Nudgarr are documented here.
 - **CF Score:** The "Update CF index?" prompt after saving filters now fires only when the change affects CF Score membership, with directional copy (titles being added back vs. removed). Silent for Cutoff/Backlog-only changes.
 - **Sweep panel:** Backlog's per-instance **Excl** column now shows real exclusion-list skips via the new `skipped_excluded_backlog` counter (it previously displayed tag+profile skips). CF Score card gains a **Capped** stat (eligible minus searched). Tag/Profile tooltips reworded for per-pipeline accuracy.
 - **Tests:** `tests/test_filter_scope.py` — resolver backward-compatibility, merge/clobber protection, config validation, and per-pipeline sweep integration.
+- **Security:** Build-time tooling removed from the final image — pip, setuptools, wheel, ensurepip's bundled pip wheel, and apk-tools. None of it executes at runtime; removal clears CVE-2025-47273, CVE-2026-59890, and GHSA-6v7p-g79w-8964 from image scans, ends the recurring pip/setuptools scan-noise category, and closes the in-container package-install path. Alpine's installed-package database is kept so scanners can still inventory OS packages. Image size 80.7 MB → 70.7 MB.
 
 ---
 

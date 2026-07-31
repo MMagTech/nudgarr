@@ -13,7 +13,9 @@ RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1.2" \
     && pip install --no-cache-dir --no-compile -r /app/requirements.txt \
     && apk add --no-cache su-exec \
     && python -m pip uninstall -y pip setuptools wheel \
-    && rm -rf /usr/local/lib/python3.12/ensurepip
+    && rm -rf /usr/local/lib/python3.12/ensurepip \
+    && apk --no-network --purge del apk-tools \
+    && rm -rf /var/cache/apk
 
 WORKDIR /app
 COPY main.py /app/main.py

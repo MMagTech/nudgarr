@@ -56,7 +56,7 @@ jobs:
             TAGS="${GHCR}:dev,${HUB}:dev"
           fi
           if [[ "${REF}" == refs/heads/features ]]; then
-            TAGS="${GHCR}:feature"
+            TAGS="${GHCR}:feature,${HUB}:feature"
           fi
           if [[ "${REF}" == refs/tags/v* ]]; then
             V="${REF_NAME#v}"

@@ -87,6 +87,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "per_instance_overrides_enabled": False,
     "per_instance_overrides_seen": False,
 
+    # Filter Pipeline Scope (v5.1.0)
+    # When enabled, each filtered tag/profile may name the pipelines it applies
+    # to via sweep_filters.tag_pipelines / profile_pipelines. Off (the default)
+    # ignores those maps entirely — every filter applies to all three pipelines,
+    # exactly the pre-5.1 behaviour. Scope maps survive the toggle being off.
+    "filter_pipeline_scope_enabled": False,
+
     # Logging (v4.0.0)
     "log_level": "INFO",   # DEBUG | INFO | WARNING | ERROR
 

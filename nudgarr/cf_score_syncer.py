@@ -64,6 +64,7 @@ from nudgarr.arr_clients import (
     cf_sonarr_get_episode_files,
     cf_sonarr_get_episodes_for_series,
 )
+from nudgarr.filter_scope import scoped_filter_sets
 from nudgarr.globals import STATUS
 from nudgarr.utils import iso_z, utcnow
 
@@ -207,7 +208,7 @@ class CustomFormatScoreSyncer:
                 continue
             if not effective_cf_score_enabled(cfg, "radarr", inst):
                 continue
-            result = self._sync_radarr_instance(inst, session, sync_started_at)
+            result = self._sync_radarr_instance(cfg, inst, session, sync_started_at)
             summary["radarr"].append(result)
 
         for inst in sonarr_instances:
@@ -215,7 +216,7 @@ class CustomFormatScoreSyncer:
                 continue
             if not effective_cf_score_enabled(cfg, "sonarr", inst):
                 continue
-            result = self._sync_sonarr_instance(inst, session, sync_started_at)
+            result = self._sync_sonarr_instance(cfg, inst, session, sync_started_at)
             summary["sonarr"].append(result)
 
         total_written = sum(r.get("written", 0) for r in summary["radarr"] + summary["sonarr"])
@@ -228,6 +229,7 @@ class CustomFormatScoreSyncer:
 
     def _sync_radarr_instance(
         self,
+        cfg: Dict[str, Any],
         inst: Dict[str, Any],
         session: requests.Session,
         sync_started_at: str,
@@ -271,12 +273,11 @@ class CustomFormatScoreSyncer:
             return {"name": name, "written": 0, "skipped": 0, "pruned": 0,
                     "error": "no quality profiles"}
 
-        # Read per-instance sweep filters -- same filters the main sweep applies to
-        # the Cutoff Unmet and Backlog pipelines.  Items with excluded tags or profiles
-        # are never written to the index so the sweep never searches them.
-        sweep_filters = inst.get("sweep_filters", {})
-        excluded_tags = set(int(t) for t in sweep_filters.get("excluded_tags", []))
-        excluded_profiles = set(int(p) for p in sweep_filters.get("excluded_profiles", []))
+        # Resolve per-instance sweep filters for the cfscore pipeline. With
+        # Filter Pipeline Scope off this equals the legacy full sets. Items
+        # with excluded tags or profiles are never written to the index so
+        # the sweep never searches them.
+        excluded_tags, excluded_profiles = scoped_filter_sets(cfg, inst, "cfscore")
 
         # Step 2: fetch all eligible movies
         movies = cf_radarr_get_all_movies(session, url, key)
@@ -405,6 +406,7 @@ class CustomFormatScoreSyncer:
 
     def _sync_sonarr_instance(
         self,
+        cfg: Dict[str, Any],
         inst: Dict[str, Any],
         session: requests.Session,
         sync_started_at: str,
@@ -446,12 +448,11 @@ class CustomFormatScoreSyncer:
             return {"name": name, "written": 0, "skipped": 0, "pruned": 0,
                     "error": "no quality profiles"}
 
-        # Read per-instance sweep filters -- same filters the main sweep applies.
-        # Tag and profile filtering happens at the series level for Sonarr,
-        # consistent with how the main sweep handles Sonarr filter logic.
-        sweep_filters = inst.get("sweep_filters", {})
-        excluded_tags = set(int(t) for t in sweep_filters.get("excluded_tags", []))
-        excluded_profiles = set(int(p) for p in sweep_filters.get("excluded_profiles", []))
+        # Resolve per-instance sweep filters for the cfscore pipeline (legacy
+        # full sets when Filter Pipeline Scope is off). Tag and profile
+        # filtering happens at the series level for Sonarr, consistent with
+        # how the main sweep handles Sonarr filter logic.
+        excluded_tags, excluded_profiles = scoped_filter_sets(cfg, inst, "cfscore")
 
         # Step 2: fetch all monitored series
         all_series = cf_sonarr_get_all_series(session, url, key)

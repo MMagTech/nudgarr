@@ -319,3 +319,32 @@ def api_overrides_toggle():
     except Exception:
         logger.exception("CF Score prune after overrides toggle failed (non-fatal)")
     return jsonify({"ok": True, "enabled": enabled})
+
+
+@bp.post("/api/filter-scope/toggle")
+@requires_auth
+def api_filter_scope_toggle():
+    """Enable or disable Filter Pipeline Scope globally.
+
+    Body: { enabled: bool }
+    Scope maps stored in sweep_filters are preserved when disabling — the
+    sweep and syncer simply ignore them until re-enabled, mirroring how
+    Per-Instance Overrides survive their toggle. Toggling changes which
+    items belong in the CF index (scoped filters start or stop applying),
+    so cf_filters_changed is flagged for the sync-prompt logic.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    enabled = data.get("enabled")
+    if not isinstance(enabled, bool):
+        return jsonify({"ok": False, "error": "enabled must be boolean"}), 400
+    cfg = load_or_init_config()
+    if bool(cfg.get("filter_pipeline_scope_enabled", False)) == enabled:
+        return jsonify({"ok": True, "enabled": enabled})
+    cfg["filter_pipeline_scope_enabled"] = enabled
+    try:
+        save_json_atomic(CONFIG_FILE, cfg, pretty=True)
+    except Exception:
+        logger.exception("Failed to write config in api_filter_scope_toggle")
+        return jsonify({"ok": False, "error": "Failed to write config — check disk space and permissions"}), 500
+    STATUS["cf_filters_changed"] = True
+    return jsonify({"ok": True, "enabled": enabled})

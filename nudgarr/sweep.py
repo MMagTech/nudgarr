@@ -41,6 +41,7 @@ from nudgarr.arr_clients import (
 )
 from nudgarr.cf_effective import effective_cf_score_enabled
 from nudgarr.cf_score_syncer import _make_instance_id
+from nudgarr.filter_scope import scoped_filter_sets
 from nudgarr.constants import VALID_SAMPLE_MODES, VALID_BACKLOG_SAMPLE_MODES, VALID_CF_SAMPLE_MODES
 from nudgarr.globals import STATUS
 from nudgarr.state import load_exclusions, prune_state_by_retention, state_key
@@ -146,14 +147,16 @@ def _sweep_instance(
         # to avoid a redundant /api/v3/series call when backlog is enabled.
         series_meta = _sonarr_get_series_meta(session, url, key)
 
-    # Read per-instance sweep filters — empty sets mean no filtering applied
-    sweep_filters = inst.get("sweep_filters", {})
-    excluded_tags = set(int(t) for t in sweep_filters.get("excluded_tags", []))
-    excluded_profiles = set(int(p) for p in sweep_filters.get("excluded_profiles", []))
+    # Resolve per-instance sweep filters per pipeline — empty sets mean no
+    # filtering applied. With Filter Pipeline Scope disabled (the default)
+    # both resolve to the same legacy all-pipelines sets. CF Score resolves
+    # its own "cfscore" sets at index-build time in cf_score_syncer.
+    cutoff_tags, cutoff_profiles = scoped_filter_sets(cfg, inst, "cutoff")
+    backlog_tags, backlog_profiles = scoped_filter_sets(cfg, inst, "backlog")
 
-    # Fetch tag/profile maps once if filtering is active — used for debug logs only
-    tag_map = arr_get_tag_map(session, url, key) if excluded_tags else {}
-    profile_map = arr_get_profile_map(session, url, key) if excluded_profiles else {}
+    # Fetch tag/profile maps once if any pipeline filters — used for debug logs only
+    tag_map = arr_get_tag_map(session, url, key) if (cutoff_tags | backlog_tags) else {}
+    profile_map = arr_get_profile_map(session, url, key) if (cutoff_profiles | backlog_profiles) else {}
 
     # ── Cutoff-unmet pipeline ──────────────────────────────────────────
     # Guarded by radarr_cutoff_enabled / sonarr_cutoff_enabled (v4.2.0).
@@ -182,10 +185,10 @@ def _sweep_instance(
 
         # Tag filter
         skipped_tag_cutoff = 0
-        if excluded_tags:
+        if cutoff_tags:
             filtered = []
             for m in all_items:
-                hits = excluded_tags & set(m.get("tagIds") or [])
+                hits = cutoff_tags & set(m.get("tagIds") or [])
                 if hits:
                     for tid in hits:
                         logger.debug("[%s:%s] skipped_tag: %s (tag=%s)",
@@ -197,11 +200,11 @@ def _sweep_instance(
 
         # Profile filter
         skipped_profile_cutoff = 0
-        if excluded_profiles:
+        if cutoff_profiles:
             filtered = []
             for m in all_items:
                 pid = m.get("qualityProfileId")
-                if pid in excluded_profiles:
+                if pid in cutoff_profiles:
                     logger.debug("[%s:%s] skipped_profile: %s (profile=%s)",
                                  APP, name, m.get("title", "?"), profile_map.get(pid, pid))
                     skipped_profile_cutoff += 1
@@ -287,6 +290,7 @@ def _sweep_instance(
     chosen_missing: List[Dict[str, Any]] = []
     skipped_tag_backlog = 0
     skipped_profile_backlog = 0
+    skipped_excluded_backlog = 0
     skipped_grace = 0
 
     if backlog_enabled:
@@ -294,8 +298,10 @@ def _sweep_instance(
             missing_records = fn_get_missing(session, url, key)
         else:
             missing_records = fn_get_missing(session, url, key, series_meta=series_meta)
+        missing_before_excl = len(missing_records)
         missing_records = [m for m in missing_records
                            if (m.get("title") or "").lower() not in excluded_titles]
+        skipped_excluded_backlog = missing_before_excl - len(missing_records)
 
         queued_skipped_missing = [m for m in missing_records if m["id"] in queue_ids]
         missing_records = [m for m in missing_records if m["id"] not in queue_ids]
@@ -308,10 +314,10 @@ def _sweep_instance(
             missing_records = [m for m in missing_records if m.get("isAvailable", True)]
 
         # Tag filter — backlog pipeline
-        if excluded_tags:
+        if backlog_tags:
             filtered = []
             for m in missing_records:
-                hits = excluded_tags & set(m.get("tagIds") or [])
+                hits = backlog_tags & set(m.get("tagIds") or [])
                 if hits:
                     for tid in hits:
                         logger.debug("[%s:%s] skipped_tag (backlog): %s (tag=%s)",
@@ -322,11 +328,11 @@ def _sweep_instance(
             missing_records = filtered
 
         # Profile filter — backlog pipeline
-        if excluded_profiles:
+        if backlog_profiles:
             filtered = []
             for m in missing_records:
                 pid = m.get("qualityProfileId")
-                if pid in excluded_profiles:
+                if pid in backlog_profiles:
                     logger.debug("[%s:%s] skipped_profile (backlog): %s (profile=%s)",
                                  APP, name, m.get("title", "?"), profile_map.get(pid, pid))
                     skipped_profile_backlog += 1
@@ -580,6 +586,7 @@ def _sweep_instance(
         "eligible_missing": eligible_missing,
         "skipped_missing_cooldown": skipped_missing,
         "skipped_grace": skipped_grace,
+        "skipped_excluded_backlog": skipped_excluded_backlog,
         "skipped_tag_backlog": skipped_tag_backlog,
         "skipped_profile_backlog": skipped_profile_backlog,
         "will_search_missing": len(chosen_missing),

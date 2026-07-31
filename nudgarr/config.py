@@ -160,6 +160,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
     for bool_key in (
         "per_instance_overrides_enabled", "per_instance_overrides_seen",
+        "filter_pipeline_scope_enabled",
         "radarr_backlog_enabled",
         "sonarr_backlog_enabled", "notify_enabled", "notify_on_sweep_complete",
         "notify_on_import", "notify_on_error", "notify_on_auto_exclusion",

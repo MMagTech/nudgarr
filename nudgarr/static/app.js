@@ -1584,7 +1584,10 @@ function nudgarr() {
       try {
         await this._api('/api/arr/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (this.cfg.instances?.[kind]?.[f.instanceIdx]) {
+          // Merge, never replace — sweep_filters may carry pipeline scope maps
+          // (tag_pipelines / profile_pipelines) that this save doesn't touch.
           this.cfg.instances[kind][f.instanceIdx].sweep_filters = {
+            ...(this.cfg.instances[kind][f.instanceIdx].sweep_filters || {}),
             excluded_tags: [...f.excludedTagIds],
             excluded_profiles: [...f.excludedProfileIds],
           };

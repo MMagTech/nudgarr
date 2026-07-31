@@ -1111,7 +1111,7 @@
           <p class="help">Exclude items from sweep by tag or quality profile. Applied per instance.</p>
           <p class="help" x-show="filterScopeEnabled" style="margin-top:4px"><span style="color:#fca5a5">Red</span> = blocked in that pipeline &middot; grey = untouched. <strong>C</strong> Cutoff Unmet &middot; <strong>B</strong> Backlog &middot; <strong>F</strong> CF Score.</p>
         </div>
-        <div class="toggle-line ac" style="flex-shrink:0;gap:10px;padding:7px 11px;border-radius:10px;border:1px solid var(--border-md)" :style="filterScopeEnabled ? 'border-color:var(--ac-bdr);background:var(--ac-dim)' : ''">
+        <div class="toggle-line ac fscope-toggle" :class="{ on: filterScopeEnabled }">
           <div style="text-align:right">
             <div style="font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:5px;justify-content:flex-end">Pipeline Scope <span tabindex="0" class="tooltip-icon" style="font-size:9px">i<div class="tooltip-box" style="left:auto;right:0">Choose which pipelines each tag or profile filter applies to. Off means every filter applies to all three &mdash; the classic behaviour. Scope choices are kept when you turn this off.</div></span></div>
             <div class="help" x-text="filterScopeEnabled ? 'On — choose pipelines per filter' : 'Off — filters apply to all pipelines'"></div>

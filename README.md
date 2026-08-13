@@ -14,7 +14,7 @@ Images are available on **Docker Hub** and **GitHub Container Registry (GHCR)**.
 | Docker Hub | `mmagtech/nudgarr:latest` |
 | GHCR | `ghcr.io/mmagtech/nudgarr:latest` |
 
-**Tags:** `latest` · `v5.0.5` · `5.0.5`
+**Tags:** `latest` · `v5.1.0` · `5.1.0`
 
 1. Copy `.env.example` to `.env` and fill in your values
 2. Run `docker compose up -d`
@@ -77,7 +77,7 @@ The interface covers everything in one place: instance management, sweep status 
 **Power User**
 - **CF Score Scan** — finds monitored items where the custom format score is below the quality profile cutoff even when Radarr and Sonarr don't flag them via their normal wanted system. Enable in Advanced to unlock the CF Score tab.
 - **Auto-Exclusion** — titles searched N times with no confirmed import are automatically excluded. Configure separate thresholds for Radarr and Sonarr in Advanced. Auto-unexclude after X days returns titles to eligibility.
-- **Tag & Quality Profile Filters** — exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs and never consume a search slot.
+- **Tag & Quality Profile Filters** — exclude items from sweep by tag or quality profile, configured per instance. Items matching an excluded tag or profile are skipped before cooldown runs and never consume a search slot. **Filter Pipeline Scope** (toggle on the Filters panel) lets a filter apply to only the pipelines you choose instead of all three — e.g. keep a tagged series out of CF Score while Backlog and Cutoff Unmet keep working it. Off by default.
 - **Per-Instance Overrides** — tune cooldown, max cutoff unmet, max backlog, max missing days, sample mode, backlog enabled, and notifications independently per instance. Unset fields inherit the global value. Enable in Advanced and configure in the Overrides tab. [Full details on the wiki.](https://github.com/MMagTech/nudgarr/wiki/Per-Instance-Overrides)
 - **Maintenance Window** — suppress scheduled sweeps during a defined time window. Manual Run Now always bypasses it. Configure in Settings.
 - **Backlog Grace Period** — delay the first search on a missing item until a configured number of hours after its availability date, giving indexers time to populate.
@@ -126,6 +126,8 @@ Run on your LAN only. For remote access use a VPN (Tailscale, WireGuard) or a re
 ## Upgrade notes
 
 **v5.0.0** is a full frontend rewrite to Alpine.js with a sidebar navigation layout. The 14-file vanilla JS split is replaced by a single `app.js` and `ui.html`. The horizontal tab bar is gone -- navigation is now a sidebar with Monitor, Configure, and System groups. History, Imports, CF Score, and Exclusions are consolidated into a single Library panel with a view switcher. CF Score can now be toggled independently per app (Radarr/Sonarr) and per instance. No config changes required. Pull the new image and restart. New config keys are injected automatically on first start.
+
+**v5.1.0** adds **Filter Pipeline Scope**: tag and quality profile filters can now apply to only the pipelines you choose (Cutoff Unmet, Backlog, CF Score) instead of always all three. Off by default -- existing filters behave exactly as before until you enable the toggle on the Filters panel. Also in this release: the CF index sync prompt only appears when a filter change actually affects CF Score, Library History's per-instance Excl count is now accurate for Backlog, the CF Score sweep card gains a Capped stat, and the Docker image drops build-time tooling (pip, setuptools, apk) that never ran at runtime -- image is ~10 MB smaller with several scanner findings gone for good. No config or database changes required. Pull the new image and restart.
 
 **v5.0.5** is a patch release: the notification Send Test button no longer rejects Apprise URLs that use a non-HTTP scheme, so `ntfy://`, `gotify://`, `pover://` and the rest can be tested from the UI. Saved notification URLs are unaffected. No config changes required. Pull the new image and restart.
 

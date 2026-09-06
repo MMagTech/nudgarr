@@ -4,6 +4,14 @@ All notable changes to Nudgarr are documented here.
 
 ---
 
+## v5.1.1
+
+**Alpine OS package security updates**
+
+- **Security:** Rebuilt against current Alpine 3.24 packages — `openssl` 3.5.8-r0 and `util-linux` 2.42.3-r1 — clearing 14 OS-level CVEs including one critical (CVE-2026-63073, a format-string crash in OpenSSL's CMP response handling) and several high-severity findings (CVE-2026-76642, CVE-2026-78408, CVE-2026-78410, CVE-2026-14457, CVE-2026-18798, CVE-2026-14456, CVE-2026-63076, CVE-2026-54874, and others). No Dockerfile or application changes — the existing build-time `apk upgrade` step picks these up automatically. No config or database changes required. Pull the new image and restart.
+
+---
+
 ## v5.1.0
 
 **Filter Pipeline Scope**
